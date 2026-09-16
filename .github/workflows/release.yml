@@ -1,0 +1,46 @@
+name: Release DMS AI
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: npm distribution channel
+        required: true
+        default: latest
+        type: choice
+        options:
+          - latest
+          - next
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate release source and package metadata
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          test "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH"
+          case "$CHANNEL" in latest|next) ;; *) exit 1 ;; esac
+          node -e '
+            const pkg = require("./package.json");
+            const fail = (msg) => { console.error(msg); process.exit(1); };
+            if (pkg.name !== "@antelopejs/dms-ai") fail(`unexpected package name ${pkg.name}`);
+            if (pkg.repository?.url !== "git+https://github.com/AntelopeJS/dms-ai.git") fail("unexpected repository url");
+            if (pkg.publishConfig?.access !== "public") fail("publishConfig.access must be public");
+            if (pkg.publishConfig?.provenance !== true) fail("publishConfig.provenance must be true");
+            if (pkg.publishConfig?.registry !== "https://registry.npmjs.org/") fail("publishConfig.registry must be npmjs");
+          '
+  release:
+    needs: validate
+    uses: AntelopeJS/.github/.github/workflows/release-npm-public.yml@1df63ee37c5ecb869124cb58f199cef1e19dd138
+    with:
+      channel: ${{ inputs.channel }}
+    secrets:
+      RELEASE_GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}

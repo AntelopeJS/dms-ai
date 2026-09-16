@@ -1,0 +1,30 @@
+{
+	"name": "@antelopejs/dms-ai-chatbox",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vue-tsc --noEmit && vite build",
+		"typecheck": "vue-tsc --noEmit",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@nuxt/ui": "^4.3.0",
+		"dompurify": "^3.2.4",
+		"markdown-it": "^14.1.0",
+		"vue": "^3.5.18"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.2",
+		"@iconify-json/ph": "^1.2.2",
+		"@types/markdown-it": "^14.1.2",
+		"@vitejs/plugin-vue": "^5.2.0",
+		"tailwindcss": "^4.0.0",
+		"typescript": "^5.9.3",
+		"vite": "^5.4.10",
+		"vue-tsc": "^2.1.10"
+	}
+}

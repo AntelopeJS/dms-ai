@@ -1,0 +1,1 @@
+# Neutralizes sidecar/.gitignore (which ignores dist/) for npm packing.

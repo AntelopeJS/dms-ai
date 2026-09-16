@@ -1,0 +1,170 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "apiKeySource": "user",
+    "claude_code_version": "0.0.0-mock",
+    "cwd": "/mock",
+    "tools": ["Bash"],
+    "mcp_servers": [],
+    "model": "claude-mock",
+    "permissionMode": "default",
+    "slash_commands": [],
+    "output_style": "default",
+    "skills": [],
+    "plugins": [],
+    "agents": [],
+    "uuid": "00000000-0000-0000-0000-000000000101",
+    "session_id": "mock-session-permission"
+  },
+  {
+    "type": "assistant",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000102",
+    "session_id": "mock-session-permission",
+    "message": {
+      "id": "msg_mock_perm_1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-mock",
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "container": null,
+      "context_management": null,
+      "usage": {
+        "input_tokens": 5,
+        "output_tokens": 7,
+        "cache_creation": null,
+        "cache_creation_input_tokens": null,
+        "cache_read_input_tokens": null,
+        "inference_geo": null,
+        "iterations": null,
+        "server_tool_use": null,
+        "service_tier": null,
+        "speed": null
+      },
+      "content": [
+        {
+          "type": "text",
+          "citations": null,
+          "text": "I'll run a shell command."
+        }
+      ]
+    }
+  },
+  {
+    "type": "assistant",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000103",
+    "session_id": "mock-session-permission",
+    "message": {
+      "id": "msg_mock_perm_2",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-mock",
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "container": null,
+      "context_management": null,
+      "usage": {
+        "input_tokens": 12,
+        "output_tokens": 18,
+        "cache_creation": null,
+        "cache_creation_input_tokens": null,
+        "cache_read_input_tokens": null,
+        "inference_geo": null,
+        "iterations": null,
+        "server_tool_use": null,
+        "service_tier": null,
+        "speed": null
+      },
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_mock_bash_1",
+          "name": "Bash",
+          "input": { "command": "echo hello" }
+        }
+      ]
+    }
+  },
+  {
+    "type": "user",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000104",
+    "session_id": "mock-session-permission",
+    "message": {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_mock_bash_1",
+          "content": "hello",
+          "is_error": false
+        }
+      ]
+    }
+  },
+  {
+    "type": "assistant",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000105",
+    "session_id": "mock-session-permission",
+    "message": {
+      "id": "msg_mock_perm_3",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-mock",
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "container": null,
+      "context_management": null,
+      "usage": {
+        "input_tokens": 30,
+        "output_tokens": 4,
+        "cache_creation": null,
+        "cache_creation_input_tokens": null,
+        "cache_read_input_tokens": null,
+        "inference_geo": null,
+        "iterations": null,
+        "server_tool_use": null,
+        "service_tier": null,
+        "speed": null
+      },
+      "content": [
+        {
+          "type": "text",
+          "citations": null,
+          "text": "Done."
+        }
+      ]
+    }
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "duration_ms": 250,
+    "duration_api_ms": 200,
+    "is_error": false,
+    "num_turns": 2,
+    "result": "Done.",
+    "stop_reason": "end_turn",
+    "total_cost_usd": 0,
+    "usage": {
+      "input_tokens": 47,
+      "output_tokens": 29,
+      "cache_creation": null,
+      "cache_creation_input_tokens": null,
+      "cache_read_input_tokens": null,
+      "inference_geo": null,
+      "iterations": null,
+      "server_tool_use": null,
+      "service_tier": null,
+      "speed": null
+    },
+    "modelUsage": {},
+    "permission_denials": [],
+    "uuid": "00000000-0000-0000-0000-000000000106",
+    "session_id": "mock-session-permission"
+  }
+]

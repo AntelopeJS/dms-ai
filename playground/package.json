@@ -1,0 +1,35 @@
+{
+  "name": "dms-ai-playground",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "rimraf dist && tsc -p tsconfig.build.json",
+    "dev": "ajs project run -w",
+    "frontend:dev": "ajs-dms dev"
+  },
+  "dependencies": {
+    "@antelopejs/dms": ">=0.0.1 <1.0.0",
+    "@antelopejs/interface-api": "0.0.13",
+    "@antelopejs/interface-core": "0.0.12",
+    "@antelopejs/interface-data-api": "0.1.9",
+    "@antelopejs/interface-database": "0.1.7",
+    "@antelopejs/interface-dms": ">=0.0.1 <1.0.0"
+  },
+  "devDependencies": {
+    "@antelopejs/core": "1.5.1",
+    "@antelopejs/dms-frontend": ">=0.0.1 <1.0.0",
+    "@types/node": "^22.0.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.2.0",
+  "antelopeJs": {
+    "baseUrl": "dist",
+    "paths": {
+      "@/*": [
+        "*"
+      ]
+    }
+  }
+}

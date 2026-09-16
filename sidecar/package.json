@@ -1,0 +1,42 @@
+{
+  "name": "@antelopejs/dms-ai-sidecar",
+  "version": "0.0.1",
+  "private": true,
+  "bin": {
+    "dms-ai-sidecar": "dist/index.js"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "rimraf dist && tsc",
+    "build:chatbox": "cd chatbox && pnpm install && pnpm build",
+    "build:all": "pnpm build && pnpm build:chatbox",
+    "dev": "tsc -w",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json && cd chatbox && pnpm typecheck",
+    "lint": "oxlint && oxfmt --check . && cd chatbox && pnpm lint",
+    "lint:fix": "oxlint --fix --max-warnings=1000000 && oxfmt . && cd chatbox && pnpm lint:fix",
+    "test": "vitest run --passWithNoTests",
+    "test:e2e": "echo 'no e2e yet' && exit 0",
+    "format": "oxfmt .",
+    "knip": "knip --dependencies",
+    "knip:all": "knip"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.131",
+    "@anthropic-ai/claude-code": "^2.1.131",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@antelopejs/tooling-configs": "^0.0.4",
+    "@types/node": "^22.19.15",
+    "@types/ws": "^8.5.12",
+    "knip": "^6.34.0",
+    "oxfmt": "^0.66.0",
+    "oxlint": "1.81.0",
+    "oxlint-tsgolint": "^7.0.2001",
+    "rimraf": "^6.1.3",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

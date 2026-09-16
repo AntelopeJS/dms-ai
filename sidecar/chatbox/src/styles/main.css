@@ -1,0 +1,115 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/* The chatbox keeps its bespoke design-token names (--accent, --surface-*,
+   --fg-*, --hair, status colors) but they are now *aliases* over Nuxt UI's
+   semantic tokens. Two payoffs:
+     1. every existing scoped style follows the host DMS theme automatically;
+     2. light/dark flips for free, because the Nuxt UI tokens swap on `.dark`.
+   The primary palette (--ui-color-primary-*) is injected at runtime by the
+   host through the theme bridge (see composables/useHostTheme.ts), so this
+   iframe always renders the same primary as the project it is loaded into. */
+:root {
+	/* Match the host's active-primary shade choice (light = 600). */
+	--ui-primary: var(--ui-color-primary-600);
+
+	/* Accent → primary */
+	--accent: var(--ui-primary);
+	--accent-strong: var(--ui-color-primary-700);
+	--accent-fg: var(--ui-bg);
+	--accent-bg: color-mix(in oklab, var(--ui-primary) 10%, transparent);
+	--accent-bg-strong: color-mix(in oklab, var(--ui-primary) 18%, transparent);
+
+	/* Surfaces → Nuxt UI backgrounds */
+	--surface-app: var(--ui-bg);
+	--surface-side: var(--ui-bg);
+	--surface-card: var(--ui-bg-elevated);
+	--surface-card-2: var(--ui-bg-elevated);
+	--surface-inset: var(--ui-bg-muted);
+
+	/* Text → Nuxt UI text tokens */
+	--fg: var(--ui-text-highlighted);
+	--fg-secondary: var(--ui-text-toned);
+	--fg-tertiary: var(--ui-text-dimmed);
+
+	/* Hairlines → borders */
+	--hair: var(--ui-border);
+	--hair-strong: var(--ui-border-accented);
+
+	/* Status → semantic palettes */
+	--success-400: var(--ui-color-success-400);
+	--success-500: var(--ui-color-success-500);
+	--success-bg: color-mix(
+		in oklab,
+		var(--ui-color-success-500) 10%,
+		transparent
+	);
+	--warning-400: var(--ui-color-warning-400);
+	--warning-bg: color-mix(
+		in oklab,
+		var(--ui-color-warning-500) 10%,
+		transparent
+	);
+	--danger-400: var(--ui-color-error-400);
+	--danger-bg: color-mix(in oklab, var(--ui-color-error-500) 12%, transparent);
+
+	/* Radii / fonts / motion are theme-independent — keep the design values. */
+	--radius-sm: 4px;
+	--radius-md: 6px;
+	--radius-lg: 8px;
+	--radius-xl: 12px;
+
+	--font-body:
+		"Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	--font-mono:
+		"Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+	--dur-fast: 150ms;
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+	color-scheme: light;
+}
+
+.dark {
+	/* In dark mode the host lifts the active primary to the 400 shade for
+	   contrast on dark surfaces — mirror that here. */
+	--ui-primary: var(--ui-color-primary-400);
+	color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+}
+
+body {
+	background: var(--surface-side);
+	color: var(--fg);
+	font-family: var(--font-body);
+}
+
+#app {
+	height: 100%;
+}
+
+/* shared scrollbar treatment */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--hair) transparent;
+}
+*::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+	background: var(--hair);
+	border-radius: 8px;
+}

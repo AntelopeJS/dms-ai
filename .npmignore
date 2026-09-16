@@ -1,0 +1,1 @@
+# Neutralizes .gitignore for npm packing. Inclusion is driven by package.json "files".
