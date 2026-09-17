@@ -19,7 +19,7 @@ importers:
         version: 0.0.1(d86b7f7b6cd32377604a6881e8132abb)
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.2.131
-        version: 0.2.141(zod@3.24.4)
+        version: 0.2.141(zod@4.5.4)
       '@anthropic-ai/claude-code':
         specifier: ^2.1.131
         version: 2.1.173
@@ -27,8 +27,8 @@ importers:
         specifier: ^8.18.0
         version: 8.21.0
       zod:
-        specifier: ^3.23.8
-        version: 3.24.4
+        specifier: ^4.0.0
+        version: 4.5.4
     devDependencies:
       '@antelopejs/tooling-configs':
         specifier: ^0.0.4
@@ -965,6 +965,7 @@ packages:
 
   '@types/parse-path@7.1.0':
     resolution: {integrity: sha512-EULJ8LApcVEPbrfND0cRQqutIOdiIgJ1Mgrhpy755r14xMohPTEpkV/k28SJvuOs9bHRFW8x+KeDAEPiGQPB9Q==}
+    deprecated: This is a stub types definition. parse-path provides its own type definitions, so you do not need this installed.
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -2320,11 +2321,11 @@ snapshots:
   '@anthropic-ai/claude-agent-sdk-win32-x64@0.2.141':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk@0.2.141(zod@3.24.4)':
+  '@anthropic-ai/claude-agent-sdk@0.2.141(zod@4.5.4)':
     dependencies:
-      '@anthropic-ai/sdk': 0.93.0(zod@3.24.4)
-      '@modelcontextprotocol/sdk': 1.29.0(zod@3.24.4)
-      zod: 3.24.4
+      '@anthropic-ai/sdk': 0.93.0(zod@4.5.4)
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.5.4)
+      zod: 4.5.4
     optionalDependencies:
       '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.2.141
       '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.2.141
@@ -2373,11 +2374,11 @@ snapshots:
       '@anthropic-ai/claude-code-win32-arm64': 2.1.173
       '@anthropic-ai/claude-code-win32-x64': 2.1.173
 
-  '@anthropic-ai/sdk@0.93.0(zod@3.24.4)':
+  '@anthropic-ai/sdk@0.93.0(zod@4.5.4)':
     dependencies:
       json-schema-to-ts: 3.1.1
     optionalDependencies:
-      zod: 3.24.4
+      zod: 4.5.4
 
   '@babel/runtime@7.29.7': {}
 
@@ -2526,7 +2527,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 24.13.3
 
-  '@modelcontextprotocol/sdk@1.29.0(zod@3.24.4)':
+  '@modelcontextprotocol/sdk@1.29.0(zod@4.5.4)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.25)
       ajv: 8.20.0
@@ -2543,8 +2544,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 3.24.4
-      zod-to-json-schema: 3.25.2(zod@3.24.4)
+      zod: 4.5.4
+      zod-to-json-schema: 3.25.2(zod@4.5.4)
     transitivePeerDependencies:
       - supports-color
 
@@ -4218,9 +4219,9 @@ snapshots:
     dependencies:
       zod: 3.24.4
 
-  zod-to-json-schema@3.25.2(zod@3.24.4):
+  zod-to-json-schema@3.25.2(zod@4.5.4):
     dependencies:
-      zod: 3.24.4
+      zod: 4.5.4
 
   zod@3.24.4: {}
 
