@@ -44,7 +44,7 @@ function exprRefusal(): { content: Array<{ type: "text"; text: string }> } {
   );
 }
 
-const CONFIG = z.record(z.unknown());
+const CONFIG = z.record(z.string(), z.unknown());
 
 // Every block path returned by BuilderPageStructure follows this shape; the
 // separators are easy to guess wrong (`/` between blocks, not `.` or `#`).
@@ -64,7 +64,7 @@ const DATA_TYPE_VALUE = z.object({
     .string()
     .describe("A `dataTypes` id from BuilderCatalog, e.g. `string`, `select`."),
   config: z
-    .record(z.unknown())
+    .record(z.string(), z.unknown())
     .optional()
     .describe(
       `That DataType's own config, per BuilderCatalog. ${BUILDER_REF_NOTE}`,
@@ -143,7 +143,7 @@ const QUERY_ENDPOINT = z
   );
 
 const QUERY_PARAMS = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .describe(
     "The template's parameters, keyed exactly as the `params` schema BuilderQueryTemplates reports for it — that schema documents every key and value shape, and an unrecognised key is rejected.",
   );
@@ -349,7 +349,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
         displayName: z.string().optional(),
         schema: z.string().optional(),
         fields: z.array(FIELD_SPEC),
-        seeds: z.array(z.record(z.unknown())).optional(),
+        seeds: z.array(z.record(z.string(), z.unknown())).optional(),
         location: RESOURCE_LOCATION.optional(),
         routes: z.array(RESOURCE_ROUTE).min(1).optional(),
       },
