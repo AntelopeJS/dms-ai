@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.0.3
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.0.2...v0.0.3)
+
+### 🩹 Fixes
+
+- **deps:** Move to zod 4 to satisfy the agent SDK peer ([#3](https://github.com/AntelopeJS/dms-ai/pull/3))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.0.2
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.0.1...v0.0.2)
