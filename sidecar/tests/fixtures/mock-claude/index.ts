@@ -1,3 +1,4 @@
+import { appendFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,8 +15,10 @@ import {
   MOCK_ABORT_REASON,
   MOCK_CAN_USE_TOOL_BEHAVIOR_ALLOW,
   MOCK_DEFAULT_SCRIPT_RELATIVE,
+  MOCK_INTERRUPTED_RESULT,
   MOCK_SCRIPT_ENV_VAR,
   MOCK_STREAM_DELAY_MS,
+  MOCK_TRACE_ENV_VAR,
 } from "./constants.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -66,6 +69,7 @@ function unsupported(method: string): () => Promise<never> {
 }
 
 interface BuildMockQueryArgs {
+  prompt: string | AsyncIterable<SDKUserMessage>;
   scriptPath: string;
   signal?: AbortSignal;
   canUseTool?: CanUseTool;
@@ -158,25 +162,65 @@ function buildPermissionContext(
   };
 }
 
-async function* createMessageStream(
+interface InterruptFlag {
+  requested: boolean;
+}
+
+// The real SDK answers an interrupt by ending the turn with a result message,
+// which is what lets the session close the turn instead of hard-aborting it.
+function buildInterruptedResult(): SDKMessage {
+  return {
+    type: "result",
+    subtype: "success",
+    is_error: false,
+    result: MOCK_INTERRUPTED_RESULT,
+    usage: {},
+  } as unknown as SDKMessage;
+}
+
+async function* replayOnce(
+  entries: SDKMessage[],
   args: BuildMockQueryArgs,
+  interrupted: InterruptFlag,
 ): AsyncGenerator<SDKMessage, void> {
-  const entries = await loadScript(args.scriptPath);
   const permCtx = buildPermissionContext(args);
   for (const entry of entries) {
     await delay(MOCK_STREAM_DELAY_MS, args.signal);
+    if (interrupted.requested) {
+      interrupted.requested = false;
+      yield buildInterruptedResult();
+      return;
+    }
     const allowed = await shouldEmitMessage(entry, permCtx);
     if (!allowed) continue;
     yield entry;
   }
 }
 
-function buildControlSurface(): Omit<
-  Query,
-  keyof AsyncGenerator<SDKMessage, void>
-> {
+// One replay per user turn, as the real SDK serves several turns from a single
+// query: the session stays alive between them, which is what a scenario about a
+// second turn needs.
+async function* createMessageStream(
+  args: BuildMockQueryArgs,
+  interrupted: InterruptFlag,
+): AsyncGenerator<SDKMessage, void> {
+  const entries = await loadScript(args.scriptPath);
+  if (typeof args.prompt === "string") {
+    yield* replayOnce(entries, args, interrupted);
+    return;
+  }
+  for await (const _turn of args.prompt) {
+    yield* replayOnce(entries, args, interrupted);
+  }
+}
+
+function buildControlSurface(
+  interrupted: InterruptFlag,
+): Omit<Query, keyof AsyncGenerator<SDKMessage, void>> {
   return {
-    interrupt: unsupported("interrupt"),
+    interrupt: async () => {
+      interrupted.requested = true;
+    },
     setPermissionMode: unsupported("setPermissionMode"),
     setModel: unsupported("setModel"),
     setMaxThinkingTokens: unsupported("setMaxThinkingTokens"),
@@ -192,13 +236,33 @@ function buildControlSurface(): Omit<
 }
 
 function buildQuery(args: BuildMockQueryArgs): Query {
-  const stream = createMessageStream(args);
-  return Object.assign(stream, buildControlSurface()) as Query;
+  const interrupted: InterruptFlag = { requested: false };
+  const stream = createMessageStream(args, interrupted);
+  return Object.assign(stream, buildControlSurface(interrupted)) as Query;
+}
+
+function traceOptions(options: Options | undefined): void {
+  const file = process.env[MOCK_TRACE_ENV_VAR];
+  if (file === undefined || options === undefined) return;
+  const entry = {
+    kind: "session",
+    permissionMode: options.permissionMode,
+    plugins: options.plugins,
+    skills: options.skills,
+    mcpServers: Object.keys(options.mcpServers ?? {}),
+  };
+  try {
+    appendFileSync(file, `${JSON.stringify(entry)}\n`);
+  } catch {
+    // Same as the Codex mock: tracing is never worth failing a session for.
+  }
 }
 
 export function query(params: MockQueryParamsWithScript): Query {
   const opts = params.options;
+  traceOptions(opts);
   return buildQuery({
+    prompt: params.prompt,
     scriptPath: resolveScriptPath(params.scriptPath),
     signal: opts?.abortController?.signal,
     canUseTool: opts?.canUseTool,

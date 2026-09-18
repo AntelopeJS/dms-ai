@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { bridgeCanUseTool } from "../../src/agent/claude-runner.js";
 import {
   createPermissionBus,
   type PendingRequest,
@@ -9,6 +8,7 @@ import {
   PERMISSION_DENIED_MESSAGE,
   SDK_PERMISSION_BEHAVIOR,
 } from "../../src/constants/permissions.js";
+import { bridgeCanUseTool } from "../../src/providers/claude/provider.js";
 
 const CONVERSATION_ID = "conv-bridge-1";
 const TOOL_NAME = "Bash";

@@ -1,11 +1,11 @@
 import { createRequire } from "node:module";
-import { REAL_SDK_PACKAGE } from "../constants/agent.js";
+import { REAL_SDK_PACKAGE } from "../../constants/claude.js";
 import {
   CLAUDE_BINARY_SUBPATH,
   PLATFORM_LINUX,
   SDK_NATIVE_LINUX_PREFIX,
   SDK_NATIVE_MUSL_SUFFIX,
-} from "../constants/native-binary.js";
+} from "../../constants/native-binary.js";
 
 interface NodeReport {
   header?: { glibcVersionRuntime?: string };

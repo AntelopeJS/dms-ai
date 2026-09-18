@@ -4,6 +4,7 @@ import {
   GENERATION_MODES,
   THINKING_LEVELS,
 } from "../state/settings-types.js";
+import { PROVIDER_NAMES } from "../state/types.js";
 import { QueuedItemSchema } from "./messages.js";
 
 export const EVENT_TYPES = {
@@ -104,6 +105,9 @@ export const ConversationListEvent = z.object({
 });
 
 export const AppSettingsSchema = z.object({
+  // Optional rather than defaulted: an older client that omits the field must
+  // leave the stored provider alone, not silently reset it to the default.
+  provider: z.enum(PROVIDER_NAMES).optional(),
   mode: z.enum(CHATBOX_MODES),
   thinking: z.enum(THINKING_LEVELS),
   // Older persisted payloads / clients omit this; safe is the product default,
@@ -114,12 +118,25 @@ export const AppSettingsSchema = z.object({
   allowLocalSkills: z.boolean().default(false),
 });
 
+export const ProviderAvailabilitySchema = z.object({
+  available: z.boolean(),
+  reason: z.string().optional(),
+});
+
+// Read-only capability, like builderAvailable: which backends this install can
+// actually drive, so a frontend greys out the ones it cannot offer.
+export const ProviderAvailabilityMapSchema = z.record(
+  z.enum(PROVIDER_NAMES),
+  ProviderAvailabilitySchema,
+);
+
 export const SettingsUpdateEvent = z.object({
   type: z.literal(EVENT_TYPES.SETTINGS_UPDATE),
   settings: AppSettingsSchema,
   // Read-only capability: whether the Builder interface is present, gating the
   // safe-mode toggle in both frontends. Not a persisted setting.
   builderAvailable: z.boolean().default(false),
+  providers: ProviderAvailabilityMapSchema.optional(),
 });
 
 export const PermissionRequestEvent = z.object({

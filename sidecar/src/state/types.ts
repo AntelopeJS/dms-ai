@@ -41,10 +41,36 @@ export interface StoredMessage {
   timestampMs: number;
 }
 
+// Agent backends the sidecar can drive. Stored on a conversation so a replayed
+// transcript says which one produced it.
+export const PROVIDER_NAMES = ["claude", "codex"] as const;
+export type ProviderName = (typeof PROVIDER_NAMES)[number];
+
+export const DEFAULT_PROVIDER_NAME: ProviderName = PROVIDER_NAMES[0];
+
+// Tokens a conversation has cost so far, summed over its turns. Codex reports
+// them per model call; the Claude SDK reports them on the turn result.
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export const EMPTY_TOKEN_USAGE: TokenUsage = {
+  inputTokens: 0,
+  outputTokens: 0,
+  totalTokens: 0,
+};
+
 export interface StoredConversation {
   messages: StoredMessage[];
   createdAtMs: number;
   updatedAtMs: number;
+  // Absent on transcripts written before providers became selectable; readers
+  // fall back to DEFAULT_PROVIDER_NAME.
+  provider?: ProviderName;
+  // Absent until a provider reports usage at least once.
+  tokenUsage?: TokenUsage;
 }
 
 export interface StoredState {

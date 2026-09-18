@@ -4,23 +4,33 @@ import { computed, onMounted, ref } from 'vue'
 type Mode = 'normal' | 'acceptEdits' | 'plan' | 'auto'
 type Thinking = 'off' | 'low' | 'medium' | 'high'
 type GenerationMode = 'safe' | 'vibe'
+type ProviderName = 'claude' | 'codex'
+
+interface ProviderAvailability {
+	available: boolean
+	reason?: string
+}
 
 interface AiSettings {
+	provider: ProviderName
 	mode: Mode
 	thinking: Thinking
 	generationMode: GenerationMode
 	allowLocalSkills: boolean
 	builderAvailable: boolean
+	providers: Record<ProviderName, ProviderAvailability>
 }
 
 const { $authFetch } = useAuthFetch()
 
 const settings = ref<AiSettings>({
+	provider: 'claude',
 	mode: 'normal',
 	thinking: 'medium',
 	generationMode: 'safe',
 	allowLocalSkills: false,
 	builderAvailable: false,
+	providers: { claude: { available: true }, codex: { available: false } },
 })
 const loading = ref(false)
 const saving = ref(false)
@@ -36,6 +46,23 @@ const MODE_OPTIONS: Array<{ value: Mode; label: string; hint: string }> = [
 	{ value: 'plan', label: 'Plan', hint: 'Plan only — propose without changes' },
 	{ value: 'auto', label: 'Auto', hint: 'Auto-approve every tool action' },
 ]
+
+const PROVIDER_OPTIONS: Array<{
+	value: ProviderName
+	label: string
+	model: string
+}> = [
+	{ value: 'claude', label: 'Anthropic (Claude)', model: 'Claude Opus 4.x' },
+	{ value: 'codex', label: 'OpenAI (Codex)', model: 'GPT-5.x (Codex default)' },
+]
+
+// One control, two meanings: a token budget on Claude, a reasoning effort level
+// on Codex, which has no "off" and maps it to its lowest level.
+const THINKING_HINTS: Record<ProviderName, string> = {
+	claude: 'Thinking budget handed to the model.',
+	codex:
+		'Reasoning effort handed to the model. Codex has no "off": it maps to the lowest level.',
+}
 
 const THINKING_OPTIONS: Array<{ value: Thinking; label: string }> = [
 	{ value: 'off', label: 'Off' },
@@ -69,6 +96,39 @@ async function persist(): Promise<void> {
 	} finally {
 		saving.value = false
 	}
+}
+
+function availabilityOf(name: ProviderName): ProviderAvailability {
+	return settings.value.providers?.[name] ?? { available: false }
+}
+
+function providerLabel(option: (typeof PROVIDER_OPTIONS)[number]): string {
+	return availabilityOf(option.value).available
+		? option.label
+		: `${option.label} — unavailable`
+}
+
+const activeProvider = computed(() => settings.value.provider)
+
+const providerReason = computed(
+	() => availabilityOf(settings.value.provider).reason ?? null,
+)
+
+const activeModel = computed(
+	() =>
+		PROVIDER_OPTIONS.find((o) => o.value === settings.value.provider)?.model ??
+		'',
+)
+
+function onProvider(event: Event): void {
+	const next = (event.target as HTMLSelectElement).value as ProviderName
+	if (!availabilityOf(next).available) {
+		// The option is disabled, so this only fires on a stale DOM; snap back.
+		;(event.target as HTMLSelectElement).value = settings.value.provider
+		return
+	}
+	settings.value.provider = next
+	void persist()
 }
 
 function onMode(event: Event): void {
@@ -123,14 +183,33 @@ const SELECT_CLASS =
 				<div class="flex flex-col gap-4 p-5">
 					<div>
 						<label class="mb-1.5 block text-xs font-medium text-toned">Provider</label>
-						<select :class="SELECT_CLASS" disabled>
-							<option>Anthropic (Claude)</option>
+						<select
+							:class="SELECT_CLASS"
+							:value="activeProvider"
+							:disabled="loading || saving"
+							@change="onProvider"
+						>
+							<option
+								v-for="option in PROVIDER_OPTIONS"
+								:key="option.value"
+								:value="option.value"
+								:disabled="!availabilityOf(option.value).available"
+							>
+								{{ providerLabel(option) }}
+							</option>
 						</select>
+						<p v-if="providerReason" class="mt-1.5 text-xs text-error">
+							{{ providerReason }}
+						</p>
+						<p class="mt-1.5 text-xs text-dimmed">
+							Switching provider ends the live context of open conversations;
+							their transcripts are kept.
+						</p>
 					</div>
 					<div>
 						<label class="mb-1.5 block text-xs font-medium text-toned">Model</label>
 						<select :class="SELECT_CLASS" disabled>
-							<option>Claude Opus 4.x</option>
+							<option>{{ activeModel }}</option>
 						</select>
 					</div>
 				</div>
@@ -181,6 +260,9 @@ const SELECT_CLASS =
 								{{ option.label }}
 							</option>
 						</select>
+						<p class="mt-1.5 text-xs text-dimmed">
+							{{ THINKING_HINTS[settings.provider] }}
+						</p>
 					</div>
 					<div>
 						<label class="flex items-start gap-3">

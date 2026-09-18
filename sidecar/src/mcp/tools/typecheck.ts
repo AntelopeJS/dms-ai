@@ -1,4 +1,3 @@
-import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { resolveTypecheckTarget, runTypecheck } from "../../agent/typecheck.js";
 import {
@@ -7,6 +6,7 @@ import {
   TYPECHECK_UNKNOWN_TARGET_PREFIX,
   TYPECHECK_UNKNOWN_TARGET_SUFFIX,
 } from "../../constants/typecheck.js";
+import { defineTool } from "../define-tool.js";
 
 export interface TypecheckToolDeps {
   hostProjectRoot: string;
@@ -23,7 +23,7 @@ function buildContent(text: string): {
 }
 
 export function buildTypecheckTool(deps: TypecheckToolDeps) {
-  return tool(
+  return defineTool(
     TYPECHECK_TOOL_NAME,
     TYPECHECK_TOOL_DESCRIPTION,
     INPUT_SCHEMA,

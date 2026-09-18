@@ -16,6 +16,7 @@
     "lint": "oxlint && oxfmt --check . && cd chatbox && pnpm lint",
     "lint:fix": "oxlint --fix --max-warnings=1000000 && oxfmt . && cd chatbox && pnpm lint:fix",
     "test": "vitest run --passWithNoTests",
+    "generate:codex-types": "node scripts/generate-codex-types.mjs",
     "test:e2e": "echo 'no e2e yet' && exit 0",
     "format": "oxfmt .",
     "knip": "knip --dependencies",
@@ -24,11 +25,13 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.131",
     "@anthropic-ai/claude-code": "^2.1.131",
+    "@modelcontextprotocol/sdk": "1.29.0",
     "ws": "^8.18.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@antelopejs/tooling-configs": ">=0.0.6 <1.0.0",
+    "@openai/codex": "0.154.0",
     "@types/node": "^22.19.15",
     "@types/ws": "^8.5.12",
     "knip": "^6.34.0",

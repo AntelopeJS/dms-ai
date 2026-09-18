@@ -1,0 +1,9 @@
+{"dir": "out", "msg": {"jsonrpc": "2.0", "id": 3, "method": "turn/start", "params": {}}}
+{"dir": "in", "msg": {"method": "turn/started", "params": {"threadId": "mock-thread", "turn": {"id": "mock-turn", "status": "inProgress"}}}}
+{"dir": "in", "msg": {"method": "item/started", "params": {"threadId": "mock-thread", "item": {"type": "userMessage", "id": "item-user", "text": "go"}}}}
+{"dir": "in", "msg": {"method": "item/completed", "params": {"threadId": "mock-thread", "item": {"type": "userMessage", "id": "item-user", "text": "go"}}}}
+{"dir": "in", "msg": {"method": "item/started", "params": {"threadId": "mock-thread", "item": {"type": "mcpToolCall", "id": "call_ask", "server": "cms-ai", "tool": "AskUser", "status": "inProgress", "arguments": {"questions": [{"question": "Ship it?", "header": "Ship", "multiSelect": false, "options": [{"label": "Yes", "description": "ship now"}, {"label": "No", "description": "hold"}]}]}, "appContext": null}}}}
+{"dir": "in", "msg": {"method": "item/completed", "params": {"threadId": "mock-thread", "item": {"type": "mcpToolCall", "id": "call_ask", "server": "cms-ai", "tool": "AskUser", "status": "completed", "arguments": {"questions": [{"question": "Ship it?", "header": "Ship", "multiSelect": false, "options": [{"label": "Yes", "description": "ship now"}, {"label": "No", "description": "hold"}]}]}, "appContext": null, "result": null, "error": null}}}}
+{"dir": "in", "msg": {"method": "item/started", "params": {"threadId": "mock-thread", "item": {"type": "agentMessage", "id": "item-msg", "text": ""}}}}
+{"dir": "in", "msg": {"method": "item/completed", "params": {"threadId": "mock-thread", "item": {"type": "agentMessage", "id": "item-msg", "text": "done."}}}}
+{"dir": "in", "msg": {"method": "turn/completed", "params": {"threadId": "mock-thread", "turn": {"id": "mock-turn", "status": "completed"}}}}

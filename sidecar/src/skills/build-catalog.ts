@@ -16,6 +16,10 @@ export interface SkillCatalogItem {
 
 export interface SkillCatalog {
   items: SkillCatalogItem[];
+  // Names contributed by more than one module. Claude namespaces skills per
+  // plugin, so a collision is harmless there; Codex keys them by bare name and
+  // keeps only one, so the loser silently disappears from the agent's index.
+  duplicateNames: string[];
 }
 
 async function scanDir(src: SkillSource): Promise<SkillCatalogItem[]> {
@@ -52,9 +56,22 @@ async function scanDir(src: SkillSource): Promise<SkillCatalogItem[]> {
   return items;
 }
 
+export function findDuplicateSkillNames(
+  items: readonly SkillCatalogItem[],
+): string[] {
+  const seen = new Set<string>();
+  const duplicated = new Set<string>();
+  for (const item of items) {
+    if (seen.has(item.name)) duplicated.add(item.name);
+    seen.add(item.name);
+  }
+  return [...duplicated];
+}
+
 export async function buildSkillCatalog(
   sources: readonly SkillSource[],
 ): Promise<SkillCatalog> {
   const nested = await Promise.all(sources.map(scanDir));
-  return { items: nested.flat() };
+  const items = nested.flat();
+  return { items, duplicateNames: findDuplicateSkillNames(items) };
 }

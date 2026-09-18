@@ -1,3 +1,5 @@
+import type { ProviderName } from "./types.js";
+
 export const CHATBOX_MODES = ["normal", "acceptEdits", "plan", "auto"] as const;
 export type ChatboxMode = (typeof CHATBOX_MODES)[number];
 
@@ -11,6 +13,9 @@ export const GENERATION_MODES = ["safe", "vibe"] as const;
 export type GenerationMode = (typeof GENERATION_MODES)[number];
 
 export interface AppSettings {
+  // Which agent backend drives the conversations. Falls back to the default
+  // provider when the selected one is not installed (see effectiveProvider).
+  provider: ProviderName;
   mode: ChatboxMode;
   thinking: ThinkingLevel;
   generationMode: GenerationMode;

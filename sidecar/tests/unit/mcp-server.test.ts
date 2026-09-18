@@ -15,7 +15,7 @@ import {
 } from "../../src/constants/pages.js";
 import { TYPECHECK_TOOL_NAME } from "../../src/constants/typecheck.js";
 import type { LogsClient } from "../../src/logs/logs-client.js";
-import { createAiMcpServer } from "../../src/mcp/server.js";
+import { createAiMcpServer } from "../../src/mcp/sdk-binding.js";
 import type { ImportsScanner } from "../../src/pages/imports-scanner.js";
 import type { RegistryClient } from "../../src/pages/registry-client.js";
 import { createNavigationCompleter } from "../../src/server/navigation-completer.js";

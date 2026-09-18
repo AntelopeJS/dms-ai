@@ -1,4 +1,3 @@
-import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import {
   QUERY_LOGS_EMPTY_MESSAGE,
@@ -7,6 +6,7 @@ import {
   QUERY_LOGS_TOOL_NAME,
 } from "../../constants/logs.js";
 import type { LogsClient } from "../../logs/logs-client.js";
+import { defineTool } from "../define-tool.js";
 
 export interface QueryLogsDeps {
   logsClient: LogsClient;
@@ -33,7 +33,7 @@ function buildContent(text: string): {
 }
 
 export function buildQueryLogsTool(deps: QueryLogsDeps) {
-  return tool(
+  return defineTool(
     QUERY_LOGS_TOOL_NAME,
     QUERY_LOGS_TOOL_DESCRIPTION,
     INPUT_SCHEMA,

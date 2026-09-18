@@ -68,3 +68,15 @@ export const FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES: ReadonlySet<string> = new Set(
     ...BUILDER_TOOL_NAMES,
   ].map((name) => `${MCP_TOOL_NAME_PREFIX}${name}`),
 );
+
+export const MCP_HTTP_PATH = "/mcp";
+export const MCP_AUTHORIZATION_HEADER = "authorization";
+export const MCP_BEARER_PREFIX = "bearer ";
+// Loopback forms accepted in Host/Origin. Anything else is refused so a page in
+// a browser cannot reach the sidecar's MCP endpoint by DNS rebinding.
+export const MCP_LOOPBACK_HOSTNAMES = [
+  "127.0.0.1",
+  "localhost",
+  "::1",
+  "[::1]",
+];

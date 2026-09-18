@@ -1,9 +1,9 @@
-import { tool } from "@anthropic-ai/claude-agent-sdk";
 import {
   GET_CURRENT_PAGE_TOOL_DESCRIPTION,
   GET_CURRENT_PAGE_TOOL_NAME,
 } from "../../constants/mcp.js";
 import type { CurrentPage } from "../../state/host-state.js";
+import { defineTool } from "../define-tool.js";
 
 type GetCurrentPage = () => CurrentPage;
 
@@ -18,7 +18,7 @@ function buildContent(page: CurrentPage): {
 }
 
 export function buildGetCurrentPageTool(getCurrentPage: GetCurrentPage) {
-  return tool(
+  return defineTool(
     GET_CURRENT_PAGE_TOOL_NAME,
     GET_CURRENT_PAGE_TOOL_DESCRIPTION,
     EMPTY_INPUT_SCHEMA,

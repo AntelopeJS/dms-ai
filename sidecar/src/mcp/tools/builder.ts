@@ -1,4 +1,3 @@
-import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { BuilderClient } from "../../builder/builder-client.js";
 import {
@@ -6,6 +5,7 @@ import {
   BUILDER_EXPR_REFUSAL,
   BUILDER_REF_NOTE,
 } from "../../prompts/builder.js";
+import { defineTool } from "../define-tool.js";
 
 export interface BuilderToolsDeps {
   builderClient: BuilderClient;
@@ -158,7 +158,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
     content(JSON.stringify(await deps.builderClient.call(op, args)));
 
   return [
-    tool(
+    defineTool(
       "BuilderCatalog",
       note(
         "Lists every block type and DataType the page builder can emit, with their config schemas. Call this before adding blocks so you use valid types and options. For a config field whose schema is marked `x-dataType` (e.g. a Form field's `type`), pass a DataType value `{ $dataType: \"<id>\", config: {…} }` using an id and config from this catalog's `dataTypes` — never a raw `$expr`.",
@@ -166,13 +166,13 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       {},
       () => run("GetCatalog", []),
     ),
-    tool(
+    defineTool(
       "BuilderListPages",
       note("Lists all builder-editable pages (route, id, category, file)."),
       {},
       () => run("ListPages", []),
     ),
-    tool(
+    defineTool(
       "BuilderPageStructure",
       note(
         `Returns a page's block tree (each block's path, type, editability, config) plus a version hash for optimistic concurrency. ${BLOCK_PATH_FORMAT}`,
@@ -180,7 +180,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       { pageRef: z.string() },
       ({ pageRef }: { pageRef: string }) => run("GetPageStructure", [pageRef]),
     ),
-    tool(
+    defineTool(
       "BuilderCreatePage",
       note(
         "Creates a new page under an existing category and wires it into the barrel so it registers.",
@@ -195,7 +195,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       },
       (input: Record<string, unknown>) => run("CreatePage", [input]),
     ),
-    tool(
+    defineTool(
       "BuilderConfigurePage",
       note(
         "Updates a page's metadata (displayName, icon, order, description).",
@@ -206,13 +206,13 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
           ? exprRefusal()
           : run("ConfigurePage", [pageRef, patch]),
     ),
-    tool(
+    defineTool(
       "BuilderDeletePage",
       note("Deletes a page file and removes its barrel import."),
       { pageRef: z.string() },
       ({ pageRef }: { pageRef: string }) => run("DeletePage", [pageRef]),
     ),
-    tool(
+    defineTool(
       "BuilderAddBlock",
       note(
         "Adds a block. Omit `parent` for a top-level block, or pass a container block's path to nest. `type` and `config` must match the catalog. Block types the catalog marks `controllerArg: true` (e.g. `TableView`) bind to a data resource: pass `controller` = the resource `ref` from BuilderListResources (its DataAPI class becomes the block's leading argument) and put the display options in `config`.",
@@ -237,7 +237,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
           ? exprRefusal()
           : run("AddBlock", [input]),
     ),
-    tool(
+    defineTool(
       "BuilderConfigureBlock",
       note(
         "Merges (or replaces, with replace:true) options into a block's config. Children are managed with Add/Move/Remove, not here.",
@@ -256,7 +256,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
           ? exprRefusal()
           : run("ConfigureBlock", [path, patch, { replace }]),
     ),
-    tool(
+    defineTool(
       "BuilderMoveBlock",
       note("Moves a child block to a new position within a container."),
       {
@@ -277,13 +277,13 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
         index: number;
       }) => run("MoveBlock", [path, { parent, slot, index }]),
     ),
-    tool(
+    defineTool(
       "BuilderRemoveBlock",
       note("Removes a block and its whole subtree."),
       { path: BLOCK_PATH },
       ({ path }: { path: string }) => run("RemoveBlock", [path]),
     ),
-    tool(
+    defineTool(
       "BuilderCreateCategory",
       note(
         "Creates a navigation category (optionally under a parent category).",
@@ -297,7 +297,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       },
       (input: Record<string, unknown>) => run("CreateCategory", [input]),
     ),
-    tool(
+    defineTool(
       "BuilderConfigureCategory",
       note("Updates a category's metadata (displayName, icon, order)."),
       { ref: z.string(), patch: CONFIG },
@@ -306,7 +306,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
           ? exprRefusal()
           : run("ConfigureCategory", [ref, patch]),
     ),
-    tool(
+    defineTool(
       "BuilderDeleteCategory",
       note(
         "Deletes a category. Refused with referential_integrity if any page still references it.",
@@ -314,7 +314,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       { ref: z.string() },
       ({ ref }: { ref: string }) => run("DeleteCategory", [ref]),
     ),
-    tool(
+    defineTool(
       "BuilderRefresh",
       note(
         "Reconciles the builder's source index with disk after out-of-band edits (e.g. a vibe-mode excursion).",
@@ -323,7 +323,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       ({ pageRef }: { pageRef?: string }) =>
         run("RefreshSourceIndex", pageRef ? [{ page: pageRef }] : []),
     ),
-    tool(
+    defineTool(
       "BuilderListResources",
       note(
         "Lists every data resource (its ref, class/table names, /api route, field count, files). A resource is a Database Table+Model paired with a DataAPI controller.",
@@ -331,7 +331,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       {},
       () => run("ListResources", []),
     ),
-    tool(
+    defineTool(
       "BuilderResourceStructure",
       note(
         "Returns a resource's fields with their semantic aspects, its `routes` (absent when it serves the full set), and a version hash for optimistic concurrency. Hand-edited or relation fields come back marked `opaque` — safe mode cannot reconfigure those.",
@@ -339,7 +339,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       { ref: z.string() },
       ({ ref }: { ref: string }) => run("GetResourceStructure", [ref]),
     ),
-    tool(
+    defineTool(
       "BuilderCreateResource",
       note(
         "Creates a data resource — a Database Table+Model plus a matching DataAPI controller at /api/<name> — as a folder wired into the nearest barrel. Every resource auto-manages its own `_id`. When you limit `routes`, keep the view in sync: drop the TableView rowActions whose routes you left out, or bind a Form instead.",
@@ -356,7 +356,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       async (input: Record<string, unknown>) =>
         hasExprSentinel(input) ? exprRefusal() : run("CreateResource", [input]),
     ),
-    tool(
+    defineTool(
       "BuilderDeleteResource",
       note(
         "Deletes a resource: removes its database.ts/data-api.ts/index.ts files, unwires the barrel export, and (by default) clears the resource's database table so a later resource reusing the name re-seeds cleanly instead of inheriting stale rows. Pass keepData: true to leave the table data in place. Does not detect pages whose TableView references its /api route.",
@@ -368,7 +368,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
           keepData === undefined ? [ref] : [ref, { keepData }],
         ),
     ),
-    tool(
+    defineTool(
       "BuilderAddField",
       note(
         "Adds a field to a resource, editing the Table and DataAPI classes together in one atomic op.",
@@ -377,7 +377,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       async ({ ref, field }: { ref: string; field: unknown }) =>
         hasExprSentinel(field) ? exprRefusal() : run("AddField", [ref, field]),
     ),
-    tool(
+    defineTool(
       "BuilderConfigureField",
       note(
         "Reconfigures a field by merging the patch over its current aspects and re-deriving the whole decorator stack on both classes (no drift). Field name is immutable — rename via BuilderRemoveField + BuilderAddField.",
@@ -388,7 +388,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
           ? exprRefusal()
           : run("ConfigureField", [path, patch]),
     ),
-    tool(
+    defineTool(
       "BuilderRemoveField",
       note(
         "Removes a field from a resource's Table and DataAPI classes in one atomic op. Leaves seed rows untouched.",
@@ -396,7 +396,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       { path: FIELD_PATH },
       ({ path }: { path: string }) => run("RemoveField", [path]),
     ),
-    tool(
+    defineTool(
       "BuilderQueryTemplates",
       note(
         "Lists the query templates BuilderAddQuery can compile, each with its id, what it computes, its `output` kind, and the JSON Schema for its `params`. Call this before adding a query — the schema is the reference for every parameter and value shape.",
@@ -412,7 +412,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       ({ resourceType }: { resourceType?: string }) =>
         run("ListQueryTemplates", resourceType ? [resourceType] : []),
     ),
-    tool(
+    defineTool(
       "BuilderAddQuery",
       note(
         "Adds a query — a page-hosted GET route serving one computed number that the DataAPI cannot give you. Compiles the template into a method on the resource's model and a route on the page, atomically. Returns `{ query, route }`; `route` is the full URL to pass as a KpiCard's `fetchUrl`, and it serves `{ \"value\": <number> }`.",
@@ -440,7 +440,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       async ({ page, ...input }: { page: string } & Record<string, unknown>) =>
         hasExprSentinel(input) ? exprRefusal() : run("AddQuery", [page, input]),
     ),
-    tool(
+    defineTool(
       "BuilderConfigureQuery",
       note(
         "Recompiles a query, replacing both its route and its chain. Only the keys you pass change; the rest are re-read from the query. A query BuilderPageStructure reports as `opaque` is refused with opaque_target, leaving the hand-edit intact. Renaming is not supported — remove and re-add. Never affects another page's query, even one sharing the same model method.",
@@ -459,7 +459,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
           ? exprRefusal()
           : run("ConfigureQuery", [query, patch]),
     ),
-    tool(
+    defineTool(
       "BuilderRemoveQuery",
       note(
         "Removes a query's route from the page, and its model method too once no route on any page still calls it. Works on an opaque query as well — the builder can always remove what it cannot edit. Does not detect blocks whose fetchUrl points at the removed route: fix those in the same turn.",

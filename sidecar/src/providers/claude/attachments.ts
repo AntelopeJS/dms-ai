@@ -1,14 +1,16 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import {
+  joinTextSections,
+  uploadsDirFor as sharedUploadsDirFor,
+  writeDiskAttachment,
+} from "../../agent/attachment-files.js";
 import {
   INLINE_IMAGE_MEDIA_TYPES,
   type InlineImageMediaType,
   PDF_MEDIA_TYPE,
-  UPLOADS_DIR_SEGMENT,
-} from "../constants/attachments.js";
-import { STATE_DIR_SEGMENTS } from "../constants/paths.js";
-import type { AttachmentType } from "../protocol/messages.js";
+} from "../../constants/attachments.js";
+import type { AttachmentType } from "../../protocol/messages.js";
 
 // The content shape the SDK accepts for a user turn: either a bare string
 // (the pre-attachment path) or an array of Anthropic content blocks.
@@ -47,51 +49,8 @@ function buildDocumentBlock(att: AttachmentType): ContentBlock {
   };
 }
 
-// Reduce an arbitrary upload name to a safe basename (strip directory parts and
-// characters that could escape or confuse the uploads dir). Empty → "file".
-function sanitizeFileName(name: string): string {
-  const base = path
-    .basename(name)
-    .replace(/[^\w.\- ]+/g, "_")
-    .trim();
-  return base.length > 0 ? base : "file";
-}
-
-// The conversationId arrives from the WS client as a free-form string; reduce
-// it to a single safe path segment so a crafted id (e.g. "../../tmp") cannot
-// escape the uploads tree.
-function sanitizePathSegment(segment: string): string {
-  const safe = segment.replace(/[^\w-]+/g, "_");
-  return safe.length > 0 ? safe : "conversation";
-}
-
 function uploadsDirFor(opts: BuildTurnContentOptions): string {
-  return path.join(
-    opts.hostProjectRoot,
-    ...STATE_DIR_SEGMENTS,
-    UPLOADS_DIR_SEGMENT,
-    sanitizePathSegment(opts.conversationId),
-  );
-}
-
-// Write one non-inline attachment to the uploads dir and return its absolute
-// path. The index disambiguates files that share a name within one message.
-async function writeDiskAttachment(
-  att: AttachmentType,
-  index: number,
-  dir: string,
-): Promise<string> {
-  const fileName = `${Date.now()}-${index}-${sanitizeFileName(att.name)}`;
-  const filePath = path.join(dir, fileName);
-  await fs.writeFile(filePath, Buffer.from(att.data, "base64"));
-  return filePath;
-}
-
-function joinTextSections(text: string, diskPaths: string[]): string {
-  const noteLines = diskPaths.map((p) => `[Attached file: ${p}]`);
-  const notes = noteLines.join("\n");
-  const sections = [text.trim(), notes].filter((s) => s.length > 0);
-  return sections.join("\n\n");
+  return sharedUploadsDirFor(opts.hostProjectRoot, opts.conversationId);
 }
 
 // Turn the user's text plus their attachments into the SDK turn content:

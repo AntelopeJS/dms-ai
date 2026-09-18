@@ -1,9 +1,9 @@
-import type { McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
 import type {
   QuestionAnswers,
   QuestionRequest,
 } from "../agent/question-bus.js";
 import type { BuilderClient } from "../builder/builder-client.js";
+import type { MCP_SERVER_TYPE_SDK } from "../constants/mcp.js";
 import type { LogsClient } from "../logs/logs-client.js";
 import type { ImportsScanner } from "../pages/imports-scanner.js";
 import type { RegistryClient } from "../pages/registry-client.js";
@@ -34,4 +34,10 @@ export interface AiMcpServerDeps extends AiMcpServerStaticDeps {
   getLastEditedFile: () => string | undefined;
 }
 
-export type AiMcpServer = McpSdkServerConfigWithInstance;
+// The in-process server handed to the Claude SDK. Described locally so the MCP
+// layer carries no provider type; the Claude binding narrows it at its edge.
+export interface AiMcpServer {
+  type: typeof MCP_SERVER_TYPE_SDK;
+  name: string;
+  instance: unknown;
+}

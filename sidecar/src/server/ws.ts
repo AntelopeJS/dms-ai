@@ -1,33 +1,51 @@
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { type WebSocket, WebSocketServer } from "ws";
-import { createClaudeRunner } from "../agent/claude-runner.js";
 import { createEditTracker, type EditTracker } from "../agent/edit-tracker.js";
 import {
   createPermissionBus,
   type PendingRequest,
   type PermissionBus,
 } from "../agent/permission-bus.js";
+import type { AgentProvider, AgentProviderOptions } from "../agent/provider.js";
 import {
   createQuestionBus,
   type PendingQuestion,
   type QuestionBus,
 } from "../agent/question-bus.js";
+import { type AgentRunner, createAgentRunner } from "../agent/runner.js";
+import {
+  createSwitchingRunner,
+  type ProviderRunnerFactory,
+} from "../agent/switching-runner.js";
 import { buildToolSummary } from "../agent/tool-summary.js";
 import { WS_MAX_PAYLOAD_BYTES } from "../constants/attachments.js";
+import { CODEX_MISSING_RUNTIME_MESSAGE } from "../constants/codex.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import { WS_LOG_PREFIX, WS_PATHS } from "../constants/ws.js";
-import { createAiMcpServer } from "../mcp/server.js";
-import type { AiMcpServer, AiMcpServerStaticDeps } from "../mcp/types.js";
+import { createAiMcpServer } from "../mcp/sdk-binding.js";
+import type {
+  AiMcpServer,
+  AiMcpServerDeps,
+  AiMcpServerStaticDeps,
+} from "../mcp/types.js";
 import {
   type AskQuestionEventType,
   EVENT_TYPES,
   type PermissionRequestEventType,
 } from "../protocol/events.js";
+import { createClaudeProvider } from "../providers/claude/provider.js";
+import {
+  type CodexRuntimeDeps,
+  createCodexProvider,
+} from "../providers/codex/provider.js";
 import type { SkillSource } from "../skills/types.js";
 import type { ConversationStore } from "../state/conversations.js";
 import type { HostState } from "../state/host-state.js";
 import type { SettingsStore } from "../state/settings-store.js";
+import type { AppSettings } from "../state/settings-types.js";
+import type { ProviderName } from "../state/types.js";
+import { isClientAuthorized } from "./client-auth.js";
 import type { HostSocketRegistry } from "./host-socket-registry.js";
 import type { SettingsApplier } from "./http.js";
 import type { IdleShutdownController } from "./idle-shutdown.js";
@@ -38,14 +56,13 @@ import {
 import { createLiveTurnStore } from "./live-turns.js";
 import type { NavigationCompleter } from "./navigation-completer.js";
 import { createPendingQueueStore } from "./pending-queue.js";
+import { rawDataToText } from "./raw-data.js";
 import {
   applySettings,
   buildConnectionContext,
   dispatchMessage,
   type RoutingConfig,
 } from "./routing.js";
-import { rawDataToText } from "./raw-data.js";
-import { isClientAuthorized } from "./client-auth.js";
 
 export interface AttachWsServerOptions {
   clientToken: string;
@@ -55,6 +72,8 @@ export interface AttachWsServerOptions {
   conversationStore: ConversationStore;
   settingsStore?: SettingsStore;
   mcpDeps: AiMcpServerStaticDeps;
+  // Present only when the sidecar can run the Codex provider.
+  codexRuntime?: CodexRuntimeDeps;
   hostState: HostState;
   hostSocketRegistry: HostSocketRegistry;
   navigationCompleter: NavigationCompleter;
@@ -79,6 +98,70 @@ const NOOP_SETTINGS_STORE: SettingsStore = {
 
 interface AttachWsServerResult {
   close: () => Promise<void>;
+}
+
+interface ProviderBuildContext {
+  options: AttachWsServerOptions;
+  settings: AppSettings;
+  createMcpDeps: (conversationId: string) => AiMcpServerDeps;
+}
+
+function buildBaseOptions(ctx: ProviderBuildContext): AgentProviderOptions {
+  return {
+    settings: ctx.settings,
+    moduleRoots: ctx.options.moduleRoots ?? [],
+    skillDirs: ctx.options.skillDirs ?? [],
+  };
+}
+
+function buildCodex(ctx: ProviderBuildContext): AgentProvider {
+  const runtime = ctx.options.codexRuntime;
+  if (runtime === undefined) {
+    throw new Error(CODEX_MISSING_RUNTIME_MESSAGE);
+  }
+  return createCodexProvider({
+    ...buildBaseOptions(ctx),
+    ...runtime,
+    createMcpDeps: ctx.createMcpDeps,
+  });
+}
+
+const PROVIDER_BUILDERS: Record<
+  ProviderName,
+  (ctx: ProviderBuildContext) => AgentProvider
+> = {
+  claude: (ctx) => createClaudeProvider(buildBaseOptions(ctx)),
+  codex: buildCodex,
+};
+
+function buildRunnerFactories(
+  options: AttachWsServerOptions,
+  createMcpDeps: (conversationId: string) => AiMcpServerDeps,
+): Record<ProviderName, ProviderRunnerFactory> {
+  const factories = Object.entries(PROVIDER_BUILDERS).map(
+    ([name, buildProvider]) => [
+      name,
+      (settings: AppSettings) =>
+        createAgentRunner(buildProvider({ options, settings, createMcpDeps }), {
+          settings,
+        }),
+    ],
+  );
+  return Object.fromEntries(factories) as Record<
+    ProviderName,
+    ProviderRunnerFactory
+  >;
+}
+
+function buildRunner(
+  options: AttachWsServerOptions,
+  settings: AppSettings,
+  createMcpDeps: (conversationId: string) => AiMcpServerDeps,
+): AgentRunner {
+  return createSwitchingRunner(
+    buildRunnerFactories(options, createMcpDeps),
+    settings,
+  );
 }
 
 function bindConnection(
@@ -151,24 +234,31 @@ function buildSharedQuestionBus(
   });
 }
 
-// The MCP server is built per conversation so the AskUser tool can bind its
-// conversationId (the SDK never passes it to tool handlers). Memoized so a
-// conversation reuses one server instance across its turns.
-function buildMcpServerFactory(
+// Tools are bound per conversation so AskUser can reach the right iframe: no
+// MCP transport carries our conversationId down to a tool handler, so it is
+// closed over here instead. Shared by both bindings.
+function buildMcpDepsFactory(
   staticDeps: AiMcpServerStaticDeps,
   questionBus: QuestionBus,
   editTracker: EditTracker,
+): (conversationId: string) => AiMcpServerDeps {
+  return (conversationId) => ({
+    ...staticDeps,
+    conversationId,
+    requestQuestion: questionBus.requestQuestion,
+    getLastEditedFile: () => editTracker.getLastEditedFile(conversationId),
+  });
+}
+
+// Memoized so a conversation reuses one server instance across its turns.
+function buildMcpServerFactory(
+  createMcpDeps: (conversationId: string) => AiMcpServerDeps,
 ): (conversationId: string) => AiMcpServer {
   const byConversation = new Map<string, AiMcpServer>();
   return (conversationId) => {
     const existing = byConversation.get(conversationId);
     if (existing !== undefined) return existing;
-    const server = createAiMcpServer({
-      ...staticDeps,
-      conversationId,
-      requestQuestion: questionBus.requestQuestion,
-      getLastEditedFile: () => editTracker.getLastEditedFile(conversationId),
-    });
+    const server = createAiMcpServer(createMcpDeps(conversationId));
     byConversation.set(conversationId, server);
     return server;
   };
@@ -227,11 +317,12 @@ export function attachWsServer(
     options.permissionBus ?? buildSharedPermissionBus(iframeSocketRegistry);
   const questionBus = buildSharedQuestionBus(iframeSocketRegistry);
   const editTracker = createEditTracker();
-  const createMcpServer = buildMcpServerFactory(
+  const createMcpDeps = buildMcpDepsFactory(
     options.mcpDeps,
     questionBus,
     editTracker,
   );
+  const createMcpServer = buildMcpServerFactory(createMcpDeps);
   const settingsStore = options.settingsStore ?? NOOP_SETTINGS_STORE;
   const initialSettings = settingsStore.get();
   permissionBus.setAutoApprove(initialSettings.mode === "auto");
@@ -250,11 +341,7 @@ export function attachWsServer(
     permissionBus,
     navigationCompleter: options.navigationCompleter,
     idleController: options.idleController ?? NOOP_IDLE_CONTROLLER,
-    runner: createClaudeRunner({
-      settings: initialSettings,
-      moduleRoots: options.moduleRoots ?? [],
-      skillDirs: options.skillDirs ?? [],
-    }),
+    runner: buildRunner(options, initialSettings, createMcpDeps),
     liveTurns: createLiveTurnStore(),
     pendingQueue: createPendingQueueStore(),
   };

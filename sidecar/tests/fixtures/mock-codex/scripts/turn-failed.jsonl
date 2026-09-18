@@ -1,0 +1,7 @@
+{"dir": "out", "msg": {"jsonrpc": "2.0", "id": 3, "method": "turn/start", "params": {}}}
+{"dir": "in", "msg": {"method": "thread/status/changed", "params": {"threadId": "mock-thread", "status": {"type": "busy"}}}}
+{"dir": "in", "msg": {"method": "turn/started", "params": {"threadId": "mock-thread", "turn": {"id": "mock-turn", "status": "inProgress"}}}}
+{"dir": "in", "msg": {"method": "item/started", "params": {"threadId": "mock-thread", "item": {"type": "userMessage", "id": "item-0", "text": "hi"}}}}
+{"dir": "in", "msg": {"method": "item/completed", "params": {"threadId": "mock-thread", "item": {"type": "userMessage", "id": "item-0", "text": "hi"}}}}
+{"dir": "in", "msg": {"method": "error", "params": {"message": "stream disconnected before completion", "willRetry": false}}}
+{"dir": "in", "msg": {"method": "turn/completed", "params": {"threadId": "mock-thread", "turn": {"id": "mock-turn", "status": "failed", "error": {"message": "stream disconnected before completion"}}}}}
