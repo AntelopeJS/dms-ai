@@ -2,6 +2,8 @@ import path from "node:path";
 import { effectiveGenerationMode } from "../../builder/capability.js";
 import {
   CODEX_AUTH_MODE_API_KEY,
+  CODEX_DENIAL_REMINDER_COUNT_TOKEN,
+  CODEX_DENIAL_REMINDER_TEMPLATE,
   CODEX_DENIAL_REMINDER_THRESHOLD,
   CODEX_MCP_SERVER_ID,
   CODEX_MCP_TOKEN_ENV_VAR,
@@ -182,24 +184,39 @@ export function buildAuthFile(apiKey: string): CodexAuthFile {
   return { auth_mode: CODEX_AUTH_MODE_API_KEY, OPENAI_API_KEY: apiKey };
 }
 
+function isSafeMode(settings: AppSettings): boolean {
+  return effectiveGenerationMode(settings.generationMode) === "safe";
+}
+
 /**
- * Per-thread developer instructions.
+ * Per-thread developer instructions, set once when the thread starts.
  *
  * A Codex decline carries no message: the protocol has no field for one, so the
- * model sees a refusal with no reason. Everything the Claude path says at the
- * moment of refusal has to be said up front here instead — and again, louder,
- * once the agent has been refused repeatedly, because a declined patch is
- * immediately retried as a shell command.
+ * model sees a refusal with no reason. What the Claude path says at the moment
+ * of refusal has to be said up front here instead.
  */
 export function buildDeveloperInstructions(
   settings: AppSettings,
+): string | undefined {
+  return isSafeMode(settings) ? SAFE_MODE_DENIED_MESSAGE : undefined;
+}
+
+/**
+ * The louder reminder, once the agent has been refused repeatedly: a declined
+ * patch is immediately retried as a shell command, so a refusal loop is real.
+ *
+ * It rides on the turn text rather than the developer instructions, which only
+ * `thread/start` accepts — restarting the thread to re-say this would throw the
+ * conversation's context away to deliver it.
+ */
+export function buildDenialReminder(
+  settings: AppSettings,
   consecutiveDenials: number,
 ): string | undefined {
-  if (effectiveGenerationMode(settings.generationMode) !== "safe") {
-    return undefined;
-  }
-  if (consecutiveDenials < CODEX_DENIAL_REMINDER_THRESHOLD) {
-    return SAFE_MODE_DENIED_MESSAGE;
-  }
-  return `${SAFE_MODE_DENIED_MESSAGE}\n\nYou have been refused ${consecutiveDenials} times in a row. Retrying the same write through another route will be refused again: use the Builder tools, or tell the user the change needs Vibe mode.`;
+  if (!isSafeMode(settings)) return undefined;
+  if (consecutiveDenials < CODEX_DENIAL_REMINDER_THRESHOLD) return undefined;
+  return CODEX_DENIAL_REMINDER_TEMPLATE.replace(
+    CODEX_DENIAL_REMINDER_COUNT_TOKEN,
+    String(consecutiveDenials),
+  );
 }

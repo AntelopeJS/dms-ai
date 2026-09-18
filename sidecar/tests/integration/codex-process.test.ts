@@ -3,7 +3,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { CODEX_CLIENT_NAME } from "../../src/constants/codex.js";
+import {
+  CODEX_CLIENT_NAME,
+  CODEX_SPAWN_FAILED_MESSAGE,
+} from "../../src/constants/codex.js";
 import {
   type CodexProcess,
   spawnCodexProcess,
@@ -140,6 +143,57 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
         allowLocalSkills: true,
       });
       expect(disabled.length).toBe(seeded.length);
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+});
+
+// Not gated on the extension: the point is a binary that is *not* there.
+describe("codex app-server spawn failure", () => {
+  const MISSING_BINARY = "/nonexistent/codex";
+  const REQUEST_BUDGET_MS = 5_000;
+
+  it(
+    "turns an unspawnable binary into a failed request, not a dead sidecar",
+    async () => {
+      const stateDir = await mkdtemp(join(tmpdir(), TMP_PREFIX));
+      const uncaught: Error[] = [];
+      const onUncaught = (err: Error): void => {
+        uncaught.push(err);
+      };
+      process.on("uncaughtException", onUncaught);
+      try {
+        const spawned = await spawnCodexProcess({
+          conversationId: CONVERSATION,
+          stateDir,
+          installation: {
+            binaryPath: MISSING_BINARY,
+            pinnedVersion: "0.0.0",
+          },
+          mcpUrl: MCP_URL,
+          mcpToken: FAKE_TOKEN,
+          hostProjectRoot: stateDir,
+          apiKey: FAKE_API_KEY,
+          handlers: {
+            onNotification: () => {},
+            onServerRequest: async () => ({}),
+          },
+        });
+        await expect(
+          spawned.client.request(
+            "initialize",
+            {},
+            {
+              timeoutMs: REQUEST_BUDGET_MS,
+            },
+          ),
+        ).rejects.toThrow(CODEX_SPAWN_FAILED_MESSAGE);
+        await spawned.dispose();
+        expect(uncaught).toEqual([]);
+      } finally {
+        process.off("uncaughtException", onUncaught);
+        await rm(stateDir, { recursive: true, force: true });
+      }
     },
     SPAWN_TIMEOUT_MS,
   );

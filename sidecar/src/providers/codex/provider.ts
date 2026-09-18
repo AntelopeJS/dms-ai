@@ -12,6 +12,7 @@ import {
   CODEX_CLIENT_NAME,
   CODEX_CLIENT_TITLE,
   CODEX_CLIENT_VERSION,
+  CODEX_HANDSHAKE_TIMEOUT_MS,
   CODEX_INITIALIZE_METHOD,
   CODEX_INITIALIZED_METHOD,
   CODEX_MAX_LIVE_SESSIONS,
@@ -34,8 +35,9 @@ import { resolveSkillSources } from "../../skills/resolve-sources.js";
 import type { AppSettings } from "../../state/settings-types.js";
 import { createCodexAdapter } from "./adapter.js";
 import { buildCodexTurnInput } from "./attachments.js";
-import type { CodexNotification } from "./client.js";
+import type { CodexNotification, CodexRequestOptions } from "./client.js";
 import {
+  buildDenialReminder,
   buildDeveloperInstructions,
   buildTurnOverrides,
   resolveModePolicy,
@@ -78,6 +80,11 @@ interface CodexBackend {
   resumeApprovals: () => void;
 }
 
+// Bounded because they run before the session — and its idle timeout — exists.
+const HANDSHAKE: CodexRequestOptions = {
+  timeoutMs: CODEX_HANDSHAKE_TIMEOUT_MS,
+};
+
 function clientInfo(): Record<string, unknown> {
   return {
     clientInfo: {
@@ -104,27 +111,33 @@ async function configureSkills(
   );
   const extraRoots = buildSkillExtraRoots(sources);
   if (extraRoots.length > 0) {
-    await process.client.request(CODEX_SKILLS_EXTRA_ROOTS_METHOD, {
-      extraRoots,
-    });
+    await process.client.request(
+      CODEX_SKILLS_EXTRA_ROOTS_METHOD,
+      { extraRoots },
+      HANDSHAKE,
+    );
   }
   const listed = await process.client.request<v2.SkillsListResponse>(
     CODEX_SKILLS_LIST_METHOD,
     {},
+    HANDSHAKE,
   );
   const disable = selectSkillsToDisable(listed.data, {
     extraRoots,
     allowLocalSkills: settings.allowLocalSkills,
   });
   for (const params of disable) {
-    await process.client.request(CODEX_SKILLS_CONFIG_WRITE_METHOD, params);
+    await process.client.request(
+      CODEX_SKILLS_CONFIG_WRITE_METHOD,
+      params,
+      HANDSHAKE,
+    );
   }
 }
 
 async function startThread(
   process: CodexProcess,
   ctx: ProviderSessionContext,
-  denials: number,
 ): Promise<string> {
   const policy = resolveModePolicy(ctx.settings);
   const started = await process.client.request<v2.ThreadStartResponse>(
@@ -133,12 +146,23 @@ async function startThread(
       cwd: ctx.hostProjectRoot,
       sandbox: policy.sandbox,
       approvalPolicy: policy.approvalPolicy,
-      developerInstructions: buildDeveloperInstructions(ctx.settings, denials),
+      developerInstructions: buildDeveloperInstructions(ctx.settings),
       // Nothing of this conversation is meant to outlive it on disk.
       ephemeral: true,
     },
+    HANDSHAKE,
   );
   return started.thread.id;
+}
+
+// Appended rather than prepended: the host-context block opens every turn, and
+// the reminder is about what the agent just tried, so it reads last.
+function withDenialReminder(backend: CodexBackend, text: string): string {
+  const reminder = buildDenialReminder(
+    backend.live.settings,
+    backend.denials(),
+  );
+  return reminder === undefined ? text : `${text}\n\n${reminder}`;
 }
 
 async function submitTurn(
@@ -153,10 +177,14 @@ async function submitTurn(
     hostProjectRoot: backend.hostProjectRoot,
     moduleRoots: options.moduleRoots ?? [],
   });
-  const payload = await buildCodexTurnInput(input.text, input.attachments, {
-    hostProjectRoot: backend.hostProjectRoot,
-    conversationId: backend.conversationId,
-  });
+  const payload = await buildCodexTurnInput(
+    withDenialReminder(backend, input.text),
+    input.attachments,
+    {
+      hostProjectRoot: backend.hostProjectRoot,
+      conversationId: backend.conversationId,
+    },
+  );
   await backend.process.client.request(CODEX_TURN_START_METHOD, {
     threadId: backend.threadId,
     input: payload,
@@ -264,10 +292,14 @@ async function createProviderSession(
     },
   });
 
-  await codexProcess.client.request(CODEX_INITIALIZE_METHOD, clientInfo());
+  await codexProcess.client.request(
+    CODEX_INITIALIZE_METHOD,
+    clientInfo(),
+    HANDSHAKE,
+  );
   codexProcess.client.notify(CODEX_INITIALIZED_METHOD, {});
   await configureSkills(codexProcess, options, ctx.settings);
-  const threadId = await startThread(codexProcess, ctx, 0);
+  const threadId = await startThread(codexProcess, ctx);
 
   const backend: CodexBackend = {
     process: codexProcess,

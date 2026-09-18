@@ -183,21 +183,15 @@ describe("consecutive denials", () => {
 
 describe("developer instructions", () => {
   it("says nothing in vibe mode", () => {
-    expect(buildDeveloperInstructions(settings({}), 0)).toBeUndefined();
+    expect(buildDeveloperInstructions(settings({}))).toBeUndefined();
   });
 
   it("carries the refusal reason up front in safe mode", () => {
     expect(
-      buildDeveloperInstructions(settings({ generationMode: "safe" }), 0),
+      buildDeveloperInstructions(settings({ generationMode: "safe" })),
     ).toBe(SAFE_MODE_DENIED_MESSAGE);
   });
 
-  it("escalates the reminder after repeated refusals", () => {
-    const reminder = buildDeveloperInstructions(
-      settings({ generationMode: "safe" }),
-      3,
-    );
-    expect(reminder).toContain(SAFE_MODE_DENIED_MESSAGE);
-    expect(reminder).toContain("refused 3 times in a row");
-  });
+  // The escalation itself rides on the turn text, not on these instructions:
+  // see codex-config (shape) and codex-lifecycle (wiring).
 });

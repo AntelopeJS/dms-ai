@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import {
   buildAuthFile,
   buildConfigToml,
+  buildDenialReminder,
+  buildDeveloperInstructions,
   buildTurnOverrides,
   resolveModePolicy,
 } from "../../src/providers/codex/config.js";
@@ -120,5 +122,38 @@ describe("auth file", () => {
       auth_mode: "apikey",
       OPENAI_API_KEY: "sk-test",
     });
+  });
+});
+
+// Safe mode only exists while the Builder is loaded; without it both of these
+// degrade to vibe, and there is nothing left to say.
+describe("safe-mode instructions", () => {
+  const safe = (): AppSettings => settings({ generationMode: "safe" });
+  const vibe = (): AppSettings => settings({ generationMode: "vibe" });
+
+  beforeEach(() => setBuilderAvailable(true));
+  afterEach(() => setBuilderAvailable(false));
+
+  it("stays quiet below the threshold, so a single refusal is not nagged about", () => {
+    expect(buildDenialReminder(safe(), 0)).toBeUndefined();
+    expect(buildDenialReminder(safe(), 1)).toBeUndefined();
+  });
+
+  it("names the count once the agent loops on refusals", () => {
+    const reminder = buildDenialReminder(safe(), 3);
+    expect(reminder).toContain("refused 3 times in a row");
+    expect(reminder).toContain("Builder");
+  });
+
+  it("says nothing in vibe mode, where nothing is being refused", () => {
+    expect(buildDenialReminder(vibe(), 5)).toBeUndefined();
+  });
+
+  it("carries the safe-mode message a Codex decline cannot", () => {
+    expect(buildDeveloperInstructions(safe())).toContain("Builder");
+  });
+
+  it("omits the developer instructions in vibe mode", () => {
+    expect(buildDeveloperInstructions(vibe())).toBeUndefined();
   });
 });

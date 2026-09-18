@@ -7,13 +7,17 @@ import {
   CODEX_AUTH_FILE_MODE,
   CODEX_AUTH_FILE_NAME,
   CODEX_BINARY_NAME,
+  CODEX_CLIENT_ABORTED_MESSAGE,
   CODEX_CONFIG_FILE_NAME,
+  CODEX_EXITED_MESSAGE,
   CODEX_HOME_DIR_NAME,
   CODEX_HOME_ENV_VAR,
   CODEX_LOG_PREFIX,
   CODEX_MCP_TOKEN_ENV_VAR,
   CODEX_PID_REGISTRY_FILE,
   CODEX_PROC_CMDLINE,
+  CODEX_SPAWN_FAILED_MESSAGE,
+  CODEX_STDERR_TAIL_BYTES,
   CODEX_STRICT_CONFIG_FLAG,
   CODEX_TERMINATE_GRACE_MS,
 } from "../../constants/codex.js";
@@ -183,15 +187,85 @@ function spawnChild(
   );
 }
 
+interface StderrTail {
+  read: () => string;
+}
+
+// Drained whatever happens: an unread stderr pipe fills at 64 KiB and blocks
+// the child itself. What it said is kept, bounded, because it is the only
+// account of why a binary that died on startup did so.
+function drainStderr(child: ChildProcess): StderrTail {
+  let tail = "";
+  child.stderr?.setEncoding("utf8");
+  child.stderr?.on("data", (chunk: string) => {
+    tail = `${tail}${chunk}`.slice(-CODEX_STDERR_TAIL_BYTES);
+  });
+  return { read: () => tail.trim() };
+}
+
+function describeExit(code: number | null, signal: string | null): string {
+  const cause = signal === null ? `code ${String(code)}` : `signal ${signal}`;
+  return `${CODEX_EXITED_MESSAGE} (${cause})`;
+}
+
+interface Watchdog {
+  /** Runs on the child's death, unless the session already disposed of it. */
+  arm: (client: CodexClient) => void;
+  markDisposed: () => void;
+}
+
+/**
+ * Turns the child's death into a failed request. `spawn` reports a missing or
+ * unusable binary through an `error` event with no listener — which takes the
+ * whole sidecar down — and an exit settles nothing at all, leaving the
+ * handshake awaiting an answer no one will send.
+ */
+function watchChild(child: ChildProcess, stderr: StderrTail): Watchdog {
+  let pendingReason: Error | null = null;
+  let disposed = false;
+  let target: CodexClient | null = null;
+
+  function fail(message: string): void {
+    if (disposed) return;
+    const detail = stderr.read();
+    const reason = new Error(detail === "" ? message : `${message}: ${detail}`);
+    console.error(`${CODEX_LOG_PREFIX} ${reason.message}`);
+    if (target === null) {
+      pendingReason = reason;
+      return;
+    }
+    target.abort(reason);
+  }
+
+  child.on("error", (error) =>
+    fail(`${CODEX_SPAWN_FAILED_MESSAGE}: ${error.message}`),
+  );
+  child.on("exit", (code, signal) => fail(describeExit(code, signal)));
+
+  return {
+    arm: (client) => {
+      target = client;
+      if (pendingReason !== null) client.abort(pendingReason);
+    },
+    markDisposed: () => {
+      disposed = true;
+    },
+  };
+}
+
 export async function spawnCodexProcess(
   options: CodexProcessOptions,
 ): Promise<CodexProcess> {
   const codexHome = await prepareCodexHome(options);
   const child = spawnChild(options, codexHome);
+  // Both before any `await` and before the pipe check below: a spawn failure is
+  // reported on the next tick, and an unhandled `error` event is fatal.
+  const watchdog = watchChild(child, drainStderr(child));
   if (child.stdin === null || child.stdout === null) {
     throw new Error(`${CODEX_LOG_PREFIX} failed to open app-server pipes`);
   }
   const client = createCodexClient(child.stdin, child.stdout, options.handlers);
+  watchdog.arm(client);
   const pid = child.pid;
   if (pid !== undefined) await recordPid(options.stateDir, pid);
 
@@ -203,7 +277,10 @@ export async function spawnCodexProcess(
     dispose: async () => {
       if (disposed) return;
       disposed = true;
-      client.abort(new Error(`${CODEX_LOG_PREFIX} session disposed`));
+      watchdog.markDisposed();
+      client.abort(
+        new Error(`${CODEX_LOG_PREFIX} ${CODEX_CLIENT_ABORTED_MESSAGE}`),
+      );
       if (pid !== undefined) {
         terminate(pid);
         await forgetPid(options.stateDir, pid);

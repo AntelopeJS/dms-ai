@@ -71,6 +71,26 @@ export const JSONRPC_VERSION = "2.0";
 export const JSONRPC_LINE_SEPARATOR = "\n";
 export const CODEX_LOG_PREFIX = "[dms-ai codex]";
 
+// The app-server is out of process, so its death has to become an error rather
+// than a silence: nothing else would ever settle an in-flight request.
+export const CODEX_SPAWN_FAILED_MESSAGE = "codex app-server failed to spawn";
+export const CODEX_EXITED_MESSAGE = "codex app-server exited";
+export const CODEX_TRANSPORT_CLOSED_MESSAGE =
+  "codex app-server closed its output stream";
+export const CODEX_CLIENT_ABORTED_MESSAGE = "codex app-server is gone";
+
+// Bound on the handshake requests only (initialize, skills, thread/start).
+// They run before the session — and therefore before its idle timeout — exists,
+// so a binary that accepts the pipes and then never answers would hang the turn
+// with nothing watching. A turn itself is never bounded here: that is the
+// session's idle timer, which knows the difference between slow and stuck.
+export const CODEX_HANDSHAKE_TIMEOUT_MS = 30_000;
+export const CODEX_REQUEST_TIMEOUT_MESSAGE = "codex app-server did not answer";
+
+// Kept from the child's stderr and printed when it dies unexpectedly. The stream
+// is drained whatever happens: left unread, a full pipe blocks the child itself.
+export const CODEX_STDERR_TAIL_BYTES = 2000;
+
 export const CODEX_PID_REGISTRY_FILE = "codex-pids.json";
 // Grace left to SIGTERM before SIGKILL. The app-server exits promptly; this only
 // covers a wedged child.
@@ -95,6 +115,13 @@ export const CODEX_FILE_CHANGE_APPROVAL_METHOD =
 // go through the Builder. Observed behaviour: a declined patch is immediately
 // retried as a shell command, so a refusal loop is real, not theoretical.
 export const CODEX_DENIAL_REMINDER_THRESHOLD = 2;
+
+// The reminder rides on the turn text: `developerInstructions` is only accepted
+// by thread/start, and restarting the thread to re-say something would throw the
+// conversation's context away to deliver it.
+export const CODEX_DENIAL_REMINDER_TEMPLATE =
+  "You have been refused %count% times in a row. Retrying the same write through another route will be refused again: use the Builder tools, or tell the user the change needs Vibe mode.";
+export const CODEX_DENIAL_REMINDER_COUNT_TOKEN = "%count%";
 
 // Codex accepts text, image URLs and local image paths, but has no PDF input.
 // Rasterizing gives it real perception of the pages instead of a bare path.
