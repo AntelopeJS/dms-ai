@@ -25,7 +25,7 @@ it('does not invoke authenticated fetching or inject the assistant for a guest',
 		throw new Error('A guest must not enter session recovery')
 	})
 	const requireModule = (name: string) =>
-		name === '#dms-inertia/frontend-module'
+		name === '#dms/frontend-module'
 			? { defineDmsPlugin: (plugin: unknown) => plugin }
 			: {}
 	new Function(

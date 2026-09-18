@@ -1,4 +1,4 @@
-import { useDmsState as useState } from '#dms-inertia/frontend-module'
+import { useDmsState as useState } from '#dms/frontend-module'
 import {
 	HEADER_ACTIONS_STATE_KEY,
 	LAUNCHER_ACTION_ID,
