@@ -5,3 +5,5 @@ dist/
 .ai/
 sidecar/.state/
 sidecar/chatbox/dist/
+.nuxt/
+.idea/
