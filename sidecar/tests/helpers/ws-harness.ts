@@ -10,8 +10,8 @@ import {
   type McpHttpRegistry,
 } from "../../src/mcp/http-binding.js";
 import type { AiMcpServerStaticDeps } from "../../src/mcp/types.js";
-import { effectiveProvider } from "../../src/providers/availability.js";
-import type { CodexRuntimeDeps } from "../../src/providers/codex/provider.js";
+import { isProviderAvailable } from "../../src/providers/registry.js";
+import type { ProviderHostRuntime } from "../../src/providers/types.js";
 import { createHostSocketRegistry } from "../../src/server/host-socket-registry.js";
 import { createHttpServer } from "../../src/server/http.js";
 import type { IframeSocketRegistry } from "../../src/server/iframe-socket-registry.js";
@@ -36,7 +36,6 @@ const ARBITRARY_PORT = 0;
 const WS_HOST = "127.0.0.1";
 export const WS_PATH_IFRAME = "/ws/iframe";
 export const HOST_ROOT = "/tmp";
-const MOCK_API_KEY = "sk-mock";
 
 export interface HarnessOptions {
   provider: ProviderName;
@@ -95,16 +94,17 @@ function buildSettingsStore(settings: AppSettings): SettingsStore {
   };
 }
 
-function buildCodexRuntime(
+// The API key is not passed in any more: a provider reads its own environment,
+// exactly as it does in production. CODEX_FIXTURE.use() puts one there.
+export function buildProviderRuntime(
   stateDir: string,
   registry: McpHttpRegistry,
   port: number,
-): CodexRuntimeDeps {
+): ProviderHostRuntime {
   return {
     stateDir,
     mcpHttpRegistry: registry,
     getMcpUrl: () => `http://${WS_HOST}:${port}/mcp`,
-    getApiKey: () => MOCK_API_KEY,
   };
 }
 
@@ -113,14 +113,13 @@ function buildCodexRuntime(
  * provider. Both providers go through the same code path from here on, so a
  * test written once runs against either.
  */
-// A provider whose mock is not set up degrades to the default one, which would
-// quietly run the test against the wrong backend — and, for Claude, against the
-// real SDK. Fail loudly instead.
+// A provider whose mock is not set up would fail every turn with an
+// availability error, which reads as a broken test rather than a missing
+// fixture. Say so here instead.
 function assertProviderReachable(provider: ProviderName): void {
-  const effective = effectiveProvider(provider);
-  if (effective === provider) return;
+  if (isProviderAvailable(provider)) return;
   throw new Error(
-    `harness asked for ${provider} but the sidecar would run ${effective}`,
+    `harness asked for ${provider} but this install cannot drive it`,
   );
 }
 
@@ -160,7 +159,7 @@ export async function startWsHarness(
       hostSocketRegistry.send,
       navigationCompleter,
     ),
-    codexRuntime: buildCodexRuntime(
+    providerRuntime: buildProviderRuntime(
       join(tmpDir, ".state"),
       mcpHttpRegistry,
       port,

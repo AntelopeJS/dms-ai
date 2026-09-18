@@ -9,7 +9,6 @@ import type { PendingRequest, PermissionBus } from "../agent/permission-bus.js";
 import type { PendingQuestion, QuestionBus } from "../agent/question-bus.js";
 import type { AgentRunner } from "../agent/runner.js";
 import type { RunnerEvent } from "../agent/runner-events.js";
-import { activeProviderName } from "../agent/switching-runner.js";
 import { buildToolSummary } from "../agent/tool-summary.js";
 import { getBuilderAvailable } from "../builder/capability.js";
 import {
@@ -44,7 +43,7 @@ import {
   type ServerEchoReplyMsgType,
   type UserMessageMsgType,
 } from "../protocol/messages.js";
-import { getProviderAvailability } from "../providers/availability.js";
+import { getProviderAvailability } from "../providers/registry.js";
 import type { ConversationStore } from "../state/conversations.js";
 import type { HostState } from "../state/host-state.js";
 import type { SettingsStore } from "../state/settings-store.js";
@@ -439,9 +438,11 @@ async function streamTurn(
   attachments?: AttachmentType[],
 ): Promise<void> {
   ctx.liveTurns.begin(conversationId);
+  // The selected provider is the one that runs, or the turn fails: there is no
+  // longer a gap between what was chosen and what answered.
   ctx.conversationStore.markProvider(
     conversationId,
-    activeProviderName(ctx.settingsStore.get()),
+    ctx.settingsStore.get().provider,
   );
   try {
     const stream = ctx.runner.start(content, {

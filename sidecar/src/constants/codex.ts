@@ -175,7 +175,5 @@ export const MOCK_CODEX_VERSION = "9999.0.0";
 export const MOCK_CODEX_BINARY_RELATIVE =
   "../../../tests/fixtures/mock-codex/bin/codex.mjs";
 
-export const CODEX_MCP_URL_TEMPLATE = "http://127.0.0.1:%port%/mcp";
-
 export const CODEX_TURN_FAILED_MESSAGE = "codex turn failed";
 export const CODEX_TURN_ABORTED_MESSAGE = "codex turn aborted";

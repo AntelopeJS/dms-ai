@@ -33,10 +33,13 @@ behave the same either way. `GET /settings` reports which ones this install can 
 { "provider": "claude", "providers": { "claude": { "available": true }, "codex": { "available": false, "reason": "Install @openai/codex, at the exact version dms-ai pins, to enable this provider." } } }
 ```
 
-Selecting a provider that later becomes unavailable does not fail a turn: sessions fall back to
-`claude`, the way safe generation mode falls back to vibe when the builder is absent. Switching
-provider disposes the live sessions of the previous one — an open conversation loses its in-agent
-context, its transcript is kept.
+`claude` is the default *choice*, not a fallback. A provider that this install cannot drive — its
+package uninstalled, its API key gone from the environment — fails the turn with that reason in the
+chat, and the conversation is never quietly handed to the other backend: someone who picked OpenAI
+may have picked it precisely so their code does not reach Anthropic.
+
+Switching provider disposes the live sessions of the previous one — an open conversation loses its
+in-agent context, its transcript is kept.
 
 ### Enabling Codex
 

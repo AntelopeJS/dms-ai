@@ -70,6 +70,9 @@ export const FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES: ReadonlySet<string> = new Set(
 );
 
 export const MCP_HTTP_PATH = "/mcp";
+// Where an out-of-process provider reaches the endpoint above.
+export const MCP_HTTP_URL_TEMPLATE = `http://127.0.0.1:%port%${MCP_HTTP_PATH}`;
+export const MCP_HTTP_PORT_TOKEN = "%port%";
 export const MCP_AUTHORIZATION_HEADER = "authorization";
 export const MCP_BEARER_PREFIX = "bearer ";
 // Loopback forms accepted in Host/Origin. Anything else is refused so a page in

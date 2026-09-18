@@ -4,7 +4,7 @@ import {
   MOCK_CODEX_VERSION_ENV,
 } from "../../src/constants/codex.js";
 import { PROVIDER_UNAVAILABLE_REASONS } from "../../src/constants/providers.js";
-import { getProviderAvailability } from "../../src/providers/availability.js";
+import { getProviderAvailability } from "../../src/providers/registry.js";
 import {
   isCodexInstallationUsable,
   readCodexBinaryVersion,

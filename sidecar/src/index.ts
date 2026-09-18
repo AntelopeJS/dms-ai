@@ -7,10 +7,6 @@ import { createBuilderClient } from "./builder/builder-client.js";
 import { setBuilderAvailable } from "./builder/capability.js";
 import { SIDECAR_BUILDER_FLAG } from "./constants/builder.js";
 import {
-  CODEX_MCP_URL_TEMPLATE,
-  OPENAI_API_KEY_ENV_VAR,
-} from "./constants/codex.js";
-import {
   GRACEFUL_EXIT_CODE,
   IDLE_SHUTDOWN_MS,
   SIDECAR_BUILD_ID_FLAG,
@@ -22,6 +18,7 @@ import {
   PRODUCTION_NODE_ENV,
 } from "./constants/env.js";
 import { DEFAULT_BACKEND_BASE_URL } from "./constants/pages.js";
+import { MCP_HTTP_PORT_TOKEN, MCP_HTTP_URL_TEMPLATE } from "./constants/mcp.js";
 import { CHATBOX_DIST_DIR, STATE_DIR_SEGMENTS } from "./constants/paths.js";
 import { DEFAULT_HOST_ORIGIN, RANDOM_PORT } from "./constants/ports.js";
 import { SETTINGS_FILE_NAME } from "./constants/settings.js";
@@ -32,7 +29,7 @@ import type { McpHttpRegistry } from "./mcp/http-binding.js";
 import { createMcpHttpRegistry } from "./mcp/http-binding.js";
 import { createImportsScanner } from "./pages/imports-scanner.js";
 import { createRegistryClient } from "./pages/registry-client.js";
-import { reapOrphanCodexProcesses } from "./providers/codex/process.js";
+import { reapOrphanProviders } from "./providers/registry.js";
 import { createHostSocketRegistry } from "./server/host-socket-registry.js";
 import { createHttpServer, type SettingsApplier } from "./server/http.js";
 import {
@@ -316,13 +313,11 @@ function buildWsStack({
     navigationCompleter,
     idleController,
     settingsApplier,
-    codexRuntime: {
+    providerRuntime: {
       stateDir: stateDirFor(args.root),
       mcpHttpRegistry,
-      getMcpUrl: () => CODEX_MCP_URL_TEMPLATE.replace("%port%", String(port)),
-      // Read here, then written into the isolated home's auth.json: the binary
-      // does not read this variable itself.
-      getApiKey: () => process.env[OPENAI_API_KEY_ENV_VAR],
+      getMcpUrl: () =>
+        MCP_HTTP_URL_TEMPLATE.replace(MCP_HTTP_PORT_TOKEN, String(port)),
     },
   });
 }
@@ -359,9 +354,10 @@ async function main(): Promise<void> {
       os.homedir(),
     ),
   );
-  // A sidecar killed outright leaves app-server children holding a model
-  // connection and writing to disk; they are cleared before anything new starts.
-  await reapOrphanCodexProcesses(stateDirFor(args.root));
+  // A sidecar killed outright can leave backend children holding a model
+  // connection and writing to disk; each provider clears its own before
+  // anything new starts.
+  await reapOrphanProviders(stateDirFor(args.root));
   const mcpHttpRegistry = createMcpHttpRegistry();
   const { server, port } = await createHttpServer({
     clientToken,

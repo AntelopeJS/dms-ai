@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import { AppSettingsSchema } from "../../src/protocol/events.js";
 import { SetSettingsMsg } from "../../src/protocol/messages.js";
-import { getProviderAvailability } from "../../src/providers/availability.js";
+import { getProviderAvailability } from "../../src/providers/registry.js";
+import type { ProviderAvailability } from "../../src/providers/types.js";
 import { parseSettings } from "../../src/state/settings-store.js";
 import { PROVIDER_NAMES } from "../../src/state/types.js";
 
@@ -65,7 +66,10 @@ describe("provider availability", () => {
   });
 
   it("carries a reason on anything it cannot drive", () => {
-    for (const verdict of Object.values(getProviderAvailability())) {
+    const verdicts: ProviderAvailability[] = Object.values(
+      getProviderAvailability(),
+    );
+    for (const verdict of verdicts) {
       if (verdict.available) continue;
       expect(verdict.reason).toBeTypeOf("string");
     }

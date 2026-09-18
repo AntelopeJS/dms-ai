@@ -7,7 +7,7 @@ import {
   type PendingRequest,
   type PermissionBus,
 } from "../agent/permission-bus.js";
-import type { AgentProvider, AgentProviderOptions } from "../agent/provider.js";
+import type { AgentProviderOptions } from "../agent/provider.js";
 import {
   createQuestionBus,
   type PendingQuestion,
@@ -20,7 +20,6 @@ import {
 } from "../agent/switching-runner.js";
 import { buildToolSummary } from "../agent/tool-summary.js";
 import { WS_MAX_PAYLOAD_BYTES } from "../constants/attachments.js";
-import { CODEX_MISSING_RUNTIME_MESSAGE } from "../constants/codex.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import { WS_LOG_PREFIX, WS_PATHS } from "../constants/ws.js";
 import { createAiMcpServer } from "../mcp/sdk-binding.js";
@@ -34,17 +33,17 @@ import {
   EVENT_TYPES,
   type PermissionRequestEventType,
 } from "../protocol/events.js";
-import { createClaudeProvider } from "../providers/claude/provider.js";
-import {
-  type CodexRuntimeDeps,
-  createCodexProvider,
-} from "../providers/codex/provider.js";
+import { PROVIDER_MODULES } from "../providers/registry.js";
+import type {
+  ProviderHostRuntime,
+  ProviderRuntime,
+} from "../providers/types.js";
 import type { SkillSource } from "../skills/types.js";
 import type { ConversationStore } from "../state/conversations.js";
 import type { HostState } from "../state/host-state.js";
 import type { SettingsStore } from "../state/settings-store.js";
 import type { AppSettings } from "../state/settings-types.js";
-import type { ProviderName } from "../state/types.js";
+import { PROVIDER_NAMES, type ProviderName } from "../state/types.js";
 import { isClientAuthorized } from "./client-auth.js";
 import type { HostSocketRegistry } from "./host-socket-registry.js";
 import type { SettingsApplier } from "./http.js";
@@ -72,8 +71,9 @@ export interface AttachWsServerOptions {
   conversationStore: ConversationStore;
   settingsStore?: SettingsStore;
   mcpDeps: AiMcpServerStaticDeps;
-  // Present only when the sidecar can run the Codex provider.
-  codexRuntime?: CodexRuntimeDeps;
+  // What the sidecar's own runtime offers every provider. Neutral: the backends
+  // are reached through the registry, never by name from here.
+  providerRuntime: ProviderHostRuntime;
   hostState: HostState;
   hostSocketRegistry: HostSocketRegistry;
   navigationCompleter: NavigationCompleter;
@@ -100,53 +100,34 @@ interface AttachWsServerResult {
   close: () => Promise<void>;
 }
 
-interface ProviderBuildContext {
-  options: AttachWsServerOptions;
-  settings: AppSettings;
-  createMcpDeps: (conversationId: string) => AiMcpServerDeps;
-}
-
-function buildBaseOptions(ctx: ProviderBuildContext): AgentProviderOptions {
+function buildBaseOptions(
+  options: AttachWsServerOptions,
+  settings: AppSettings,
+): AgentProviderOptions {
   return {
-    settings: ctx.settings,
-    moduleRoots: ctx.options.moduleRoots ?? [],
-    skillDirs: ctx.options.skillDirs ?? [],
+    settings,
+    moduleRoots: options.moduleRoots ?? [],
+    skillDirs: options.skillDirs ?? [],
   };
 }
 
-function buildCodex(ctx: ProviderBuildContext): AgentProvider {
-  const runtime = ctx.options.codexRuntime;
-  if (runtime === undefined) {
-    throw new Error(CODEX_MISSING_RUNTIME_MESSAGE);
-  }
-  return createCodexProvider({
-    ...buildBaseOptions(ctx),
-    ...runtime,
-    createMcpDeps: ctx.createMcpDeps,
-  });
-}
-
-const PROVIDER_BUILDERS: Record<
-  ProviderName,
-  (ctx: ProviderBuildContext) => AgentProvider
-> = {
-  claude: (ctx) => createClaudeProvider(buildBaseOptions(ctx)),
-  codex: buildCodex,
-};
-
+// One factory per registered provider, all built the same way: the registry is
+// the only thing here that knows which backends exist.
 function buildRunnerFactories(
   options: AttachWsServerOptions,
-  createMcpDeps: (conversationId: string) => AiMcpServerDeps,
+  runtime: ProviderRuntime,
 ): Record<ProviderName, ProviderRunnerFactory> {
-  const factories = Object.entries(PROVIDER_BUILDERS).map(
-    ([name, buildProvider]) => [
-      name,
-      (settings: AppSettings) =>
-        createAgentRunner(buildProvider({ options, settings, createMcpDeps }), {
-          settings,
-        }),
-    ],
-  );
+  const factories = PROVIDER_NAMES.map((name) => [
+    name,
+    (settings: AppSettings) =>
+      createAgentRunner(
+        PROVIDER_MODULES[name].create(
+          buildBaseOptions(options, settings),
+          runtime,
+        ),
+        { settings },
+      ),
+  ]);
   return Object.fromEntries(factories) as Record<
     ProviderName,
     ProviderRunnerFactory
@@ -159,7 +140,10 @@ function buildRunner(
   createMcpDeps: (conversationId: string) => AiMcpServerDeps,
 ): AgentRunner {
   return createSwitchingRunner(
-    buildRunnerFactories(options, createMcpDeps),
+    buildRunnerFactories(options, {
+      ...options.providerRuntime,
+      createMcpDeps,
+    }),
     settings,
   );
 }

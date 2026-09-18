@@ -108,6 +108,7 @@ export const PROVIDER_FIXTURES: ProviderFixture[] = [
 ];
 
 export const CODEX_FIXTURE = codexFixture;
+export const CLAUDE_FIXTURE = claudeFixture;
 
 /** Joins several recordings into one script: one turn per file, in order. */
 export function codexTurns(...files: string[]): string {

@@ -23,10 +23,8 @@ import {
   type MetricWindow,
 } from "../metrics/types.js";
 import { AppSettingsSchema } from "../protocol/events.js";
-import {
-  getProviderAvailability,
-  type ProviderAvailabilityMap,
-} from "../providers/availability.js";
+import { getProviderAvailability } from "../providers/registry.js";
+import type { ProviderAvailabilityMap } from "../providers/types.js";
 import { buildSkillCatalog } from "../skills/build-catalog.js";
 import { isClientAuthorized } from "./client-auth.js";
 import type { SkillSource } from "../skills/types.js";

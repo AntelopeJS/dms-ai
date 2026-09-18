@@ -52,8 +52,8 @@ import {
 } from "./resolve-binary.js";
 import { buildSkillExtraRoots, selectSkillsToDisable } from "./skills.js";
 
-/** Everything the Codex path needs from the sidecar's own runtime. */
-export interface CodexRuntimeDeps {
+/** What the module hands down from the neutral ProviderRuntime, plus the key. */
+interface CodexRuntimeDeps {
   stateDir: string;
   mcpHttpRegistry: McpHttpRegistry;
   getMcpUrl: () => string;

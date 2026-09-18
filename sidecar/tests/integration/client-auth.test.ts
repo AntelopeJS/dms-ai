@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createHttpServer } from "../../src/server/http.js";
+import { createMcpHttpRegistry } from "../../src/mcp/http-binding.js";
 import { attachWsServer } from "../../src/server/ws.js";
 import { createHostSocketRegistry } from "../../src/server/host-socket-registry.js";
 import { createNavigationCompleter } from "../../src/server/navigation-completer.js";
@@ -66,6 +67,11 @@ function buildContext(directory: string) {
     hostSocketRegistry,
     navigationCompleter,
     mcpDeps,
+    providerRuntime: {
+      stateDir: join(directory, ".state"),
+      mcpHttpRegistry: createMcpHttpRegistry(),
+      getMcpUrl: () => "http://127.0.0.1:1/mcp",
+    },
   };
 }
 

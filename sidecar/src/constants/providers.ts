@@ -16,12 +16,12 @@ export const PROVIDER_LABELS = {
   codex: "OpenAI (Codex)",
 } as const;
 
-// Codex asks for a reasoning effort level, Claude for a thinking-token budget.
-// One control drives both, so its hint says what the level means per provider.
-export const THINKING_HINTS = {
-  claude: "Thinking budget handed to the model.",
-  codex:
-    "Reasoning effort handed to the model; Codex has no 'off', so it maps to the lowest level.",
-} as const;
+// Raised when a turn asks for a provider this install cannot drive. The chosen
+// backend is never silently swapped for another one: someone who picked OpenAI
+// may have picked it precisely so their code does not go to Anthropic, and a
+// quiet fallback would betray that. The message carries the reason, so the chat
+// says what to do about it.
+export const PROVIDER_UNAVAILABLE_ERROR = "%label% cannot run:";
+export const PROVIDER_LABEL_TOKEN = "%label%";
 
 export const PROVIDER_SWITCH_LOG = "[dms-ai] agent provider switched:";
