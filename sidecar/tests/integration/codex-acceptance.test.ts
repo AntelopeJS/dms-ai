@@ -3,7 +3,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { setBuilderAvailable } from "../../src/builder/capability.js";
 import type {
   PermissionBus,
   PermissionRequest,
@@ -194,7 +195,12 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
   let harness: Harness | undefined;
   let session: ProviderSession | undefined;
 
+  // Safe mode degrades to vibe when the Builder is absent, so without this the
+  // safe-mode expectations below would silently be asserting vibe behaviour.
+  beforeEach(() => setBuilderAvailable(true));
+
   afterEach(async () => {
+    setBuilderAvailable(false);
     session?.dispose();
     session = undefined;
     await harness?.dispose();
