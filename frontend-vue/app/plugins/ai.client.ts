@@ -1,4 +1,4 @@
-import { defineDmsPlugin, useDmsRouter } from '#dms-inertia/frontend-module'
+import { defineDmsPlugin, useDmsRouter } from '#dms/frontend-module'
 import {
 	SIDECAR_HOST_NAME,
 	SIDECAR_INFO_PATH,
