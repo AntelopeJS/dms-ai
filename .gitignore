@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .antelope/
+.amp/portals/*
 .ai/
 sidecar/.state/
 sidecar/chatbox/dist/
