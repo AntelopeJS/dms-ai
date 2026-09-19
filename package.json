@@ -38,6 +38,7 @@
     "lint:fix": "oxlint --disable-nested-config --fix --max-warnings=1000000 && oxfmt --disable-nested-config . && cd frontend-vue && pnpm lint:fix && cd ../sidecar && pnpm lint:fix",
     "typecheck": "tsc --noEmit && cd frontend-vue && pnpm typecheck && cd ../sidecar && pnpm typecheck",
     "test": "cd sidecar && pnpm test && cd ../frontend-vue && pnpm test",
+    "test:sidecar-smoke": "pnpm run build:sidecar && node --test tests/sidecar-build.test.cjs",
     "test:frontend-registration": "pnpm run build && node --test tests/frontend-registration.test.cjs",
     "test:release-script": "node --test tests/release-script.test.cjs",
     "test:e2e": "cd sidecar && pnpm test:e2e",

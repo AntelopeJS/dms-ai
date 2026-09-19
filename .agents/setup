@@ -110,6 +110,7 @@ install_dependencies() {
   pnpm --dir playground install --frozen-lockfile --force
   pnpm --dir frontend-vue install --frozen-lockfile --ignore-scripts
   pnpm build
+  pnpm build:sidecar
   pnpm --dir playground build
 }
 

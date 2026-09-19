@@ -33,6 +33,7 @@ Install dependencies and run the backend and sidecar checks from the repository 
 ```bash
 pnpm install
 pnpm build
+pnpm build:sidecar
 pnpm test
 ```
 
