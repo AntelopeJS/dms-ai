@@ -1,5 +1,7 @@
 import { defineConfig } from "@antelopejs/interface-core/config";
 
+const dmsClientUrl = process.env.DMS_CLIENT_BASE_URL;
+
 export default defineConfig({
   name: "dms-ai-playground",
   logging: {
@@ -23,6 +25,9 @@ export default defineConfig({
       },
       config: {
         homepage: "/home",
+        auth: {
+          jwtSecret: "dev",
+        },
         meta: {
           title: "dms-ai",
           description: "dms-ai playground",
@@ -80,6 +85,14 @@ export default defineConfig({
             port: "5010",
           },
         ],
+        cors: {
+          allowedOrigins: [
+            "http://localhost:3001",
+            "http://127.0.0.1:3001",
+            /^https:\/\/[^/]+\.onamp\.dev$/,
+            ...(dmsClientUrl ? [dmsClientUrl] : []),
+          ],
+        },
       },
     },
     "file-storage-local": {
