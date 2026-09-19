@@ -34,7 +34,7 @@ export default defineConfig({
         type: "local",
         path: "../",
         watchDir: ["src"],
-        installCommand: ["pnpm install", "pnpm build"],
+        installCommand: ["pnpm install", "pnpm build", "pnpm build:sidecar"],
       },
     },
     "dms-builder": {
