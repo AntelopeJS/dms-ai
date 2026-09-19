@@ -107,7 +107,7 @@ start_mongodb() {
 
 install_dependencies() {
   pnpm install --frozen-lockfile
-  pnpm --dir playground install --frozen-lockfile
+  pnpm --dir playground install --frozen-lockfile --force
   pnpm --dir frontend-vue install --frozen-lockfile --ignore-scripts
   pnpm build
   pnpm --dir playground build
