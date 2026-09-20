@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.0.6
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.0.5...v0.0.6)
+
+### 🩹 Fixes
+
+- **playground:** Build sidecar before startup ([#11](https://github.com/AntelopeJS/dms-ai/pull/11))
+- **playground:** Use dms frontend 0.2.1 ([#12](https://github.com/AntelopeJS/dms-ai/pull/12))
+- **frontend:** Register the launcher after a client-side sign-in ([#13](https://github.com/AntelopeJS/dms-ai/pull/13))
+
+### 🏡 Chore
+
+- **playground:** Migrate to ajs dms CLI ([#9](https://github.com/AntelopeJS/dms-ai/pull/9))
+- Add orb playground setup ([f235f4d](https://github.com/AntelopeJS/dms-ai/commit/f235f4d))
+- Add orb playground setup" ([2ec27ff](https://github.com/AntelopeJS/dms-ai/commit/2ec27ff))
+- Add orb playground setup ([#10](https://github.com/AntelopeJS/dms-ai/pull/10))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.0.5
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.0.4...v0.0.5)
