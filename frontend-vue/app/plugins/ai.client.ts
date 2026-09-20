@@ -1,4 +1,8 @@
-import { defineDmsPlugin, useDmsRouter } from '#dms/frontend-module'
+import {
+	type DmsAppContext,
+	defineDmsPlugin,
+	useDmsRouter,
+} from '#dms/frontend-module'
 import {
 	SIDECAR_HOST_NAME,
 	SIDECAR_INFO_PATH,
@@ -14,6 +18,7 @@ import { registerLauncherAction } from '../runtime/header-action'
 import { createHostCommandDispatcher } from '../runtime/host-commands'
 import { installNavigationCompleteEmitter } from '../runtime/navigation-complete'
 import { injectOverlay } from '../runtime/overlay'
+import { runWhenLoggedIn } from '../runtime/session-gate'
 import { installToggleShortcut } from '../runtime/shortcuts'
 import {
 	createSidecarStatusController,
@@ -30,10 +35,7 @@ function buildIframeUrl(port: number, token: string): string {
 	return `${SIDECAR_PROBE_HOST}:${port}/?theme=${mode}#token=${encodeURIComponent(token)}`
 }
 
-export default defineDmsPlugin(async ({ vueApp }) => {
-	if (!import.meta.env.DEV) return
-	const { loggedIn } = useUserSession()
-	if (!loggedIn.value) return
+async function startAssistant({ vueApp }: DmsAppContext): Promise<void> {
 	const { $authFetch } = useAuthFetch()
 	const controller = createSidecarStatusController(() =>
 		$authFetch(SIDECAR_INFO_PATH),
@@ -106,4 +108,14 @@ export default defineDmsPlugin(async ({ vueApp }) => {
 	}
 	vueApp.onUnmount(stop)
 	import.meta.hot?.dispose(stop)
+}
+
+export default defineDmsPlugin((context) => {
+	if (!import.meta.env.DEV) return
+	const { loggedIn } = useUserSession()
+	const stopGate = runWhenLoggedIn(
+		() => loggedIn.value,
+		() => void context.runWithContext(() => startAssistant(context)),
+	)
+	context.vueApp.onUnmount(stopGate)
 })
