@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  CODEX_VERSION_WAIVER_ENABLED,
+  CODEX_VERSION_WAIVER_ENV,
   MOCK_CODEX_VERSION,
   MOCK_CODEX_VERSION_ENV,
 } from "../../src/constants/codex.js";
-import { PROVIDER_UNAVAILABLE_REASONS } from "../../src/constants/providers.js";
+import {
+  PROVIDER_INSTALLED_VERSION_TOKEN,
+  PROVIDER_PINNED_VERSION_TOKEN,
+  PROVIDER_UNAVAILABLE_REASONS,
+} from "../../src/constants/providers.js";
 import { getProviderAvailability } from "../../src/providers/registry.js";
 import {
   isCodexInstallationUsable,
@@ -26,14 +32,13 @@ function installation() {
 describe("codex binary version gate", () => {
   afterEach(() => {
     delete process.env[MOCK_CODEX_VERSION_ENV];
+    delete process.env[CODEX_VERSION_WAIVER_ENV];
     CODEX_FIXTURE.reset();
   });
 
   it("reads the version the binary reports", () => {
     CODEX_FIXTURE.use("plain");
-    expect(readCodexBinaryVersion(installation().binaryPath)).toBe(
-      MOCK_CODEX_VERSION,
-    );
+    expect(readCodexBinaryVersion(installation())).toBe(MOCK_CODEX_VERSION);
   });
 
   it("accepts a binary matching the pinned types", () => {
@@ -47,13 +52,24 @@ describe("codex binary version gate", () => {
     expect(isCodexInstallationUsable(installation())).toBe(false);
   });
 
-  it("reports the drift as the reason the provider is unavailable", () => {
+  // The mismatch is the expected state after any Codex upgrade, so the reason
+  // has to say which version is installed and which one to pin back to.
+  it("names both versions in the reason the provider is unavailable", () => {
     CODEX_FIXTURE.use("plain");
     process.env[MOCK_CODEX_VERSION_ENV] = DRIFTED_VERSION;
-    expect(getProviderAvailability().codex).toEqual({
-      available: false,
-      reason: PROVIDER_UNAVAILABLE_REASONS.CODEX_VERSION_MISMATCH,
-    });
+    const verdict = getProviderAvailability().codex;
+    expect(verdict.available).toBe(false);
+    expect(verdict.reason).toContain(DRIFTED_VERSION);
+    expect(verdict.reason).toContain(MOCK_CODEX_VERSION);
+    expect(verdict.reason).not.toContain(PROVIDER_PINNED_VERSION_TOKEN);
+    expect(verdict.reason).not.toContain(PROVIDER_INSTALLED_VERSION_TOKEN);
+  });
+
+  it("lets an explicit waiver through, so a newer binary is not a dead end", () => {
+    CODEX_FIXTURE.use("plain");
+    process.env[MOCK_CODEX_VERSION_ENV] = DRIFTED_VERSION;
+    process.env[CODEX_VERSION_WAIVER_ENV] = CODEX_VERSION_WAIVER_ENABLED;
+    expect(isCodexInstallationUsable(installation())).toBe(true);
   });
 
   it("reports a missing API key as its own reason", () => {

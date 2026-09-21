@@ -3,6 +3,8 @@ import {
   CODEX_APPROVAL_DECISIONS,
   CODEX_COMMAND_APPROVAL_METHOD,
   CODEX_FILE_CHANGE_APPROVAL_METHOD,
+  CODEX_LOG_PREFIX,
+  CODEX_UNKNOWN_APPROVAL_METHOD,
 } from "../../constants/codex.js";
 import {
   PERMISSION_DECISIONS,
@@ -126,8 +128,15 @@ export function createCodexPermissionHandler(
     async handle(request) {
       const describe = SUBJECT_BY_METHOD[request.method];
       // Any other server request that expects a decision is refused rather
-      // than blindly accepted.
-      if (describe === undefined) return decline();
+      // than blindly accepted. It is also said out loud: a decision method
+      // added by a later Codex release would otherwise turn into a silent
+      // refusal loop with nothing pointing at it.
+      if (describe === undefined) {
+        console.warn(
+          `${CODEX_LOG_PREFIX} ${CODEX_UNKNOWN_APPROVAL_METHOD} ${request.method}`,
+        );
+        return decline();
+      }
       if (cancelled) return decline();
       const subject = describe(request.params);
       // Safe and plan modes decline every escalation, evaluated here rather

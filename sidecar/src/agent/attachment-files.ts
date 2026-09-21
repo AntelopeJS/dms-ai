@@ -3,9 +3,9 @@ import path from "node:path";
 import { UPLOADS_DIR_SEGMENT } from "../constants/attachments.js";
 import { STATE_DIR_SEGMENTS } from "../constants/paths.js";
 import type { AttachmentType } from "../protocol/messages.js";
+import { safeDirSegment } from "../state/safe-segment.js";
 
 const FALLBACK_FILE_NAME = "file";
-const FALLBACK_SEGMENT = "conversation";
 
 // Reduce an arbitrary upload name to a safe basename (strip directory parts and
 // characters that could escape or confuse the uploads dir). Empty → "file".
@@ -17,14 +17,6 @@ export function sanitizeFileName(name: string): string {
   return base.length > 0 ? base : FALLBACK_FILE_NAME;
 }
 
-// The conversationId arrives from the WS client as a free-form string; reduce
-// it to a single safe path segment so a crafted id (e.g. "../../tmp") cannot
-// escape the uploads tree.
-export function sanitizePathSegment(segment: string): string {
-  const safe = segment.replace(/[^\w-]+/g, "_");
-  return safe.length > 0 ? safe : FALLBACK_SEGMENT;
-}
-
 export function uploadsDirFor(
   hostProjectRoot: string,
   conversationId: string,
@@ -33,7 +25,7 @@ export function uploadsDirFor(
     hostProjectRoot,
     ...STATE_DIR_SEGMENTS,
     UPLOADS_DIR_SEGMENT,
-    sanitizePathSegment(conversationId),
+    safeDirSegment(conversationId),
   );
 }
 

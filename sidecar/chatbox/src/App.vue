@@ -31,8 +31,11 @@ import {
 	MODE_SECTION_LABEL,
 	OPEN_SETTINGS_ICON,
 	OPEN_SETTINGS_LABEL,
+	PROVIDER_BUSY_HINT,
 	PROVIDER_OPTIONS,
 	PROVIDER_SECTION_LABEL,
+	PROVIDER_SWITCH_CONFIRM,
+	PROVIDER_SWITCH_WARNING,
 	PROVIDER_UNAVAILABLE_PREFIX,
 } from "./constants/settings";
 import {
@@ -100,7 +103,7 @@ const modeModel = computed<ChatboxMode>({
 const providerItems = computed(() =>
 	PROVIDER_OPTIONS.map((option) => ({
 		...option,
-		disabled: !isProviderAvailable(option.value),
+		disabled: !isProviderAvailable(option.value) || conversation.isRunning.value,
 	})),
 );
 
@@ -111,16 +114,25 @@ function isProviderAvailable(name: ProviderName): boolean {
 const providerHint = computed(() => {
 	const active = settings.settings.value.provider;
 	const reason = settings.settings.value.providers[active]?.reason;
-	return reason === undefined
-		? PROVIDER_SECTION_LABEL
-		: `${PROVIDER_UNAVAILABLE_PREFIX}${reason}`;
+	if (reason !== undefined) return `${PROVIDER_UNAVAILABLE_PREFIX}${reason}`;
+	if (conversation.isRunning.value) return PROVIDER_BUSY_HINT;
+	return PROVIDER_SWITCH_WARNING;
 });
+
+// The switch is confirmed rather than merely announced once a conversation has
+// something to lose: the session it tears down is the one on screen.
+function mayLeaveCurrentSession(): boolean {
+	if (conversation.messages.value.length === 0) return true;
+	return window.confirm(PROVIDER_SWITCH_CONFIRM);
+}
 
 const providerModel = computed<ProviderName>({
 	get: () => settings.settings.value.provider,
 	set: (value) => {
 		if (value === settings.settings.value.provider) return;
 		if (!isProviderAvailable(value)) return;
+		if (conversation.isRunning.value) return;
+		if (!mayLeaveCurrentSession()) return;
 		settings.update({ provider: value });
 	},
 });

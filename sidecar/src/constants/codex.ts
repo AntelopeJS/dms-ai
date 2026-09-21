@@ -95,7 +95,26 @@ export const CODEX_PID_REGISTRY_FILE = "codex-pids.json";
 // Grace left to SIGTERM before SIGKILL. The app-server exits promptly; this only
 // covers a wedged child.
 export const CODEX_TERMINATE_GRACE_MS = 2000;
-export const CODEX_PROC_CMDLINE = "/proc/%pid%/cmdline";
+export const CODEX_PID_TOKEN = "%pid%";
+export const CODEX_PROC_CMDLINE = `/proc/${CODEX_PID_TOKEN}/cmdline`;
+
+// How each platform without procfs is asked what a pid is running. macOS keeps
+// BSD ps, Windows answers with the image name, which is enough to tell a codex
+// process from a recycled pid.
+export const PROCESS_QUERY_BY_PLATFORM: Record<string, readonly string[]> = {
+  darwin: ["ps", "-p", CODEX_PID_TOKEN, "-o", "command="],
+  win32: ["tasklist", "/FI", `PID eq ${CODEX_PID_TOKEN}`, "/FO", "CSV", "/NH"],
+};
+
+// /T takes the children with it: the app-server's sandboxed shells are not
+// reaped by the death of their parent on Windows.
+export const WINDOWS_TREE_KILL: readonly string[] = [
+  "taskkill",
+  "/PID",
+  CODEX_PID_TOKEN,
+  "/T",
+  "/F",
+];
 
 // Codex approval decisions. A decline carries no message — the protocol has no
 // field for one — so the redirection to the Builder is carried by the developer
@@ -105,6 +124,9 @@ export const CODEX_APPROVAL_DECISIONS = {
   DECLINE: "decline",
   CANCEL: "cancel",
 } as const;
+
+export const CODEX_UNKNOWN_APPROVAL_METHOD =
+  "declined an approval request this sidecar does not know how to present:";
 
 export const CODEX_COMMAND_APPROVAL_METHOD =
   "item/commandExecution/requestApproval";
@@ -157,7 +179,13 @@ export const CODEX_MAX_LIVE_SESSIONS = 4;
 export const CODEX_MISSING_CLI_MESSAGE =
   "[dms-ai] the Codex provider needs @openai/codex; install it to use this provider";
 export const CODEX_VERSION_MISMATCH_MESSAGE =
-  "[dms-ai] the installed codex binary does not match the protocol types the sidecar ships; refusing to start";
+  "[dms-ai] refusing to start the codex binary:";
+
+// Opt-in escape hatch for a Codex release the shipped types were not generated
+// from. Named after what it waives, so a stale value in a shell profile reads
+// as the risk it is.
+export const CODEX_VERSION_WAIVER_ENV = "DMS_AI_CODEX_ALLOW_VERSION_MISMATCH";
+export const CODEX_VERSION_WAIVER_ENABLED = "1";
 export const CODEX_MISSING_API_KEY_MESSAGE =
   "[dms-ai] the Codex provider needs an OpenAI API key";
 

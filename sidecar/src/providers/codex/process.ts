@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -15,12 +15,17 @@ import {
   CODEX_LOG_PREFIX,
   CODEX_MCP_TOKEN_ENV_VAR,
   CODEX_PID_REGISTRY_FILE,
+  CODEX_PID_TOKEN,
   CODEX_PROC_CMDLINE,
   CODEX_SPAWN_FAILED_MESSAGE,
   CODEX_STDERR_TAIL_BYTES,
   CODEX_STRICT_CONFIG_FLAG,
   CODEX_TERMINATE_GRACE_MS,
+  PROCESS_QUERY_BY_PLATFORM,
+  WINDOWS_PLATFORM,
+  WINDOWS_TREE_KILL,
 } from "../../constants/codex.js";
+import { safeDirSegment } from "../../state/safe-segment.js";
 import type { CodexClient, CodexClientHandlers } from "./client.js";
 import { createCodexClient } from "./client.js";
 import { buildAuthFile, buildConfigToml } from "./config.js";
@@ -44,8 +49,17 @@ export interface CodexProcess {
   dispose: () => Promise<void>;
 }
 
-function codexHomeFor(stateDir: string, conversationId: string): string {
-  return path.join(stateDir, CODEX_HOME_DIR_NAME, conversationId);
+/**
+ * The isolated home for one conversation. The id is reduced to a safe segment
+ * because this directory is removed recursively, twice: a raw id would let the
+ * client choose what gets deleted, and what the auth file lands next to.
+ */
+export function codexHomeFor(stateDir: string, conversationId: string): string {
+  return path.join(
+    stateDir,
+    CODEX_HOME_DIR_NAME,
+    safeDirSegment(conversationId),
+  );
 }
 
 function pidRegistryPath(stateDir: string): string {
@@ -70,21 +84,67 @@ async function writePidRegistry(
   await writeFile(pidRegistryPath(stateDir), JSON.stringify([...pids]));
 }
 
-// A recorded pid may have been recycled by an unrelated process, so the command
-// line is checked before signalling anything.
-function isCodexProcess(pid: number): boolean {
+function readProcCmdline(pid: number): string | undefined {
+  return readFileSync(
+    CODEX_PROC_CMDLINE.replace(CODEX_PID_TOKEN, String(pid)),
+    "utf8",
+  );
+}
+
+function queryProcessTable(pid: number): string | undefined {
+  const [command, ...args] = PROCESS_QUERY_BY_PLATFORM[process.platform] ?? [];
+  if (command === undefined) return undefined;
+  return execFileSync(
+    command,
+    args.map((arg) => arg.replace(CODEX_PID_TOKEN, String(pid))),
+    { encoding: "utf8", windowsHide: true },
+  );
+}
+
+// procfs where there is one, the platform's own process table elsewhere. Linux
+// is not the only host: a macOS or Windows sidecar that cannot read a command
+// line would never recognize an orphan, and would therefore never reap one.
+const COMMAND_READERS: Record<string, (pid: number) => string | undefined> = {
+  linux: readProcCmdline,
+};
+
+/**
+ * The command line of a running process, or undefined when it is gone or
+ * unreadable. Never throws: an unreadable process is treated as absent.
+ */
+export function readProcessCommand(pid: number): string | undefined {
+  const read = COMMAND_READERS[process.platform] ?? queryProcessTable;
   try {
-    const cmdline = readFileSync(
-      CODEX_PROC_CMDLINE.replace("%pid%", String(pid)),
-      "utf8",
-    );
-    return cmdline.includes(CODEX_BINARY_NAME);
+    const command = read(pid)?.trim();
+    return command === undefined || command.length === 0 ? undefined : command;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
-function terminate(pid: number): void {
+// A recorded pid may have been recycled by an unrelated process, so the command
+// line is checked before signalling anything. Windows reports the image name
+// (`codex.exe`), which carries the binary name just the same.
+export function isCodexProcess(pid: number): boolean {
+  return readProcessCommand(pid)?.includes(CODEX_BINARY_NAME) === true;
+}
+
+// Windows has no signals: `process.kill` terminates the app-server and leaves
+// whatever it spawned behind, so the tree is killed through taskkill instead.
+function terminateWindows(pid: number): void {
+  const [command, ...args] = WINDOWS_TREE_KILL;
+  try {
+    execFileSync(
+      command,
+      args.map((arg) => arg.replace(CODEX_PID_TOKEN, String(pid))),
+      { windowsHide: true, stdio: "ignore" },
+    );
+  } catch {
+    // Already gone, or never ours to kill.
+  }
+}
+
+function terminatePosix(pid: number): void {
   try {
     process.kill(pid, "SIGTERM");
   } catch {
@@ -97,6 +157,12 @@ function terminate(pid: number): void {
       // Already gone.
     }
   }, CODEX_TERMINATE_GRACE_MS).unref();
+}
+
+function terminate(pid: number): void {
+  const kill =
+    process.platform === WINDOWS_PLATFORM ? terminateWindows : terminatePosix;
+  kill(pid);
 }
 
 /**
@@ -175,7 +241,11 @@ function spawnChild(
 ): ChildProcess {
   return spawn(
     options.installation.binaryPath,
-    [CODEX_APP_SERVER_COMMAND, CODEX_STRICT_CONFIG_FLAG],
+    [
+      ...options.installation.launchArgs,
+      CODEX_APP_SERVER_COMMAND,
+      CODEX_STRICT_CONFIG_FLAG,
+    ],
     {
       stdio: ["pipe", "pipe", "pipe"],
       env: {

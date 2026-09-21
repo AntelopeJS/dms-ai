@@ -26,6 +26,7 @@ const CONVERSATION = "conv-perm";
 const ITEM_ID = "call_1";
 const CHANGED_PATH = "/srv/app/src/page.ts";
 const COMMAND = "rm -rf build";
+const UNKNOWN_METHOD = "item/unknown/requestApproval";
 
 function settings(overrides: Partial<AppSettings>): AppSettings {
   return { ...DEFAULT_SETTINGS, generationMode: "vibe", ...overrides };
@@ -104,11 +105,21 @@ describe("approval routing", () => {
     });
   });
 
-  it("refuses an unknown server request rather than accepting it", async () => {
+  // A later Codex release adding a decision method would otherwise become a
+  // refusal loop with nothing in the logs pointing at it.
+  it("refuses an unknown server request, and says which one", async () => {
     const { handler } = buildHandler(settings({}));
-    expect(
-      await handler.handle({ id: 9, method: "item/unknown", params: {} }),
-    ).toEqual({ decision: "decline" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(
+        await handler.handle({ id: 9, method: UNKNOWN_METHOD, params: {} }),
+      ).toEqual({ decision: "decline" });
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining(UNKNOWN_METHOD),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

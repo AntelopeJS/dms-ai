@@ -1,4 +1,5 @@
 import {
+  CODEX_LOG_PREFIX,
   MOCK_CODEX_FLAG_ENABLED,
   MOCK_CODEX_FLAG_ENV,
   OPENAI_API_KEY_ENV_VAR,
@@ -13,7 +14,9 @@ import {
 import { reapOrphanCodexProcesses } from "./process.js";
 import { createCodexProvider } from "./provider.js";
 import {
+  describeVersionMismatch,
   isCodexInstallationUsable,
+  isVersionGateWaived,
   resolveCodexInstallation,
 } from "./resolve-binary.js";
 
@@ -29,7 +32,14 @@ function computeInstallVerdict(): ProviderAvailability {
     return unavailable(PROVIDER_UNAVAILABLE_REASONS.CODEX_CLI_MISSING);
   }
   if (!isCodexInstallationUsable(installation)) {
-    return unavailable(PROVIDER_UNAVAILABLE_REASONS.CODEX_VERSION_MISMATCH);
+    return unavailable(describeVersionMismatch(installation));
+  }
+  // Waived rather than matching: the drift is real, and the log is the only
+  // place it is still said out loud.
+  if (isVersionGateWaived()) {
+    console.warn(
+      `${CODEX_LOG_PREFIX} ${describeVersionMismatch(installation)}`,
+    );
   }
   return AVAILABLE;
 }

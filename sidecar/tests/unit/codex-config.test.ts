@@ -40,10 +40,18 @@ describe("mode mapping", () => {
     expect(overrides.sandboxPolicy).toEqual({
       type: "workspaceWrite",
       writableRoots: [HOST_ROOT, MODULE_ROOT],
-      networkAccess: true,
+      networkAccess: false,
       excludeTmpdirEnvVar: false,
       excludeSlashTmp: false,
     });
+  });
+
+  // Accepting edits says nothing about egress, and the Claude path grants none
+  // here: the backend the user picked must not widen what they agreed to.
+  it("leaves the network closed when edits are auto-accepted", () => {
+    expect(
+      resolveModePolicy(settings({ mode: "acceptEdits" })).networkAccess,
+    ).toBe(false);
   });
 
   it("maps auto to full access with no approvals", () => {
