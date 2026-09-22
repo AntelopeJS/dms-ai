@@ -1,4 +1,3 @@
-import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import {
   LIST_PAGES_EMPTY_MESSAGE,
@@ -7,6 +6,7 @@ import {
   LIST_PAGES_TOOL_NAME,
 } from "../../constants/pages.js";
 import type { RegistryClient } from "../../pages/registry-client.js";
+import { defineTool } from "../define-tool.js";
 
 export interface ListPagesDeps {
   registry: RegistryClient;
@@ -21,7 +21,7 @@ function buildContent(text: string): {
 }
 
 export function buildListPagesTool(deps: ListPagesDeps) {
-  return tool(
+  return defineTool(
     LIST_PAGES_TOOL_NAME,
     LIST_PAGES_TOOL_DESCRIPTION,
     INPUT_SCHEMA,

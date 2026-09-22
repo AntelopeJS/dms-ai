@@ -8,7 +8,9 @@ import {
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { getBuilderAvailable } from "../builder/capability.js";
 import { CONTENT_TYPE, HTTP_STATUS, MIME_BY_EXT } from "../constants/http.js";
+import { MCP_HTTP_PATH } from "../constants/mcp.js";
 import { LOOPBACK_HOST } from "../constants/ports.js";
+import type { McpHttpRegistry } from "../mcp/http-binding.js";
 import {
   buildActivity,
   buildKpi,
@@ -21,16 +23,25 @@ import {
   type MetricWindow,
 } from "../metrics/types.js";
 import { AppSettingsSchema } from "../protocol/events.js";
+import { getProviderAvailability } from "../providers/registry.js";
+import type { ProviderAvailabilityMap } from "../providers/types.js";
 import { buildSkillCatalog } from "../skills/build-catalog.js";
+import { isClientAuthorized } from "./client-auth.js";
 import type { SkillSource } from "../skills/types.js";
 import type { ConversationStore } from "../state/conversations.js";
 import type { SettingsStore } from "../state/settings-store.js";
 import type { AppSettings } from "../state/settings-types.js";
 import { readSidecarVersion } from "../state/sidecar-version.js";
-import { isClientAuthorized } from "./client-auth.js";
 
 export interface SettingsApplier {
   apply: (next: AppSettings) => void;
+}
+
+// What both frontends read: the stored settings plus the read-only capabilities
+// that gate them.
+interface SettingsPayload extends AppSettings {
+  builderAvailable: boolean;
+  providers: ProviderAvailabilityMap;
 }
 
 interface CreateHttpServerOptions {
@@ -44,6 +55,7 @@ interface CreateHttpServerOptions {
   settingsApplier?: SettingsApplier;
   // Recomputed per request so the `allowLocalSkills` toggle takes effect live.
   getSkillSources?: () => SkillSource[];
+  mcpHttpRegistry?: McpHttpRegistry;
 }
 
 const DEFAULT_BUILD_ID = "";
@@ -62,6 +74,7 @@ interface RouteContext {
   settingsStore?: SettingsStore;
   settingsApplier?: SettingsApplier;
   getSkillSources?: () => SkillSource[];
+  mcpHttpRegistry?: McpHttpRegistry;
 }
 
 interface HealthBody {
@@ -197,11 +210,21 @@ const activityRoute: MetricRoute = (_req, res, deps, params) => {
   sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, payload);
 };
 
-const getSettingsRoute: MetricRoute = (_req, res, deps) => {
-  sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, {
-    ...deps.settingsStore.get(),
+function buildSettingsPayload(settings: AppSettings): SettingsPayload {
+  return {
+    ...settings,
     builderAvailable: getBuilderAvailable(),
-  });
+    providers: getProviderAvailability(),
+  };
+}
+
+const getSettingsRoute: MetricRoute = (_req, res, deps) => {
+  sendResponse(
+    res,
+    HTTP_STATUS.OK,
+    CONTENT_TYPE.JSON,
+    buildSettingsPayload(deps.settingsStore.get()),
+  );
 };
 
 const putSettingsRoute: MetricRoute = async (req, res, deps) => {
@@ -219,11 +242,18 @@ const putSettingsRoute: MetricRoute = async (req, res, deps) => {
     });
     return;
   }
-  deps.settingsApplier.apply(result.data);
-  sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, {
+  const next: AppSettings = {
     ...result.data,
-    builderAvailable: getBuilderAvailable(),
-  });
+    // Absent from an older client: keep what is stored rather than reset it.
+    provider: result.data.provider ?? deps.settingsStore.get().provider,
+  };
+  deps.settingsApplier.apply(next);
+  sendResponse(
+    res,
+    HTTP_STATUS.OK,
+    CONTENT_TYPE.JSON,
+    buildSettingsPayload(next),
+  );
 };
 
 const METRIC_ROUTES: Record<string, MetricRoute> = {
@@ -345,11 +375,14 @@ async function serveStatic(
   }
 }
 
+function buildRoutePath(req: IncomingMessage): string {
+  const url = req.url ?? "/";
+  return url.split("?")[0] ?? "/";
+}
+
 function buildRouteKey(req: IncomingMessage): string {
   const method = req.method ?? "GET";
-  const url = req.url ?? "/";
-  const path = url.split("?")[0] ?? "/";
-  return `${method} ${path}`;
+  return `${method} ${buildRoutePath(req)}`;
 }
 
 async function handleRequest(
@@ -357,6 +390,10 @@ async function handleRequest(
   res: ServerResponse,
   ctx: RouteContext,
 ): Promise<void> {
+  if (ctx.mcpHttpRegistry && buildRoutePath(req) === MCP_HTTP_PATH) {
+    await ctx.mcpHttpRegistry.handleRequest(req, res);
+    return;
+  }
   const key = buildRouteKey(req);
   const handler = ROUTES[key];
   if (handler !== undefined) {
@@ -385,6 +422,7 @@ export function createHttpServer(
     settingsStore: options.settingsStore,
     settingsApplier: options.settingsApplier,
     getSkillSources: options.getSkillSources,
+    mcpHttpRegistry: options.mcpHttpRegistry,
   };
   const server = createServer((req, res) => {
     handleRequest(req, res, ctx).catch(() =>

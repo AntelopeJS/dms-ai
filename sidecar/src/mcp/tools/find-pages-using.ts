@@ -1,5 +1,4 @@
 import path from "node:path";
-import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import {
   FIND_PAGES_TOOL_DESCRIPTION,
@@ -13,6 +12,7 @@ import type {
 import type { RegistryClient } from "../../pages/registry-client.js";
 import type { PageCandidate, PagesRegistryEntry } from "../../pages/types.js";
 import type { CurrentPage } from "../../state/host-state.js";
+import { defineTool } from "../define-tool.js";
 
 export interface FindPagesUsingDeps {
   registry: RegistryClient;
@@ -163,7 +163,7 @@ function buildContent(candidates: PageCandidate[]): {
 }
 
 export function buildFindPagesUsingTool(deps: FindPagesUsingDeps) {
-  return tool(
+  return defineTool(
     FIND_PAGES_TOOL_NAME,
     FIND_PAGES_TOOL_DESCRIPTION,
     INPUT_SCHEMA,

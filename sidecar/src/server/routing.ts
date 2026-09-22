@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import type { WebSocket } from "ws";
-import type { ClaudeRunner } from "../agent/claude-runner.js";
 import {
   EDIT_TOOL_NAMES,
   type EditTracker,
@@ -8,6 +7,7 @@ import {
 } from "../agent/edit-tracker.js";
 import type { PendingRequest, PermissionBus } from "../agent/permission-bus.js";
 import type { PendingQuestion, QuestionBus } from "../agent/question-bus.js";
+import type { AgentRunner } from "../agent/runner.js";
 import type { RunnerEvent } from "../agent/runner-events.js";
 import { buildToolSummary } from "../agent/tool-summary.js";
 import { getBuilderAvailable } from "../builder/capability.js";
@@ -43,6 +43,7 @@ import {
   type ServerEchoReplyMsgType,
   type UserMessageMsgType,
 } from "../protocol/messages.js";
+import { getProviderAvailability } from "../providers/registry.js";
 import type { ConversationStore } from "../state/conversations.js";
 import type { HostState } from "../state/host-state.js";
 import type { SettingsStore } from "../state/settings-store.js";
@@ -59,7 +60,7 @@ import { collectBuildIssues } from "./safety-net.js";
 export interface ConnectionContext {
   path: string;
   hostProjectRoot: string;
-  runner: ClaudeRunner;
+  runner: AgentRunner;
   conversationStore: ConversationStore;
   permissionBus: PermissionBus;
   questionBus: QuestionBus;
@@ -90,7 +91,7 @@ export interface RoutingConfig {
   moduleRoots: string[];
   navigationCompleter: NavigationCompleter;
   idleController: IdleShutdownController;
-  runner: ClaudeRunner;
+  runner: AgentRunner;
   liveTurns: LiveTurnStore;
   pendingQueue: PendingQueueStore;
   settingsStore: SettingsStore;
@@ -155,6 +156,7 @@ function buildSettingsUpdateEvent(
     type: EVENT_TYPES.SETTINGS_UPDATE,
     settings: ctx.settingsStore.get(),
     builderAvailable: getBuilderAvailable(),
+    providers: getProviderAvailability(),
   };
 }
 
@@ -436,6 +438,12 @@ async function streamTurn(
   attachments?: AttachmentType[],
 ): Promise<void> {
   ctx.liveTurns.begin(conversationId);
+  // The selected provider is the one that runs, or the turn fails: there is no
+  // longer a gap between what was chosen and what answered.
+  ctx.conversationStore.markProvider(
+    conversationId,
+    ctx.settingsStore.get().provider,
+  );
   try {
     const stream = ctx.runner.start(content, {
       conversationId,
@@ -443,9 +451,11 @@ async function streamTurn(
       getCurrentPage: () => ctx.hostState.getCurrentPage(),
       attachments,
       permissionBus: ctx.permissionBus,
-      mcpServer: ctx.createMcpServer(conversationId),
+      createMcpServer: () => ctx.createMcpServer(conversationId),
       onPermissionDecision: (toolName, decision) =>
         persistPermissionDecision(ctx, conversationId, toolName, decision),
+      onTokenUsage: (usage) =>
+        ctx.conversationStore.addTokenUsage(conversationId, usage),
     });
     for await (const ev of stream) {
       recordEditIfAny(ctx, conversationId, ev);
@@ -769,7 +779,7 @@ function handleDeleteConversation(
 export interface SettingsApplyDeps {
   settingsStore: SettingsStore;
   permissionBus: PermissionBus;
-  runner: ClaudeRunner;
+  runner: AgentRunner;
   iframeSocketRegistry: IframeSocketRegistry;
 }
 
@@ -787,6 +797,7 @@ export function applySettings(
     type: EVENT_TYPES.SETTINGS_UPDATE,
     settings: next,
     builderAvailable: getBuilderAvailable(),
+    providers: getProviderAvailability(),
   });
 }
 
@@ -797,6 +808,8 @@ function handleSetSettings(
 ): void {
   if (msg.type !== MESSAGE_TYPES.SET_SETTINGS) return;
   applySettings(ctx, {
+    // Absent from an older chatbox: keep what is stored rather than reset it.
+    provider: msg.provider ?? ctx.settingsStore.get().provider,
     mode: msg.mode,
     thinking: msg.thinking,
     generationMode: msg.generationMode,

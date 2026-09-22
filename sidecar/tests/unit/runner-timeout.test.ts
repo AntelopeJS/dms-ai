@@ -1,67 +1,69 @@
-import { resolve } from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createClaudeRunner } from "../../src/agent/claude-runner.js";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
-import { SDK_TIMEOUT_MESSAGE } from "../../src/constants/agent.js";
+import { TURN_IDLE_TIMEOUT_MESSAGE } from "../../src/constants/agent.js";
+import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
+import { PROVIDER_FIXTURES } from "../helpers/provider-fixtures.js";
+import { buildRunner, type RunnerHandle } from "../helpers/provider-runner.js";
 
-const SCRIPT_PATH = resolve(
-  __dirname,
-  "../fixtures/mock-claude/scripts/list-files.json",
-);
+const CONVERSATION_ID = "conv-timeout-1";
+const TMP_PREFIX = "dms-ai-timeout-";
+const IMMEDIATE_TIMEOUT_MS = 5;
+// Wider than any single gap between two replayed events, narrower than a whole
+// turn: it separates an idle timeout from a wall-clock cap.
+const IDLE_WINDOW_MS = 2_000;
+const TEST_TIMEOUT_MS = 30_000;
 
-const TIMEOUT_MS = 5;
-const TEST_TIMEOUT_MS = 2_000;
-// The mock streams 8 messages 50ms apart (~400ms total). An idle window wider
-// than a single gap but narrower than the total separates idle-timeout from a
-// wall-clock cap: the old hard cap aborted at 150ms, the idle timeout must not.
-const IDLE_WINDOW_MS = 150;
+describe.each(PROVIDER_FIXTURES)("turn idle timeout on $name", (fixture) => {
+  let dir: string;
+  let handle: RunnerHandle | undefined;
 
-describe("ClaudeRunner timeout via AbortController", () => {
-  beforeEach(() => {
-    process.env.MOCK_CLAUDE = "1";
-    process.env.MOCK_CLAUDE_SCRIPT = SCRIPT_PATH;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), TMP_PREFIX));
+    fixture.use("plain");
   });
 
-  afterEach(() => {
-    delete process.env.MOCK_CLAUDE;
-    delete process.env.MOCK_CLAUDE_SCRIPT;
+  afterEach(async () => {
+    await handle?.dispose();
+    handle = undefined;
+    fixture.reset();
+    await rm(dir, { recursive: true, force: true });
   });
+
+  async function collect(timeoutMs: number): Promise<RunnerEvent[]> {
+    handle = buildRunner(fixture.name, {
+      timeoutMs,
+      stateDir: join(dir, ".state"),
+    });
+    const events: RunnerEvent[] = [];
+    for await (const event of handle.runner.start("list", {
+      conversationId: CONVERSATION_ID,
+      hostProjectRoot: dir,
+      getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
+    })) {
+      events.push(event);
+    }
+    return events;
+  }
 
   it(
-    "emits run_error with timeout message when SDK iteration exceeds the configured timeout",
+    "reports a timeout when the backend goes silent past the window",
     async () => {
-      const runner = createClaudeRunner({ timeoutMs: TIMEOUT_MS });
-      const events: RunnerEvent[] = [];
-      for await (const event of runner.start("hang", {
-        conversationId: "test-timeout",
-        hostProjectRoot: "/tmp",
-        getCurrentPage: () => ({ path: "unknown" }),
-      })) {
-        events.push(event);
-      }
-      const errorEvent = events.find((e) => e.type === "error");
-      expect(errorEvent).toBeDefined();
-      if (errorEvent !== undefined && errorEvent.type === "error") {
-        expect(errorEvent.message).toBe(SDK_TIMEOUT_MESSAGE);
-      }
+      const events = await collect(IMMEDIATE_TIMEOUT_MS);
+      const failure = events.find((e) => e.type === "error");
+      expect(failure).toBeDefined();
+      if (failure?.type !== "error") return;
+      expect(failure.message).toBe(TURN_IDLE_TIMEOUT_MESSAGE);
     },
     TEST_TIMEOUT_MS,
   );
 
   it(
-    "does not time out a long turn that keeps emitting within the idle window",
+    "does not time out a long turn that keeps producing events",
     async () => {
-      const runner = createClaudeRunner({ timeoutMs: IDLE_WINDOW_MS });
-      const events: RunnerEvent[] = [];
-      for await (const event of runner.start("list files", {
-        conversationId: "test-idle",
-        hostProjectRoot: "/tmp",
-        getCurrentPage: () => ({ path: "unknown" }),
-      })) {
-        events.push(event);
-      }
-      // Ran ~400ms (longer than the idle window) yet finished cleanly,
-      // because each gap stayed under the window and reset the deadline.
+      const events = await collect(IDLE_WINDOW_MS);
       expect(events.some((e) => e.type === "error")).toBe(false);
       expect(events.some((e) => e.type === "done")).toBe(true);
     },

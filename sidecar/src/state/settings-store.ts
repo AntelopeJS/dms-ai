@@ -14,6 +14,7 @@ import {
   THINKING_LEVELS,
   type ThinkingLevel,
 } from "./settings-types.js";
+import { PROVIDER_NAMES, type ProviderName } from "./types.js";
 
 export interface CreateSettingsStoreOptions {
   filePath: string;
@@ -44,12 +45,19 @@ function isGenerationMode(value: unknown): value is GenerationMode {
   return GENERATION_MODES.includes(value as GenerationMode);
 }
 
+function isProvider(value: unknown): value is ProviderName {
+  return PROVIDER_NAMES.includes(value as ProviderName);
+}
+
 export function parseSettings(raw: string): AppSettings {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (parsed === null || typeof parsed !== "object") return DEFAULT_SETTINGS;
     const candidate = parsed as Partial<AppSettings>;
     return {
+      provider: isProvider(candidate.provider)
+        ? candidate.provider
+        : DEFAULT_SETTINGS.provider,
       mode: isMode(candidate.mode) ? candidate.mode : DEFAULT_SETTINGS.mode,
       thinking: isThinking(candidate.thinking)
         ? candidate.thinking

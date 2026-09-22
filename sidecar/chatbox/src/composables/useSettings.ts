@@ -1,7 +1,11 @@
 import { type Ref, ref } from "vue";
 import { DEFAULT_SETTINGS } from "../constants/settings";
 import { CLIENT_MESSAGE_TYPES, SERVER_EVENT_TYPES } from "../constants/ws";
-import type { AppSettings } from "../types/settings";
+import type {
+	AppSettings,
+	ProviderAvailability,
+	ProviderName,
+} from "../types/settings";
 
 export interface UseSettingsOptions {
 	send: (msg: object) => void;
@@ -17,6 +21,7 @@ interface SettingsUpdateEvent {
 	type: typeof SERVER_EVENT_TYPES.SETTINGS_UPDATE;
 	settings: AppSettings;
 	builderAvailable?: boolean;
+	providers?: Record<ProviderName, ProviderAvailability>;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -38,6 +43,7 @@ export function useSettings(options: UseSettingsOptions): UseSettingsResult {
 		settings.value = {
 			...event.settings,
 			builderAvailable: event.builderAvailable ?? false,
+			providers: event.providers ?? DEFAULT_SETTINGS.providers,
 		};
 	});
 
@@ -46,6 +52,7 @@ export function useSettings(options: UseSettingsOptions): UseSettingsResult {
 		settings.value = next;
 		options.send({
 			type: CLIENT_MESSAGE_TYPES.SET_SETTINGS,
+			provider: next.provider,
 			mode: next.mode,
 			thinking: next.thinking,
 			generationMode: next.generationMode,

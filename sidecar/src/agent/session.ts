@@ -1,31 +1,35 @@
-import type {
-  PermissionMode,
-  Query,
-  SDKMessage,
-  SDKUserMessage,
-} from "@anthropic-ai/claude-agent-sdk";
 import {
   INTERRUPT_FALLBACK_MS,
-  SDK_TIMEOUT_MESSAGE,
+  TURN_IDLE_TIMEOUT_MESSAGE,
 } from "../constants/agent.js";
-import type { TurnContent } from "./attachments.js";
-import type { InputQueue } from "./input-queue.js";
+import { TOOL_EXECUTION_CAP_MS } from "../constants/timing.js";
+import type { AppSettings } from "../state/settings-types.js";
+import type { TurnInput } from "./provider.js";
 import type { RunnerEvent } from "./runner-events.js";
-import { messageToEvents } from "./sdk-adapter.js";
 
-const RESULT_MESSAGE_TYPE = "result";
+/**
+ * The backend-specific half of a session: everything the neutral lifecycle needs
+ * to drive an agent without knowing which one it is.
+ */
+export interface SessionControls {
+  /** Hands one turn to the backend. Called from inside the turn chain. */
+  submitTurn(input: TurnInput): void | Promise<void>;
+  interrupt(): void;
+  /** Releases whatever the backend holds between turns. */
+  close(): void;
+  applySettings?(settings: AppSettings): void;
+}
 
-export interface ClaudeSession {
-  sendTurn(content: TurnContent, timeoutMs: number): AsyncIterable<RunnerEvent>;
-  setPermissionMode(mode: PermissionMode): void;
-  setMaxThinkingTokens(tokens: number | null): void;
+export interface AgentSession {
+  sendTurn(input: TurnInput, timeoutMs: number): AsyncIterable<RunnerEvent>;
+  applySettings(settings: AppSettings): void;
   interrupt(): void;
   dispose: () => void;
 }
 
 export interface SessionDeps {
-  output: Query;
-  input: InputQueue;
+  events: AsyncIterator<RunnerEvent, void>;
+  controls: SessionControls;
   abortController: AbortController;
   onDisposed: () => void;
 }
@@ -45,37 +49,22 @@ interface TurnTimeout {
   flag: TimeoutFlag;
   clear: () => void;
   reset: () => void;
-}
-
-function buildUserMessage(content: TurnContent): SDKUserMessage {
-  return {
-    type: "user",
-    message: { role: "user", content },
-    parent_tool_use_id: null,
-    session_id: "",
-  };
+  /** Arms the far longer tool-execution bound instead of disarming outright. */
+  suspend: () => void;
 }
 
 function disposeSession(state: SessionState): void {
   if (state.disposed) return;
   state.disposed = true;
   clearInterruptFallback(state);
-  state.input.close();
+  state.controls.close();
   state.abortController.abort();
   state.onDisposed();
 }
 
-function setPermissionMode(state: SessionState, mode: PermissionMode): void {
+function applySettings(state: SessionState, settings: AppSettings): void {
   if (state.disposed) return;
-  void state.output.setPermissionMode(mode).catch(() => undefined);
-}
-
-function setMaxThinkingTokens(
-  state: SessionState,
-  tokens: number | null,
-): void {
-  if (state.disposed) return;
-  void state.output.setMaxThinkingTokens(tokens).catch(() => undefined);
+  state.controls.applySettings?.(settings);
 }
 
 function clearInterruptFallback(state: SessionState): void {
@@ -84,15 +73,15 @@ function clearInterruptFallback(state: SessionState): void {
   state.interruptTimer = null;
 }
 
-// Gracefully interrupt the in-flight turn. The SDK should emit a `result`
-// message in response, ending the turn loop (see readTurn) without disposing the
-// session — so the conversation stays warm. If the SDK ignores the interrupt (or
-// the turn is mid-tool and won't settle), a fallback hard-aborts after a grace
-// window so Stop can never silently hang.
+// Gracefully interrupt the in-flight turn. The backend should answer with a
+// `done` event, ending the turn loop (see readTurn) without disposing the
+// session — so the conversation stays warm. If the backend ignores the interrupt
+// (or the turn is mid-tool and won't settle), a fallback hard-aborts after a
+// grace window so Stop can never silently hang.
 function interrupt(state: SessionState): void {
   if (state.disposed) return;
   if (state.activeTurns === 0) return;
-  void state.output.interrupt().catch(() => undefined);
+  state.controls.interrupt();
   clearInterruptFallback(state);
   state.interruptTimer = setTimeout(() => {
     state.interruptTimer = null;
@@ -102,33 +91,48 @@ function interrupt(state: SessionState): void {
 }
 
 // Idle timeout, not a wall-clock cap. The deadline is pushed out every time the
-// SDK produces a message (see readTurn), so a healthy turn that legitimately
+// backend produces an event (see readTurn), so a healthy turn that legitimately
 // runs for a long time is never aborted — only one that goes fully silent for
 // the whole window (a genuine hang) is.
 function armTurnTimeout(state: SessionState, timeoutMs: number): TurnTimeout {
   const flag: TimeoutFlag = { isTimedOut: false };
   let timer: ReturnType<typeof setTimeout>;
-  const arm = (): void => {
+  const arm = (delayMs: number): void => {
     timer = setTimeout(() => {
       flag.isTimedOut = true;
       state.abortController.abort();
-    }, timeoutMs);
+    }, delayMs);
   };
-  arm();
+  arm(timeoutMs);
   return {
     flag,
     clear: () => clearTimeout(timer),
     reset: () => {
       clearTimeout(timer);
-      arm();
+      arm(timeoutMs);
+    },
+    suspend: () => {
+      clearTimeout(timer);
+      arm(TOOL_EXECUTION_CAP_MS);
     },
   };
 }
 
 function buildErrorEvent(err: unknown, flag: TimeoutFlag): RunnerEvent {
-  if (flag.isTimedOut) return { type: "error", message: SDK_TIMEOUT_MESSAGE };
+  if (flag.isTimedOut)
+    return { type: "error", message: TURN_IDLE_TIMEOUT_MESSAGE };
   const message = err instanceof Error ? err.message : String(err);
   return { type: "error", message };
+}
+
+const OUTSTANDING_TOOL_DELTAS: Record<string, number> = {
+  tool_use: 1,
+  tool_result: -1,
+};
+
+function countOutstanding(outstanding: number, event: RunnerEvent): number {
+  const delta = OUTSTANDING_TOOL_DELTAS[event.type] ?? 0;
+  return Math.max(0, outstanding + delta);
 }
 
 async function* readTurn(
@@ -137,9 +141,9 @@ async function* readTurn(
 ): AsyncIterable<RunnerEvent> {
   let outstandingTools = 0;
   while (true) {
-    let result: IteratorResult<SDKMessage, void>;
+    let result: IteratorResult<RunnerEvent, void>;
     try {
-      result = await state.output.next();
+      result = await state.events.next();
     } catch (err) {
       yield buildErrorEvent(err, timeout.flag);
       disposeSession(state);
@@ -149,28 +153,24 @@ async function* readTurn(
       disposeSession(state);
       return;
     }
-    for (const event of messageToEvents(result.value)) {
-      if (event.type === "tool_use") outstandingTools += 1;
-      else if (event.type === "tool_result") {
-        outstandingTools = Math.max(0, outstandingTools - 1);
-      }
-      yield event;
-    }
+    const event = result.value;
+    outstandingTools = countOutstanding(outstandingTools, event);
+    yield event;
     // While a tool is executing the turn is legitimately silent, so suspend the
-    // idle timer; otherwise a message is progress, so re-arm it to keep catching
+    // idle timer; otherwise an event is progress, so re-arm it to keep catching
     // a genuine model hang.
-    if (outstandingTools > 0) timeout.clear();
+    if (outstandingTools > 0) timeout.suspend();
     else timeout.reset();
-    if (result.value.type === RESULT_MESSAGE_TYPE) return;
+    if (event.type === "done") return;
   }
 }
 
 async function* runTurn(
   state: SessionState,
-  content: TurnContent,
+  input: TurnInput,
   timeoutMs: number,
 ): AsyncIterable<RunnerEvent> {
-  state.input.push(buildUserMessage(content));
+  await state.controls.submitTurn(input);
   state.activeTurns += 1;
   const timeout = armTurnTimeout(state, timeoutMs);
   try {
@@ -184,14 +184,14 @@ async function* runTurn(
 
 async function* chainTurn(
   state: SessionState,
-  content: TurnContent,
+  input: TurnInput,
   timeoutMs: number,
   previous: Promise<void>,
   release: () => void,
 ): AsyncIterable<RunnerEvent> {
   await previous;
   try {
-    yield* runTurn(state, content, timeoutMs);
+    yield* runTurn(state, input, timeoutMs);
   } finally {
     release();
   }
@@ -199,7 +199,7 @@ async function* chainTurn(
 
 function sendTurn(
   state: SessionState,
-  content: TurnContent,
+  input: TurnInput,
   timeoutMs: number,
 ): AsyncIterable<RunnerEvent> {
   const previous = state.tail;
@@ -207,10 +207,10 @@ function sendTurn(
   state.tail = new Promise((resolve) => {
     release = resolve;
   });
-  return chainTurn(state, content, timeoutMs, previous, release);
+  return chainTurn(state, input, timeoutMs, previous, release);
 }
 
-export function createClaudeSession(deps: SessionDeps): ClaudeSession {
+export function createAgentSession(deps: SessionDeps): AgentSession {
   const state: SessionState = {
     ...deps,
     disposed: false,
@@ -219,9 +219,8 @@ export function createClaudeSession(deps: SessionDeps): ClaudeSession {
     interruptTimer: null,
   };
   return {
-    sendTurn: (content, timeoutMs) => sendTurn(state, content, timeoutMs),
-    setPermissionMode: (mode) => setPermissionMode(state, mode),
-    setMaxThinkingTokens: (tokens) => setMaxThinkingTokens(state, tokens),
+    sendTurn: (input, timeoutMs) => sendTurn(state, input, timeoutMs),
+    applySettings: (settings) => applySettings(state, settings),
     interrupt: () => interrupt(state),
     dispose: () => disposeSession(state),
   };

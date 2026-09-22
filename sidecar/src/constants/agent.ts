@@ -1,28 +1,13 @@
-import type { SettingSource } from "@anthropic-ai/claude-agent-sdk";
-
 // Idle timeout: the turn is aborted only after this long with no activity from
-// the SDK, not as a cap on total turn duration (see armTurnTimeout).
-export const SDK_TIMEOUT_MS = 5 * 60_000;
-export const SDK_TIMEOUT_MESSAGE =
+// the provider, not as a cap on total turn duration (see armTurnTimeout).
+export const TURN_IDLE_TIMEOUT_MS = 5 * 60_000;
+export const TURN_IDLE_TIMEOUT_MESSAGE =
   "AI run timed out after 5 minutes of inactivity";
 
 // Grace window after a graceful interrupt before we hard-abort the turn, so
-// Stop can never silently hang if the SDK ignores the interrupt.
+// Stop can never silently hang if the provider ignores the interrupt.
 export const INTERRUPT_FALLBACK_MS = 4_000;
-export const MOCK_FLAG_ENV = "MOCK_CLAUDE";
-export const MOCK_FLAG_ENABLED = "1";
-export const REAL_SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
-export const MOCK_SDK_RELATIVE = "../../tests/fixtures/mock-claude/index.js";
 
-export const SYSTEM_PROMPT_PRESET_TYPE = "preset" as const;
-export const SYSTEM_PROMPT_PRESET_NAME = "claude_code" as const;
-export const SDK_SETTING_SOURCES_ISOLATED: SettingSource[] = [];
-// Generated skill plugin wrappers live under the sidecar state dir, never the
-// repo. The loader passes these as `plugins:[{type:'local'}]` alongside an
-// explicit `plugin:skill` allowlist — NEVER `skills:'all'` (Task 1 finding: it
-// pulls every built-in/global machine skill into context).
-export const SKILL_PLUGIN_WRAPPER_DIR = "skill-plugins";
-export const SDK_INCLUDE_PARTIAL_MESSAGES = true;
 export const SYSTEM_PROMPT_PLACEHOLDER_UNKNOWN = "unknown";
 export const SYSTEM_PROMPT_MODULES_NONE = "none";
 export const SYSTEM_PROMPT_MODULES_SEPARATOR = ", ";

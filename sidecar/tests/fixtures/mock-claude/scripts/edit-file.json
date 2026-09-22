@@ -1,0 +1,202 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "apiKeySource": "user",
+    "claude_code_version": "0.0.0-mock",
+    "cwd": "/mock",
+    "tools": ["Read", "Edit", "Glob", "Grep", "Bash"],
+    "mcp_servers": [],
+    "model": "claude-mock",
+    "permissionMode": "default",
+    "slash_commands": [],
+    "output_style": "default",
+    "skills": [],
+    "plugins": [],
+    "agents": [],
+    "uuid": "00000000-0000-0000-0000-000000000001",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000"
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-00000000000a",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "text_delta",
+        "text": "I'll list the files in src/."
+      }
+    }
+  },
+  {
+    "type": "assistant",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000002",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "message": {
+      "id": "msg_mock_1",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-mock",
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "container": null,
+      "context_management": null,
+      "usage": {
+        "input_tokens": 10,
+        "output_tokens": 12,
+        "cache_creation": null,
+        "cache_creation_input_tokens": null,
+        "cache_read_input_tokens": null,
+        "inference_geo": null,
+        "iterations": null,
+        "server_tool_use": null,
+        "service_tier": null,
+        "speed": null
+      },
+      "content": [
+        {
+          "type": "text",
+          "citations": null,
+          "text": "I'll update the home page."
+        }
+      ]
+    }
+  },
+  {
+    "type": "assistant",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000003",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "message": {
+      "id": "msg_mock_2",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-mock",
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "container": null,
+      "context_management": null,
+      "usage": {
+        "input_tokens": 12,
+        "output_tokens": 18,
+        "cache_creation": null,
+        "cache_creation_input_tokens": null,
+        "cache_read_input_tokens": null,
+        "inference_geo": null,
+        "iterations": null,
+        "server_tool_use": null,
+        "service_tier": null,
+        "speed": null
+      },
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_mock_edit_1",
+          "name": "Edit",
+          "input": {
+            "file_path": "/mock/src/pages/home.vue",
+            "old_string": "Hello",
+            "new_string": "Hello world"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "user",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000004",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "message": {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_mock_edit_1",
+          "content": "The file /mock/src/pages/home.vue has been updated.",
+          "is_error": false
+        }
+      ]
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-00000000000b",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "text_delta",
+        "text": "Found 2 files: src/index.ts and src/module.ts."
+      }
+    }
+  },
+  {
+    "type": "assistant",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000005",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "message": {
+      "id": "msg_mock_3",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-mock",
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "container": null,
+      "context_management": null,
+      "usage": {
+        "input_tokens": 30,
+        "output_tokens": 8,
+        "cache_creation": null,
+        "cache_creation_input_tokens": null,
+        "cache_read_input_tokens": null,
+        "inference_geo": null,
+        "iterations": null,
+        "server_tool_use": null,
+        "service_tier": null,
+        "speed": null
+      },
+      "content": [
+        {
+          "type": "text",
+          "citations": null,
+          "text": "Updated /mock/src/pages/home.vue."
+        }
+      ]
+    }
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "duration_ms": 250,
+    "duration_api_ms": 200,
+    "is_error": false,
+    "num_turns": 2,
+    "result": "Found 2 files: src/index.ts and src/module.ts.",
+    "stop_reason": "end_turn",
+    "total_cost_usd": 0,
+    "usage": {
+      "input_tokens": 52,
+      "output_tokens": 38,
+      "cache_creation": null,
+      "cache_creation_input_tokens": null,
+      "cache_read_input_tokens": null,
+      "inference_geo": null,
+      "iterations": null,
+      "server_tool_use": null,
+      "service_tier": null,
+      "speed": null
+    },
+    "modelUsage": {},
+    "permission_denials": [],
+    "uuid": "00000000-0000-0000-0000-000000000006",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000"
+  }
+]

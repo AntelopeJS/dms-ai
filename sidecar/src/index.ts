@@ -18,13 +18,18 @@ import {
   PRODUCTION_NODE_ENV,
 } from "./constants/env.js";
 import { DEFAULT_BACKEND_BASE_URL } from "./constants/pages.js";
+import { MCP_HTTP_PORT_TOKEN, MCP_HTTP_URL_TEMPLATE } from "./constants/mcp.js";
 import { CHATBOX_DIST_DIR, STATE_DIR_SEGMENTS } from "./constants/paths.js";
 import { DEFAULT_HOST_ORIGIN, RANDOM_PORT } from "./constants/ports.js";
 import { SETTINGS_FILE_NAME } from "./constants/settings.js";
+import { SKILL_NAME_COLLISION_WARNING } from "./constants/skills.js";
 import { STATE_FILE_NAME } from "./constants/state.js";
 import { createLogsClient } from "./logs/logs-client.js";
+import type { McpHttpRegistry } from "./mcp/http-binding.js";
+import { createMcpHttpRegistry } from "./mcp/http-binding.js";
 import { createImportsScanner } from "./pages/imports-scanner.js";
 import { createRegistryClient } from "./pages/registry-client.js";
+import { reapOrphanProviders } from "./providers/registry.js";
 import { createHostSocketRegistry } from "./server/host-socket-registry.js";
 import { createHttpServer, type SettingsApplier } from "./server/http.js";
 import {
@@ -33,6 +38,7 @@ import {
 } from "./server/idle-shutdown.js";
 import { createNavigationCompleter } from "./server/navigation-completer.js";
 import { attachWsServer } from "./server/ws.js";
+import { buildSkillCatalog } from "./skills/build-catalog.js";
 import { resolveSkillSources } from "./skills/resolve-sources.js";
 import type { SkillSource } from "./skills/types.js";
 import {
@@ -202,12 +208,16 @@ function installSignalShutdown(run: () => void): void {
   }
 }
 
+function stateDirFor(root: string): string {
+  return path.join(root, ...STATE_DIR_SEGMENTS);
+}
+
 function buildStateFilePath(root: string): string {
-  return path.join(root, ...STATE_DIR_SEGMENTS, STATE_FILE_NAME);
+  return path.join(stateDirFor(root), STATE_FILE_NAME);
 }
 
 function buildSettingsFilePath(root: string): string {
-  return path.join(root, ...STATE_DIR_SEGMENTS, SETTINGS_FILE_NAME);
+  return path.join(stateDirFor(root), SETTINGS_FILE_NAME);
 }
 
 async function buildConversationStore(
@@ -245,6 +255,8 @@ interface WsStackDeps {
   settingsApplier: SettingsApplier;
   backendToken: string;
   clientToken: string;
+  mcpHttpRegistry: McpHttpRegistry;
+  port: number;
 }
 
 function buildWsStack({
@@ -256,6 +268,8 @@ function buildWsStack({
   settingsApplier,
   backendToken,
   clientToken,
+  mcpHttpRegistry,
+  port,
 }: WsStackDeps): { close: () => Promise<void> } {
   const hostState = createHostState();
   const registry = createRegistryClient({
@@ -299,7 +313,21 @@ function buildWsStack({
     navigationCompleter,
     idleController,
     settingsApplier,
+    providerRuntime: {
+      stateDir: stateDirFor(args.root),
+      mcpHttpRegistry,
+      getMcpUrl: () =>
+        MCP_HTTP_URL_TEMPLATE.replace(MCP_HTTP_PORT_TOKEN, String(port)),
+    },
   });
+}
+
+async function warnOnDuplicateSkillNames(
+  sources: SkillSource[],
+): Promise<void> {
+  const { duplicateNames } = await buildSkillCatalog(sources);
+  if (duplicateNames.length === 0) return;
+  console.warn(`${SKILL_NAME_COLLISION_WARNING} ${duplicateNames.join(", ")}`);
 }
 
 async function main(): Promise<void> {
@@ -319,8 +347,21 @@ async function main(): Promise<void> {
     idleMs: IDLE_SHUTDOWN_MS,
     onIdle: () => holder.run(),
   });
+  await warnOnDuplicateSkillNames(
+    resolveSkillSources(
+      args.skillDirs,
+      settingsStore.get().allowLocalSkills,
+      os.homedir(),
+    ),
+  );
+  // A sidecar killed outright can leave backend children holding a model
+  // connection and writing to disk; each provider clears its own before
+  // anything new starts.
+  await reapOrphanProviders(stateDirFor(args.root));
+  const mcpHttpRegistry = createMcpHttpRegistry();
   const { server, port } = await createHttpServer({
     clientToken,
+    mcpHttpRegistry,
     chatboxDistDir: CHATBOX_DIST_DIR,
     port: args.port,
     buildId: args.buildId,
@@ -346,6 +387,8 @@ async function main(): Promise<void> {
     settingsApplier,
     backendToken,
     clientToken,
+    mcpHttpRegistry,
+    port,
   });
   const guard: ShutdownGuard = { done: false };
   const deps: ShutdownDeps = {

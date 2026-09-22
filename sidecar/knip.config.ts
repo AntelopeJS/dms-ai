@@ -5,7 +5,8 @@ export default antelopeKnipConfig({
   // chatbox is a Vue app with its own dependency graph.
   entry: ["src/index.ts", "tests/**/*.test.ts"],
   project: ["src/**/*.ts", "tests/**/*.ts"],
-  ignore: ["chatbox/**"],
+  ignore: ["chatbox/**", "src/providers/codex/protocol/**"],
+  // Resolved from node_modules at runtime as an executable, never imported.
   // Resolved from node_modules at runtime as an executable, never imported.
   ignoreDependencies: ["@anthropic-ai/claude-code"],
 });

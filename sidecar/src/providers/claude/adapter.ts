@@ -6,7 +6,8 @@ import type {
   RunnerEvent,
   RunnerToolResult,
   RunnerToolUse,
-} from "./runner-events.js";
+} from "../../agent/runner-events.js";
+import type { TokenUsage } from "../../state/types.js";
 
 const STREAM_DELTA_EVENT_TYPE = "content_block_delta";
 const STREAM_TEXT_DELTA_TYPE = "text_delta";
@@ -140,6 +141,39 @@ const MESSAGE_HANDLERS: Record<string, MessageHandler> = {
   stream_event: yieldStreamEvents,
   result: () => [buildDone()],
 };
+
+interface SdkUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}
+
+function sumInputTokens(usage: SdkUsage): number {
+  return (
+    (usage.input_tokens ?? 0) +
+    (usage.cache_creation_input_tokens ?? 0) +
+    (usage.cache_read_input_tokens ?? 0)
+  );
+}
+
+/**
+ * Tokens the turn cost, read off the SDK's terminal `result` message. Cached
+ * and cache-write input both count: they are billed input, and Codex reports
+ * them inside its own input figure too.
+ */
+export function extractTokenUsage(message: SDKMessage): TokenUsage | null {
+  if (message.type !== "result") return null;
+  const usage = (message as { usage?: unknown }).usage;
+  if (usage === null || typeof usage !== "object") return null;
+  const inputTokens = sumInputTokens(usage as SdkUsage);
+  const outputTokens = (usage as SdkUsage).output_tokens ?? 0;
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+  };
+}
 
 export function* messageToEvents(
   message: SDKMessage,

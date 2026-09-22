@@ -13,6 +13,7 @@ import {
   createNavigationCompleter,
   type NavigationCompleter,
 } from "../../src/server/navigation-completer.js";
+import { createMcpHttpRegistry } from "../../src/mcp/http-binding.js";
 import { attachWsServer } from "../../src/server/ws.js";
 import { createConversationStore } from "../../src/state/conversations.js";
 import { createHostState } from "../../src/state/host-state.js";
@@ -79,6 +80,11 @@ async function startTestServer(): Promise<ServerHandle> {
     navigationCompleter,
   };
   const ws = attachWsServer(server, {
+    providerRuntime: {
+      stateDir: join(tmpdir(), "dms-ai-ws-stub"),
+      mcpHttpRegistry: createMcpHttpRegistry(),
+      getMcpUrl: () => "http://127.0.0.1:1/mcp",
+    },
     clientToken: CLIENT_TOKEN,
     hostProjectRoot: TEST_HOST_ROOT,
     conversationStore,

@@ -1,11 +1,16 @@
-import type { AppSettings, ChatboxMode } from "../types/settings";
+import type { AppSettings, ChatboxMode, ProviderName } from "../types/settings";
 
 export const DEFAULT_SETTINGS: AppSettings = {
+	provider: "claude",
 	mode: "normal",
 	thinking: "medium",
 	generationMode: "safe",
 	allowLocalSkills: false,
 	builderAvailable: false,
+	providers: {
+		claude: { available: true },
+		codex: { available: false },
+	},
 };
 
 export const OPEN_SETTINGS_LABEL = "Settings";
@@ -15,6 +20,16 @@ export const OPEN_SETTINGS_ICON = "i-ph-gear-six-light";
 export const CLOSE_PANEL_ICON = "i-ph-x-light";
 
 export const MODE_SECTION_LABEL = "Mode";
+export const PROVIDER_SECTION_LABEL = "Agent";
+
+export const PROVIDER_OPTIONS: { value: ProviderName; label: string }[] = [
+	{ value: "claude", label: "Claude" },
+	{ value: "codex", label: "Codex" },
+];
+
+// Shown in place of the hint when the sidecar reports the provider as
+// unavailable, so the reason travels with the greyed-out option.
+export const PROVIDER_UNAVAILABLE_PREFIX = "Unavailable: ";
 
 export const MODE_OPTIONS: { value: ChatboxMode; label: string }[] = [
 	{ value: "normal", label: "Normal" },

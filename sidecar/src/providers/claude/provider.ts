@@ -2,100 +2,88 @@ import os from "node:os";
 import path from "node:path";
 import type {
   CanUseTool,
+  McpSdkServerConfigWithInstance,
   McpServerConfig,
   PermissionMode,
   PermissionResult,
+  Query,
+  SDKUserMessage,
   SdkPluginConfig,
   SettingSource,
   ThinkingConfig,
 } from "@anthropic-ai/claude-agent-sdk";
-import { effectiveGenerationMode } from "../builder/capability.js";
+import type { PermissionBus } from "../../agent/permission-bus.js";
+import type {
+  AgentProvider,
+  AgentProviderOptions,
+  ProviderSession,
+  ProviderSessionContext,
+  TurnInput,
+} from "../../agent/provider.js";
+import {
+  isAutoAllowedRead,
+  resolveReadRoots,
+} from "../../agent/read-access.js";
+import {
+  type AgentRunner,
+  type AgentRunnerOptions,
+  createAgentRunner,
+  type RunnerContext,
+} from "../../agent/runner.js";
+import type { RunnerEvent } from "../../agent/runner-events.js";
+import {
+  type AgentSession,
+  createAgentSession,
+  type SessionControls,
+} from "../../agent/session.js";
+import { buildSystemPrompt } from "../../agent/system-prompt.js";
+import { effectiveGenerationMode } from "../../builder/capability.js";
+import { TURN_IDLE_TIMEOUT_MS } from "../../constants/agent.js";
 import {
   SDK_INCLUDE_PARTIAL_MESSAGES,
   SDK_SETTING_SOURCES_ISOLATED,
-  SDK_TIMEOUT_MS,
   SKILL_PLUGIN_WRAPPER_DIR,
   SYSTEM_PROMPT_PRESET_NAME,
   SYSTEM_PROMPT_PRESET_TYPE,
-} from "../constants/agent.js";
+} from "../../constants/claude.js";
 import {
   ASK_USER_QUESTION_BUILTIN_TOOL_NAME,
   ASK_USER_QUESTION_REDIRECT_MESSAGE,
   FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES,
   MCP_SERVER_KEY,
-} from "../constants/mcp.js";
-import { STATE_DIR_SEGMENTS } from "../constants/paths.js";
+} from "../../constants/mcp.js";
+import { STATE_DIR_SEGMENTS } from "../../constants/paths.js";
 import {
   PERMISSION_DECISIONS,
   PERMISSION_DENIED_MESSAGE,
   type PermissionDecision,
   SDK_PERMISSION_BEHAVIOR,
-} from "../constants/permissions.js";
+} from "../../constants/permissions.js";
 import {
-  DEFAULT_SETTINGS,
-  PERMISSION_MODE_BY_MODE,
   SAFE_MODE_DENIED_MESSAGE,
   SAFE_MODE_DISALLOWED_TOOLS,
-  THINKING_TOKENS,
-} from "../constants/settings.js";
-import { readProjectInfo } from "../host/project-info.js";
-import type { AiMcpServer } from "../mcp/types.js";
-import type { AttachmentType } from "../protocol/messages.js";
-import { buildSkillCatalog } from "../skills/build-catalog.js";
-import { ensurePluginWrapper } from "../skills/plugin-wrapper.js";
-import { resolveSkillSources } from "../skills/resolve-sources.js";
-import type { SkillSource } from "../skills/types.js";
-import type { CurrentPage } from "../state/host-state.js";
-import type { AppSettings, GenerationMode } from "../state/settings-types.js";
-import { buildTurnContent } from "./attachments.js";
-import { type ClaudeSession, createClaudeSession } from "./claude-session.js";
-import { prependHostContext } from "./host-context.js";
-import { createInputQueue } from "./input-queue.js";
-import type { PermissionBus } from "./permission-bus.js";
-import { isAutoAllowedRead, resolveReadRoots } from "./read-access.js";
-import { resolveClaudeBinary } from "./resolve-claude-binary.js";
-import type { RunnerEvent } from "./runner-events.js";
+} from "../../constants/settings.js";
+import { readProjectInfo } from "../../host/project-info.js";
+import type { AiMcpServer } from "../../mcp/types.js";
+import { buildSkillCatalog } from "../../skills/build-catalog.js";
+import { ensurePluginWrapper } from "../../skills/plugin-wrapper.js";
+import { resolveSkillSources } from "../../skills/resolve-sources.js";
+import type { SkillSource } from "../../skills/types.js";
+import type {
+  AppSettings,
+  GenerationMode,
+} from "../../state/settings-types.js";
+import type { TokenUsage } from "../../state/types.js";
+import { extractTokenUsage, messageToEvents } from "./adapter.js";
+import { buildTurnContent, type TurnContent } from "./attachments.js";
+import { PERMISSION_MODE_BY_MODE, THINKING_TOKENS } from "./config.js";
+import { createInputQueue, type InputQueue } from "./input-queue.js";
+import { resolveClaudeBinary } from "./resolve-binary.js";
 import { type LoadedSdk, loadSdk } from "./sdk-loader.js";
-import { buildSystemPrompt } from "./system-prompt.js";
 
-export interface RunnerContext {
-  conversationId: string;
-  hostProjectRoot: string;
-  // Reads the host's displayed page live. Called at turn start to build the
-  // per-turn host-context block, and at session creation for the initial prompt.
-  getCurrentPage: () => CurrentPage;
-  // Files the user attached to this turn. Images/PDFs are inlined; other files
-  // are written under the conversation's uploads dir and referenced by path.
-  attachments?: AttachmentType[];
-  permissionBus?: PermissionBus;
-  mcpServer?: AiMcpServer;
-  // Invoked for every tool that actually went through a permission decision
-  // (auto-allowed reads/first-party MCP never reach here). Lets the connection
-  // layer persist the approve/deny outcome for the activity metrics.
-  onPermissionDecision?: (
-    toolName: string,
-    decision: PermissionDecision,
-  ) => void;
-}
-
-export interface ClaudeRunner {
-  start(message: string, ctx: RunnerContext): AsyncIterable<RunnerEvent>;
-  interruptSession(conversationId: string): void;
-  disposeSession(conversationId: string): void;
-  applySettings(settings: AppSettings): void;
-  dispose(): void;
-}
-
-export interface ClaudeRunnerOptions {
-  timeoutMs?: number;
-  settings?: AppSettings;
-  // On-disk roots of loaded modules (from interface-core), auto-allowed for
-  // read-only tools alongside the host project.
-  moduleRoots?: string[];
-  // Module-contributed skill sources (from `antelopeJs.skills`), loaded into the
-  // agent as local plugins and added to the readable roots.
-  skillDirs?: SkillSource[];
-}
+export type ClaudeRunner = AgentRunner;
+export type ClaudeRunnerOptions = AgentProviderOptions & AgentRunnerOptions;
+export type { RunnerContext };
 
 interface PromptOptions {
   systemPrompt: {
@@ -162,7 +150,7 @@ function buildBasePromptOptions(
 function buildMcpServersMap(
   mcpServer: AiMcpServer,
 ): Record<string, McpServerConfig> {
-  return { [MCP_SERVER_KEY]: mcpServer };
+  return { [MCP_SERVER_KEY]: mcpServer as McpSdkServerConfigWithInstance };
 }
 
 function buildPromptOptions(input: PromptOptionsInput): PromptOptions {
@@ -330,7 +318,7 @@ function buildCanUseTool({
 }
 
 function resolveCanUseTool(
-  ctx: RunnerContext,
+  ctx: ProviderSessionContext,
   moduleRoots: string[],
   skillRoots: string[],
   getGenerationMode: () => GenerationMode,
@@ -352,26 +340,48 @@ function resolveCanUseTool(
   });
 }
 
-interface SessionManager {
+interface ProviderConfig {
   sdk?: LoadedSdk;
-  sessions: Map<string, ClaudeSession>;
   timeoutMs: number;
-  settings: AppSettings;
   moduleRoots: string[];
   skillDirs: SkillSource[];
 }
 
-function activeGenerationMode(manager: SessionManager): GenerationMode {
-  return effectiveGenerationMode(manager.settings.generationMode);
+// Mutable settings cell shared by the session and the permission callback, so a
+// safe/vibe flip is seen by `canUseTool` without rebuilding the SDK options.
+interface LiveSettings {
+  settings: AppSettings;
 }
 
-async function loadSharedSdk(manager: SessionManager): Promise<LoadedSdk> {
-  if (manager.sdk !== undefined) return manager.sdk;
-  manager.sdk = await loadSdk();
-  return manager.sdk;
+// The Claude half of a session: the SDK stream, the prompt queue it consumes,
+// and the settings cell the permission callback reads live.
+interface ClaudeBackend {
+  output: Query;
+  queue: InputQueue;
+  live: LiveSettings;
+  hostProjectRoot: string;
+  conversationId: string;
 }
 
-async function buildSessionPrompt(ctx: RunnerContext): Promise<string> {
+interface SessionState {
+  session: AgentSession;
+  backend: ClaudeBackend;
+  timeoutMs: number;
+}
+
+function activeGenerationMode(live: LiveSettings): GenerationMode {
+  return effectiveGenerationMode(live.settings.generationMode);
+}
+
+async function loadSharedSdk(config: ProviderConfig): Promise<LoadedSdk> {
+  if (config.sdk !== undefined) return config.sdk;
+  config.sdk = await loadSdk();
+  return config.sdk;
+}
+
+async function buildSessionPrompt(
+  ctx: ProviderSessionContext,
+): Promise<string> {
   const projectInfo = await readProjectInfo(ctx.hostProjectRoot);
   return buildSystemPrompt({
     hostProjectRoot: ctx.hostProjectRoot,
@@ -380,135 +390,158 @@ async function buildSessionPrompt(ctx: RunnerContext): Promise<string> {
   });
 }
 
-async function createSession(
-  manager: SessionManager,
-  ctx: RunnerContext,
-): Promise<ClaudeSession> {
-  const sdk = await loadSharedSdk(manager);
-  const systemPrompt = await buildSessionPrompt(ctx);
-  const input = createInputQueue();
-  const abortController = new AbortController();
+function buildUserMessage(content: TurnContent): SDKUserMessage {
+  return {
+    type: "user",
+    message: { role: "user", content },
+    parent_tool_use_id: null,
+    session_id: "",
+  };
+}
+
+// Flattens the SDK's message stream into the neutral event vocabulary, so the
+// session lifecycle never sees an SDKMessage.
+async function* toRunnerEvents(
+  output: Query,
+  onTokenUsage: ((usage: TokenUsage) => void) | undefined,
+): AsyncGenerator<RunnerEvent, void> {
+  while (true) {
+    const result = await output.next();
+    if (result.done) return;
+    const usage = extractTokenUsage(result.value);
+    if (usage !== null) onTokenUsage?.(usage);
+    yield* messageToEvents(result.value);
+  }
+}
+
+async function submitTurn(
+  backend: ClaudeBackend,
+  input: TurnInput,
+): Promise<void> {
+  const content = await buildTurnContent(input.text, input.attachments, {
+    hostProjectRoot: backend.hostProjectRoot,
+    conversationId: backend.conversationId,
+  });
+  backend.queue.push(buildUserMessage(content));
+}
+
+function applyBackendSettings(
+  backend: ClaudeBackend,
+  settings: AppSettings,
+): void {
+  backend.live.settings = settings;
+  void backend.output
+    .setPermissionMode(PERMISSION_MODE_BY_MODE[settings.mode])
+    .catch(() => undefined);
+  void backend.output
+    .setMaxThinkingTokens(THINKING_TOKENS[settings.thinking])
+    .catch(() => undefined);
+}
+
+function buildSessionControls(backend: ClaudeBackend): SessionControls {
+  return {
+    submitTurn: (input) => submitTurn(backend, input),
+    interrupt: () => {
+      void backend.output.interrupt().catch(() => undefined);
+    },
+    close: () => backend.queue.close(),
+    applySettings: (settings) => applyBackendSettings(backend, settings),
+  };
+}
+
+async function* runTurn(
+  state: SessionState,
+  input: TurnInput,
+  settings: AppSettings,
+): AsyncIterable<RunnerEvent> {
+  state.backend.live.settings = settings;
+  yield* state.session.sendTurn(input, state.timeoutMs);
+}
+
+async function buildSessionOptions(
+  config: ProviderConfig,
+  ctx: ProviderSessionContext,
+  live: LiveSettings,
+  abortController: AbortController,
+): Promise<PromptOptions> {
   // Recomputed at session creation: a flipped `allowLocalSkills` only takes
   // effect for sessions created afterwards (unlike mode/thinking, which
   // applySettings pushes to live sessions in place).
   const skillSources = resolveSkillSources(
-    manager.skillDirs,
-    manager.settings.allowLocalSkills,
+    config.skillDirs,
+    ctx.settings.allowLocalSkills,
     os.homedir(),
   );
-  const skillLoadout = await buildSkillLoadout(
-    skillSources,
-    ctx.hostProjectRoot,
-  );
-  const options = buildPromptOptions({
-    systemPrompt,
+  return buildPromptOptions({
+    systemPrompt: await buildSessionPrompt(ctx),
     canUseTool: resolveCanUseTool(
       ctx,
-      manager.moduleRoots,
+      config.moduleRoots,
       skillSources.map((s) => s.dir),
-      () => activeGenerationMode(manager),
+      () => activeGenerationMode(live),
     ),
     mcpServer: ctx.mcpServer,
-    settings: manager.settings,
+    settings: ctx.settings,
     abortController,
-    skillLoadout,
-  });
-  const output = sdk.query({ prompt: input.stream, options });
-  return createClaudeSession({
-    output,
-    input,
-    abortController,
-    onDisposed: () => manager.sessions.delete(ctx.conversationId),
+    skillLoadout: await buildSkillLoadout(skillSources, ctx.hostProjectRoot),
   });
 }
 
-async function getOrCreateSession(
-  manager: SessionManager,
-  ctx: RunnerContext,
-): Promise<ClaudeSession> {
-  const existing = manager.sessions.get(ctx.conversationId);
-  if (existing !== undefined) return existing;
-  const session = await createSession(manager, ctx);
-  manager.sessions.set(ctx.conversationId, session);
-  return session;
-}
-
-async function* startTurn(
-  manager: SessionManager,
-  message: string,
-  ctx: RunnerContext,
-): AsyncIterable<RunnerEvent> {
-  const session = await getOrCreateSession(manager, ctx);
-  const grounded = prependHostContext(
-    message,
-    ctx.getCurrentPage(),
-    activeGenerationMode(manager),
-  );
-  const content = await buildTurnContent(grounded, ctx.attachments ?? [], {
+async function createProviderSession(
+  config: ProviderConfig,
+  ctx: ProviderSessionContext,
+): Promise<ProviderSession> {
+  const sdk = await loadSharedSdk(config);
+  const queue = createInputQueue();
+  const abortController = new AbortController();
+  const live: LiveSettings = { settings: ctx.settings };
+  const options = await buildSessionOptions(config, ctx, live, abortController);
+  const backend: ClaudeBackend = {
+    output: sdk.query({ prompt: queue.stream, options }),
+    queue,
+    live,
     hostProjectRoot: ctx.hostProjectRoot,
     conversationId: ctx.conversationId,
-  });
-  yield* session.sendTurn(content, manager.timeoutMs);
+  };
+  const state: SessionState = {
+    session: createAgentSession({
+      events: toRunnerEvents(backend.output, ctx.onTokenUsage),
+      controls: buildSessionControls(backend),
+      abortController,
+      onDisposed: ctx.onDisposed,
+    }),
+    backend,
+    timeoutMs: config.timeoutMs,
+  };
+  return {
+    runTurn: (input, settings) => runTurn(state, input, settings),
+    interrupt: () => state.session.interrupt(),
+    dispose: () => state.session.dispose(),
+    applySettings: (settings) => state.session.applySettings(settings),
+  };
 }
 
-function interruptSession(
-  manager: SessionManager,
-  conversationId: string,
-): void {
-  const session = manager.sessions.get(conversationId);
-  if (session === undefined) return;
-  session.interrupt();
-}
-
-function disposeSession(manager: SessionManager, conversationId: string): void {
-  const session = manager.sessions.get(conversationId);
-  if (session === undefined) return;
-  manager.sessions.delete(conversationId);
-  session.dispose();
-}
-
-function disposeAll(manager: SessionManager): void {
-  const sessions = [...manager.sessions.values()];
-  manager.sessions.clear();
-  for (const session of sessions) session.dispose();
-}
-
-function applySettings(manager: SessionManager, settings: AppSettings): void {
-  // Live sessions keep their context across a settings change. Permission mode and
-  // thinking update in place; generationMode is read live by the permission
-  // callback (canUseTool) and injected per turn, so a mode flip takes effect on the
-  // next turn without tearing down the session.
-  manager.settings = settings;
-  const permissionMode = PERMISSION_MODE_BY_MODE[settings.mode];
-  const thinkingTokens = THINKING_TOKENS[settings.thinking];
-  for (const session of manager.sessions.values()) {
-    session.setPermissionMode(permissionMode);
-    session.setMaxThinkingTokens(thinkingTokens);
-  }
-}
-
-function resolveTimeoutMs(options: ClaudeRunnerOptions | undefined): number {
-  if (options === undefined) return SDK_TIMEOUT_MS;
-  if (options.timeoutMs === undefined) return SDK_TIMEOUT_MS;
+function resolveTimeoutMs(options: AgentProviderOptions | undefined): number {
+  if (options === undefined) return TURN_IDLE_TIMEOUT_MS;
+  if (options.timeoutMs === undefined) return TURN_IDLE_TIMEOUT_MS;
   return options.timeoutMs;
+}
+
+export function createClaudeProvider(
+  options?: AgentProviderOptions,
+): AgentProvider {
+  const config: ProviderConfig = {
+    timeoutMs: resolveTimeoutMs(options),
+    moduleRoots: options?.moduleRoots ?? [],
+    skillDirs: options?.skillDirs ?? [],
+  };
+  return { createSession: (ctx) => createProviderSession(config, ctx) };
 }
 
 export function createClaudeRunner(
   options?: ClaudeRunnerOptions,
 ): ClaudeRunner {
-  const manager: SessionManager = {
-    sessions: new Map(),
-    timeoutMs: resolveTimeoutMs(options),
-    settings: options?.settings ?? DEFAULT_SETTINGS,
-    moduleRoots: options?.moduleRoots ?? [],
-    skillDirs: options?.skillDirs ?? [],
-  };
-  return {
-    start: (message, ctx) => startTurn(manager, message, ctx),
-    interruptSession: (conversationId) =>
-      interruptSession(manager, conversationId),
-    disposeSession: (conversationId) => disposeSession(manager, conversationId),
-    applySettings: (settings) => applySettings(manager, settings),
-    dispose: () => disposeAll(manager),
-  };
+  return createAgentRunner(createClaudeProvider(options), {
+    settings: options?.settings,
+  });
 }

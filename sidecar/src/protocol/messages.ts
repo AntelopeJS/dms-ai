@@ -8,6 +8,7 @@ import {
   GENERATION_MODES,
   THINKING_LEVELS,
 } from "../state/settings-types.js";
+import { PROVIDER_NAMES } from "../state/types.js";
 
 export const ROLES = ["iframe", "host"] as const;
 export type Role = (typeof ROLES)[number];
@@ -154,6 +155,9 @@ export const DeleteConversationMsg = z.object({
 
 export const SetSettingsMsg = z.object({
   type: z.literal(MESSAGE_TYPES.SET_SETTINGS),
+  // Optional rather than defaulted: an older chatbox that omits the field must
+  // leave the stored provider alone, not silently reset it to the default.
+  provider: z.enum(PROVIDER_NAMES).optional(),
   mode: z.enum(CHATBOX_MODES),
   thinking: z.enum(THINKING_LEVELS),
   generationMode: z.enum(GENERATION_MODES).default("safe"),

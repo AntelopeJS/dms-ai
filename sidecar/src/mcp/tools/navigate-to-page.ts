@@ -1,4 +1,3 @@
-import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import {
   NAVIGATE_RESULT_COMPLETED_SUFFIX,
@@ -18,6 +17,7 @@ import { isKnownRoute } from "../../pages/route-match.js";
 import { type AnyServerEventType, EVENT_TYPES } from "../../protocol/events.js";
 import type { NavigationCompleter } from "../../server/navigation-completer.js";
 import type { CurrentPage } from "../../state/host-state.js";
+import { defineTool } from "../define-tool.js";
 
 export interface NavigateToPageDeps {
   sendToHost: (event: AnyServerEventType) => void;
@@ -99,7 +99,7 @@ function buildContent(
 }
 
 export function buildNavigateToPageTool(deps: NavigateToPageDeps) {
-  return tool(
+  return defineTool(
     NAVIGATE_TOOL_NAME,
     NAVIGATE_TOOL_DESCRIPTION,
     INPUT_SCHEMA,

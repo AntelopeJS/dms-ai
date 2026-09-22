@@ -1,8 +1,11 @@
 import type { Store } from "./store.js";
-import type {
-  ConversationSummary,
-  StoredConversation,
-  StoredMessage,
+import {
+  type ConversationSummary,
+  EMPTY_TOKEN_USAGE,
+  type ProviderName,
+  type StoredConversation,
+  type StoredMessage,
+  type TokenUsage,
 } from "./types.js";
 
 export interface CreateConversationStoreOptions {
@@ -13,6 +16,10 @@ export interface ConversationStore {
   get(conversationId: string): StoredConversation | null;
   getOrCreate(conversationId: string): StoredConversation;
   appendMessage(conversationId: string, message: StoredMessage): void;
+  /** Records which backend produced the transcript. */
+  markProvider(conversationId: string, provider: ProviderName): void;
+  /** Adds one turn's usage to the conversation total. */
+  addTokenUsage(conversationId: string, usage: TokenUsage): void;
   list(): ConversationSummary[];
   entries(): Array<{
     id: string;
@@ -79,6 +86,32 @@ function appendToConversation(
   persistCache(state);
 }
 
+function markProvider(
+  state: CacheState,
+  conversationId: string,
+  provider: ProviderName,
+): void {
+  const conversation = ensureConversation(state, conversationId);
+  if (conversation.provider === provider) return;
+  conversation.provider = provider;
+  persistCache(state);
+}
+
+function addTokenUsage(
+  state: CacheState,
+  conversationId: string,
+  usage: TokenUsage,
+): void {
+  const conversation = ensureConversation(state, conversationId);
+  const current = conversation.tokenUsage ?? EMPTY_TOKEN_USAGE;
+  conversation.tokenUsage = {
+    inputTokens: current.inputTokens + usage.inputTokens,
+    outputTokens: current.outputTokens + usage.outputTokens,
+    totalTokens: current.totalTokens + usage.totalTokens,
+  };
+  persistCache(state);
+}
+
 function deriveTitle(conversation: StoredConversation): string {
   const firstUser = conversation.messages.find((m) => m.role === "user");
   if (firstUser === undefined) return TITLE_FALLBACK;
@@ -141,6 +174,8 @@ export function createConversationStore(
     get: (id) => getConversation(state, id),
     getOrCreate: (id) => ensureConversation(state, id),
     appendMessage: (id, message) => appendToConversation(state, id, message),
+    markProvider: (id, provider) => markProvider(state, id, provider),
+    addTokenUsage: (id, usage) => addTokenUsage(state, id, usage),
     list: () => listConversations(state),
     entries: () => listEntries(state),
     delete: (id) => deleteConversation(state, id),

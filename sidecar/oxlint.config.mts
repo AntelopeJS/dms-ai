@@ -12,7 +12,12 @@ export default defineConfig({
     }),
   ],
   // The chatbox is a Vue app with its own toolchain, as it was under Biome.
-  ignorePatterns: [...ANTELOPE_IGNORE_PATTERNS, "chatbox/**"],
+  // The Codex protocol types are generated; see scripts/generate-codex-types.mjs.
+  ignorePatterns: [
+    ...ANTELOPE_IGNORE_PATTERNS,
+    "chatbox/**",
+    "src/providers/codex/protocol/**",
+  ],
   options: {
     typeAware: true,
     // Ceiling on what oxlint still reports. Most of the drop came from the

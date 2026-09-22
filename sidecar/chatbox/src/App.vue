@@ -31,6 +31,9 @@ import {
 	MODE_SECTION_LABEL,
 	OPEN_SETTINGS_ICON,
 	OPEN_SETTINGS_LABEL,
+	PROVIDER_OPTIONS,
+	PROVIDER_SECTION_LABEL,
+	PROVIDER_UNAVAILABLE_PREFIX,
 } from "./constants/settings";
 import {
 	CLIENT_MESSAGE_TYPES,
@@ -39,7 +42,7 @@ import {
 	SETTINGS_PAGE_PATH,
 	WS_IFRAME_PATH,
 } from "./constants/ws";
-import type { ChatboxMode } from "./types/settings";
+import type { ChatboxMode, ProviderName } from "./types/settings";
 import type { PendingAttachment } from "./utils/attachments";
 import { latestTodos } from "./utils/todos";
 
@@ -89,6 +92,36 @@ const modeModel = computed<ChatboxMode>({
 	get: () => settings.settings.value.mode,
 	set: (value) => {
 		if (value !== settings.settings.value.mode) settings.update({ mode: value });
+	},
+});
+
+// A provider the sidecar cannot drive stays listed but disabled, with the
+// reason on the option: a silently missing choice is harder to act on.
+const providerItems = computed(() =>
+	PROVIDER_OPTIONS.map((option) => ({
+		...option,
+		disabled: !isProviderAvailable(option.value),
+	})),
+);
+
+function isProviderAvailable(name: ProviderName): boolean {
+	return settings.settings.value.providers[name]?.available !== false;
+}
+
+const providerHint = computed(() => {
+	const active = settings.settings.value.provider;
+	const reason = settings.settings.value.providers[active]?.reason;
+	return reason === undefined
+		? PROVIDER_SECTION_LABEL
+		: `${PROVIDER_UNAVAILABLE_PREFIX}${reason}`;
+});
+
+const providerModel = computed<ProviderName>({
+	get: () => settings.settings.value.provider,
+	set: (value) => {
+		if (value === settings.settings.value.provider) return;
+		if (!isProviderAvailable(value)) return;
+		settings.update({ provider: value });
 	},
 });
 
@@ -251,6 +284,15 @@ function manualReconnect(): void {
 				variant="ghost"
 				size="sm"
 				:title="MODE_HINTS[settings.settings.value.mode]"
+				class="font-semibold text-primary"
+			/>
+			<span class="modebar-label">{{ PROVIDER_SECTION_LABEL }}</span>
+			<USelect
+				v-model="providerModel"
+				:items="providerItems"
+				variant="ghost"
+				size="sm"
+				:title="providerHint"
 				class="font-semibold text-primary"
 			/>
 		</div>

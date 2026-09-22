@@ -1,4 +1,3 @@
-import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { QuestionRequest } from "../../agent/question-bus.js";
 import {
@@ -8,6 +7,7 @@ import {
   ASK_USER_TOOL_NAME,
 } from "../../constants/mcp.js";
 import { QuestionSchema, type QuestionType } from "../../protocol/events.js";
+import { defineTool } from "../define-tool.js";
 
 export interface AskUserDeps {
   conversationId: string;
@@ -37,7 +37,7 @@ function buildContent(text: string): {
 }
 
 export function buildAskUserTool(deps: AskUserDeps) {
-  return tool(
+  return defineTool(
     ASK_USER_TOOL_NAME,
     ASK_USER_TOOL_DESCRIPTION,
     INPUT_SCHEMA,
