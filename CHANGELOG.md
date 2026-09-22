@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.1-next.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.0...v0.1.1-next.0)
+
+### 🚀 Enhancements
+
+- **config:** Let the project tell the sidecar where the backend is ([#16](https://github.com/AntelopeJS/dms-ai/pull/16))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.1.0
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.0.6...v0.1.0)
