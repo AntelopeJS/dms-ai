@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.1
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.1-next.0...v0.1.1)
+
+### 🏡 Chore
+
+- Unpin the AntelopeJS prereleases for the stable set ([#17](https://github.com/AntelopeJS/dms-ai/pull/17))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.1.1-next.0
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.0...v0.1.1-next.0)
