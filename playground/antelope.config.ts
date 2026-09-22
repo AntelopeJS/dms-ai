@@ -90,9 +90,7 @@ export default defineConfig({
       source: {
         type: "package",
         package: "@antelopejs/api",
-        // TEMPORARY: prerelease that publishes the API_* config variables.
-        // Revert to a stable range once 1.3.0 ships.
-        version: "1.3.0-next.0",
+        version: "^1.3.0",
       },
       config: {
         servers: [
