@@ -4,6 +4,12 @@
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.1-next.0...v0.1.1)
 
+This release promotes the `0.1.1-next` line to stable. It carries everything published in `v0.1.1-next.0`, summarised here and listed in the section below.
+
+### 🚀 Enhancements
+
+- **config:** Let the project tell the sidecar where the backend is: `backendUrl` and `hostOrigin` become optional module config keys, and the launcher now passes them to the sidecar as `--backend-url` and `--host-origin`. The sidecar already parsed both flags but never received them, so it always fell back to `http://localhost:5010` whatever port the api actually bound. With the api module's published `${@api.API_LOCAL_BASE_URL}` as `backendUrl`, the sidecar follows the reserved port. Left unset, the sidecar keeps its standalone defaults, which now live in one place, and the frontend's unused `5010` probe constant is gone ([#16](https://github.com/AntelopeJS/dms-ai/pull/16))
+
 ### 🏡 Chore
 
 - Unpin the AntelopeJS prereleases for the stable set ([#17](https://github.com/AntelopeJS/dms-ai/pull/17))
