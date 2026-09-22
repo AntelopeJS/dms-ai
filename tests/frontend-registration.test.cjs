@@ -3,6 +3,9 @@ const Module = require("node:module");
 const path = require("node:path");
 const { test } = require("node:test");
 
+const BACKEND_URL = "http://127.0.0.1:41234";
+const HOST_ORIGIN = "http://localhost:4173";
+
 function loadModule(registrations, sidecars) {
   const filename = path.resolve(__dirname, "../dist/index.js");
   const mocks = {
@@ -28,6 +31,8 @@ function loadModule(registrations, sidecars) {
       FRONTEND_MODULE_PRIORITY: 100,
     },
     "node:path": path,
+    // The config store is the unit under test here, so it is loaded for real.
+    "./config": require(path.resolve(__dirname, "../dist/config.js")),
   };
   const originalLoad = Module._load;
   Module._load = (request) => mocks[request] ?? {};
@@ -43,7 +48,9 @@ function loadModule(registrations, sidecars) {
 test("registers Vue and preserves sidecar inputs without launching an agent", async () => {
   const registrations = [];
   const sidecars = [];
-  await loadModule(registrations, sidecars).start();
+  const loaded = loadModule(registrations, sidecars);
+  loaded.construct({ backendUrl: BACKEND_URL, hostOrigin: HOST_ORIGIN });
+  await loaded.start();
   assert.deepEqual(registrations, [
     {
       name: "@antelopejs/dms-ai-frontend-vue",
@@ -52,6 +59,38 @@ test("registers Vue and preserves sidecar inputs without launching an agent", as
       priority: 100,
     },
   ]);
+  assert.deepEqual(sidecars, [
+    {
+      hostProjectRoot: process.cwd(),
+      backendUrl: BACKEND_URL,
+      hostOrigin: HOST_ORIGIN,
+      moduleRoots: ["fixture-module"],
+      skillDirs: ["fixture-skills"],
+      builderEnabled: true,
+    },
+  ]);
+});
+
+test("omits the origins the project did not configure", async () => {
+  const sidecars = [];
+  const loaded = loadModule([], sidecars);
+  loaded.construct(undefined);
+  await loaded.start();
+  assert.deepEqual(sidecars, [
+    {
+      hostProjectRoot: process.cwd(),
+      moduleRoots: ["fixture-module"],
+      skillDirs: ["fixture-skills"],
+      builderEnabled: true,
+    },
+  ]);
+});
+
+test("ignores config entries that are not usable origins", async () => {
+  const sidecars = [];
+  const loaded = loadModule([], sidecars);
+  loaded.construct({ backendUrl: "   ", hostOrigin: 5010 });
+  await loaded.start();
   assert.deepEqual(sidecars, [
     {
       hostProjectRoot: process.cwd(),

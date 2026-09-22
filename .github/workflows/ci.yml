@@ -51,6 +51,9 @@ jobs:
       - run: cd sidecar && pnpm knip
       - run: pnpm build
       - run: pnpm test:frontend-registration
+      # Pins the flags the launcher hands the sidecar, with the child process
+      # and the lock file stubbed.
+      - run: pnpm test:spawn-args
       - run: pnpm test:release-script
       - run: pnpm test
       - run: pnpm --dir sidecar typecheck

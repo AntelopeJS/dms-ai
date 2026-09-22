@@ -3,7 +3,6 @@ export const OVERLAY_Z_INDEX = 999_999
 export const OVERLAY_DOM_ID = 'dms-ai-overlay-root'
 export const OVERLAY_IFRAME_ID = 'dms-ai-overlay-iframe'
 export const SIDECAR_INFO_PATH = '/ai/sidecar-info'
-export const SIDECAR_PROBE_PORT = 5010
 export const SIDECAR_PROBE_HOST = 'http://localhost'
 export const OVERLAY_BOX_SHADOW = '0 8px 24px rgba(0, 0, 0, 0.18)'
 export const SIDECAR_HOST_NAME = 'localhost'

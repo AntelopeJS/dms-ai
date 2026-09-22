@@ -2,6 +2,7 @@ import path from "node:path";
 import { Logging } from "@antelopejs/interface-core/logging";
 import { AddFrontendModule } from "@antelopejs/interface-dms/page";
 import { isBuilderAvailable } from "./builder/presence";
+import { getConfig, parseConfig, setConfig } from "./config";
 import {
   FRONTEND_MODULE_DIR,
   FRONTEND_MODULE_NAME,
@@ -14,6 +15,10 @@ import { spawnSidecar } from "./lifecycle/spawn-sidecar";
 import { startLogCapture } from "./logging/log-buffer";
 import "./pages";
 import "./routes";
+
+export function construct(config: unknown): void {
+  setConfig(parseConfig(config));
+}
 
 export async function start() {
   startLogCapture();
@@ -33,6 +38,7 @@ export async function start() {
   ]);
   void spawnSidecar({
     hostProjectRoot: process.cwd(),
+    ...getConfig(),
     moduleRoots,
     skillDirs,
     builderEnabled,

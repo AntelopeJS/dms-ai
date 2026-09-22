@@ -28,7 +28,6 @@ export const LIST_PAGES_ERROR_MESSAGE =
 export const MAX_BFS_DEPTH = 4;
 
 export const REGISTRY_FETCH_TIMEOUT_MS = 5_000;
-export const DEFAULT_BACKEND_BASE_URL = "http://localhost:5010";
 
 export const PAGES_LOG_PREFIX = "[pages]";
 export const REGISTRY_STALE_FALLBACK_MESSAGE =
