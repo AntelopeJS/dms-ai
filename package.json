@@ -40,6 +40,7 @@
     "test": "cd sidecar && pnpm test && cd ../frontend-vue && pnpm test",
     "test:sidecar-smoke": "pnpm run build:sidecar && node --test tests/sidecar-build.test.cjs",
     "test:frontend-registration": "pnpm run build && node --test tests/frontend-registration.test.cjs",
+    "test:spawn-args": "node --test tests/spawn-args.test.cjs",
     "test:release-script": "node --test tests/release-script.test.cjs",
     "test:e2e": "cd sidecar && pnpm test:e2e",
     "release": "pnpm --dir frontend-vue install --frozen-lockfile && pnpm --dir sidecar install --frozen-lockfile && pnpm --dir sidecar/chatbox install --frozen-lockfile && release-it",

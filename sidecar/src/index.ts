@@ -7,6 +7,10 @@ import { createBuilderClient } from "./builder/builder-client.js";
 import { setBuilderAvailable } from "./builder/capability.js";
 import { SIDECAR_BUILDER_FLAG } from "./constants/builder.js";
 import {
+  STANDALONE_BACKEND_BASE_URL,
+  STANDALONE_HOST_ORIGIN,
+} from "./constants/cli.js";
+import {
   GRACEFUL_EXIT_CODE,
   IDLE_SHUTDOWN_MS,
   SIDECAR_BUILD_ID_FLAG,
@@ -17,10 +21,9 @@ import {
   PRODUCTION_GUARD_MESSAGE,
   PRODUCTION_NODE_ENV,
 } from "./constants/env.js";
-import { DEFAULT_BACKEND_BASE_URL } from "./constants/pages.js";
 import { MCP_HTTP_PORT_TOKEN, MCP_HTTP_URL_TEMPLATE } from "./constants/mcp.js";
 import { CHATBOX_DIST_DIR, STATE_DIR_SEGMENTS } from "./constants/paths.js";
-import { DEFAULT_HOST_ORIGIN, RANDOM_PORT } from "./constants/ports.js";
+import { RANDOM_PORT } from "./constants/ports.js";
 import { SETTINGS_FILE_NAME } from "./constants/settings.js";
 import { SKILL_NAME_COLLISION_WARNING } from "./constants/skills.js";
 import { STATE_FILE_NAME } from "./constants/state.js";
@@ -62,7 +65,7 @@ function enforceProductionGuard(): void {
 
 enforceProductionGuard();
 
-interface ParsedArgs {
+export interface ParsedArgs {
   port: number;
   root: string;
   hostOrigin: string;
@@ -142,8 +145,8 @@ function buildDefaults(): ParsedArgs {
   return {
     port: RANDOM_PORT,
     root: process.cwd(),
-    hostOrigin: DEFAULT_HOST_ORIGIN,
-    backendUrl: DEFAULT_BACKEND_BASE_URL,
+    hostOrigin: STANDALONE_HOST_ORIGIN,
+    backendUrl: STANDALONE_BACKEND_BASE_URL,
     buildId: "",
     moduleRoots: [],
     skillDirs: [],
@@ -151,7 +154,8 @@ function buildDefaults(): ParsedArgs {
   };
 }
 
-function parseArgs(argv: readonly string[]): ParsedArgs {
+// Exported for the unit test that pins the flags the dms-ai module passes.
+export function parseArgs(argv: readonly string[]): ParsedArgs {
   const acc = buildDefaults();
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];

@@ -23,6 +23,37 @@ The module starts its bundled sidecar with the project as its working directory.
 set `DMS_AI=0` before starting the backend to disable the sidecar. If
 `@antelopejs/dms-builder` is installed, the assistant also exposes its builder integration.
 
+## Configuration
+
+Both keys are optional. Left out, the sidecar keeps the defaults it uses when run standalone
+(`http://localhost:5010` and `http://localhost:3001`), which is the behaviour every existing project
+already has.
+
+| Key          | What it is                                                                     |
+| ------------ | ------------------------------------------------------------------------------ |
+| `backendUrl` | Origin the sidecar calls the DMS backend on — its pages registry, logs and builder clients. |
+| `hostOrigin` | Origin the DMS frontend is served from.                                        |
+
+The api module publishes the origin it actually reserved, so `backendUrl` should reference it rather
+than repeat a port that may already be taken:
+
+```typescript [antelope.config.ts]
+export default defineConfig({
+  modules: {
+    "dms-ai": {
+      source: { type: "package", package: "@antelopejs/dms-ai" },
+      config: {
+        backendUrl: "${@api.API_LOCAL_BASE_URL}",
+        hostOrigin: "http://localhost:3001",
+      },
+    },
+  },
+});
+```
+
+`hostOrigin` is the *frontend* origin, which the api module cannot publish: write it out, using the
+same value as `dms`'s `clientBaseUrl`.
+
 ## Agent providers
 
 The assistant runs on either Claude Code or Codex, picked in the AI settings page. Both go through
