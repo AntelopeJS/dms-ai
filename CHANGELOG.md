@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.1.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.0.6...v0.1.0)
+
+### 🚀 Enhancements
+
+- **ai:** ⚠️  Make the agent provider interchangeable and add Codex ([#14](https://github.com/AntelopeJS/dms-ai/pull/14))
+
+### 🩹 Fixes
+
+- **codex:** Close the follow-ups left by the provider seam ([#15](https://github.com/AntelopeJS/dms-ai/pull/15))
+
+#### ⚠️ Breaking Changes
+
+- **ai:** ⚠️  Make the agent provider interchangeable and add Codex ([#14](https://github.com/AntelopeJS/dms-ai/pull/14))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+- Glastis ([@Glastis](http://github.com/Glastis))
+
 ## v0.0.6
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.0.5...v0.0.6)
