@@ -12,6 +12,8 @@ import {
   CODEX_VENDOR_DIR,
   CODEX_VERSION_ARGUMENT,
   CODEX_VERSION_PATTERN,
+  CODEX_VERSION_WAIVER_ENABLED,
+  CODEX_VERSION_WAIVER_ENV,
   CODEX_WINDOWS_BINARY_NAME,
   MOCK_CODEX_BINARY_RELATIVE,
   MOCK_CODEX_FLAG_ENABLED,
@@ -19,10 +21,22 @@ import {
   MOCK_CODEX_VERSION,
   WINDOWS_PLATFORM,
 } from "../../constants/codex.js";
+import {
+  PROVIDER_INSTALLED_VERSION_TOKEN,
+  PROVIDER_PINNED_VERSION_TOKEN,
+  PROVIDER_UNAVAILABLE_REASONS,
+  PROVIDER_UNKNOWN_VERSION,
+} from "../../constants/providers.js";
 import { CODEX_PROTOCOL_VERSION } from "./protocol/index.js";
 
 export interface CodexInstallation {
   binaryPath: string;
+  /**
+   * Arguments that come before Codex's own, empty for the real binary. The mock
+   * is a script, and Windows spawns no shebang, so it is launched through the
+   * current node executable instead of being executed in place.
+   */
+  launchArgs: readonly string[];
   /** Version the shipped protocol types were generated from. */
   pinnedVersion: string;
 }
@@ -57,7 +71,11 @@ function computeInstallation(): CodexInstallation | undefined {
       binaryFileName(),
     );
     if (!existsSync(binaryPath)) return undefined;
-    return { binaryPath, pinnedVersion: CODEX_PROTOCOL_VERSION };
+    return {
+      binaryPath,
+      launchArgs: [],
+      pinnedVersion: CODEX_PROTOCOL_VERSION,
+    };
   } catch {
     return undefined;
   }
@@ -68,9 +86,10 @@ function mockInstallation(): CodexInstallation | undefined {
     return undefined;
   }
   return {
-    binaryPath: fileURLToPath(
-      new URL(MOCK_CODEX_BINARY_RELATIVE, import.meta.url),
-    ),
+    binaryPath: process.execPath,
+    launchArgs: [
+      fileURLToPath(new URL(MOCK_CODEX_BINARY_RELATIVE, import.meta.url)),
+    ],
     pinnedVersion: MOCK_CODEX_VERSION,
   };
 }
@@ -88,11 +107,15 @@ export function resolveCodexInstallation(): CodexInstallation | undefined {
   return cached.value;
 }
 
-export function readCodexBinaryVersion(binaryPath: string): string | undefined {
+export function readCodexBinaryVersion(
+  installation: CodexInstallation,
+): string | undefined {
   try {
-    const reported = execFileSync(binaryPath, [CODEX_VERSION_ARGUMENT], {
-      encoding: "utf8",
-    }).trim();
+    const reported = execFileSync(
+      installation.binaryPath,
+      [...installation.launchArgs, CODEX_VERSION_ARGUMENT],
+      { encoding: "utf8", windowsHide: true },
+    ).trim();
     return reported.match(CODEX_VERSION_PATTERN)?.[1];
   } catch {
     return undefined;
@@ -100,15 +123,35 @@ export function readCodexBinaryVersion(binaryPath: string): string | undefined {
 }
 
 /**
+ * Lets an operator run a Codex release the shipped types were not generated
+ * from. Codex ships about ten releases a month, so somebody tracking the latest
+ * one needs a way through that does not involve waiting for a dms-ai release —
+ * and it stays an explicit, logged opt-in rather than the default.
+ */
+export function isVersionGateWaived(): boolean {
+  return process.env[CODEX_VERSION_WAIVER_ENV] === CODEX_VERSION_WAIVER_ENABLED;
+}
+
+/**
  * Whether the installed binary speaks the protocol the shipped types describe.
- * Codex versions the app-server protocol by binary and ships about ten releases
- * a month, so a mismatch is refused at spawn instead of degrading silently.
+ * Codex versions the app-server protocol by binary, so a mismatch is refused at
+ * spawn instead of degrading silently.
  */
 export function isCodexInstallationUsable(
   installation: CodexInstallation,
 ): boolean {
-  return (
-    readCodexBinaryVersion(installation.binaryPath) ===
-    installation.pinnedVersion
-  );
+  if (isVersionGateWaived()) return true;
+  return readCodexBinaryVersion(installation) === installation.pinnedVersion;
+}
+
+/** Which versions disagree, and what to install to make them agree. */
+export function describeVersionMismatch(
+  installation: CodexInstallation,
+): string {
+  const installed =
+    readCodexBinaryVersion(installation) ?? PROVIDER_UNKNOWN_VERSION;
+  return PROVIDER_UNAVAILABLE_REASONS.CODEX_VERSION_MISMATCH.replaceAll(
+    PROVIDER_PINNED_VERSION_TOKEN,
+    installation.pinnedVersion,
+  ).replace(PROVIDER_INSTALLED_VERSION_TOKEN, installed);
 }

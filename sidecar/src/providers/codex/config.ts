@@ -38,10 +38,13 @@ export const CODEX_MODE_POLICIES: Record<ChatboxMode, CodexModePolicy> = {
     writable: false,
     autoDeclineEscalations: false,
   },
+  // Accepting edits is about writes, not about the network: the Claude path
+  // grants no egress here, and granting it would be a difference the user never
+  // asked for when they picked the other backend.
   acceptEdits: {
     approvalPolicy: "on-request",
     sandbox: "workspace-write",
-    networkAccess: true,
+    networkAccess: false,
     writable: true,
     autoDeclineEscalations: false,
   },
@@ -52,11 +55,14 @@ export const CODEX_MODE_POLICIES: Record<ChatboxMode, CodexModePolicy> = {
     writable: false,
     autoDeclineEscalations: true,
   },
+  // Full access writes everywhere by definition; `writable` is not read for
+  // this sandbox, and saying false would describe a restriction that is not
+  // there.
   auto: {
     approvalPolicy: "never",
     sandbox: "danger-full-access",
     networkAccess: true,
-    writable: false,
+    writable: true,
     autoDeclineEscalations: false,
   },
 };

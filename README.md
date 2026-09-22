@@ -54,14 +54,23 @@ in-agent context, its transcript is kept.
    The app-server protocol is versioned by binary and OpenAI publishes roughly ten versions a
    month. The sidecar ships protocol types generated from the pinned version and checks
    `codex --version` against it at spawn, refusing to start on a mismatch rather than speaking a
-   protocol its types do not describe.
+   protocol its types do not describe. The refusal names both versions, so an upgrade says what to
+   pin back to. To run a newer binary anyway — at the risk of a protocol its types do not
+   describe — set `DMS_AI_CODEX_ALLOW_VERSION_MISMATCH=1`; the drift is then logged once, at startup, instead of
+   blocking the provider.
 
 2. **Provide an API key.** Export `OPENAI_API_KEY` in the host process environment. The binary does
    not read that variable itself: the sidecar writes it into an `auth.json` (mode `0600`) inside a
-   `CODEX_HOME` dedicated to the conversation. ChatGPT login is not supported here — it shares a
-   token refresh with the user's own `codex` install.
+   `CODEX_HOME` dedicated to the conversation. On Windows that mode is not enforced by the
+   filesystem, so the file is only as private as the directory it sits in. ChatGPT login is not
+   supported here — it shares a token refresh with the user's own `codex` install.
 
 3. **Restart the sidecar**, then pick *OpenAI (Codex)* in the AI settings page.
+
+Linux, macOS and Windows are all supported. One app-server process runs per conversation, and the
+sidecar records its pid so a previous run's orphans are killed at startup — through procfs on
+Linux, `ps` on macOS and `taskkill /T` on Windows, which is also what takes the sandboxed children
+of the app-server with it.
 
 ## Vue frontend
 

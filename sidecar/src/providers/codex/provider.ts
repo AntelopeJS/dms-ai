@@ -47,6 +47,7 @@ import { createCodexPermissionHandler } from "./permissions.js";
 import { type CodexProcess, spawnCodexProcess } from "./process.js";
 import type { v2 } from "./protocol/index.js";
 import {
+  describeVersionMismatch,
   isCodexInstallationUsable,
   resolveCodexInstallation,
 } from "./resolve-binary.js";
@@ -246,7 +247,9 @@ function assertUsableInstallation() {
     throw new Error(CODEX_MISSING_CLI_MESSAGE);
   }
   if (!isCodexInstallationUsable(installation)) {
-    throw new Error(CODEX_VERSION_MISMATCH_MESSAGE);
+    throw new Error(
+      `${CODEX_VERSION_MISMATCH_MESSAGE} ${describeVersionMismatch(installation)}`,
+    );
   }
   return installation;
 }

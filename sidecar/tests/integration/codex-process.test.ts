@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CODEX_CLIENT_NAME,
+  CODEX_OWNED_SKILL_SCOPES,
   CODEX_SPAWN_FAILED_MESSAGE,
 } from "../../src/constants/codex.js";
 import {
@@ -136,13 +137,27 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
         {},
       );
       const seeded = listed.data.flatMap((entry) => entry.skills);
-      expect(seeded.length).toBeGreaterThan(0);
+      const owned = seeded.filter((skill) =>
+        CODEX_OWNED_SKILL_SCOPES.includes(skill.scope),
+      );
+      expect(owned.length).toBeGreaterThan(0);
 
+      // Scoped rather than counted: Codex also indexes the developer's own
+      // skills, which `allowLocalSkills` is entitled to keep, and asserting on
+      // the total made the suite depend on what happens to sit in ~/.agents.
       const disabled = selectSkillsToDisable(listed.data, {
         extraRoots: [],
         allowLocalSkills: true,
       });
-      expect(disabled.length).toBe(seeded.length);
+      expect(new Set(disabled.map((entry) => entry.path))).toEqual(
+        new Set(owned.map((skill) => skill.path)),
+      );
+
+      const withoutLocals = selectSkillsToDisable(listed.data, {
+        extraRoots: [],
+        allowLocalSkills: false,
+      });
+      expect(withoutLocals.length).toBe(seeded.length);
     },
     SPAWN_TIMEOUT_MS,
   );
@@ -168,6 +183,7 @@ describe("codex app-server spawn failure", () => {
           stateDir,
           installation: {
             binaryPath: MISSING_BINARY,
+            launchArgs: [],
             pinnedVersion: "0.0.0",
           },
           mcpUrl: MCP_URL,
