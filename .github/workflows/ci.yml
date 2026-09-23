@@ -40,11 +40,9 @@ jobs:
           pnpm install --frozen-lockfile && cd frontend-vue && pnpm install --frozen-lockfile && cd ../sidecar &&
           pnpm install && cd chatbox && pnpm install --frozen-lockfile
       - run: pnpm lint
-      # tsconfig.json is the config the editors and oxlint's type-aware pass
-      # read; tsconfig.build.json is the one the build uses. Without this the
-      # first is never exercised, and a resolution failure there degrades every
-      # type-aware rule to `any` without failing anything.
-      - run: pnpm exec tsc -p tsconfig.json
+      # oxlint's type-aware pass degrades to `any` on a broken tsconfig
+      # without failing, so the typecheck is what catches it.
+      - run: pnpm exec tsc --noEmit
       # Unused dependencies only. `pnpm knip:all` also reports dead files and
       # exports, which need a human to confirm, so they stay out of the gate.
       - run: pnpm knip

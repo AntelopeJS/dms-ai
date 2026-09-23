@@ -1,9 +1,10 @@
 {
   "compilerOptions": {
-    "noEmit": true,
+    // TypeScript 6 no longer loads every @types package by default.
+    "types": ["node"],
     "moduleResolution": "bundler",
     "target": "esnext",
-    "module": "preserve",
+    "module": "commonjs",
     "lib": ["ES2020"],
     "allowJs": true,
     "outDir": "dist",
