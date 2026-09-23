@@ -1,8 +1,5 @@
 export const PACKAGE_JSON_FILENAME = "package.json";
-export const ANTELOPE_PREFIXES = [
-  "@antelopejs/",
-  "@antelopejs-private/",
-] as const;
+export const ANTELOPE_PREFIXES = ["@antelopejs/"] as const;
 export const PROJECT_INFO_FALLBACK = {
   name: "unknown",
   version: "0.0.0",
