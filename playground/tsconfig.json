@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
-    "moduleResolution": "nodenext",
+    // TypeScript 6 no longer loads every @types package by default.
+    "types": ["node"],
+    "moduleResolution": "bundler",
     "target": "esnext",
-    "module": "nodenext",
+    "module": "commonjs",
     "lib": ["ES2020"],
     "allowJs": true,
     "outDir": "dist",
