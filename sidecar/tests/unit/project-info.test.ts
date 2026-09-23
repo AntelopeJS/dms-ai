@@ -11,7 +11,7 @@ const FALLBACK_NAME = "unknown";
 const FALLBACK_VERSION = "0.0.0";
 
 const SAMPLE_PACKAGE = {
-  name: "@antelopejs-private/sample-host",
+  name: "sample-host",
   version: "1.2.3",
   dependencies: {
     "@antelopejs/api": "^1.0.0",
