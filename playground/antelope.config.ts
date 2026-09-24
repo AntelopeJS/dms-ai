@@ -31,7 +31,7 @@ export default defineConfig({
       source: {
         type: "package",
         package: "@antelopejs/dms",
-        version: ">=0.0.1 <1.0.0",
+        version: ">=0.4.0 <1.0.0",
       },
       config: {
         homepage: "/home",
@@ -60,14 +60,14 @@ export default defineConfig({
       source: {
         type: "package",
         package: "@antelopejs/dms-builder",
-        version: ">=0.0.1 <1.0.0",
+        version: ">=0.2.0 <1.0.0",
       },
     },
     mongodb: {
       source: {
         type: "package",
         package: "@antelopejs/mongodb",
-        version: "^1.2.4",
+        version: "^1.3.1",
       },
       config: {
         url: process.env.MONGO_URL ?? "mongodb://localhost:27017",
@@ -80,7 +80,7 @@ export default defineConfig({
       source: {
         type: "package",
         package: "@antelopejs/auth-jwt",
-        version: "^1.0.1",
+        version: "^1.0.3",
       },
       config: {
         secret: "dev",
@@ -113,7 +113,7 @@ export default defineConfig({
       source: {
         type: "package",
         package: "@antelopejs/file-storage-local",
-        version: "^0.1.2",
+        version: "^0.1.5",
       },
       config: {
         storagePath: ".antelope/file-storage",
@@ -125,7 +125,7 @@ export default defineConfig({
       source: {
         type: "package",
         package: "@antelopejs/nodemailer",
-        version: "0.0.4",
+        version: "0.0.5",
       },
       config: {
         ethereal: true,
