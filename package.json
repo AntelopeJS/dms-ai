@@ -50,8 +50,8 @@
   },
   "dependencies": {
     "@antelopejs/interface-api": "0.0.13",
-    "@antelopejs/interface-core": ">=0.0.13 <1.0.0",
-    "@antelopejs/interface-dms": ">=0.0.1 <1.0.0",
+    "@antelopejs/interface-core": ">=0.1.1 <1.0.0",
+    "@antelopejs/interface-dms": ">=0.2.0 <1.0.0",
     "@anthropic-ai/claude-agent-sdk": "^0.2.131",
     "@anthropic-ai/claude-code": "^2.1.131",
     "@modelcontextprotocol/sdk": "1.29.0",
@@ -79,7 +79,7 @@
     }
   },
   "optionalDependencies": {
-    "@antelopejs/interface-dms-builder": ">=0.0.1 <1.0.0"
+    "@antelopejs/interface-dms-builder": ">=0.1.0 <1.0.0"
   },
   "packageManager": "pnpm@10.2.0",
   "antelopeJs": {
