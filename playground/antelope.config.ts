@@ -70,7 +70,7 @@ export default defineConfig({
         version: "^1.2.4",
       },
       config: {
-        url: "mongodb://localhost:27017",
+        url: process.env.MONGO_URL ?? "mongodb://localhost:27017",
         database: "dms-ai-playground",
       },
       importOverrides: [],
