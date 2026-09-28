@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ACTIVITY_KINDS } from "../constants/agent.js";
 import {
   CHATBOX_MODES,
   GENERATION_MODES,
@@ -22,6 +23,7 @@ export const EVENT_TYPES = {
   HOST_COMMAND_NAVIGATE: "host_command_navigate",
   QUEUE_STATE: "queue_state",
   USER_MESSAGE_ECHO: "user_message_echo",
+  RUN_PROGRESS: "run_progress",
 } as const;
 
 export const STATUS = {
@@ -67,6 +69,21 @@ export const RunErrorEvent = z.object({
 export const RunResumedEvent = z.object({
   type: z.literal(EVENT_TYPES.RUN_RESUMED),
   conversationId: z.string(),
+});
+
+/**
+ * Server -> iframe: what a running turn is doing, sent when its activity
+ * changes and as a heartbeat. `elapsedMs` counts from the turn start and
+ * `idleMs` from the agent's last activity, so the chat can tell a working
+ * turn from a quiet one, and a live connection from a dead one.
+ */
+export const RunProgressEvent = z.object({
+  type: z.literal(EVENT_TYPES.RUN_PROGRESS),
+  conversationId: z.string(),
+  activity: z.enum(ACTIVITY_KINDS),
+  detail: z.string().optional(),
+  elapsedMs: z.number(),
+  idleMs: z.number(),
 });
 
 export const SnapshotAttachmentMeta = z.object({
@@ -206,6 +223,7 @@ export const AnyServerEvent = z.discriminatedUnion("type", [
   RunDoneEvent,
   RunErrorEvent,
   RunResumedEvent,
+  RunProgressEvent,
   ConversationSnapshotEvent,
   ConversationListEvent,
   SettingsUpdateEvent,
@@ -217,6 +235,7 @@ export const AnyServerEvent = z.discriminatedUnion("type", [
 ]);
 export type AnyServerEventType = z.infer<typeof AnyServerEvent>;
 export type RunResumedEventType = z.infer<typeof RunResumedEvent>;
+export type RunProgressEventType = z.infer<typeof RunProgressEvent>;
 export type ConversationSnapshotEventType = z.infer<
   typeof ConversationSnapshotEvent
 >;

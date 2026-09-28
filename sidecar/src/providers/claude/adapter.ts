@@ -2,15 +2,21 @@ import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type {
   RunnerAssistantText,
   RunnerAssistantTextDelta,
-  RunnerDone,
   RunnerEvent,
   RunnerToolResult,
   RunnerToolUse,
 } from "../../agent/runner-events.js";
+import {
+  CLAUDE_STREAM_EVENT_TYPES,
+  CLAUDE_TEXT_DELTA_TYPE,
+} from "../../constants/claude.js";
 import type { TokenUsage } from "../../state/types.js";
-
-const STREAM_DELTA_EVENT_TYPE = "content_block_delta";
-const STREAM_TEXT_DELTA_TYPE = "text_delta";
+import {
+  streamActivity,
+  systemActivity,
+  toolProgressActivity,
+} from "./activity.js";
+import { resultEvents } from "./result.js";
 
 interface AssistantContentBlock {
   type: string;
@@ -119,18 +125,23 @@ function* yieldUserEvents(message: SDKMessage): Generator<RunnerEvent, void> {
   }
 }
 
+function extractTextDelta(event: StreamEventBlock): string | null {
+  if (event.type !== CLAUDE_STREAM_EVENT_TYPES.CONTENT_BLOCK_DELTA) return null;
+  const delta = event.delta;
+  if (delta === undefined || delta.type !== CLAUDE_TEXT_DELTA_TYPE) return null;
+  if (typeof delta.text !== "string" || delta.text.length === 0) return null;
+  return delta.text;
+}
+
 function* yieldStreamEvents(message: SDKMessage): Generator<RunnerEvent, void> {
   const event = extractStreamEvent(message);
   if (event === null) return;
-  if (event.type !== STREAM_DELTA_EVENT_TYPE) return;
-  const delta = event.delta;
-  if (delta === undefined || delta.type !== STREAM_TEXT_DELTA_TYPE) return;
-  if (typeof delta.text !== "string" || delta.text.length === 0) return;
-  yield buildAssistantTextDelta(delta.text);
-}
-
-function buildDone(): RunnerDone {
-  return { type: "done" };
+  const text = extractTextDelta(event);
+  if (text !== null) {
+    yield buildAssistantTextDelta(text);
+    return;
+  }
+  yield* streamActivity(event);
 }
 
 type MessageHandler = (message: SDKMessage) => Iterable<RunnerEvent>;
@@ -139,7 +150,9 @@ const MESSAGE_HANDLERS: Record<string, MessageHandler> = {
   assistant: yieldAssistantEvents,
   user: yieldUserEvents,
   stream_event: yieldStreamEvents,
-  result: () => [buildDone()],
+  system: systemActivity,
+  tool_progress: toolProgressActivity,
+  result: resultEvents,
 };
 
 interface SdkUsage {

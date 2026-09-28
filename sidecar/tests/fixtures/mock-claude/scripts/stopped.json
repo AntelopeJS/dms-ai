@@ -1,0 +1,58 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "apiKeySource": "user",
+    "claude_code_version": "0.0.0-mock",
+    "cwd": "/mock",
+    "tools": ["Read", "Edit", "Glob", "Grep", "Bash"],
+    "mcp_servers": [],
+    "model": "claude-mock",
+    "permissionMode": "default",
+    "slash_commands": [],
+    "output_style": "default",
+    "skills": [],
+    "plugins": [],
+    "agents": [],
+    "uuid": "00000000-0000-0000-0000-000000000001",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000"
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000401",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "text_delta",
+        "text": "Un, deux, "
+      }
+    }
+  },
+  {
+    "type": "result",
+    "subtype": "error_during_execution",
+    "duration_ms": 250,
+    "duration_api_ms": 200,
+    "is_error": true,
+    "num_turns": 1,
+    "stop_reason": "end_turn",
+    "total_cost_usd": 0,
+    "usage": {
+      "input_tokens": 10,
+      "output_tokens": 12,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0
+    },
+    "modelUsage": {},
+    "permission_denials": [],
+    "uuid": "00000000-0000-0000-0000-000000000402",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "terminal_reason": "aborted_streaming",
+    "errors": [
+      "[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=null"
+    ]
+  }
+]

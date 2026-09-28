@@ -7,6 +7,7 @@ export const STORED_MESSAGE_ROLES = [
   // /shell/network) tool. Emitted from the permission bridge, independent of the
   // tool_use/tool_result pair, so approve/deny rates can be derived.
   "permission",
+  "error",
 ] as const;
 
 export type StoredMessageRole = (typeof STORED_MESSAGE_ROLES)[number];

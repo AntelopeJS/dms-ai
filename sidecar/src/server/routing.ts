@@ -7,7 +7,7 @@ import {
 } from "../agent/edit-tracker.js";
 import type { PendingRequest, PermissionBus } from "../agent/permission-bus.js";
 import type { PendingQuestion, QuestionBus } from "../agent/question-bus.js";
-import type { AgentRunner } from "../agent/runner.js";
+import type { AgentRunner, RunnerContext } from "../agent/runner.js";
 import type { RunnerEvent } from "../agent/runner-events.js";
 import { buildToolSummary } from "../agent/tool-summary.js";
 import { getBuilderAvailable } from "../builder/capability.js";
@@ -56,6 +56,7 @@ import type { LiveTurnStore } from "./live-turns.js";
 import type { NavigationCompleter } from "./navigation-completer.js";
 import type { PendingQueueStore } from "./pending-queue.js";
 import { collectBuildIssues } from "./safety-net.js";
+import { startTurnProgress } from "./turn-progress.js";
 
 export interface ConnectionContext {
   path: string;
@@ -292,6 +293,7 @@ const RUNNER_EVENT_MAPPERS: {
     conversationId: cid,
     error: ev.message,
   }),
+  activity: () => null,
 };
 
 function mapRunnerEvent(
@@ -333,7 +335,12 @@ const RUNNER_EVENT_PERSISTERS: {
     timestampMs: nowMs,
   }),
   done: () => null,
-  error: () => null,
+  error: (ev, nowMs) => ({
+    role: "error",
+    content: ev.message,
+    timestampMs: nowMs,
+  }),
+  activity: () => null,
 };
 
 function persistRunnerEvent(
@@ -431,6 +438,35 @@ function recordEditIfAny(
   if (filePath !== undefined) ctx.editTracker.record(conversationId, filePath);
 }
 
+function buildRunnerContext(
+  ctx: ConnectionContext,
+  conversationId: string,
+  attachments: AttachmentType[] | undefined,
+): RunnerContext {
+  return {
+    conversationId,
+    hostProjectRoot: ctx.hostProjectRoot,
+    getCurrentPage: () => ctx.hostState.getCurrentPage(),
+    attachments,
+    permissionBus: ctx.permissionBus,
+    createMcpServer: () => ctx.createMcpServer(conversationId),
+    onPermissionDecision: (toolName, decision) =>
+      persistPermissionDecision(ctx, conversationId, toolName, decision),
+    onTokenUsage: (usage) =>
+      ctx.conversationStore.addTokenUsage(conversationId, usage),
+  };
+}
+
+function handleTurnEvent(
+  ctx: ConnectionContext,
+  conversationId: string,
+  ev: RunnerEvent,
+): void {
+  recordEditIfAny(ctx, conversationId, ev);
+  persistRunnerEvent(ctx, conversationId, ev);
+  dispatchTurnEvent(ctx, conversationId, ev);
+}
+
 async function streamTurn(
   ctx: ConnectionContext,
   conversationId: string,
@@ -444,25 +480,21 @@ async function streamTurn(
     conversationId,
     ctx.settingsStore.get().provider,
   );
+  const progress = startTurnProgress({
+    conversationId,
+    send: (event) => ctx.iframeSocketRegistry.send(conversationId, event),
+  });
   try {
-    const stream = ctx.runner.start(content, {
-      conversationId,
-      hostProjectRoot: ctx.hostProjectRoot,
-      getCurrentPage: () => ctx.hostState.getCurrentPage(),
-      attachments,
-      permissionBus: ctx.permissionBus,
-      createMcpServer: () => ctx.createMcpServer(conversationId),
-      onPermissionDecision: (toolName, decision) =>
-        persistPermissionDecision(ctx, conversationId, toolName, decision),
-      onTokenUsage: (usage) =>
-        ctx.conversationStore.addTokenUsage(conversationId, usage),
-    });
+    const stream = ctx.runner.start(
+      content,
+      buildRunnerContext(ctx, conversationId, attachments),
+    );
     for await (const ev of stream) {
-      recordEditIfAny(ctx, conversationId, ev);
-      persistRunnerEvent(ctx, conversationId, ev);
-      dispatchTurnEvent(ctx, conversationId, ev);
+      progress.observe(ev);
+      handleTurnEvent(ctx, conversationId, ev);
     }
   } finally {
+    progress.stop();
     ctx.liveTurns.end(conversationId);
   }
 }
@@ -506,11 +538,7 @@ async function runTurnWithHealing(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`${WS_LOG_PREFIX} turn setup failed: ${message}`);
-    ctx.iframeSocketRegistry.send(conversationId, {
-      type: EVENT_TYPES.RUN_ERROR,
-      conversationId,
-      error: message,
-    });
+    handleTurnEvent(ctx, conversationId, { type: "error", message });
     return;
   }
   // The auto-heal pass is best-effort; a failure in it must never propagate, or
