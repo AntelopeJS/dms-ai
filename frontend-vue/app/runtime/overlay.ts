@@ -4,6 +4,7 @@ import {
 	OVERLAY_DOM_ID,
 	OVERLAY_IFRAME_ID,
 	OVERLAY_MIN_WIDTH_PX,
+	OVERLAY_OPEN_CHANGE_EVENT,
 	OVERLAY_OUTSIDE_TOGGLE_SUPPRESS_MS,
 	OVERLAY_PLACEHOLDER_ID,
 	OVERLAY_RESIZE_HANDLE_SIZE_PX,
@@ -21,6 +22,7 @@ import {
 import {
 	type HostTheme,
 	installThemeBridge,
+	isFromFrame,
 	readHostMode,
 } from './theme-bridge'
 
@@ -37,7 +39,9 @@ export interface OverlayHandle {
 	// use `toggleOpen` so it is never suppressed.
 	toggleFromLauncher: () => void
 	isOpen: () => boolean
-	// Point the frame at a (possibly new) sidecar URL. A no-op when the URL is
+	/** Called on every open or close, however the panel was toggled. */
+	onOpenChange: (listener: (isOpen: boolean) => void) => void
+	// Point the frame at the chat document. A no-op when the URL is
 	// unchanged and already loaded, so a redundant `connected` notify won't reload
 	// the chatbox; otherwise it reloads and shows a connecting placeholder until
 	// the frame paints.
@@ -106,9 +110,9 @@ function buildContainer(): HTMLDivElement {
 	return container
 }
 
-// Built with no `src`: the frame is only pointed at the sidecar via `repoint`
-// once the status controller confirms a reachable port, so the browser never
-// renders its native "can't reach" page for a dead port.
+// Built with no `src`: the frame is only pointed at the chat via `repoint` once
+// the status controller confirms the sidecar runs, so it never renders the
+// error page of a sidecar that is down.
 function buildIframe(): HTMLIFrameElement {
 	const iframe = document.createElement('iframe')
 	iframe.id = OVERLAY_IFRAME_ID
@@ -291,8 +295,8 @@ function createPlaceholderController(
 }
 
 // Repoint the frame at `url`, deferring the placeholder-hide until it paints so a
-// port change reloads the chatbox without flashing the previous dead frame. A
-// no-op reload when the URL is already loaded.
+// reload of the chatbox never flashes the previous frame. A no-op reload when
+// the URL is already loaded.
 function createRepointer(
 	iframe: HTMLIFrameElement,
 	placeholder: PlaceholderController,
@@ -321,9 +325,14 @@ function setOpen(
 	stateRef: OverlayPrefsRef,
 	isOpen: boolean,
 ): void {
+	const hasChanged = stateRef.value.isOpen !== isOpen
 	stateRef.value = { ...stateRef.value, isOpen }
 	applyPrefs(elements, stateRef.value)
 	writePrefsDebounced(stateRef.value)
+	if (!hasChanged) return
+	elements.container.dispatchEvent(
+		new CustomEvent(OVERLAY_OPEN_CHANGE_EVENT, { detail: isOpen }),
+	)
 }
 
 export function injectOverlay(): OverlayHandle | null {
@@ -360,6 +369,7 @@ export function injectOverlay(): OverlayHandle | null {
 	// The chatbox header's close button lives inside the iframe; it asks the
 	// host to slide the panel away via postMessage.
 	globalThis.addEventListener('message', (event: MessageEvent) => {
+		if (!isFromFrame(event, elements.iframe)) return
 		const type = (event.data as MessageData)?.type
 		if (typeof type === 'string' && CLOSE_MESSAGE_TYPES.has(type)) {
 			setOpen(elements, stateRef, false)
@@ -377,6 +387,11 @@ export function injectOverlay(): OverlayHandle | null {
 			toggle()
 		},
 		isOpen: (): boolean => stateRef.value.isOpen,
+		onOpenChange: (listener) => {
+			elements.container.addEventListener(OVERLAY_OPEN_CHANGE_EVENT, (event) =>
+				listener((event as CustomEvent<boolean>).detail),
+			)
+		},
 		repoint,
 		showPlaceholder: (kind) => placeholder.show(kind),
 	}

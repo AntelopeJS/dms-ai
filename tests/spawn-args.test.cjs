@@ -78,7 +78,7 @@ function valueAfter(args, flag) {
   return index === -1 ? null : args[index + 1];
 }
 
-test("passes the configured origins to the sidecar", async () => {
+void test("passes the configured origins to the sidecar", async () => {
   const spawns = [];
   await loadLauncher(spawns).spawnSidecar({
     hostProjectRoot: process.cwd(),
@@ -90,7 +90,7 @@ test("passes the configured origins to the sidecar", async () => {
   assert.equal(valueAfter(spawns[0], "--host-origin"), HOST_ORIGIN);
 });
 
-test("omits both flags when the project configured neither", async () => {
+void test("omits both flags when the project configured neither", async () => {
   const spawns = [];
   await loadLauncher(spawns).spawnSidecar({ hostProjectRoot: process.cwd() });
   assert.equal(spawns.length, 1);

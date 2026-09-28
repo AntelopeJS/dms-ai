@@ -46,7 +46,7 @@ function requestHealth(port) {
   });
 }
 
-test("playground installation builds the sidecar before startup", () => {
+void test("playground installation builds the sidecar before startup", () => {
   assert.match(
     readText("playground/antelope.config.ts"),
     /installCommand: \["pnpm install", "pnpm build", "pnpm build:sidecar"\]/,
@@ -54,7 +54,7 @@ test("playground installation builds the sidecar before startup", () => {
   assert.match(readText(".agents/setup"), /pnpm build:sidecar/);
 });
 
-test("built sidecar starts and serves health", async () => {
+void test("built sidecar starts and serves health", async () => {
   assert.equal(existsSync(sidecarEntry), true);
   const stateRoot = await mkdtemp(path.join(tmpdir(), "dms-ai-sidecar-"));
   const child = spawn(

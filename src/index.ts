@@ -2,6 +2,7 @@ import path from "node:path";
 import { Logging } from "@antelopejs/interface-core/logging";
 import { AddFrontendModule } from "@antelopejs/interface-dms/page";
 import { isBuilderAvailable } from "./builder/presence";
+import { closeAllBridges } from "./channels/registry";
 import { getConfig, parseConfig, setConfig } from "./config";
 import {
   FRONTEND_MODULE_DIR,
@@ -45,4 +46,13 @@ export async function start() {
   }).catch((err) => {
     Logging.Error(`${SIDECAR_LOG_PREFIX} spawn failed:`, err);
   });
+}
+
+/**
+ * Ends every browser stream and sidecar socket this instance bridged. A hot
+ * reload replaces the module with a fresh copy, so anything left open here would
+ * outlive it; the browser reconnects to the new instance on its own.
+ */
+export function destroy(): void {
+  closeAllBridges();
 }
