@@ -81,9 +81,9 @@
       "content": [
         {
           "type": "tool_use",
-          "id": "toolu_mock_bash_1",
+          "id": "toolu_mock_wc_1",
           "name": "Bash",
-          "input": { "command": "node -e \"console.log('hello')\"" }
+          "input": { "command": "wc -l README.md" }
         }
       ]
     }
@@ -98,8 +98,8 @@
       "content": [
         {
           "type": "tool_result",
-          "tool_use_id": "toolu_mock_bash_1",
-          "content": "hello",
+          "tool_use_id": "toolu_mock_wc_1",
+          "content": "3 README.md",
           "is_error": false
         }
       ]

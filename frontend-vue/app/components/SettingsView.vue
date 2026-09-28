@@ -47,6 +47,11 @@ const MODE_OPTIONS: Array<{ value: Mode; label: string; hint: string }> = [
 	{ value: 'auto', label: 'Auto', hint: 'Auto-approve every tool action' },
 ]
 
+// Safe mode refuses raw edits whatever the mode, and Auto stops short of
+// approving everything there, so the mode hint says so while it is active.
+const SAFE_MODE_MODE_NOTE =
+	'Safe mode: raw edits and shell commands stay blocked, and Auto still asks before other actions.'
+
 const PROVIDER_OPTIONS: Array<{
 	value: ProviderName
 	label: string
@@ -240,6 +245,9 @@ const SELECT_CLASS =
 						</select>
 						<p class="mt-1.5 text-xs text-dimmed">
 							{{ MODE_OPTIONS.find((o) => o.value === settings.mode)?.hint }}
+						</p>
+						<p v-if="activeMode === 'safe'" class="mt-1 text-xs text-dimmed">
+							{{ SAFE_MODE_MODE_NOTE }}
 						</p>
 					</div>
 					<div>

@@ -5,6 +5,7 @@ import {
   type EditTracker,
   extractEditedFilePath,
 } from "../agent/edit-tracker.js";
+import { effectiveChatboxMode } from "../agent/effective-mode.js";
 import type { PendingRequest, PermissionBus } from "../agent/permission-bus.js";
 import type { PendingQuestion, QuestionBus } from "../agent/question-bus.js";
 import type { AgentRunner } from "../agent/runner.js";
@@ -791,7 +792,7 @@ export function applySettings(
   next: AppSettings,
 ): void {
   deps.settingsStore.set(next);
-  deps.permissionBus.setAutoApprove(next.mode === "auto");
+  deps.permissionBus.setAutoApprove(effectiveChatboxMode(next) === "auto");
   deps.runner.applySettings(next);
   deps.iframeSocketRegistry.broadcast({
     type: EVENT_TYPES.SETTINGS_UPDATE,

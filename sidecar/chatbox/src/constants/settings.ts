@@ -53,3 +53,8 @@ export const MODE_HINTS: Record<ChatboxMode, string> = {
 	plan: "Plan only — propose without making changes",
 	auto: "Auto-approve every tool action",
 };
+
+// Safe mode refuses raw edits whatever the mode, and Auto stops short of
+// approving everything there, so the mode hint says so while it is active.
+export const SAFE_MODE_MODE_NOTE =
+	"Safe mode: raw edits and shell commands stay blocked, and Auto still asks before other actions.";
