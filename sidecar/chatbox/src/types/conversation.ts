@@ -1,6 +1,6 @@
 import type { PendingAttachment } from "../utils/attachments";
 
-export type MessageRole = "user" | "assistant" | "tool";
+export type MessageRole = "user" | "assistant" | "tool" | "error";
 export type ToolStatus = "pending" | "success" | "error";
 
 // A file attached to a user message. `dataUrl` is only present for messages
@@ -28,6 +28,27 @@ export interface AssistantMessage {
 	timestampMs: number;
 }
 
+/** Why a run stopped or a message could not be sent, with a way to retry. */
+export interface ErrorMessage {
+	id: string;
+	role: "error";
+	content: string;
+	timestampMs: number;
+}
+
+/**
+ * What the running turn is doing, as last reported by the sidecar.
+ * `receivedAtMs` is the local time of that report, from which the elapsed and
+ * quiet durations keep counting until the next one.
+ */
+export interface RunProgress {
+	activity: string;
+	detail?: string;
+	elapsedMs: number;
+	idleMs: number;
+	receivedAtMs: number;
+}
+
 export interface ToolCallMessage {
 	id: string;
 	role: "tool";
@@ -42,7 +63,8 @@ export interface ToolCallMessage {
 export type ConversationMessage =
 	| UserMessage
 	| AssistantMessage
-	| ToolCallMessage;
+	| ToolCallMessage
+	| ErrorMessage;
 
 export interface QueuedMessage {
 	id: string;

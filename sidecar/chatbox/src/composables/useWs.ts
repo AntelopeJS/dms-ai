@@ -23,7 +23,8 @@ export interface UseWsOptions {
 export type WsMessageHandler = (msg: unknown) => void;
 
 export interface UseWsResult {
-	send: (msg: object) => void;
+	/** Sends when the socket is open; false tells the caller nothing left. */
+	send: (msg: object) => boolean;
 	onMessage: (handler: WsMessageHandler) => () => void;
 	reconnect: () => void;
 	reidentify: () => void;
@@ -196,10 +197,11 @@ export function useWs(options: UseWsOptions): UseWsResult {
 	let intentionallyClosed = false;
 	let activeContext: ReconnectContext | null = null;
 
-	const send = (msg: object): void => {
-		if (connection === null) return;
-		if (connection.socket.readyState !== WebSocket.OPEN) return;
+	const send = (msg: object): boolean => {
+		if (connection === null) return false;
+		if (connection.socket.readyState !== WebSocket.OPEN) return false;
 		connection.socket.send(JSON.stringify(msg));
+		return true;
 	};
 
 	const reidentify = (): void => {

@@ -32,6 +32,7 @@ export const SERVER_EVENT_TYPES = {
 	ASK_QUESTION: "ask_question",
 	QUEUE_STATE: "queue_state",
 	USER_MESSAGE_ECHO: "user_message_echo",
+	RUN_PROGRESS: "run_progress",
 } as const;
 
 export const ROLES = {

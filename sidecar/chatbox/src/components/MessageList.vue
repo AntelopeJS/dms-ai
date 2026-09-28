@@ -3,17 +3,32 @@ import { computed } from "vue";
 import { ATTACH_FILE_ICON } from "../constants/attachments";
 import {
 	MESSAGE_ROLES,
+	RETRY_LABEL,
 	ROLE_LABELS,
-	THINKING_LABEL,
 } from "../constants/conversation";
+import {
+	QUIET_LABEL,
+	RECONNECT_LABEL,
+	STALLED_LABEL,
+	STOP_LABEL,
+} from "../constants/run-status";
 import type {
 	AssistantMessage,
 	ConversationMessage,
+	ErrorMessage,
 	MessageAttachment,
+	RunProgress,
 	ToolCallMessage,
 	UserMessage,
 } from "../types/conversation";
 import { formatBytes, isInlineImage } from "../utils/attachments";
+import {
+	agentQuietMs,
+	describeActivity,
+	formatClock,
+	isAgentQuiet,
+	runElapsedMs,
+} from "../utils/run-status";
 import { isTodoWrite } from "../utils/todos";
 import MarkdownContent from "./MarkdownContent.vue";
 import ToolCallEntry from "./ToolCallEntry.vue";
@@ -22,18 +37,30 @@ import ToolCluster from "./ToolCluster.vue";
 interface Props {
 	messages: ConversationMessage[];
 	isRunning: boolean;
+	progress: RunProgress | null;
+	nowMs: number;
+	isStalled: boolean;
+	stalledForMs: number;
 }
 
 const props = defineProps<Props>();
+const emit = defineEmits<{ retry: []; reconnect: []; stop: [] }>();
+
+const RESPONDING_ACTIVITY = "responding";
 
 const ROLE_LABEL_BY_ROLE: Record<string, string> = {
 	[MESSAGE_ROLES.USER]: ROLE_LABELS.USER,
+	[MESSAGE_ROLES.ERROR]: ROLE_LABELS.ERROR,
 	[MESSAGE_ROLES.ASSISTANT]: ROLE_LABELS.ASSISTANT,
 	[MESSAGE_ROLES.TOOL]: ROLE_LABELS.TOOL,
 };
 
 type RenderItem =
-	| { kind: "message"; key: string; message: UserMessage | AssistantMessage }
+	| {
+			kind: "message";
+			key: string;
+			message: UserMessage | AssistantMessage | ErrorMessage;
+	  }
 	| { kind: "tools"; key: string; tools: ToolCallMessage[] };
 
 // Fold each run of adjacent tool calls into a single cluster so a busy turn
@@ -77,10 +104,27 @@ const lastToolKey = computed<string | null>(() => {
 	return null;
 });
 
-const showThinking = computed<boolean>(() => {
+const showActivity = computed<boolean>(() => {
 	if (!props.isRunning) return false;
+	if (props.progress?.activity !== RESPONDING_ACTIVITY) return true;
 	const last = props.messages.at(-1);
 	return last === undefined || last.role !== MESSAGE_ROLES.ASSISTANT;
+});
+
+const activityLabel = computed<string>(() => describeActivity(props.progress));
+
+const elapsedLabel = computed<string>(() =>
+	formatClock(runElapsedMs(props.progress, props.nowMs)),
+);
+
+const quietLabel = computed<string>(() => {
+	if (!isAgentQuiet(props.progress, props.nowMs)) return "";
+	return `${QUIET_LABEL} ${formatClock(agentQuietMs(props.progress, props.nowMs))}`;
+});
+
+const lastErrorId = computed<string | null>(() => {
+	const last = props.messages.at(-1);
+	return last?.role === MESSAGE_ROLES.ERROR ? last.id : null;
 });
 
 function roleLabel(role: string): string {
@@ -88,7 +132,7 @@ function roleLabel(role: string): string {
 }
 
 function userAttachments(
-	message: UserMessage | AssistantMessage,
+	message: UserMessage | AssistantMessage | ErrorMessage,
 ): MessageAttachment[] {
 	if (message.role !== MESSAGE_ROLES.USER) return [];
 	return message.attachments ?? [];
@@ -155,6 +199,22 @@ function formatTime(ms: number): string {
 					</ul>
 				</template>
 
+				<div
+					v-else-if="item.message.role === MESSAGE_ROLES.ERROR"
+					class="message-bubble message-bubble-error"
+					role="alert"
+				>
+					<p class="error-text">{{ item.message.content }}</p>
+					<button
+						v-if="!isRunning && item.message.id === lastErrorId"
+						type="button"
+						class="run-action"
+						@click="emit('retry')"
+					>
+						{{ RETRY_LABEL }}
+					</button>
+				</div>
+
 				<MarkdownContent
 					v-else
 					class="message-bubble message-bubble-assistant"
@@ -163,10 +223,23 @@ function formatTime(ms: number): string {
 			</li>
 		</template>
 
-		<li v-if="showThinking" class="message-item" data-role="assistant">
+		<li v-if="isStalled" class="message-item" data-role="assistant">
+			<div class="run-stalled" role="alert">
+				<span>{{ STALLED_LABEL }} {{ formatClock(stalledForMs) }}.</span>
+				<button type="button" class="run-action" @click="emit('reconnect')">
+					{{ RECONNECT_LABEL }}
+				</button>
+				<button type="button" class="run-action" @click="emit('stop')">
+					{{ STOP_LABEL }}
+				</button>
+			</div>
+		</li>
+		<li v-else-if="showActivity" class="message-item" data-role="assistant">
 			<div class="thinking" aria-live="polite">
-				<span class="thinking-label">{{ THINKING_LABEL }}</span>
+				<span class="thinking-label">{{ activityLabel }}</span>
 				<span class="thinking-dots"><i></i><i></i><i></i></span>
+				<span class="thinking-clock">{{ elapsedLabel }}</span>
+				<span v-if="quietLabel" class="thinking-quiet">{{ quietLabel }}</span>
 			</div>
 		</li>
 	</ol>
@@ -303,6 +376,55 @@ function formatTime(ms: number): string {
 .thinking-dots {
 	display: inline-flex;
 	gap: 3px;
+}
+
+.thinking-clock,
+.thinking-quiet {
+	font-family: var(--font-mono);
+	font-size: 11px;
+}
+
+.thinking-quiet {
+	color: var(--fg-secondary);
+}
+
+.message-item[data-role="error"] {
+	align-self: stretch;
+	max-width: 100%;
+}
+
+.message-bubble-error,
+.run-stalled {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 9px 12px;
+	border: 1px solid var(--danger-400);
+	border-radius: var(--radius-md);
+	background: var(--danger-bg);
+	color: var(--fg);
+	white-space: normal;
+}
+
+.error-text {
+	flex: 1 1 200px;
+	margin: 0;
+}
+
+.run-action {
+	padding: 4px 10px;
+	border: 1px solid var(--hair);
+	border-radius: var(--radius-md);
+	background: var(--surface-card);
+	color: var(--fg);
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.run-action:hover {
+	border-color: var(--accent);
 }
 
 .thinking-dots i {
