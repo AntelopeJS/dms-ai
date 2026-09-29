@@ -40,8 +40,6 @@ const CONVERSATION = "conv-acceptance";
 const TURN_TIMEOUT_MS = 120_000;
 const TEST_TIMEOUT_MS = 240_000;
 const INTERRUPT_BUDGET_MS = 5_000;
-const DISPOSE_BUDGET_MS = 15_000;
-const POLL_INTERVAL_MS = 200;
 
 function buildMcpDeps(conversationId: string): AiMcpServerDeps {
   return {
@@ -171,15 +169,6 @@ async function readPidRegistry(stateDir: string): Promise<number[]> {
 
 function isProcessAlive(pid: number): boolean {
   return existsSync(`/proc/${pid}`);
-}
-
-async function waitFor(check: () => Promise<boolean>): Promise<void> {
-  const deadline = Date.now() + DISPOSE_BUDGET_MS;
-  while (Date.now() < deadline) {
-    if (await check()) return;
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-  }
-  throw new Error("condition not met before the dispose budget elapsed");
 }
 
 function unpaired(events: RunnerEvent[]): string[] {
@@ -324,10 +313,7 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
       expect(before.length).toBe(1);
 
       await opened.dispose();
-      await waitFor(async () => {
-        const after = await readPidRegistry(harness?.stateDir ?? "");
-        return after.length === 0;
-      });
+      expect(await readPidRegistry(harness.stateDir)).toEqual([]);
       for (const pid of before) {
         expect(isProcessAlive(pid)).toBe(false);
       }

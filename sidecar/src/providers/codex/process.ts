@@ -12,14 +12,18 @@ import {
   CODEX_EXITED_MESSAGE,
   CODEX_HOME_DIR_NAME,
   CODEX_HOME_ENV_VAR,
+  CODEX_HOME_REMOVAL_FAILED_MESSAGE,
+  CODEX_KILL_GRACE_MS,
   CODEX_LOG_PREFIX,
   CODEX_MCP_TOKEN_ENV_VAR,
   CODEX_PID_REGISTRY_FILE,
+  CODEX_PID_RELEASE_FAILED_MESSAGE,
   CODEX_PID_TOKEN,
   CODEX_PROC_CMDLINE,
   CODEX_SPAWN_FAILED_MESSAGE,
   CODEX_STDERR_TAIL_BYTES,
   CODEX_STRICT_CONFIG_FLAG,
+  CODEX_SURVIVED_STOP_MESSAGE,
   CODEX_TERMINATE_GRACE_MS,
   PROCESS_QUERY_BY_PLATFORM,
   WINDOWS_PLATFORM,
@@ -46,6 +50,10 @@ export interface CodexProcess {
   client: CodexClient;
   codexHome: string;
   pid: number | undefined;
+  /**
+   * Stops the app-server and removes its home, in that order: resolves once the
+   * process has exited and its files are gone. Never rejects.
+   */
   dispose: () => Promise<void>;
 }
 
@@ -144,25 +152,89 @@ function terminateWindows(pid: number): void {
   }
 }
 
+function sendSignal(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(pid, signal);
+  } catch {
+    // Already gone.
+  }
+}
+
 function terminatePosix(pid: number): void {
   try {
     process.kill(pid, "SIGTERM");
   } catch {
     return;
   }
-  setTimeout(() => {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // Already gone.
-    }
-  }, CODEX_TERMINATE_GRACE_MS).unref();
+  setTimeout(
+    () => sendSignal(pid, "SIGKILL"),
+    CODEX_TERMINATE_GRACE_MS,
+  ).unref();
 }
 
 function terminate(pid: number): void {
   const kill =
     process.platform === WINDOWS_PLATFORM ? terminateWindows : terminatePosix;
   kill(pid);
+}
+
+interface StopStep {
+  send: (pid: number) => void;
+  /** How long the child is given to exit after this step. */
+  waitMs: number;
+}
+
+// The tree kill is already forceful on Windows, so there is nothing to
+// escalate to there.
+const POSIX_STOP_STEPS: readonly StopStep[] = [
+  {
+    send: (pid) => sendSignal(pid, "SIGTERM"),
+    waitMs: CODEX_TERMINATE_GRACE_MS,
+  },
+  { send: (pid) => sendSignal(pid, "SIGKILL"), waitMs: CODEX_KILL_GRACE_MS },
+];
+const WINDOWS_STOP_STEPS: readonly StopStep[] = [
+  { send: terminateWindows, waitMs: CODEX_KILL_GRACE_MS },
+];
+
+// Node records how a child ended right after reaping it, which is also when its
+// pid becomes free for the system to hand out again.
+function hasExited(child: ChildProcess): boolean {
+  return child.exitCode !== null || child.signalCode !== null;
+}
+
+function exitsWithin(child: ChildProcess, waitMs: number): Promise<boolean> {
+  if (hasExited(child)) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const onExit = (): void => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    const timer = setTimeout(() => {
+      child.off("exit", onExit);
+      resolve(false);
+    }, waitMs);
+    child.once("exit", onExit);
+  });
+}
+
+/**
+ * Stops a child this sidecar spawned and waits for its exit, which a bare
+ * signal does not: until then it can still write into its home. A child that
+ * is already gone is not signalled at all: its pid may belong to another
+ * process by now. False when it outlived every step.
+ */
+async function stopChild(child: ChildProcess, pid: number): Promise<boolean> {
+  const steps =
+    process.platform === WINDOWS_PLATFORM
+      ? WINDOWS_STOP_STEPS
+      : POSIX_STOP_STEPS;
+  for (const step of steps) {
+    if (hasExited(child)) return true;
+    step.send(pid);
+    if (await exitsWithin(child, step.waitMs)) return true;
+  }
+  return false;
 }
 
 /**
@@ -216,8 +288,24 @@ function forgetPid(stateDir: string, pid: number): Promise<void> {
   );
 }
 
+// A conversation keeps the same home path from one process to the next, and a
+// teardown only removes that home once its process has exited. Reopened in
+// the meantime, the conversation would have its fresh home removed under it,
+// so a home is only prepared again once the previous teardown has let go.
+const releasingHomes = new Map<string, Promise<void>>();
+
+function trackRelease(codexHome: string, release: Promise<void>): void {
+  releasingHomes.set(codexHome, release);
+  void release.then(() => {
+    if (releasingHomes.get(codexHome) === release) {
+      releasingHomes.delete(codexHome);
+    }
+  });
+}
+
 async function prepareCodexHome(options: CodexProcessOptions): Promise<string> {
   const codexHome = codexHomeFor(options.stateDir, options.conversationId);
+  await releasingHomes.get(codexHome);
   await rm(codexHome, { recursive: true, force: true });
   mkdirSync(codexHome, { recursive: true });
   await writeFile(
@@ -323,6 +411,62 @@ function watchChild(child: ChildProcess, stderr: StderrTail): Watchdog {
   };
 }
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+// Forgotten only once it is gone: a pid dropped while the process still runs is
+// an orphan the next start can no longer find.
+async function retireChild(
+  stateDir: string,
+  child: ChildProcess,
+): Promise<void> {
+  const { pid } = child;
+  if (pid === undefined) return;
+  if (!(await stopChild(child, pid))) {
+    console.warn(`${CODEX_LOG_PREFIX} ${CODEX_SURVIVED_STOP_MESSAGE} ${pid}`);
+    return;
+  }
+  await forgetPid(stateDir, pid).catch((error: unknown) => {
+    console.warn(
+      `${CODEX_LOG_PREFIX} ${CODEX_PID_RELEASE_FAILED_MESSAGE} ${pid}: ${describeError(error)}`,
+    );
+  });
+}
+
+// The whole home goes, not just sessions/: a fresh home already carries state,
+// logs, memories, goals and queue databases, all of which end up holding the
+// client's code.
+async function removeHome(codexHome: string): Promise<void> {
+  await rm(codexHome, { recursive: true, force: true }).catch(
+    (error: unknown) => {
+      console.error(
+        `${CODEX_LOG_PREFIX} ${CODEX_HOME_REMOVAL_FAILED_MESSAGE} ${codexHome}: ${describeError(error)}`,
+      );
+    },
+  );
+}
+
+interface ProcessTeardown {
+  stateDir: string;
+  codexHome: string;
+  client: CodexClient;
+  watchdog: Watchdog;
+  child: ChildProcess;
+}
+
+// In this order because the home is only safe to remove once nothing writes to
+// it any more. Never rejects: the callers are teardown paths with nothing
+// better to do with a failure than to report it, which happens here.
+async function disposeProcess(teardown: ProcessTeardown): Promise<void> {
+  teardown.watchdog.markDisposed();
+  teardown.client.abort(
+    new Error(`${CODEX_LOG_PREFIX} ${CODEX_CLIENT_ABORTED_MESSAGE}`),
+  );
+  await retireChild(teardown.stateDir, teardown.child);
+  await removeHome(teardown.codexHome);
+}
+
 export async function spawnCodexProcess(
   options: CodexProcessOptions,
 ): Promise<CodexProcess> {
@@ -339,26 +483,24 @@ export async function spawnCodexProcess(
   const pid = child.pid;
   if (pid !== undefined) await recordPid(options.stateDir, pid);
 
-  let disposed = false;
+  // Shared, so a second caller waits for the teardown already under way rather
+  // than returning while the child still runs.
+  let disposal: Promise<void> | null = null;
   return {
     client,
     codexHome,
     pid,
-    dispose: async () => {
-      if (disposed) return;
-      disposed = true;
-      watchdog.markDisposed();
-      client.abort(
-        new Error(`${CODEX_LOG_PREFIX} ${CODEX_CLIENT_ABORTED_MESSAGE}`),
-      );
-      if (pid !== undefined) {
-        terminate(pid);
-        await forgetPid(options.stateDir, pid);
-      }
-      // The whole home goes, not just sessions/: a fresh home already carries
-      // state, logs, memories, goals and queue databases, all of which end up
-      // holding the client's code.
-      await rm(codexHome, { recursive: true, force: true });
+    dispose: () => {
+      if (disposal !== null) return disposal;
+      disposal = disposeProcess({
+        stateDir: options.stateDir,
+        codexHome,
+        client,
+        watchdog,
+        child,
+      });
+      trackRelease(codexHome, disposal);
+      return disposal;
     },
   };
 }
