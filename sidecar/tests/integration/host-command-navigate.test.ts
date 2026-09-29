@@ -23,7 +23,7 @@ import { rawDataToText } from "../../src/server/raw-data.js";
 const ARBITRARY_PORT = 0;
 const CLIENT_TOKEN = "host-navigation-test-credential";
 const TEST_HOST_ROOT = "/tmp";
-const WS_PATH_HOST = "/ws/host";
+const WS_PATH = "/ws";
 const WS_HOST = "127.0.0.1";
 const TMP_PREFIX = "dms-ai-host-cmd-navigate-";
 const STATE_FILE_NAME_TEST = "state.json";
@@ -54,7 +54,6 @@ async function startTestServer(): Promise<ServerHandle> {
   await conversationStore.loadFromDisk();
   const { server, port } = await createHttpServer({
     clientToken: CLIENT_TOKEN,
-    chatboxDistDir: process.cwd(),
     port: ARBITRARY_PORT,
   });
   const hostState = createHostState();
@@ -110,7 +109,7 @@ async function startTestServer(): Promise<ServerHandle> {
 }
 
 function buildHostUrl(port: number): string {
-  return `ws://${WS_HOST}:${port}${WS_PATH_HOST}`;
+  return `ws://${WS_HOST}:${port}${WS_PATH}`;
 }
 
 function waitForOpen(socket: WebSocket): Promise<void> {
@@ -151,10 +150,9 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
   });
 
   it("delivers the navigate event to the registered host socket", async () => {
-    const client = new WebSocket(
-      buildHostUrl(handle.port),
-      `dms-ai.${CLIENT_TOKEN}`,
-    );
+    const client = new WebSocket(buildHostUrl(handle.port), {
+      headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
+    });
     await waitForOpen(client);
     sendHostHello(client);
     await settle();
@@ -181,6 +179,54 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
       type: "host_command_navigate",
       path: NAVIGATE_TARGET,
     });
+  });
+
+  it("reaches the dashboard's one socket, which is the chat as well as the host", async () => {
+    const client = new WebSocket(buildHostUrl(handle.port), {
+      headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
+    });
+    await waitForOpen(client);
+    const received: unknown[] = [];
+    client.on("message", (data) =>
+      received.push(JSON.parse(rawDataToText(data))),
+    );
+    sendHostHello(client);
+    client.send(
+      JSON.stringify({
+        type: "hello",
+        role: "iframe",
+        conversationId: "conv-dashboard-tab",
+      }),
+    );
+    await settle();
+    const toolDef = buildNavigateToPageTool({
+      sendToHost: handle.hostSocketRegistry.send,
+      navigationCompleter: handle.navigationCompleter,
+      registry: {
+        getRegistry: async () => [],
+        getStaleSinceMs: () => null,
+        invalidate: () => {},
+      },
+      getCurrentPage: () => ({ path: "unknown" }),
+    }) as unknown as ToolHandlerLike;
+    const handlerPromise = toolDef.handler(
+      { path: NAVIGATE_TARGET },
+      undefined,
+    );
+    await settle();
+    handle.navigationCompleter.complete(NAVIGATE_TARGET);
+    await handlerPromise;
+    client.close();
+    expect(received).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "settings_update" }),
+        expect.objectContaining({
+          type: "queue_state",
+          conversationId: "conv-dashboard-tab",
+        }),
+        { type: "host_command_navigate", path: NAVIGATE_TARGET },
+      ]),
+    );
   });
 
   it("does not throw when no host is connected", async () => {

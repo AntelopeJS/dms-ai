@@ -5,16 +5,16 @@ import {
 	resetBackoff,
 } from './backoff'
 import {
+	CHANNEL_EVENT_FRAME,
 	CHANNEL_EVENT_READY,
-	CHANNEL_EVENTS_SEGMENT,
-	CHANNEL_LIST_SEPARATOR,
+	CHANNEL_EVENTS_PATH,
 	CHANNEL_MESSAGES_SEGMENT,
+	CHANNEL_PATH,
 	CHANNEL_RECONNECT_DELAYS_MS,
 	CHANNEL_STATUS_CONNECTED,
 	CHANNEL_STATUS_CONNECTING,
 	CHANNEL_STATUS_DISCONNECTED,
 	CHANNEL_STATUS_RECONNECTING,
-	CHANNELS_PATH,
 	EVENT_STREAM_TYPE,
 } from './constants'
 import { readEventStream, type StreamEvent } from './event-stream'
@@ -28,17 +28,16 @@ export type ChannelStatus =
 /** Posts one message as JSON; `$authFetch` in the dashboard refreshes a stale session. */
 export type PostMessage = (path: string, body: unknown) => Promise<unknown>
 
-/** Opens the event stream of a set of channels. */
+/** Opens the tab's event stream. */
 export type OpenStream = (path: string, signal: AbortSignal) => Promise<Response>
 
 export interface ChannelClientOptions {
-	channels: readonly string[]
 	post: PostMessage
 	openStream?: OpenStream
-	/** Every connection is a new sidecar socket per channel: identify on it here. */
+	/** Every connection is a new sidecar socket: identify on it here. */
 	onReady?: () => void
-	/** Raw sidecar frame, as the socket of that channel delivered it. */
-	onFrame?: (channel: string, raw: string) => void
+	/** Raw sidecar frame, as the socket delivered it. */
+	onFrame?: (raw: string) => void
 	onStatusChange?: (status: ChannelStatus) => void
 }
 
@@ -47,7 +46,7 @@ export interface ChannelClient {
 	 * Queued and posted one at a time, in order. False when it was dropped
 	 * because the stream is not connected, so the caller knows nothing left.
 	 */
-	send: (channel: string, msg: unknown) => boolean
+	send: (msg: unknown) => boolean
 	isConnected: () => boolean
 	getStatus: () => ChannelStatus
 	/** Opens the stream if it is not open yet. */
@@ -63,32 +62,23 @@ export interface ChannelClient {
 }
 
 interface ReadyPayload {
-	connections?: Record<string, unknown>
-}
-
-interface QueuedMessage {
-	channel: string
-	msg: unknown
+	connectionId?: unknown
 }
 
 interface ClientState {
 	options: ChannelClientOptions
 	status: ChannelStatus
-	connections: Record<string, string> | null
+	connectionId: string | null
 	stream: AbortController | null
 	retryTimer: ReturnType<typeof setTimeout> | null
-	queue: QueuedMessage[]
+	queue: unknown[]
 	isDraining: boolean
 	isStarted: boolean
 	backoff: BackoffState
 }
 
-export function channelEventsPath(channels: readonly string[]): string {
-	return `${CHANNELS_PATH}/${channels.join(CHANNEL_LIST_SEPARATOR)}/${CHANNEL_EVENTS_SEGMENT}`
-}
-
 export function channelMessagesPath(connectionId: string): string {
-	return `${CHANNELS_PATH}/${encodeURIComponent(connectionId)}/${CHANNEL_MESSAGES_SEGMENT}`
+	return `${CHANNEL_PATH}/${encodeURIComponent(connectionId)}/${CHANNEL_MESSAGES_SEGMENT}`
 }
 
 function openEventStream(path: string, signal: AbortSignal): Promise<Response> {
@@ -106,21 +96,17 @@ function setStatus(state: ClientState, next: ChannelStatus): void {
 	state.options.onStatusChange?.(next)
 }
 
-function readConnections(data: string): Record<string, string> | null {
+function readConnectionId(data: string): string | null {
 	try {
-		const { connections } = JSON.parse(data) as ReadyPayload
-		if (connections === undefined || connections === null) return null
-		const entries = Object.entries(connections).filter(
-			(entry): entry is [string, string] => typeof entry[1] === 'string',
-		)
-		return Object.fromEntries(entries)
+		const { connectionId } = JSON.parse(data) as ReadyPayload
+		return typeof connectionId === 'string' ? connectionId : null
 	} catch {
 		return null
 	}
 }
 
 function handleReady(state: ClientState, event: StreamEvent): void {
-	state.connections = readConnections(event.data)
+	state.connectionId = readConnectionId(event.data)
 	resetBackoff(state.backoff)
 	setStatus(state, CHANNEL_STATUS_CONNECTED)
 	state.options.onReady?.()
@@ -128,8 +114,8 @@ function handleReady(state: ClientState, event: StreamEvent): void {
 
 function handleEvent(state: ClientState, event: StreamEvent): void {
 	if (event.name === CHANNEL_EVENT_READY) return handleReady(state, event)
-	if (!state.options.channels.includes(event.name)) return
-	state.options.onFrame?.(event.name, event.data)
+	if (event.name !== CHANNEL_EVENT_FRAME) return
+	state.options.onFrame?.(event.data)
 }
 
 function scheduleRetry(state: ClientState): void {
@@ -143,7 +129,7 @@ function scheduleRetry(state: ClientState): void {
 
 /** The stream ended or failed: the sidecar sockets behind it are gone too. */
 function lose(state: ClientState): void {
-	state.connections = null
+	state.connectionId = null
 	state.queue = []
 	if (!state.isStarted) return
 	setStatus(state, CHANNEL_STATUS_RECONNECTING)
@@ -153,10 +139,7 @@ function lose(state: ClientState): void {
 async function run(state: ClientState, controller: AbortController): Promise<void> {
 	const open = state.options.openStream ?? openEventStream
 	try {
-		const response = await open(
-			channelEventsPath(state.options.channels),
-			controller.signal,
-		)
+		const response = await open(CHANNEL_EVENTS_PATH, controller.signal)
 		if (!response.ok || response.body === null) return
 		await readEventStream(response.body, (event) => handleEvent(state, event))
 	} catch {
@@ -169,7 +152,7 @@ async function run(state: ClientState, controller: AbortController): Promise<voi
 function connect(state: ClientState): void {
 	if (!state.isStarted) return
 	state.stream?.abort()
-	state.connections = null
+	state.connectionId = null
 	const controller = new AbortController()
 	state.stream = controller
 	void run(state, controller)
@@ -183,12 +166,10 @@ function restart(state: ClientState): void {
 async function drain(state: ClientState): Promise<void> {
 	if (state.isDraining) return
 	state.isDraining = true
-	while (state.queue.length > 0 && state.connections !== null) {
-		const next = state.queue.shift() as QueuedMessage
-		const connectionId = state.connections[next.channel]
-		if (connectionId === undefined) continue
+	while (state.queue.length > 0 && state.connectionId !== null) {
+		const next = state.queue.shift()
 		try {
-			await state.options.post(channelMessagesPath(connectionId), next.msg)
+			await state.options.post(channelMessagesPath(state.connectionId), next)
 		} catch {
 			restart(state)
 		}
@@ -196,9 +177,9 @@ async function drain(state: ClientState): Promise<void> {
 	state.isDraining = false
 }
 
-function send(state: ClientState, channel: string, msg: unknown): boolean {
-	if (state.connections === null) return false
-	state.queue.push({ channel, msg })
+function send(state: ClientState, msg: unknown): boolean {
+	if (state.connectionId === null) return false
+	state.queue.push(msg)
 	void drain(state)
 	return true
 }
@@ -221,7 +202,7 @@ function stop(state: ClientState): void {
 	state.isStarted = false
 	clearRetry(state)
 	state.stream?.abort()
-	state.connections = null
+	state.connectionId = null
 	state.queue = []
 	setStatus(state, CHANNEL_STATUS_DISCONNECTED)
 }
@@ -235,19 +216,19 @@ function reconnectNow(state: ClientState): void {
 }
 
 /**
- * One stream to the sidecar through the DMS carrying several channels, and
- * sequential POSTs to send on each. Browsers keep at most six HTTP/1.1
- * connections per origin, so a tab holds one such stream and only while it
- * needs it: the caller starts and stops it. While started, any end of the
- * stream — a sidecar that went down, a hot reload of dms-ai, a network drop —
- * reconnects with backoff, and each new connection is announced through
- * `onReady` so the caller identifies itself again.
+ * The tab's one stream to the sidecar through the DMS, carrying the dashboard's
+ * and the chat's frames alike, and sequential POSTs to send. Browsers keep at
+ * most six HTTP/1.1 connections per origin, so a tab holds one such stream and
+ * only while it needs it: the caller starts and stops it. While started, any
+ * end of the stream — a sidecar that went down, a hot reload of dms-ai, a
+ * network drop — reconnects with backoff, and each new connection is announced
+ * through `onReady` so the caller identifies itself again.
  */
 export function createChannelClient(options: ChannelClientOptions): ChannelClient {
 	const state: ClientState = {
 		options,
 		status: CHANNEL_STATUS_DISCONNECTED,
-		connections: null,
+		connectionId: null,
 		stream: null,
 		retryTimer: null,
 		queue: [],
@@ -256,8 +237,8 @@ export function createChannelClient(options: ChannelClientOptions): ChannelClien
 		backoff: createBackoff(),
 	}
 	return {
-		send: (channel, msg) => send(state, channel, msg),
-		isConnected: () => state.connections !== null,
+		send: (msg) => send(state, msg),
+		isConnected: () => state.connectionId !== null,
 		getStatus: () => state.status,
 		start: () => start(state),
 		stop: () => stop(state),

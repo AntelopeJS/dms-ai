@@ -88,7 +88,6 @@ describe("two live Codex conversations stay isolated", () => {
       registry = createMcpHttpRegistry();
       const started = await createHttpServer({
         clientToken: "integration-test-credential",
-        chatboxDistDir: dir,
         port: 0,
         mcpHttpRegistry: registry,
       });

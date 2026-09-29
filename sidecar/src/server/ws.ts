@@ -21,7 +21,7 @@ import {
 import { buildToolSummary } from "../agent/tool-summary.js";
 import { WS_MAX_PAYLOAD_BYTES } from "../constants/attachments.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
-import { WS_LOG_PREFIX, WS_PATHS } from "../constants/ws.js";
+import { WS_LOG_PREFIX, WS_PATH } from "../constants/ws.js";
 import { createAiMcpServer } from "../mcp/sdk-binding.js";
 import type {
   AiMcpServer,
@@ -148,25 +148,21 @@ function buildRunner(
   );
 }
 
-function bindConnection(
-  socket: WebSocket,
-  path: string,
-  config: RoutingConfig,
-): void {
-  const ctx = buildConnectionContext(socket, path, config);
+function bindConnection(socket: WebSocket, config: RoutingConfig): void {
+  const ctx = buildConnectionContext(config);
   config.idleController.increment();
   socket.on("message", (data) => {
     const raw = rawDataToText(data);
     dispatchMessage(socket, raw, ctx);
   });
   socket.on("error", (err) => {
-    console.warn(`${WS_LOG_PREFIX} socket error on ${path}: ${err.message}`);
+    console.warn(`${WS_LOG_PREFIX} socket error: ${err.message}`);
   });
   socket.on("close", (code) => {
     config.hostSocketRegistry.clear(socket);
     config.iframeSocketRegistry.clear(socket);
     config.idleController.decrement();
-    console.log(`${WS_LOG_PREFIX} close path=${path} code=${code}`);
+    console.log(`${WS_LOG_PREFIX} close code=${code}`);
   });
 }
 
@@ -248,13 +244,13 @@ function buildMcpServerFactory(
   };
 }
 
-function buildWss(path: string, config: RoutingConfig): WebSocketServer {
+function buildWss(config: RoutingConfig): WebSocketServer {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: WS_MAX_PAYLOAD_BYTES,
   });
   wss.on("connection", (socket) => {
-    bindConnection(socket, path, config);
+    bindConnection(socket, config);
   });
   return wss;
 }
@@ -265,7 +261,7 @@ function extractPath(req: IncomingMessage): string {
 }
 
 function makeUpgradeHandler(
-  wssByPath: Record<string, WebSocketServer>,
+  wss: WebSocketServer,
   clientToken: string,
 ): (req: IncomingMessage, socket: Duplex, head: Buffer) => void {
   return (req, socket, head) => {
@@ -273,9 +269,7 @@ function makeUpgradeHandler(
       socket.end("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
       return;
     }
-    const path = extractPath(req);
-    const wss = wssByPath[path];
-    if (wss === undefined) {
+    if (extractPath(req) !== WS_PATH) {
       socket.destroy();
       return;
     }
@@ -329,25 +323,19 @@ export function attachWsServer(
     liveTurns: createLiveTurnStore(),
     pendingQueue: createPendingQueueStore(),
   };
-  // Let the HTTP Settings page apply changes through the same path as the WS
-  // chatbox by pointing the shared applier at this connection's services.
+  // Let the HTTP Settings page apply changes through the same path as the
+  // chat's socket by pointing the shared applier at this connection's services.
   if (options.settingsApplier) {
     options.settingsApplier.apply = (next) => applySettings(config, next);
   }
-  const wssIframe = buildWss(WS_PATHS.IFRAME, config);
-  const wssHost = buildWss(WS_PATHS.HOST, config);
-  const wssByPath: Record<string, WebSocketServer> = {
-    [WS_PATHS.IFRAME]: wssIframe,
-    [WS_PATHS.HOST]: wssHost,
-  };
-  const onUpgrade = makeUpgradeHandler(wssByPath, options.clientToken);
+  const wss = buildWss(config);
+  const onUpgrade = makeUpgradeHandler(wss, options.clientToken);
   httpServer.on("upgrade", onUpgrade);
   return {
     close: async () => {
       httpServer.removeListener("upgrade", onUpgrade);
       config.runner.dispose();
-      await closeWss(wssIframe);
-      await closeWss(wssHost);
+      await closeWss(wss);
     },
   };
 }

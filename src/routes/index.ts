@@ -1,6 +1,5 @@
 export * from "./builder";
 export * from "./channels";
-export * from "./chatbox";
 export * from "./health";
 export * from "./logs";
 export * from "./metrics";

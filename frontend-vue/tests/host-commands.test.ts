@@ -4,8 +4,8 @@ import {
 	type DevReloadWaiter,
 } from '../app/runtime/host-commands'
 
-function navigateCommand(path: string): string {
-	return JSON.stringify({ type: 'host_command_navigate', path })
+function navigateCommand(path: string): object {
+	return { type: 'host_command_navigate', path }
 }
 
 interface ControlledWaiter {
@@ -132,11 +132,50 @@ describe('host command dispatch', () => {
 			devReload: { awaitRoute },
 		})
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-		dispatch('not json')
-		dispatch(JSON.stringify({ type: 'host_command_unknown' }))
+		dispatch('not an object')
+		dispatch({ type: 'host_command_unknown' })
 		expect(push).not.toHaveBeenCalled()
 		expect(awaitRoute).not.toHaveBeenCalled()
 		expect(warn).toHaveBeenCalledOnce()
 		warn.mockRestore()
+	})
+
+	it('never sends the dashboard off its own origin, whatever the agent asks', async () => {
+		const push = vi.fn()
+		const awaitRoute = vi.fn(async () => true)
+		const dispatch = createHostCommandDispatcher({
+			router: { push },
+			devReload: { awaitRoute },
+		})
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+		for (const path of [
+			'https://attacker.example/steal',
+			'//attacker.example/steal',
+			'/\\attacker.example/steal',
+			'javascript:alert(document.cookie)',
+			'relative/path',
+			'',
+		]) {
+			dispatch(navigateCommand(path))
+		}
+		dispatch({ type: 'host_command_navigate', path: 42 })
+		await Promise.resolve()
+		expect(push).not.toHaveBeenCalled()
+		expect(awaitRoute).not.toHaveBeenCalled()
+		warn.mockRestore()
+	})
+
+	it('follows a path of the dashboard, query and hash included', async () => {
+		const push = vi.fn()
+		const dispatch = createHostCommandDispatcher({
+			router: { push },
+			devReload: { awaitRoute: async () => true },
+		})
+		dispatch(navigateCommand('/modules/ai/settings?tab=1#top'))
+		await vi.waitFor(() =>
+			expect(push).toHaveBeenCalledExactlyOnceWith(
+				'/modules/ai/settings?tab=1#top',
+			),
+		)
 	})
 })

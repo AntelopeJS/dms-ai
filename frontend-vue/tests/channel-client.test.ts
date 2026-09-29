@@ -20,7 +20,7 @@ interface Harness {
 }
 
 const encoder = new TextEncoder()
-const READY = '{"connections":{"host":"h-1","chat":"c 1"}}'
+const READY = '{"connectionId":"c 1"}'
 
 function openFakeStream(
 	streams: FakeStream[],
@@ -54,14 +54,13 @@ function startClient(post = vi.fn(async () => undefined)) {
 		frames: [],
 	}
 	const client = createChannelClient({
-		channels: ['host', 'chat'],
 		post: async (path, body) => {
 			harness.posts.push({ path, body })
 			return post(path, body)
 		},
 		openStream: (path, signal) => openFakeStream(harness.streams, path, signal),
 		onReady: harness.ready,
-		onFrame: (channel, raw) => harness.frames.push(`${channel} ${raw}`),
+		onFrame: (raw) => harness.frames.push(raw),
 		onStatusChange: (status) => harness.statuses.push(status),
 	})
 	client.start()
@@ -81,7 +80,6 @@ describe('channel client', () => {
 	it('stays closed until started', async () => {
 		const streams: FakeStream[] = []
 		const client = createChannelClient({
-			channels: ['host', 'chat'],
 			post: vi.fn(),
 			openStream: (path, signal) => openFakeStream(streams, path, signal),
 		})
@@ -90,33 +88,33 @@ describe('channel client', () => {
 		expect(client.getStatus()).toBe('disconnected')
 	})
 
-	it('opens one stream for every channel, on the dashboard origin, with no credential', async () => {
+	it('opens one stream for the dashboard and its chat, on the dashboard origin, with no credential', async () => {
 		const { client, harness } = startClient()
 		await flush()
 		expect(harness.streams.map((stream) => stream.path)).toEqual([
-			'/ai/channels/host,chat/events',
+			'/ai/channel/events',
 		])
 		client.stop()
 	})
 
-	it('announces the connection, then routes each frame by channel, raw', async () => {
+	it('announces the connection, then hands over every frame raw, whoever it is for', async () => {
 		const { client, harness } = startClient()
 		await flush()
 		harness.streams[0]?.emit('ready', READY)
-		harness.streams[0]?.emit('host', '{"type":"host_command_navigate","path":"/x"}')
-		harness.streams[0]?.emit('chat', '{"type":"run_done"}')
+		harness.streams[0]?.emit('message', '{"type":"host_command_navigate","path":"/x"}')
+		harness.streams[0]?.emit('message', '{"type":"run_done"}')
 		harness.streams[0]?.emit('unknown', '{}')
 		await flush()
 		expect(harness.ready).toHaveBeenCalledTimes(1)
 		expect(client.isConnected()).toBe(true)
 		expect(harness.frames).toEqual([
-			'host {"type":"host_command_navigate","path":"/x"}',
-			'chat {"type":"run_done"}',
+			'{"type":"host_command_navigate","path":"/x"}',
+			'{"type":"run_done"}',
 		])
 		client.stop()
 	})
 
-	it('posts one message at a time, in order, to the connection of its channel', async () => {
+	it('posts one message at a time, in order, to the connection', async () => {
 		const pending: Array<() => void> = []
 		const post = vi.fn(
 			() => new Promise<void>((resolve) => pending.push(() => resolve())),
@@ -125,16 +123,16 @@ describe('channel client', () => {
 		await flush()
 		harness.streams[0]?.emit('ready', READY)
 		await flush()
-		client.send('chat', { n: 1 })
-		client.send('host', { n: 2 })
+		client.send({ n: 1 })
+		client.send({ n: 2 })
 		await flush()
 		expect(harness.posts).toEqual([
-			{ path: '/ai/channels/c%201/messages', body: { n: 1 } },
+			{ path: '/ai/channel/c%201/messages', body: { n: 1 } },
 		])
 		pending.shift()?.()
 		await flush()
 		expect(harness.posts.at(-1)).toEqual({
-			path: '/ai/channels/h-1/messages',
+			path: '/ai/channel/c%201/messages',
 			body: { n: 2 },
 		})
 		client.stop()
@@ -142,12 +140,12 @@ describe('channel client', () => {
 
 	it('drops a message sent before the connection is ready, and says so', async () => {
 		const { client, harness } = startClient()
-		expect(client.send('chat', { n: 1 })).toBe(false)
+		expect(client.send({ n: 1 })).toBe(false)
 		await flush()
 		expect(harness.posts).toEqual([])
 		harness.streams[0]?.emit('ready', READY)
 		await flush()
-		expect(client.send('chat', { n: 2 })).toBe(true)
+		expect(client.send({ n: 2 })).toBe(true)
 		client.stop()
 	})
 
@@ -179,7 +177,7 @@ describe('channel client', () => {
 		await vi.advanceTimersByTimeAsync(0)
 		harness.streams[0]?.emit('ready', READY)
 		await vi.advanceTimersByTimeAsync(0)
-		client.send('chat', { n: 1 })
+		client.send({ n: 1 })
 		await vi.advanceTimersByTimeAsync(0)
 		expect(client.getStatus()).toBe('reconnecting')
 		await vi.advanceTimersByTimeAsync(CHANNEL_RECONNECT_DELAYS_MS[0])
@@ -195,7 +193,7 @@ describe('channel client', () => {
 		client.reconnectNow()
 		await flush()
 		expect(client.getStatus()).toBe('connecting')
-		expect(client.send('chat', { n: 1 })).toBe(false)
+		expect(client.send({ n: 1 })).toBe(false)
 		harness.streams[1]?.emit('ready', READY)
 		await flush()
 		expect(harness.statuses).toEqual(['connecting', 'connected', 'connecting', 'connected'])

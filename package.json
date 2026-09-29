@@ -11,7 +11,6 @@
     "frontend-vue",
     "skills",
     "sidecar/dist",
-    "sidecar/chatbox/dist",
     "sidecar/package.json"
   ],
   "main": "dist/index.js",
@@ -30,7 +29,7 @@
   },
   "scripts": {
     "build": "rimraf dist && tsc",
-    "build:sidecar": "cd sidecar && pnpm install && pnpm run build:all",
+    "build:sidecar": "cd sidecar && pnpm install && pnpm run build",
     "prepack": "pnpm run build && pnpm run build:sidecar",
     "frontend:dev": "cd playground && pnpm frontend:dev",
     "dev": "cd playground && pnpm dev",
@@ -44,7 +43,7 @@
     "test:spawn-args": "node --test tests/spawn-args.test.cjs",
     "test:release-script": "node --test tests/release-script.test.cjs",
     "test:e2e": "cd sidecar && pnpm test:e2e",
-    "release": "pnpm --dir frontend-vue install --frozen-lockfile && pnpm --dir sidecar install --frozen-lockfile && pnpm --dir sidecar/chatbox install --frozen-lockfile && release-it",
+    "release": "pnpm --dir frontend-vue install --frozen-lockfile && pnpm --dir sidecar install --frozen-lockfile && release-it",
     "format": "oxfmt --disable-nested-config . && cd frontend-vue && pnpm format",
     "knip": "knip --dependencies",
     "knip:all": "knip"

@@ -26,7 +26,6 @@ export const MESSAGE_TYPES = {
   LIST_CONVERSATIONS: "list_conversations",
   DELETE_CONVERSATION: "delete_conversation",
   SET_SETTINGS: "set_settings",
-  REQUEST_HOST_NAVIGATE: "request_host_navigate",
   INTERRUPT_TURN: "interrupt_turn",
   QUEUE_ENQUEUE: "queue_enqueue",
   QUEUE_CANCEL: "queue_cancel",
@@ -164,14 +163,6 @@ export const SetSettingsMsg = z.object({
   allowLocalSkills: z.boolean().default(false),
 });
 
-// Sent by the iframe to ask the host DMS to navigate to a route (e.g. the
-// settings page reached from the chatbox cogwheel). Bridged to the host as a
-// HOST_COMMAND_NAVIGATE event.
-export const RequestHostNavigateMsg = z.object({
-  type: z.literal(MESSAGE_TYPES.REQUEST_HOST_NAVIGATE),
-  path: z.string(),
-});
-
 // Sent by the iframe when the user hits Stop: gracefully interrupt the running
 // turn (the SDK query) while keeping the conversation session alive.
 export const InterruptTurnMsg = z.object({
@@ -190,7 +181,6 @@ export const AnyClientMessage = z.discriminatedUnion("type", [
   ListConversationsMsg,
   DeleteConversationMsg,
   SetSettingsMsg,
-  RequestHostNavigateMsg,
   InterruptTurnMsg,
   QueueEnqueueMsg,
   QueueCancelMsg,
@@ -210,7 +200,6 @@ export type HostNavigationCompleteMsgType = z.infer<
 export type ListConversationsMsgType = z.infer<typeof ListConversationsMsg>;
 export type DeleteConversationMsgType = z.infer<typeof DeleteConversationMsg>;
 export type SetSettingsMsgType = z.infer<typeof SetSettingsMsg>;
-export type RequestHostNavigateMsgType = z.infer<typeof RequestHostNavigateMsg>;
 export type InterruptTurnMsgType = z.infer<typeof InterruptTurnMsg>;
 export type QueuedItemType = z.infer<typeof QueuedItemSchema>;
 export type QueueEnqueueMsgType = z.infer<typeof QueueEnqueueMsg>;

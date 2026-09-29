@@ -15,26 +15,24 @@ import {
   CHANNEL_EVENTS_ROUTE,
   CHANNEL_MESSAGE_MAX_BYTES,
   CHANNEL_MESSAGES_ROUTE,
-  CHANNELS_PARAM,
-  CHANNELS_ROUTE_PREFIX,
+  CHANNEL_ROUTE_PREFIX,
   CONNECTION_ID_PARAM,
 } from "../constants/channels";
 
 /**
- * The browser's way to the sidecar: one event stream to receive on several
- * channels, a POST per message to send. Both go through the DMS frontend
- * server, which only relays HTTP, while the sidecar keeps its loopback bind and
- * its WebSocket protocol.
+ * The browser's way to the sidecar: one event stream per tab to receive, a
+ * POST per message to send. Both go through the DMS frontend server, which only
+ * relays HTTP, while the sidecar keeps its loopback bind and its WebSocket
+ * protocol.
  */
 @AuthOwnerOnly()
-export class AIChannelsController extends Controller(CHANNELS_ROUTE_PREFIX) {
+export class AIChannelController extends Controller(CHANNEL_ROUTE_PREFIX) {
   @Get(CHANNEL_EVENTS_ROUTE)
   events(
     @Context() ctx: RequestContext,
-    @Parameter(CHANNELS_PARAM, "param") channels: string,
     @AuthRawUser() user: User,
   ): Promise<HTTPResult | undefined> {
-    return openChannel(ctx, channels, user._id);
+    return openChannel(ctx, user._id);
   }
 
   @Post(CHANNEL_MESSAGES_ROUTE)

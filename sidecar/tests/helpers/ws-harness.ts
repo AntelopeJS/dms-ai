@@ -34,7 +34,7 @@ const TMP_PREFIX = "dms-ai-harness-";
 const STATE_FILE = "state.json";
 const ARBITRARY_PORT = 0;
 const WS_HOST = "127.0.0.1";
-export const WS_PATH_IFRAME = "/ws/iframe";
+const WS_PATH = "/ws";
 export const HOST_ROOT = "/tmp";
 
 export interface HarnessOptions {
@@ -135,7 +135,6 @@ export async function startWsHarness(
   const mcpHttpRegistry = createMcpHttpRegistry();
   const { server, port } = await createHttpServer({
     clientToken: CLIENT_TOKEN,
-    chatboxDistDir: process.cwd(),
     port: ARBITRARY_PORT,
     mcpHttpRegistry,
   });
@@ -185,8 +184,15 @@ export async function startWsHarness(
   };
 }
 
-export function iframeUrl(port: number): string {
-  return `ws://${WS_HOST}:${port}${WS_PATH_IFRAME}`;
+export function socketUrl(port: number): string {
+  return `ws://${WS_HOST}:${port}${WS_PATH}`;
+}
+
+/** Connects the way the DMS backend does: one socket, the client credential as a Bearer header. */
+export function connectClient(port: number): WebSocket {
+  return new WebSocket(socketUrl(port), {
+    headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
+  });
 }
 
 export function waitForOpen(socket: WebSocket): Promise<void> {
@@ -197,7 +203,7 @@ export function waitForOpen(socket: WebSocket): Promise<void> {
 }
 
 export async function openIframe(port: number): Promise<WebSocket> {
-  const socket = new WebSocket(iframeUrl(port), `dms-ai.${CLIENT_TOKEN}`);
+  const socket = connectClient(port);
   await waitForOpen(socket);
   return socket;
 }

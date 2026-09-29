@@ -1,13 +1,11 @@
-import { readFile, stat } from "node:fs/promises";
 import {
   createServer,
   type IncomingMessage,
   type Server,
   type ServerResponse,
 } from "node:http";
-import { extname, join, normalize, resolve, sep } from "node:path";
 import { getBuilderAvailable } from "../builder/capability.js";
-import { CONTENT_TYPE, HTTP_STATUS, MIME_BY_EXT } from "../constants/http.js";
+import { CONTENT_TYPE, HTTP_STATUS } from "../constants/http.js";
 import { MCP_HTTP_PATH } from "../constants/mcp.js";
 import { LOOPBACK_HOST } from "../constants/ports.js";
 import type { McpHttpRegistry } from "../mcp/http-binding.js";
@@ -46,7 +44,6 @@ interface SettingsPayload extends AppSettings {
 
 interface CreateHttpServerOptions {
   clientToken: string;
-  chatboxDistDir: string;
   port: number;
   buildId?: string;
   onHealthCheck?: () => void;
@@ -67,7 +64,6 @@ interface CreateHttpServerResult {
 
 interface RouteContext {
   clientToken: string;
-  chatboxDistDir: string;
   buildId: string;
   onHealthCheck?: () => void;
   conversationStore?: ConversationStore;
@@ -285,8 +281,10 @@ function handleKpiRoute(
   sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, payload);
 }
 
-// API routes (consumed by the DMS backend proxy). Returns true when the request
-// was handled here, false to fall through to static serving.
+/**
+ * API routes, consumed by the DMS backend proxy. Returns false when the request
+ * matches none of them.
+ */
 async function handleApiRoute(
   req: IncomingMessage,
   res: ServerResponse,
@@ -334,47 +332,6 @@ async function handleApiRoute(
   return true;
 }
 
-function resolveSafePath(dir: string, urlPath: string): string | null {
-  const cleaned = urlPath.split("?")[0]?.split("#")[0] ?? "/";
-  const decoded = decodeURIComponent(cleaned);
-  const relative = decoded === "/" ? "index.html" : decoded.replace(/^\/+/, "");
-  const target = normalize(join(dir, relative));
-  const root = resolve(dir);
-  const isInside = target === root || target.startsWith(root + sep);
-  if (!isInside) return null;
-  return target;
-}
-
-async function serveStatic(
-  req: IncomingMessage,
-  res: ServerResponse,
-  dir: string,
-): Promise<void> {
-  const url = req.url ?? "/";
-  const filePath = resolveSafePath(dir, url);
-  if (filePath === null) {
-    sendResponse(res, HTTP_STATUS.NOT_FOUND, CONTENT_TYPE.TEXT, "Not Found");
-    return;
-  }
-  try {
-    const info = await stat(filePath);
-    if (!info.isFile()) {
-      sendResponse(res, HTTP_STATUS.NOT_FOUND, CONTENT_TYPE.TEXT, "Not Found");
-      return;
-    }
-    const mime =
-      MIME_BY_EXT[extname(filePath).toLowerCase()] ?? CONTENT_TYPE.OCTET;
-    const data = await readFile(filePath);
-    res.writeHead(HTTP_STATUS.OK, {
-      "Content-Type": mime,
-      "Content-Length": data.byteLength.toString(),
-    });
-    res.end(data);
-  } catch {
-    sendResponse(res, HTTP_STATUS.NOT_FOUND, CONTENT_TYPE.TEXT, "Not Found");
-  }
-}
-
 function buildRoutePath(req: IncomingMessage): string {
   const url = req.url ?? "/";
   return url.split("?")[0] ?? "/";
@@ -403,10 +360,6 @@ async function handleRequest(
   if (await handleApiRoute(req, res, ctx)) {
     return;
   }
-  if ((req.method ?? "GET") === "GET") {
-    await serveStatic(req, res, ctx.chatboxDistDir);
-    return;
-  }
   sendResponse(res, HTTP_STATUS.NOT_FOUND, CONTENT_TYPE.TEXT, "Not Found");
 }
 
@@ -415,7 +368,6 @@ export function createHttpServer(
 ): Promise<CreateHttpServerResult> {
   const ctx: RouteContext = {
     clientToken: options.clientToken,
-    chatboxDistDir: options.chatboxDistDir,
     buildId: options.buildId ?? DEFAULT_BUILD_ID,
     onHealthCheck: options.onHealthCheck,
     conversationStore: options.conversationStore,

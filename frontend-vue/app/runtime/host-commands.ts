@@ -25,7 +25,8 @@ export interface HostCommandNavigateMessage {
 
 export type HostCommandMessage = HostCommandNavigateMessage
 
-export type HostCommandDispatcher = (raw: unknown) => void
+/** Takes a sidecar message already parsed; anything that is not a host command is ignored. */
+export type HostCommandDispatcher = (msg: unknown) => void
 
 /**
  * Commands run one at a time on `tail`. `nextPath` holds the newest navigation
@@ -42,6 +43,9 @@ type HostCommandHandler = (
 	msg: HostCommandMessage,
 	state: DispatcherState,
 ) => void
+
+/** A path of this dashboard: rooted, and never a protocol-relative `//host`. */
+const IN_APP_PATH = /^\/(?![/\\])/
 
 function enqueue(state: DispatcherState, job: () => Promise<void>): void {
 	state.tail = state.tail.then(job).catch((err: unknown) => {
@@ -76,11 +80,29 @@ async function runNavigate(state: DispatcherState): Promise<void> {
 	await awaitRouteThenPush(path, state.ctx)
 }
 
+/**
+ * Whether the agent may send the dashboard to `path`. What it asks for comes
+ * from model output, so it may only ever lead to a page of this origin.
+ */
+export function isInAppPath(path: unknown): path is string {
+	if (typeof path !== 'string' || !IN_APP_PATH.test(path)) return false
+	try {
+		const origin = globalThis.location.origin
+		return new URL(path, origin).origin === origin
+	} catch {
+		return false
+	}
+}
+
 function handleNavigate(
 	msg: HostCommandMessage,
 	state: DispatcherState,
 ): void {
 	if (msg.type !== HOST_COMMAND_NAVIGATE_TYPE) return
+	if (!isInAppPath(msg.path)) {
+		console.warn(`${LOG_PREFIX} refused to navigate off the dashboard`)
+		return
+	}
 	state.nextPath = msg.path
 	enqueue(state, () => runNavigate(state))
 }
@@ -91,19 +113,7 @@ const COMMAND_HANDLERS: Record<string, HostCommandHandler> = {
 
 function isHostCommand(value: unknown): value is HostCommandMessage {
 	if (value === null || typeof value !== 'object') return false
-	const candidate = value as { type?: unknown }
-	return typeof candidate.type === 'string'
-}
-
-function parseRaw(raw: unknown): HostCommandMessage | null {
-	if (typeof raw !== 'string') return null
-	try {
-		const parsed = JSON.parse(raw) as unknown
-		if (!isHostCommand(parsed)) return null
-		return parsed
-	} catch {
-		return null
-	}
+	return typeof Reflect.get(value, 'type') === 'string'
 }
 
 export function createHostCommandDispatcher(
@@ -114,9 +124,8 @@ export function createHostCommandDispatcher(
 		tail: Promise.resolve(),
 		nextPath: null,
 	}
-	return (raw: unknown): void => {
-		const msg = parseRaw(raw)
-		if (msg === null) return
+	return (msg: unknown): void => {
+		if (!isHostCommand(msg)) return
 		const handler = COMMAND_HANDLERS[msg.type]
 		if (handler === undefined) {
 			console.warn(`${LOG_PREFIX} unknown host command type=${msg.type}`)

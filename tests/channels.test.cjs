@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
+const { readdirSync, readFileSync } = require("node:fs");
 const Module = require("node:module");
 const path = require("node:path");
 const { afterEach, test } = require("node:test");
@@ -7,19 +8,17 @@ const { HTTPResult } = require("@antelopejs/interface-api");
 const { WebSocket, WebSocketServer } = require("ws");
 
 const dist = (file) => path.resolve(__dirname, "../dist", file);
-const { openBridges } = require(dist("channels/bridge.js"));
+const { openBridge } = require(dist("channels/bridge.js"));
 const { openChannel, postChannelMessage } = require(
   dist("channels/channel-service.js"),
 );
 const { closeAllBridges } = require(dist("channels/registry.js"));
 const { createSseStream } = require(dist("channels/sse-stream.js"));
-const { relayChatboxFile } = require(dist("chatbox/passthrough.js"));
-const { CHATBOX_CONTENT_SECURITY_POLICY } = require(
-  dist("constants/chatbox.js"),
-);
 
 const OWNER = "owner-1";
 const INTRUDER = "owner-2";
+/** Pinned here rather than read from the build: it is the sidecar's contract too. */
+const SIDECAR_SOCKET_PATH = "/ws";
 const WAIT_TIMEOUT_MS = 2_000;
 const WAIT_STEP_MS = 10;
 const byText = (a, b) => a.localeCompare(b);
@@ -44,9 +43,11 @@ async function waitFor(check, label) {
   assert.fail(`timed out waiting for ${label}`);
 }
 
-function connectTo(port, socketPath) {
+function connectTo(port) {
   return new Promise((resolve, reject) => {
-    const socket = new WebSocket(`ws://127.0.0.1:${port}${socketPath}`);
+    const socket = new WebSocket(
+      `ws://127.0.0.1:${port}${SIDECAR_SOCKET_PATH}`,
+    );
     socket.once("open", () => {
       socket.pause();
       resolve(socket);
@@ -60,11 +61,10 @@ async function startSidecar(onConnection = () => undefined) {
   await new Promise((resolve) => server.once("listening", resolve));
   const sidecar = {
     received: [],
-    byPath: {},
     paths: [],
     sockets: [],
     closed: 0,
-    connect: (socketPath) => connectTo(server.address().port, socketPath),
+    connect: () => connectTo(server.address().port),
     close: () => {
       for (const client of server.clients) client.terminate();
       return new Promise((resolve) => server.close(resolve));
@@ -73,17 +73,13 @@ async function startSidecar(onConnection = () => undefined) {
   server.on("connection", (socket, request) => {
     sidecar.sockets.push(socket);
     sidecar.paths.push(request.url);
-    sidecar.byPath[request.url] = socket;
     socket.on("message", (data) =>
-      sidecar.received.push({
-        path: request.url,
-        text: Buffer.concat([data].flat()).toString("utf8"),
-      }),
+      sidecar.received.push(Buffer.concat([data].flat()).toString("utf8")),
     );
     socket.on("close", () => {
       sidecar.closed += 1;
     });
-    onConnection(socket, request.url);
+    onConnection(socket);
   });
   sidecars.push(sidecar);
   return sidecar;
@@ -133,31 +129,26 @@ function parseEvents(text) {
     });
 }
 
-async function openOn(sidecar, channels = "chat", userId = OWNER) {
+async function openOn(sidecar, userId = OWNER) {
   const context = fakeContext();
-  const result = await openChannel(
-    context.ctx,
-    channels,
-    userId,
-    sidecar.connect,
-  );
+  const result = await openChannel(context.ctx, userId, sidecar.connect);
   assert.equal(result, undefined);
   context.capture();
   await waitFor(() => parseEvents(context.output.text).length > 0, "ready");
   const ready = parseEvents(context.output.text)[0];
   assert.equal(ready.name, "ready");
-  const { connections } = JSON.parse(ready.data);
-  return { ...context, connections };
+  const { connectionId } = JSON.parse(ready.data);
+  return { ...context, connectionId };
 }
 
 function post(connectionId, body, userId = OWNER) {
   return postChannelMessage(connectionId, userId, Buffer.from(body));
 }
 
-void test("streams every sidecar frame, named after its channel, after a ready event", async () => {
+void test("streams every sidecar frame as a message event, after a ready event carrying the connection id", async () => {
   const sidecar = await startSidecar((socket) => {
     socket.send('{"type":"settings_update"}');
-    socket.send('{"type":"conversation_list"}');
+    socket.send('{"type":"host_command_navigate","path":"/x"}');
   });
   const opened = await openOn(sidecar);
   await waitFor(
@@ -165,152 +156,101 @@ void test("streams every sidecar frame, named after its channel, after a ready e
     "relayed frames",
   );
   assert.deepEqual(parseEvents(opened.output.text).slice(1), [
-    { name: "chat", data: '{"type":"settings_update"}' },
-    { name: "chat", data: '{"type":"conversation_list"}' },
+    { name: "message", data: '{"type":"settings_update"}' },
+    { name: "message", data: '{"type":"host_command_navigate","path":"/x"}' },
   ]);
-  assert.deepEqual(Object.keys(opened.connections), ["chat"]);
-  assert.deepEqual(sidecar.paths, ["/ws/iframe"]);
+  assert.equal(typeof opened.connectionId, "string");
+  assert.deepEqual(sidecar.paths, [SIDECAR_SOCKET_PATH]);
 });
 
-void test("carries the host and chat channels on one stream", async () => {
-  const sidecar = await startSidecar((socket, socketPath) =>
-    socket.send(`{"from":"${socketPath}"}`),
-  );
-  const opened = await openOn(sidecar, "host,chat");
-  assert.deepEqual(Object.keys(opened.connections), ["host", "chat"]);
-  assert.deepEqual([...sidecar.paths].sort(byText), ["/ws/host", "/ws/iframe"]);
-  await waitFor(
-    () => parseEvents(opened.output.text).length === 3,
-    "frames of both channels",
-  );
-  const frames = parseEvents(opened.output.text).slice(1);
-  assert.deepEqual(
-    frames.map((frame) => `${frame.name} ${frame.data}`).sort(byText),
-    ['chat {"from":"/ws/iframe"}', 'host {"from":"/ws/host"}'],
-  );
-});
-
-void test("posts each message to its own channel's socket, in order on each", async () => {
+void test("opens one sidecar socket per stream, for the dashboard and its chat together", async () => {
   const sidecar = await startSidecar();
-  const { connections } = await openOn(sidecar, "host,chat");
-  for (const [channel, n] of [
-    ["chat", 1],
-    ["host", 2],
-    ["chat", 3],
-  ]) {
-    const result = await post(connections[channel], `{"n":${n}}`);
-    assert.equal(result.getStatus(), 204);
+  await openOn(sidecar);
+  await openOn(sidecar);
+  assert.deepEqual(sidecar.paths, [SIDECAR_SOCKET_PATH, SIDECAR_SOCKET_PATH]);
+});
+
+void test("posts the host's and the chat's messages to the same socket, in order", async () => {
+  const sidecar = await startSidecar();
+  const { connectionId } = await openOn(sidecar);
+  const messages = [
+    '{"type":"hello","role":"host"}',
+    '{"type":"hello","role":"iframe","conversationId":"c-1"}',
+    '{"type":"host_state_update","currentPage":{"path":"/"}}',
+  ];
+  for (const message of messages) {
+    assert.equal((await post(connectionId, message)).getStatus(), 204);
   }
   await waitFor(() => sidecar.received.length === 3, "posted frames");
-  const onPath = (socketPath) =>
-    sidecar.received
-      .filter((frame) => frame.path === socketPath)
-      .map((frame) => frame.text);
-  assert.deepEqual(onPath("/ws/iframe"), ['{"n":1}', '{"n":3}']);
-  assert.deepEqual(onPath("/ws/host"), ['{"n":2}']);
+  assert.deepEqual(sidecar.received, messages);
+  assert.equal(sidecar.sockets.length, 1);
 });
 
 void test("answers 404 to another user's connection id and to an unknown one", async () => {
   const sidecar = await startSidecar();
-  const { connections } = await openOn(sidecar);
-  assert.equal((await post(connections.chat, "{}", INTRUDER)).getStatus(), 404);
+  const { connectionId } = await openOn(sidecar);
+  assert.equal((await post(connectionId, "{}", INTRUDER)).getStatus(), 404);
   assert.equal((await post("nope", "{}")).getStatus(), 404);
   assert.deepEqual(sidecar.received, []);
 });
 
-void test("closes every sidecar socket and forgets the stream when the browser leaves", async () => {
+void test("closes the sidecar socket and forgets the stream when the browser leaves", async () => {
   const sidecar = await startSidecar();
-  const opened = await openOn(sidecar, "host,chat");
+  const opened = await openOn(sidecar);
   opened.leave();
-  await waitFor(() => sidecar.closed === 2, "sidecar sockets close");
-  for (const connectionId of Object.values(opened.connections)) {
-    assert.equal((await post(connectionId, "{}")).getStatus(), 404);
-  }
+  await waitFor(() => sidecar.closed === 1, "sidecar socket closes");
+  assert.equal((await post(opened.connectionId, "{}")).getStatus(), 404);
 });
 
-void test("sends sidecar_down and ends the whole stream when one socket closes", async () => {
+void test("sends sidecar_down and ends the stream when the sidecar socket closes", async () => {
   const sidecar = await startSidecar();
-  const opened = await openOn(sidecar, "host,chat");
-  sidecar.byPath["/ws/host"].close();
+  const opened = await openOn(sidecar);
+  sidecar.sockets[0].close();
   await waitFor(() => opened.output.ended, "stream end");
-  await waitFor(() => sidecar.closed === 2, "both sockets closed");
   const names = parseEvents(opened.output.text).map((event) => event.name);
   assert.deepEqual(names, ["ready", "sidecar_down"]);
-  for (const connectionId of Object.values(opened.connections)) {
-    assert.equal((await post(connectionId, "{}")).getStatus(), 404);
-  }
+  assert.equal((await post(opened.connectionId, "{}")).getStatus(), 404);
 });
 
 void test("closeAllBridges ends every stream and closes every sidecar socket, as destroy() does", async () => {
   const sidecar = await startSidecar();
-  const first = await openOn(sidecar, "host,chat");
-  const second = await openOn(sidecar, "chat");
+  const first = await openOn(sidecar);
+  const second = await openOn(sidecar);
   closeAllBridges();
   await waitFor(() => first.output.ended && second.output.ended, "streams end");
-  await waitFor(() => sidecar.closed === 3, "sidecar sockets close");
+  await waitFor(() => sidecar.closed === 2, "sidecar sockets close");
   for (const opened of [first, second]) {
-    for (const connectionId of Object.values(opened.connections)) {
-      assert.equal((await post(connectionId, "{}")).getStatus(), 404);
-    }
+    assert.equal((await post(opened.connectionId, "{}")).getStatus(), 404);
   }
-  const reopened = await openOn(sidecar, "host,chat");
-  const result = await post(reopened.connections.chat, '{"after":"reload"}');
+  const reopened = await openOn(sidecar);
+  const result = await post(reopened.connectionId, '{"after":"reload"}');
   assert.equal(result.getStatus(), 204);
 });
 
 void test("leaves nothing open when the browser left during the sidecar handshake", async () => {
   const sidecar = await startSidecar();
   const context = fakeContext();
-  const slowConnect = async (socketPath) => {
-    const socket = await sidecar.connect(socketPath);
+  const slowConnect = async () => {
+    const socket = await sidecar.connect();
     context.leave();
     return socket;
   };
-  await openChannel(context.ctx, "host,chat", OWNER, slowConnect);
-  await waitFor(() => sidecar.closed === 2, "sidecar sockets close");
-});
-
-void test("closes the sockets it opened when another channel cannot connect", async () => {
-  const sidecar = await startSidecar();
-  const context = fakeContext();
-  const halfDown = (socketPath) =>
-    socketPath === "/ws/host"
-      ? sidecar.connect(socketPath)
-      : Promise.reject(new Error("down"));
-  const result = await openChannel(context.ctx, "host,chat", OWNER, halfDown);
-  assert.equal(result.getStatus(), 503);
-  assert.equal(context.ctx.response.isStream(), false);
-  await waitFor(() => sidecar.closed === 1, "opened socket closed");
+  await openChannel(context.ctx, OWNER, slowConnect);
+  await waitFor(() => sidecar.closed === 1, "sidecar socket closes");
 });
 
 void test("answers 503 without streaming when the sidecar cannot be reached", async () => {
   const context = fakeContext();
-  const result = await openChannel(context.ctx, "chat", OWNER, async () => {
+  const result = await openChannel(context.ctx, OWNER, async () => {
     throw new Error("down");
   });
   assert.equal(result.getStatus(), 503);
   assert.equal(context.ctx.response.isStream(), false);
 });
 
-void test("answers 404 to an unknown or repeated channel", async () => {
-  const neverConnect = async () => {
-    throw new Error("must not connect");
-  };
-  for (const channels of ["shell", "host,shell", "chat,chat"]) {
-    const context = fakeContext();
-    const result = await openChannel(
-      context.ctx,
-      channels,
-      OWNER,
-      neverConnect,
-    );
-    assert.equal(result.getStatus(), 404);
-  }
-});
-
-void test("pauses a sidecar socket while the stream is full and resumes it on drain", async () => {
+void test("pauses the sidecar socket while the stream is full and resumes it on drain", async () => {
   const sidecar = await startSidecar();
-  const socket = await sidecar.connect("/ws/iframe");
+  const socket = await sidecar.connect();
   let drain = () => undefined;
   let isFull = false;
   const stream = {
@@ -322,9 +262,9 @@ void test("pauses a sidecar socket while the stream is full and resumes it on dr
     close: () => undefined,
     isClosed: () => false,
   };
-  openBridges({
+  openBridge({
     userId: OWNER,
-    sockets: [{ channel: "chat", socket }],
+    socket,
     stream,
     onOpened: () => undefined,
     onClosed: () => undefined,
@@ -346,72 +286,9 @@ void test("writes multi-line data as one data line per line", () => {
     once: () => undefined,
   };
   const stream = createSseStream({ sink, onClientGone: () => undefined });
-  stream.send("chat", "first\nsecond");
+  stream.send("message", "first\nsecond");
   stream.close();
-  assert.deepEqual(writes, ["event: chat\ndata: first\ndata: second\n\n"]);
-});
-
-void test("relays the chatbox document with its status, type and length, under the CSP", async () => {
-  const context = fakeContext();
-  const html = "<!doctype html><title>chat</title>";
-  const load = async (filePath) => {
-    assert.equal(filePath, "/");
-    return new Response(html, {
-      status: 200,
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        "content-length": String(html.length),
-      },
-    });
-  };
-  assert.equal(await relayChatboxFile(context.ctx, "/", load), undefined);
-  context.capture();
-  await waitFor(() => context.output.ended, "document body");
-  assert.equal(context.output.text, html);
-  assert.equal(context.ctx.response.getStatus(), 200);
-  assert.equal(
-    context.ctx.response.getContentType(),
-    "text/html; charset=utf-8",
-  );
-  const headers = context.ctx.response.getHeaders();
-  assert.equal(
-    headers["Content-Security-Policy"],
-    CHATBOX_CONTENT_SECURITY_POLICY,
-  );
-  assert.equal(headers["content-length"], String(html.length));
-  assert.equal(headers["X-Content-Type-Options"], "nosniff");
-});
-
-void test("keeps scripts to the bundle and nothing loaded from outside the origin", () => {
-  const directives = Object.fromEntries(
-    CHATBOX_CONTENT_SECURITY_POLICY.split("; ").map((directive) => {
-      const [name, ...sources] = directive.split(" ");
-      return [name, sources];
-    }),
-  );
-  assert.deepEqual(directives["script-src"], ["'self'"]);
-  assert.deepEqual(directives["img-src"], ["'self'", "data:", "blob:"]);
-  assert.deepEqual(directives["frame-ancestors"], ["'self'"]);
-  assert.deepEqual(directives["object-src"], ["'none'"]);
-});
-
-void test("relays a missing asset with the sidecar's own status", async () => {
-  const context = fakeContext();
-  const load = async () =>
-    new Response("Not Found", {
-      status: 404,
-      headers: { "content-type": "text/plain" },
-    });
-  await relayChatboxFile(context.ctx, "/assets/missing.js", load);
-  assert.equal(context.ctx.response.getStatus(), 404);
-});
-
-void test("answers 503 when the chatbox cannot be loaded", async () => {
-  const context = fakeContext();
-  const result = await relayChatboxFile(context.ctx, "/", async () => {
-    throw new Error("down");
-  });
-  assert.equal(result.getStatus(), 503);
+  assert.deepEqual(writes, ["event: message\ndata: first\ndata: second\n\n"]);
 });
 
 function loadRoutes(files) {
@@ -478,21 +355,23 @@ function loadRoutes(files) {
   }
 }
 
-void test("serves the three new routes to owners only", () => {
-  const { owned, routes } = loadRoutes([
-    "routes/channels.js",
-    "routes/chatbox.js",
-  ]);
+void test("serves the channel routes to owners only", () => {
+  const { owned, routes } = loadRoutes(["routes/channels.js"]);
   assert.deepEqual(
     routes.map((route) => `${route.method} ${route.location}`).sort(byText),
-    [
-      "GET /ai/channels/:channels/events",
-      "GET /api/ai/chatbox/",
-      "GET /api/ai/chatbox/::path",
-      "POST /ai/channels/:connectionId/messages",
-    ],
+    ["GET /ai/channel/events", "POST /ai/channel/:connectionId/messages"],
   );
   for (const route of routes) assert.ok(owned.has(route.owner));
+});
+
+void test("serves no chat document: the chat is a dashboard component", () => {
+  const routeModules = readdirSync(dist("routes")).filter((file) =>
+    file.endsWith(".js"),
+  );
+  for (const file of routeModules) {
+    const source = readFileSync(dist(`routes/${file}`), "utf8");
+    assert.doesNotMatch(source, /chatbox/i, file);
+  }
 });
 
 void test("keeps the sidecar port and client credential out of /ai/sidecar-info", async () => {

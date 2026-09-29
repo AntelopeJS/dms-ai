@@ -1,19 +1,18 @@
 import type { ChannelStatus } from './channel-client'
-import { CHAT_TRANSPORT_KEY, LOG_PREFIX } from './constants'
+import { LOG_PREFIX } from './constants'
 
 /**
- * What the chat document, same-origin with the dashboard, reads on its parent
- * window to reach the sidecar: the dashboard owns the tab's only stream and
- * lends the chat its channel of it.
+ * The chat's side of the tab's stream: the dashboard owns the stream and hands
+ * the chat the sidecar messages that are not host commands.
  */
 export interface ChatTransport {
-	/** Raw sidecar frames of the chat channel, in order. */
-	onFrame: (listener: (raw: string) => void) => () => void
+	/** Sidecar messages for the chat, parsed once by the dashboard, in order. */
+	onMessage: (listener: (msg: object) => void) => () => void
 	/** Every (re)connection is a new sidecar socket: the chat says hello again. */
 	onReady: (listener: () => void) => () => void
 	onStatus: (listener: (status: ChannelStatus) => void) => () => void
 	getStatus: () => ChannelStatus
-	/** False when the message was dropped because the channel is not connected. */
+	/** False when the message was dropped because the stream is not connected. */
 	send: (msg: unknown) => boolean
 	reconnect: () => void
 }
@@ -26,7 +25,7 @@ export interface ChatTransportActions {
 
 export interface ChatTransportHub {
 	transport: ChatTransport
-	deliverFrame: (raw: string) => void
+	deliver: (msg: object) => void
 	announceReady: () => void
 	announceStatus: (status: ChannelStatus) => void
 }
@@ -37,8 +36,8 @@ interface Listeners<T> {
 }
 
 /**
- * A listener belongs to a chat document that may already be gone: one failing
- * must not stop the others.
+ * A listener belongs to a chat component that may already be failing: one
+ * throwing must not stop the others, nor the dashboard's stream.
  */
 function createListeners<T>(): Listeners<T> {
 	const listeners = new Set<(value: T) => void>()
@@ -62,25 +61,20 @@ function createListeners<T>(): Listeners<T> {
 export function createChatTransport(
 	actions: ChatTransportActions,
 ): ChatTransportHub {
-	const frames = createListeners<string>()
+	const messages = createListeners<object>()
 	const ready = createListeners<undefined>()
 	const statuses = createListeners<ChannelStatus>()
 	return {
 		transport: {
-			onFrame: frames.add,
+			onMessage: messages.add,
 			onReady: (listener) => ready.add(() => listener()),
 			onStatus: statuses.add,
 			getStatus: actions.getStatus,
 			send: actions.send,
 			reconnect: actions.reconnect,
 		},
-		deliverFrame: frames.emit,
+		deliver: messages.emit,
 		announceReady: () => ready.emit(undefined),
 		announceStatus: statuses.emit,
 	}
-}
-
-/** Publishes the transport where the chat document looks for it. */
-export function exposeChatTransport(transport: ChatTransport): void {
-	Reflect.set(globalThis, CHAT_TRANSPORT_KEY, transport)
 }

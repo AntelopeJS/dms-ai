@@ -3,7 +3,7 @@ import { CustomComponent } from "@antelopejs/interface-dms/base/custom";
 import { DefaultLayout } from "@antelopejs/interface-dms/base/layouts";
 
 /**
- * AI Settings — reached from the chatbox cogwheel (/modules/ai/settings).
+ * AI Settings — reached from the chat panel's cogwheel (/modules/ai/settings).
  * Custom Vue view: provider/model are locked to Claude, plus the generation
  * mode and the operating mode (normal / accept edits / plan / auto), persisted
  * to the sidecar via `/ai/settings`.
