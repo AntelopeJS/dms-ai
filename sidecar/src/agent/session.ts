@@ -15,8 +15,11 @@ export interface SessionControls {
   /** Hands one turn to the backend. Called from inside the turn chain. */
   submitTurn(input: TurnInput): void | Promise<void>;
   interrupt(): void;
-  /** Releases whatever the backend holds between turns. */
-  close(): void;
+  /**
+   * Releases whatever the backend holds between turns, and resolves once it is
+   * released. Never rejects.
+   */
+  close(): Promise<void>;
   applySettings?(settings: AppSettings): void;
 }
 
@@ -24,18 +27,26 @@ export interface AgentSession {
   sendTurn(input: TurnInput, timeoutMs: number): AsyncIterable<RunnerEvent>;
   applySettings(settings: AppSettings): void;
   interrupt(): void;
-  dispose: () => void;
+  /**
+   * Resolves once the backend has released everything. Every caller gets the
+   * same teardown, so a second one never returns ahead of it.
+   */
+  dispose: () => Promise<void>;
 }
 
 export interface SessionDeps {
   events: AsyncIterator<RunnerEvent, void>;
   controls: SessionControls;
   abortController: AbortController;
-  onDisposed: () => void;
+  /**
+   * Handed the teardown as well, so whoever drops the session can still wait
+   * for it.
+   */
+  onDisposed: (disposal: Promise<void>) => void;
 }
 
 interface SessionState extends SessionDeps {
-  disposed: boolean;
+  disposal: Promise<void> | null;
   tail: Promise<void>;
   activeTurns: number;
   interruptTimer: ReturnType<typeof setTimeout> | null;
@@ -53,17 +64,22 @@ interface TurnTimeout {
   suspend: () => void;
 }
 
-function disposeSession(state: SessionState): void {
-  if (state.disposed) return;
-  state.disposed = true;
+function isDisposed(state: SessionState): boolean {
+  return state.disposal !== null;
+}
+
+function disposeSession(state: SessionState): Promise<void> {
+  if (state.disposal !== null) return state.disposal;
   clearInterruptFallback(state);
-  state.controls.close();
+  const disposal = state.controls.close();
+  state.disposal = disposal;
   state.abortController.abort();
-  state.onDisposed();
+  state.onDisposed(disposal);
+  return disposal;
 }
 
 function applySettings(state: SessionState, settings: AppSettings): void {
-  if (state.disposed) return;
+  if (isDisposed(state)) return;
   state.controls.applySettings?.(settings);
 }
 
@@ -79,13 +95,13 @@ function clearInterruptFallback(state: SessionState): void {
 // (or the turn is mid-tool and won't settle), a fallback hard-aborts after a
 // grace window so Stop can never silently hang.
 function interrupt(state: SessionState): void {
-  if (state.disposed) return;
+  if (isDisposed(state)) return;
   if (state.activeTurns === 0) return;
   state.controls.interrupt();
   clearInterruptFallback(state);
   state.interruptTimer = setTimeout(() => {
     state.interruptTimer = null;
-    if (state.disposed || state.activeTurns === 0) return;
+    if (isDisposed(state) || state.activeTurns === 0) return;
     state.abortController.abort();
   }, INTERRUPT_FALLBACK_MS);
 }
@@ -146,11 +162,13 @@ async function* readTurn(
       result = await state.events.next();
     } catch (err) {
       yield buildErrorEvent(err, timeout.flag);
-      disposeSession(state);
+      // Not awaited here: onDisposed hands the teardown to whoever holds the
+      // session, and that is who waits for it.
+      void disposeSession(state);
       return;
     }
     if (result.done) {
-      disposeSession(state);
+      void disposeSession(state);
       return;
     }
     const event = result.value;
@@ -213,7 +231,7 @@ function sendTurn(
 export function createAgentSession(deps: SessionDeps): AgentSession {
   const state: SessionState = {
     ...deps,
-    disposed: false,
+    disposal: null,
     tail: Promise.resolve(),
     activeTurns: 0,
     interruptTimer: null,

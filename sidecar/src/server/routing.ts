@@ -770,7 +770,8 @@ function handleDeleteConversation(
   ctx.permissionBus.forgetConversation(msg.conversationId);
   ctx.questionBus.cancelConversation(msg.conversationId);
   ctx.editTracker.clear(msg.conversationId);
-  ctx.runner.disposeSession(msg.conversationId);
+  // Not awaited: the runner keeps track of the teardown for its own dispose.
+  void ctx.runner.disposeSession(msg.conversationId);
   ctx.liveTurns.end(msg.conversationId);
   ctx.pendingQueue.clear(msg.conversationId);
   sendConversationList(socket, ctx);

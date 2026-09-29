@@ -41,8 +41,11 @@ export interface ProviderSessionContext {
    * Providers that do not report usage never call it.
    */
   onTokenUsage?: (usage: TokenUsage) => void;
-  /** Called when the session tears itself down, so the runner can drop it. */
-  onDisposed: () => void;
+  /**
+   * Called when the session tears itself down, so the runner can drop it, with
+   * the teardown so the runner can still wait for it.
+   */
+  onDisposed: (disposal: Promise<void>) => void;
 }
 
 /**
@@ -52,7 +55,8 @@ export interface ProviderSessionContext {
 export interface ProviderSession {
   runTurn(input: TurnInput, settings: AppSettings): AsyncIterable<RunnerEvent>;
   interrupt(): void;
-  dispose(): void;
+  /** Resolves once the backend has released everything. Never rejects. */
+  dispose(): Promise<void>;
   /**
    * Optional in-place settings update. Takes effect at the latest on the next
    * turn; providers that only read settings per turn may omit it.

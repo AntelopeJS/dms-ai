@@ -6,6 +6,7 @@ import type { AttachmentType } from "../protocol/messages.js";
 import type { CurrentPage } from "../state/host-state.js";
 import type { AppSettings } from "../state/settings-types.js";
 import type { TokenUsage } from "../state/types.js";
+import { createDisposalTracker, type DisposalTracker } from "./disposals.js";
 import { prependHostContext } from "./host-context.js";
 import type { PermissionBus } from "./permission-bus.js";
 import type { AgentProvider, ProviderSession } from "./provider.js";
@@ -40,13 +41,18 @@ export interface RunnerContext {
 export interface AgentRunner {
   start(message: string, ctx: RunnerContext): AsyncIterable<RunnerEvent>;
   interruptSession(conversationId: string): void;
-  disposeSession(conversationId: string): void;
+  /** Resolves once the conversation's backend has released everything. */
+  disposeSession(conversationId: string): Promise<void>;
   /**
    * Live sessions keep their context across a settings change: the new settings
    * reach every open session, and every subsequent turn carries them.
    */
   applySettings(settings: AppSettings): void;
-  dispose(): void;
+  /**
+   * Disposes every session, and resolves once every backend has released
+   * everything: the sessions that already tore themselves down included.
+   */
+  dispose(): Promise<void>;
 }
 
 export interface AgentRunnerOptions {
@@ -57,6 +63,7 @@ interface SessionManager {
   provider: AgentProvider;
   sessions: Map<string, ProviderSession>;
   settings: AppSettings;
+  disposals: DisposalTracker;
 }
 
 function createSession(
@@ -72,8 +79,9 @@ function createSession(
     mcpServer: ctx.createMcpServer?.(),
     onPermissionDecision: ctx.onPermissionDecision,
     onTokenUsage: ctx.onTokenUsage,
-    onDisposed: () => {
+    onDisposed: (disposal) => {
       manager.sessions.delete(ctx.conversationId);
+      manager.disposals.track(disposal);
     },
   });
 }
@@ -115,17 +123,23 @@ function interruptSession(
   session.interrupt();
 }
 
-function disposeSession(manager: SessionManager, conversationId: string): void {
+function disposeSession(
+  manager: SessionManager,
+  conversationId: string,
+): Promise<void> {
   const session = manager.sessions.get(conversationId);
-  if (session === undefined) return;
+  if (session === undefined) return Promise.resolve();
   manager.sessions.delete(conversationId);
-  session.dispose();
+  const disposal = session.dispose();
+  manager.disposals.track(disposal);
+  return disposal;
 }
 
-function disposeAll(manager: SessionManager): void {
+async function disposeAll(manager: SessionManager): Promise<void> {
   const sessions = [...manager.sessions.values()];
   manager.sessions.clear();
-  for (const session of sessions) session.dispose();
+  for (const session of sessions) manager.disposals.track(session.dispose());
+  await manager.disposals.settle();
 }
 
 function applySettings(manager: SessionManager, settings: AppSettings): void {
@@ -143,6 +157,7 @@ export function createAgentRunner(
     provider,
     sessions: new Map(),
     settings: options?.settings ?? DEFAULT_SETTINGS,
+    disposals: createDisposalTracker(),
   };
   return {
     start: (message, ctx) => startTurn(manager, message, ctx),

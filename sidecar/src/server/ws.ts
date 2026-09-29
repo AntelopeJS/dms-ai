@@ -343,11 +343,15 @@ export function attachWsServer(
   const onUpgrade = makeUpgradeHandler(wssByPath, options.clientToken);
   httpServer.on("upgrade", onUpgrade);
   return {
+    // The backends start stopping first, as they always did, but close()
+    // resolves only once they are gone: a caller that removes their state next
+    // must not race children that are still exiting.
     close: async () => {
       httpServer.removeListener("upgrade", onUpgrade);
-      config.runner.dispose();
+      const disposal = config.runner.dispose();
       await closeWss(wssIframe);
       await closeWss(wssHost);
+      await disposal;
     },
   };
 }

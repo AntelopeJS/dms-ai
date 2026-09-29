@@ -38,6 +38,7 @@ describe("codex process lifecycle", () => {
   let stateDir: string;
   let registry: McpHttpRegistry | undefined;
   const opened: ProviderSession[] = [];
+  const teardowns: Promise<void>[] = [];
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "dms-ai-life-"));
@@ -46,11 +47,11 @@ describe("codex process lifecycle", () => {
   });
 
   afterEach(async () => {
-    for (const session of opened.splice(0)) session.dispose();
+    await Promise.all(opened.splice(0).map((session) => session.dispose()));
+    await Promise.all(teardowns.splice(0));
     await registry?.dispose();
     registry = undefined;
     CODEX_FIXTURE.reset();
-    await settle();
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -76,7 +77,7 @@ describe("codex process lifecycle", () => {
       hostProjectRoot: dir,
       getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
       settings: DEFAULT_SETTINGS,
-      onDisposed: () => {},
+      onDisposed: (disposal) => teardowns.push(disposal),
     });
     opened.push(session);
     return session;
@@ -103,7 +104,7 @@ describe("codex process lifecycle", () => {
       expect(pid).toBeDefined();
       expect(isAlive(pid as number)).toBe(true);
 
-      session.dispose();
+      await session.dispose();
       await settle();
       expect(await readPids()).toEqual([]);
       expect(isAlive(pid as number)).toBe(false);
@@ -123,7 +124,7 @@ describe("codex process lifecycle", () => {
       const pids = await readPids();
       expect(pids).toHaveLength(2);
 
-      for (const session of opened.splice(0)) session.dispose();
+      await Promise.all(opened.splice(0).map((session) => session.dispose()));
       await settle();
       expect(await readPids()).toEqual([]);
       for (const pid of pids) expect(isAlive(pid)).toBe(false);
@@ -160,7 +161,7 @@ describe("codex process lifecycle", () => {
       expect(await readPids()).toHaveLength(LIVE_SESSION_CAP);
 
       await open(provider, "conv-life-cap-extra");
-      await settle();
+      await Promise.all(teardowns);
       expect(await readPids()).toHaveLength(LIVE_SESSION_CAP);
     },
     TEST_TIMEOUT_MS,

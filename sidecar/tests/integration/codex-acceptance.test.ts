@@ -201,7 +201,7 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
 
   afterEach(async () => {
     setBuilderAvailable(false);
-    session?.dispose();
+    await session?.dispose();
     session = undefined;
     await harness?.dispose();
     harness = undefined;
@@ -323,7 +323,7 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
       const before = await readPidRegistry(harness.stateDir);
       expect(before.length).toBe(1);
 
-      opened.dispose();
+      await opened.dispose();
       await waitFor(async () => {
         const after = await readPidRegistry(harness?.stateDir ?? "");
         return after.length === 0;

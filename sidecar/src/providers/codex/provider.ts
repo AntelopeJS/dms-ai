@@ -335,13 +335,13 @@ async function createProviderSession(
       close: () => {
         stream.end();
         void options.mcpHttpRegistry.release(ctx.conversationId);
-        void codexProcess.dispose();
+        return codexProcess.dispose();
       },
     },
     abortController,
-    onDisposed: () => {
+    onDisposed: (disposal) => {
       live.delete(ctx.conversationId);
-      ctx.onDisposed();
+      ctx.onDisposed(disposal);
     },
   });
 
@@ -359,14 +359,16 @@ async function createProviderSession(
   return providerSession;
 }
 
-// Oldest-first eviction: each live conversation holds its own app-server process.
+// Oldest-first eviction: each live conversation holds its own app-server
+// process. The evicted teardown reaches the runner through onDisposed, which
+// is where a shutdown waits for it.
 function evictOverflow(live: Map<string, ProviderSession>): void {
   while (live.size >= CODEX_MAX_LIVE_SESSIONS) {
     const oldest = live.keys().next();
     if (oldest.done === true) return;
     const session = live.get(oldest.value);
     live.delete(oldest.value);
-    session?.dispose();
+    if (session !== undefined) void session.dispose();
   }
 }
 
