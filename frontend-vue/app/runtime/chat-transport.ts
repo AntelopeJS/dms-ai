@@ -36,10 +36,6 @@ interface Listeners<T> {
 	emit: (value: T) => void
 }
 
-/**
- * A listener belongs to a chat document that may already be gone: one failing
- * must not stop the others.
- */
 function createListeners<T>(): Listeners<T> {
 	const listeners = new Set<(value: T) => void>()
 	return {

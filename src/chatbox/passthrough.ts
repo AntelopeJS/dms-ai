@@ -3,13 +3,17 @@ import { pipeline } from "node:stream/promises";
 import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import { HTTPResult, type RequestContext } from "@antelopejs/interface-api";
 import {
+  CHATBOX_CONTENT_TYPE_HEADER,
   CHATBOX_DEFAULT_CONTENT_TYPE,
   CHATBOX_RELAYED_HEADERS,
   CHATBOX_RESPONSE_HEADERS,
-  CHATBOX_UNAVAILABLE_STATUS,
 } from "../constants/chatbox";
-import { SIDECAR_LOOPBACK_HOST } from "../constants/sidecar";
-import { SidecarUnavailableError } from "../lifecycle/sidecar-socket";
+import {
+  SIDECAR_LOOPBACK_HOST,
+  SIDECAR_UNAVAILABLE_BODY,
+  SIDECAR_UNAVAILABLE_STATUS,
+} from "../constants/sidecar";
+import { SidecarUnavailableError } from "../lifecycle/sidecar-unavailable-error";
 import {
   ensureSidecarRunning,
   getSidecarPort,
@@ -18,12 +22,6 @@ import {
 /** Loads one file from the sidecar's static server; injectable for tests. */
 export type ChatboxLoader = (path: string) => Promise<Response>;
 
-const UNAVAILABLE_BODY = { error: "sidecar_unavailable" };
-
-/**
- * The chatbox files are public on loopback, so no credential is sent: the
- * passthrough cannot be turned into a way to the sidecar's protected routes.
- */
 async function loadFromSidecar(path: string): Promise<Response> {
   await ensureSidecarRunning();
   const port = getSidecarPort();
@@ -64,11 +62,12 @@ export async function relayChatboxFile(
 ): Promise<HTTPResult | undefined> {
   const upstream = await tryLoad(load, path);
   if (upstream === null) {
-    return new HTTPResult(CHATBOX_UNAVAILABLE_STATUS, UNAVAILABLE_BODY);
+    return new HTTPResult(SIDECAR_UNAVAILABLE_STATUS, SIDECAR_UNAVAILABLE_BODY);
   }
   applyHeaders(ctx, upstream);
   const contentType =
-    upstream.headers.get("content-type") ?? CHATBOX_DEFAULT_CONTENT_TYPE;
+    upstream.headers.get(CHATBOX_CONTENT_TYPE_HEADER) ??
+    CHATBOX_DEFAULT_CONTENT_TYPE;
   const sink = ctx.response.getWriteStream(contentType, upstream.status);
   if (upstream.body === null) {
     sink.end();

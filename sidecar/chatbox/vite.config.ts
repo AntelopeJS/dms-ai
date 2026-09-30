@@ -2,10 +2,6 @@ import ui from "@nuxt/ui/vite";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 
-/**
- * Relative asset URLs: the chat is served under /api/ai/chatbox/ through the
- * DMS, and still at the sidecar's root when it is run by hand.
- */
 const RELATIVE_ASSET_BASE = "./";
 
 export default defineConfig({

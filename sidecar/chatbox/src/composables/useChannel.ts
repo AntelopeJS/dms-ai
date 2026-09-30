@@ -28,7 +28,6 @@ export interface UseChannelResult {
 	connectionStatus: Ref<ConnectionStatus>;
 }
 
-/** The dashboard's side of the chat channel, published on the parent window. */
 interface ChatTransport {
 	onFrame: (listener: (raw: string) => void) => () => void;
 	onReady: (listener: () => void) => () => void;
