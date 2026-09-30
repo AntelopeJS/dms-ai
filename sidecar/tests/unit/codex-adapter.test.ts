@@ -190,3 +190,35 @@ describe("synthesized events", () => {
     ]);
   });
 });
+
+describe("activity with nothing to show yet", () => {
+  it("reports reasoning and command output as activity, not as tools", () => {
+    const fresh = createCodexAdapter();
+    const reasoning = fresh.handle({
+      method: "item/reasoning/summaryTextDelta",
+      params: { itemId: "item-r", delta: "Reading the mockup" },
+    });
+    const output = fresh.handle({
+      method: "item/commandExecution/outputDelta",
+      params: { itemId: "item-c", delta: "installing" },
+    });
+    expect(reasoning).toEqual([{ type: "activity", kind: "thinking" }]);
+    expect(output).toEqual([{ type: "activity", kind: "tool" }]);
+  });
+
+  it("reads a reconnecting error as a retry, never as the end of the turn", () => {
+    const fresh = createCodexAdapter();
+    const events = fresh.handle({
+      method: "error",
+      params: { message: "stream disconnected before completion" },
+    });
+    expect(events).toEqual([{ type: "activity", kind: "retrying" }]);
+  });
+
+  it("finds reasoning activity in a recorded turn", () => {
+    const kinds = replay("recette-1-simple-message.jsonl")
+      .filter((event) => event.type === "activity")
+      .map((event) => (event.type === "activity" ? event.kind : null));
+    expect(kinds).toContain("thinking");
+  });
+});

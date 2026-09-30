@@ -26,6 +26,12 @@ export const TURN_COMPLETED_METHOD = "turn/completed";
 export const ITEM_COMPLETED_METHOD = "item/completed";
 export const MCP_TOOL_CALL_ITEM = "mcpToolCall";
 
+/**
+ * Not an app-server frame: a script line that makes the fake binary die where
+ * it stands, the way a crashed app-server leaves a turn in flight.
+ */
+export const EXIT_DIRECTIVE_METHOD = "mock/exit";
+
 export const INTERRUPTED_TURN_STATUS = "interrupted";
 export const COMPLETED_ITEM_STATUS = "completed";
 export const FAILED_ITEM_STATUS = "failed";

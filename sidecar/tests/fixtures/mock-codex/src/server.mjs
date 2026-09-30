@@ -4,6 +4,7 @@ import {
   DEFAULT_DELAY_MS,
   DELAY_ENV_VAR,
   EMPTY_RESULT,
+  EXIT_DIRECTIVE_METHOD,
   FAILED_ITEM_STATUS,
   FALLBACK_RESULTS,
   INTERRUPTED_TURN_STATUS,
@@ -120,6 +121,9 @@ function sendServerRequest(state, transport, frame) {
 }
 
 async function replayFrame(state, transport, frame) {
+  if (frame.method === EXIT_DIRECTIVE_METHOD) {
+    process.exit(frame.params?.code ?? 1);
+  }
   if (isServerRequest(frame)) {
     const decision = await sendServerRequest(state, transport, frame);
     trace({ kind: "decision", method: frame.method, decision });

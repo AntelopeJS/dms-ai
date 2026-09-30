@@ -29,7 +29,8 @@ export function exceedsSizeLimit(file: File): boolean {
 	return file.size > MAX_ATTACHMENT_BYTES;
 }
 
-function splitDataUrl(dataUrl: string): string {
+/** The base64 payload of a data URL, without its `data:…;base64,` prefix. */
+export function splitDataUrl(dataUrl: string): string {
 	const comma = dataUrl.indexOf(",");
 	return comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
 }

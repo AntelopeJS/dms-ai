@@ -18,6 +18,7 @@ import {
 } from "./composables/useConversationId";
 import { usePermissionQueue } from "./composables/usePermissionQueue";
 import { useQuestionQueue } from "./composables/useQuestionQueue";
+import { useRunClock } from "./composables/useRunClock";
 import { useSettings } from "./composables/useSettings";
 import { useWs } from "./composables/useWs";
 import {
@@ -48,6 +49,7 @@ import {
 } from "./constants/ws";
 import type { ChatboxMode, ProviderName } from "./types/settings";
 import type { PendingAttachment } from "./utils/attachments";
+import { isRunStalled } from "./utils/run-status";
 import { latestTodos } from "./utils/todos";
 
 const STATUS_LABEL_BY_STATE: Record<ConnectionStatus, string> = {
@@ -81,6 +83,18 @@ const settings = useSettings({ send: ws.send, onMessage: ws.onMessage });
 
 const drawerOpen = ref(false);
 const nowMs = ref(Date.now());
+const runClockMs = useRunClock(conversation.isRunning);
+
+const isRunStalledNow = computed<boolean>(
+	() =>
+		conversation.isTurnInFlight.value &&
+		ws.isConnected.value &&
+		isRunStalled(conversation.lastEventAtMs.value, runClockMs.value),
+);
+
+const stalledForMs = computed<number>(
+	() => runClockMs.value - conversation.lastEventAtMs.value,
+);
 
 // The cogwheel opens the full AI Settings admin page in the host DMS rather
 // than an in-iframe modal. We bridge a navigate request through the sidecar to
@@ -252,6 +266,10 @@ function onComposerStop(): void {
 function manualReconnect(): void {
 	ws.reconnect();
 }
+
+function retryLastMessage(): void {
+	conversation.retry();
+}
 </script>
 
 <template>
@@ -327,6 +345,13 @@ function manualReconnect(): void {
 			<MessageList
 				:messages="conversation.messages.value"
 				:is-running="conversation.isRunning.value"
+				:progress="conversation.progress.value"
+				:now-ms="runClockMs"
+				:is-stalled="isRunStalledNow"
+				:stalled-for-ms="stalledForMs"
+				@retry="retryLastMessage"
+				@reconnect="manualReconnect"
+				@stop="onComposerStop"
 			/>
 		</section>
 
@@ -343,7 +368,11 @@ function manualReconnect(): void {
 			@answer="questionQueue.respond"
 		/>
 
-		<TodoList v-if="todos.length > 0" :todos="todos" />
+		<TodoList
+			v-if="todos.length > 0"
+			:todos="todos"
+			:is-running="conversation.isRunning.value"
+		/>
 
 		<QueuedMessages
 			v-if="conversation.queued.value.length > 0"

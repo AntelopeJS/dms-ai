@@ -121,6 +121,11 @@ export function codexScript(file: string): string {
   return fixtureFor(CODEX_SCRIPTS, file);
 }
 
+/** A mock Claude script by file name, for a scenario no turn kind covers. */
+export function claudeScript(file: string): string {
+  return fixtureFor(CLAUDE_SCRIPTS, file);
+}
+
 export interface TracedRequest {
   kind: string;
   method?: string;

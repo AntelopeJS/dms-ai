@@ -1,3 +1,4 @@
+import type { ActivityKind } from "../agent/runner-events.js";
 import { MCP_SERVER_KEY } from "./mcp.js";
 
 // Skill the safe-mode prompt sends the agent to. Codex budgets its skill index
@@ -205,3 +206,18 @@ export const MOCK_CODEX_BINARY_RELATIVE =
 
 export const CODEX_TURN_FAILED_MESSAGE = "codex turn failed";
 export const CODEX_TURN_ABORTED_MESSAGE = "codex turn aborted";
+
+/**
+ * App-server notifications that report activity with nothing to show yet:
+ * reasoning, a command or a patch producing output, and the `error` it emits
+ * while reconnecting to the model (the turn then goes on).
+ */
+export const CODEX_ACTIVITY_BY_METHOD: Record<string, ActivityKind> = {
+  "turn/started": "thinking",
+  "item/reasoning/summaryTextDelta": "thinking",
+  "item/reasoning/summaryPartAdded": "thinking",
+  "item/reasoning/textDelta": "thinking",
+  "item/commandExecution/outputDelta": "tool",
+  "item/fileChange/outputDelta": "tool",
+  error: "retrying",
+};

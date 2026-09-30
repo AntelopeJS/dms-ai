@@ -1,28 +1,36 @@
 import { type Ref, ref } from "vue";
 import {
-	ERROR_PREFIX,
 	MESSAGE_ROLES,
+	NOT_SENT_MESSAGE,
+	RETRY_NEEDS_FILES_MESSAGE,
+	STOP_NOT_DELIVERED_MESSAGE,
+	STORED_ERROR_ROLE,
 	STORED_TOOL_RESULT_ROLE,
 	STORED_TOOL_USE_ROLE,
+	TOOL_CUT_SHORT_RESULT,
 	TOOL_STATUS,
 } from "../constants/conversation";
 import { CLIENT_MESSAGE_TYPES, SERVER_EVENT_TYPES } from "../constants/ws";
 import type {
 	AssistantMessage,
 	ConversationMessage,
+	ErrorMessage,
 	MessageAttachment,
 	QueuedMessage,
+	RunProgress,
 	ToolCallMessage,
 	ToolStatus,
 	UserMessage,
 } from "../types/conversation";
 import type { PermissionRequestData } from "../types/permission";
 import type { QuestionData, QuestionRequestData } from "../types/question";
-import type { PendingAttachment } from "../utils/attachments";
+import { type PendingAttachment, splitDataUrl } from "../utils/attachments";
+import { toActivityKind } from "../utils/run-status";
 
 export interface UseConversationOptions {
 	activeId: Ref<string>;
-	send: (msg: object) => void;
+	/** Returns false when the message could not leave the chatbox. */
+	send: (msg: object) => boolean;
 	onMessage: (handler: (msg: unknown) => void) => () => void;
 	onPermissionRequest?: (req: PermissionRequestData) => void;
 	onQuestionRequest?: (req: QuestionRequestData) => void;
@@ -32,7 +40,15 @@ export interface UseConversationResult {
 	messages: Ref<ConversationMessage[]>;
 	isRunning: Ref<boolean>;
 	queued: Ref<QueuedMessage[]>;
+	/** What the running turn is doing, as last reported; null between turns. */
+	progress: Ref<RunProgress | null>;
+	/** Whether a turn is expected to report: sent, resumed, or reporting. */
+	isTurnInFlight: Ref<boolean>;
+	/** Local time of the last event the sidecar sent about this conversation. */
+	lastEventAtMs: Ref<number>;
 	sendUserMessage: (content: string, attachments?: PendingAttachment[]) => void;
+	/** Sends the last user message again, with its files when still at hand. */
+	retry: () => void;
 	cancelQueued: (id: string) => void;
 	interrupt: () => void;
 	reset: () => void;
@@ -45,6 +61,7 @@ interface SnapshotMessage {
 	callId?: string;
 	status?: string;
 	attachments?: MessageAttachment[];
+	isRetryable?: boolean;
 	timestampMs: number;
 }
 
@@ -79,11 +96,21 @@ interface RunErrorEvent {
 	type: typeof SERVER_EVENT_TYPES.RUN_ERROR;
 	conversationId: string;
 	error: string;
+	isRetryable?: boolean;
 }
 
 interface RunResumedEvent {
 	type: typeof SERVER_EVENT_TYPES.RUN_RESUMED;
 	conversationId: string;
+}
+
+interface RunProgressEvent {
+	type: typeof SERVER_EVENT_TYPES.RUN_PROGRESS;
+	conversationId: string;
+	activity: string;
+	detail?: string;
+	elapsedMs: number;
+	idleMs: number;
 }
 
 interface SnapshotEvent {
@@ -150,6 +177,10 @@ function buildUserMessage(
 	};
 }
 
+function markUnsent(message: UserMessage, isSent: boolean): UserMessage {
+	return isSent ? message : { ...message, isUnsent: true };
+}
+
 function buildAssistantMessage(text: string): AssistantMessage {
 	return {
 		id: newId(),
@@ -195,7 +226,12 @@ function upsertToolCall(
 		if (msg.role !== MESSAGE_ROLES.TOOL || msg.callId !== event.callId) {
 			return msg;
 		}
-		return { ...msg, toolName: event.toolName, args: event.args };
+		return {
+			...msg,
+			toolName: event.toolName,
+			args: event.args,
+			status: TOOL_STATUS.PENDING,
+		};
 	});
 }
 
@@ -291,6 +327,16 @@ function appendSnapshotItem(
 		out.push(buildUserSnapshot(item));
 		return;
 	}
+	if (item.role === STORED_ERROR_ROLE) {
+		out.push(
+			buildErrorMessage(
+				item.content,
+				item.isRetryable ?? true,
+				item.timestampMs,
+			),
+		);
+		return;
+	}
 	if (item.role === MESSAGE_ROLES.ASSISTANT) {
 		out.push(buildAssistantSnapshot(item));
 		return;
@@ -313,16 +359,64 @@ function snapshotToMessages(snap: SnapshotMessage[]): ConversationMessage[] {
 	for (const item of snap) {
 		appendSnapshotItem(out, toolByCallId, item);
 	}
-	return out;
+	return settlePendingTools(out);
 }
 
-function buildErrorMessage(error: string): AssistantMessage {
+function buildErrorMessage(
+	error: string,
+	isRetryable: boolean,
+	timestampMs: number = Date.now(),
+): ErrorMessage {
 	return {
 		id: newId(),
-		role: MESSAGE_ROLES.ASSISTANT,
-		content: `${ERROR_PREFIX}${error}`,
-		timestampMs: Date.now(),
+		role: MESSAGE_ROLES.ERROR,
+		content: error,
+		isRetryable,
+		timestampMs,
 	};
+}
+
+function isPendingTool(msg: ConversationMessage): msg is ToolCallMessage {
+	return msg.role === MESSAGE_ROLES.TOOL && msg.status === TOOL_STATUS.PENDING;
+}
+
+function settlePendingTools(
+	list: ConversationMessage[],
+): ConversationMessage[] {
+	if (!list.some(isPendingTool)) return list;
+	return list.map((msg) => {
+		if (!isPendingTool(msg)) return msg;
+		return { ...msg, status: TOOL_STATUS.ERROR, result: TOOL_CUT_SHORT_RESULT };
+	});
+}
+
+function toRunProgress(event: RunProgressEvent): RunProgress {
+	return {
+		activity: toActivityKind(event.activity),
+		detail: event.detail,
+		elapsedMs: event.elapsedMs,
+		idleMs: event.idleMs,
+		receivedAtMs: Date.now(),
+	};
+}
+
+function isUserMessage(msg: ConversationMessage): msg is UserMessage {
+	return msg.role === MESSAGE_ROLES.USER;
+}
+
+function toResendableAttachments(
+	attachments: MessageAttachment[] | undefined,
+): PendingAttachment[] | null {
+	const list = attachments ?? [];
+	if (list.some((att) => !att.dataUrl)) return null;
+	return list.map((att) => ({
+		id: newId(),
+		name: att.name,
+		mimeType: att.mimeType,
+		size: att.size,
+		data: splitDataUrl(att.dataUrl ?? ""),
+		dataUrl: att.dataUrl ?? "",
+	}));
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -368,10 +462,29 @@ export function useConversation(
 	const messages = ref<ConversationMessage[]>([]);
 	const isRunning = ref(false);
 	const queued = ref<QueuedMessage[]>([]);
+	const progress = ref<RunProgress | null>(null);
+	const isTurnInFlight = ref(false);
+	const lastEventAtMs = ref(Date.now());
+
+	const appendError = (error: string, isRetryable = true): void => {
+		messages.value = [...messages.value, buildErrorMessage(error, isRetryable)];
+	};
+
+	const expectTurn = (): void => {
+		isTurnInFlight.value = true;
+		lastEventAtMs.value = Date.now();
+	};
+
+	const endTurn = (): void => {
+		messages.value = settlePendingTools(messages.value);
+		progress.value = null;
+		isTurnInFlight.value = false;
+	};
 
 	const echoUserMessage = (
 		content: string,
 		attachments: PendingAttachment[],
+		isSent: boolean,
 	): void => {
 		const localAttachments: MessageAttachment[] = attachments.map((a) => ({
 			name: a.name,
@@ -379,20 +492,18 @@ export function useConversation(
 			size: a.size,
 			dataUrl: a.dataUrl,
 		}));
-		messages.value = [
-			...messages.value,
-			buildUserMessage(
-				content,
-				localAttachments.length > 0 ? localAttachments : undefined,
-			),
-		];
+		const message = buildUserMessage(
+			content,
+			localAttachments.length > 0 ? localAttachments : undefined,
+		);
+		messages.value = [...messages.value, markUnsent(message, isSent)];
 	};
 
 	const sendTurnMessage = (
 		content: string,
 		attachments: PendingAttachment[],
-	): void => {
-		options.send({
+	): boolean => {
+		return options.send({
 			type: CLIENT_MESSAGE_TYPES.USER_MESSAGE,
 			conversationId: activeId.value,
 			content,
@@ -428,14 +539,22 @@ export function useConversation(
 			messages.value = applyToolEnd(messages.value, event);
 		},
 		[SERVER_EVENT_TYPES.RUN_DONE]: (_event: RunDoneEvent) => {
+			endTurn();
 			settleOrKeepRunning();
 		},
 		[SERVER_EVENT_TYPES.RUN_RESUMED]: (_event: RunResumedEvent) => {
 			isRunning.value = true;
+			expectTurn();
 		},
 		[SERVER_EVENT_TYPES.RUN_ERROR]: (event: RunErrorEvent) => {
-			messages.value = [...messages.value, buildErrorMessage(event.error)];
+			endTurn();
+			appendError(event.error, event.isRetryable ?? true);
 			settleOrKeepRunning();
+		},
+		[SERVER_EVENT_TYPES.RUN_PROGRESS]: (event: RunProgressEvent) => {
+			progress.value = toRunProgress(event);
+			isRunning.value = true;
+			isTurnInFlight.value = true;
 		},
 		[SERVER_EVENT_TYPES.CONVERSATION_SNAPSHOT]: (event: SnapshotEvent) => {
 			messages.value = snapshotToMessages(event.messages);
@@ -444,6 +563,8 @@ export function useConversation(
 			// disconnected can't strand it; a live turn re-asserts it via the
 			// RUN_RESUMED that follows.
 			isRunning.value = false;
+			progress.value = null;
+			isTurnInFlight.value = false;
 		},
 		[SERVER_EVENT_TYPES.PERMISSION_REQUEST]: (
 			event: PermissionRequestEvent,
@@ -498,6 +619,7 @@ export function useConversation(
 		// away from (the previous run keeps streaming server-side).
 		const eventId = getConversationId(msg);
 		if (eventId !== null && eventId !== activeId.value) return;
+		lastEventAtMs.value = Date.now();
 		handler(msg);
 	};
 
@@ -525,7 +647,7 @@ export function useConversation(
 		if (trimmed.length === 0 && attachments.length === 0) return;
 		if (isRunning.value) {
 			const wire = toWireAttachments(attachments);
-			options.send({
+			const isQueued = options.send({
 				type: CLIENT_MESSAGE_TYPES.QUEUE_ENQUEUE,
 				conversationId: activeId.value,
 				item: {
@@ -534,11 +656,31 @@ export function useConversation(
 					...(wire.length > 0 ? { attachments: wire } : {}),
 				},
 			});
+			if (!isQueued) appendError(NOT_SENT_MESSAGE);
 			return;
 		}
-		echoUserMessage(trimmed, attachments);
+		const isSent = sendTurnMessage(trimmed, attachments);
+		echoUserMessage(trimmed, attachments, isSent);
+		if (!isSent) {
+			appendError(NOT_SENT_MESSAGE);
+			return;
+		}
 		isRunning.value = true;
-		sendTurnMessage(trimmed, attachments);
+		expectTurn();
+	};
+
+	const retry = (): void => {
+		const last = messages.value.findLast(isUserMessage);
+		if (last === undefined) return;
+		const attachments = toResendableAttachments(last.attachments);
+		if (attachments === null) {
+			appendError(RETRY_NEEDS_FILES_MESSAGE, false);
+			return;
+		}
+		if (last.isUnsent === true) {
+			messages.value = messages.value.filter((msg) => msg.id !== last.id);
+		}
+		sendUserMessage(last.content, attachments);
 	};
 
 	const cancelQueued = (id: string): void => {
@@ -549,27 +691,35 @@ export function useConversation(
 		});
 	};
 
-	// Ask the sidecar to interrupt the live turn. We leave isRunning true and let
-	// the resulting RUN_DONE flip it, so the UI tracks the real turn lifecycle.
 	const interrupt = (): void => {
 		if (!isRunning.value) return;
-		options.send({
+		const isSent = options.send({
 			type: CLIENT_MESSAGE_TYPES.INTERRUPT_TURN,
 			conversationId: activeId.value,
 		});
+		if (isSent) return;
+		endTurn();
+		isRunning.value = false;
+		appendError(STOP_NOT_DELIVERED_MESSAGE);
 	};
 
 	const reset = (): void => {
 		messages.value = [];
 		isRunning.value = false;
 		queued.value = [];
+		progress.value = null;
+		isTurnInFlight.value = false;
 	};
 
 	return {
 		messages,
 		isRunning,
 		queued,
+		progress,
+		isTurnInFlight,
+		lastEventAtMs,
 		sendUserMessage,
+		retry,
 		cancelQueued,
 		interrupt,
 		reset,

@@ -1,0 +1,4 @@
+{"dir": "out", "msg": {"jsonrpc": "2.0", "id": 3, "method": "turn/start", "params": {}}}
+{"dir": "in", "msg": {"method": "turn/started", "params": {"threadId": "mock-thread", "turn": {"id": "mock-turn", "status": "inProgress"}}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "mock/exit", "params": {"code": 3}}}
