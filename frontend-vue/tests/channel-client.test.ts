@@ -151,6 +151,17 @@ describe('channel client', () => {
 		client.stop()
 	})
 
+	it('refuses a message for a channel the stream does not carry', async () => {
+		const { client, harness } = startClient()
+		await flush()
+		harness.streams[0]?.emit('ready', READY)
+		await flush()
+		expect(client.send('unknown', { n: 1 })).toBe(false)
+		await flush()
+		expect(harness.posts).toEqual([])
+		client.stop()
+	})
+
 	it('reconnects with backoff when the stream ends, and announces the new connection', async () => {
 		vi.useFakeTimers()
 		const { client, harness } = startClient()

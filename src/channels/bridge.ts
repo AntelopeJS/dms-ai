@@ -52,14 +52,18 @@ function forwardTo(socket: WebSocket, message: Buffer): Promise<boolean> {
   });
 }
 
-/** Sidecar frames out as events named after the channel, pausing on a full sink. */
 function relayFrames(opened: OpenBridge, stream: SseStream): void {
   const { socket, bridge } = opened;
+  let isPaused = false;
   socket.on("message", (data) => {
     if (stream.send(bridge.channel, rawDataToText(data))) return;
-    if (stream.isClosed()) return;
+    if (stream.isClosed() || isPaused) return;
+    isPaused = true;
     socket.pause();
-    stream.onDrain(() => socket.resume());
+    stream.onDrain(() => {
+      isPaused = false;
+      socket.resume();
+    });
   });
 }
 

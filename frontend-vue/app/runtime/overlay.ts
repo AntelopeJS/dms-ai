@@ -40,7 +40,7 @@ export interface OverlayHandle {
 	toggleFromLauncher: () => void
 	isOpen: () => boolean
 	/** Called on every open or close, however the panel was toggled. */
-	onOpenChange: (listener: (isOpen: boolean) => void) => void
+	onOpenChange: (listener: (isOpen: boolean) => void) => () => void
 	// Point the frame at the chat document. A no-op when the URL is
 	// unchanged and already loaded, so a redundant `connected` notify won't reload
 	// the chatbox; otherwise it reloads and shows a connecting placeholder until
@@ -388,9 +388,11 @@ export function injectOverlay(): OverlayHandle | null {
 		},
 		isOpen: (): boolean => stateRef.value.isOpen,
 		onOpenChange: (listener) => {
-			elements.container.addEventListener(OVERLAY_OPEN_CHANGE_EVENT, (event) =>
-				listener((event as CustomEvent<boolean>).detail),
-			)
+			const onChange = (event: Event): void =>
+				listener((event as CustomEvent<boolean>).detail)
+			elements.container.addEventListener(OVERLAY_OPEN_CHANGE_EVENT, onChange)
+			return () =>
+				elements.container.removeEventListener(OVERLAY_OPEN_CHANGE_EVENT, onChange)
 		},
 		repoint,
 		showPlaceholder: (kind) => placeholder.show(kind),

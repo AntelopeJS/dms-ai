@@ -2,13 +2,21 @@ import { HTTPResult, type RequestContext } from "@antelopejs/interface-api";
 import type WebSocket from "ws";
 import {
   CHANNEL_LIST_SEPARATOR,
+  CHANNEL_MAX_SOCKETS_PER_USER,
   CHANNEL_SIDECAR_PATHS,
   CHANNEL_STATUS,
   type ChannelName,
 } from "../constants/channels";
+import { SIDECAR_UNAVAILABLE_BODY } from "../constants/sidecar";
 import { connectSidecarSocket } from "../lifecycle/sidecar-socket";
 import { type ChannelSocket, openBridges } from "./bridge";
-import { findOwnedBridge, forgetBridge, trackBridge } from "./registry";
+import {
+  findOwnedBridge,
+  forgetBridge,
+  releaseSockets,
+  reserveSockets,
+  trackBridge,
+} from "./registry";
 import { openSseStream } from "./sse-stream";
 
 /** Opens the sidecar socket behind a channel, paused; injectable for tests. */
@@ -16,13 +24,12 @@ export type SidecarConnector = (path: string) => Promise<WebSocket>;
 
 const UNKNOWN_CHANNEL = { error: "unknown_channel" };
 const UNKNOWN_CONNECTION = { error: "unknown_connection" };
-const SIDECAR_UNAVAILABLE = { error: "sidecar_unavailable" };
+const TOO_MANY_STREAMS = { error: "too_many_streams" };
 
 function isChannelName(value: string): value is ChannelName {
   return Object.hasOwn(CHANNEL_SIDECAR_PATHS, value);
 }
 
-/** `host,chat` into its channels; null on an unknown or repeated one. */
 function parseChannels(value: string): ChannelName[] | null {
   const names = value.split(CHANNEL_LIST_SEPARATOR);
   if (new Set(names).size !== names.length) return null;
@@ -30,10 +37,6 @@ function parseChannels(value: string): ChannelName[] | null {
   return names;
 }
 
-/**
- * Every channel's socket, or none. The sockets of a partial set are terminated:
- * still paused, they could not complete a closing handshake.
- */
 async function connectAll(
   connect: SidecarConnector,
   channels: readonly ChannelName[],
@@ -66,11 +69,16 @@ export async function openChannel(
   if (names === null) {
     return new HTTPResult(CHANNEL_STATUS.NOT_FOUND, UNKNOWN_CHANNEL);
   }
-  const sockets = await connectAll(connect, names);
+  if (!reserveSockets(userId, names.length, CHANNEL_MAX_SOCKETS_PER_USER)) {
+    return new HTTPResult(CHANNEL_STATUS.TOO_MANY_REQUESTS, TOO_MANY_STREAMS);
+  }
+  const sockets = await connectAll(connect, names).finally(() =>
+    releaseSockets(userId, names.length),
+  );
   if (sockets === null) {
     return new HTTPResult(
       CHANNEL_STATUS.SERVICE_UNAVAILABLE,
-      SIDECAR_UNAVAILABLE,
+      SIDECAR_UNAVAILABLE_BODY,
     );
   }
   openBridges({
@@ -100,7 +108,7 @@ export async function postChannelMessage(
   if (!(await bridge.forward(message))) {
     return new HTTPResult(
       CHANNEL_STATUS.SERVICE_UNAVAILABLE,
-      SIDECAR_UNAVAILABLE,
+      SIDECAR_UNAVAILABLE_BODY,
     );
   }
   return new HTTPResult(CHANNEL_STATUS.ACCEPTED);

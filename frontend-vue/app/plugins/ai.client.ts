@@ -24,6 +24,7 @@ import {
 	SIDECAR_STATUS_CONNECTED,
 	SIDECAR_STATUS_REVIVING,
 	SIDECAR_STATUS_UNAVAILABLE,
+	VISIBILITY_CHANGE_EVENT,
 } from '../runtime/constants'
 import {
 	buildCurrentPageUpdate,
@@ -61,12 +62,6 @@ function buildIframeUrl(): string {
 	return `${CHATBOX_PATH}?theme=${mode}`
 }
 
-/**
- * The tab's one stream to the sidecar, carrying the host channel for the
- * dashboard and the chat channel it lends to the chat document. Every
- * connection is a new sidecar socket, so each one says hello and resends the
- * current page: the agent would otherwise only learn it at the next navigation.
- */
 function createAssistantChannel(deps: ChannelDeps): ChannelClient {
 	const chat = createChatTransport({
 		send: (msg) => channel.send(CHAT_CHANNEL, msg),
@@ -102,24 +97,26 @@ function createAssistantChannel(deps: ChannelDeps): ChannelClient {
 	return channel
 }
 
-/**
- * The stream lives while the panel is open in a visible tab, and a little
- * after. A tab in the background holds no stream of its own: the browser's six
- * HTTP/1.1 connections to the dashboard are shared by every tab, and the DMS
- * already keeps two of them per tab.
- */
-function followPanel(overlay: OverlayHandle, channel: ChannelClient): void {
+function followPanel(overlay: OverlayHandle, channel: ChannelClient): () => void {
 	let stopTimer: ReturnType<typeof setTimeout> | null = null
-	const follow = (): void => {
+	const clearStopTimer = (): void => {
 		if (stopTimer !== null) clearTimeout(stopTimer)
 		stopTimer = null
+	}
+	const follow = (): void => {
+		clearStopTimer()
 		const isNeeded = overlay.isOpen() && document.visibilityState === 'visible'
 		if (isNeeded) channel.start()
 		else stopTimer = setTimeout(() => channel.stop(), CHANNEL_IDLE_STOP_MS)
 	}
-	overlay.onOpenChange(follow)
-	document.addEventListener('visibilitychange', follow)
+	const stopOpenChange = overlay.onOpenChange(follow)
+	document.addEventListener(VISIBILITY_CHANGE_EVENT, follow)
 	follow()
+	return () => {
+		clearStopTimer()
+		stopOpenChange()
+		document.removeEventListener(VISIBILITY_CHANGE_EVENT, follow)
+	}
 }
 
 function statusApplier(
@@ -181,13 +178,15 @@ async function startAssistant({ vueApp }: DmsAppContext): Promise<void> {
 	})
 	const channel = createAssistantChannel({ $authFetch, controller, dispatchHostCommand })
 	controller.subscribe(statusApplier(overlay, channel))
-	followPanel(overlay, channel)
-	const stop = installHostState(channel)
-	vueApp.onUnmount(() => {
-		stop()
+	const stopFollowing = followPanel(overlay, channel)
+	const stopHostState = installHostState(channel)
+	const teardown = (): void => {
+		stopFollowing()
+		stopHostState()
 		channel.stop()
-	})
-	import.meta.hot?.dispose(stop)
+	}
+	vueApp.onUnmount(teardown)
+	import.meta.hot?.dispose(teardown)
 }
 
 export default defineDmsPlugin((context) => {

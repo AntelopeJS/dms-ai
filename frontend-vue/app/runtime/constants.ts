@@ -19,6 +19,7 @@ export const CHANNEL_EVENT_READY = 'ready'
  * gives back its one of the browser's six HTTP/1.1 connections to the dashboard.
  */
 export const CHANNEL_IDLE_STOP_MS = 2_000
+export const VISIBILITY_CHANGE_EVENT = 'visibilitychange'
 /** Where the chat document, same-origin, finds the dashboard's chat transport. */
 export const CHAT_TRANSPORT_KEY = 'dmsAiChatTransport'
 export const OVERLAY_OPEN_CHANGE_EVENT = 'dms-ai:open-change'

@@ -141,7 +141,6 @@ function scheduleRetry(state: ClientState): void {
 	}, delay)
 }
 
-/** The stream ended or failed: the sidecar sockets behind it are gone too. */
 function lose(state: ClientState): void {
 	state.connections = null
 	state.queue = []
@@ -197,7 +196,7 @@ async function drain(state: ClientState): Promise<void> {
 }
 
 function send(state: ClientState, channel: string, msg: unknown): boolean {
-	if (state.connections === null) return false
+	if (state.connections?.[channel] === undefined) return false
 	state.queue.push({ channel, msg })
 	void drain(state)
 	return true
