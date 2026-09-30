@@ -3,17 +3,36 @@ export const OVERLAY_Z_INDEX = 999_999
 export const OVERLAY_DOM_ID = 'dms-ai-overlay-root'
 export const OVERLAY_IFRAME_ID = 'dms-ai-overlay-iframe'
 export const SIDECAR_INFO_PATH = '/ai/sidecar-info'
-export const SIDECAR_PROBE_HOST = 'http://localhost'
+/** The chat document, served through the DMS from the dashboard's own origin. */
+export const CHATBOX_PATH = '/api/ai/chatbox/'
+/** Event stream to receive, POST to send: HTTP the DMS frontend server relays. */
+export const CHANNELS_PATH = '/ai/channels'
+export const CHANNEL_EVENTS_SEGMENT = 'events'
+export const CHANNEL_MESSAGES_SEGMENT = 'messages'
+export const CHANNEL_LIST_SEPARATOR = ','
+export const HOST_CHANNEL = 'host'
+export const CHAT_CHANNEL = 'chat'
+export const CHANNEL_EVENT_READY = 'ready'
+/**
+ * How long the stream outlives a closed panel or a hidden tab, so a quick
+ * close and reopen does not reconnect, while a tab left in the background soon
+ * gives back its one of the browser's six HTTP/1.1 connections to the dashboard.
+ */
+export const CHANNEL_IDLE_STOP_MS = 2_000
+export const VISIBILITY_CHANGE_EVENT = 'visibilitychange'
+/** Where the chat document, same-origin, finds the dashboard's chat transport. */
+export const CHAT_TRANSPORT_KEY = 'dmsAiChatTransport'
+export const OVERLAY_OPEN_CHANGE_EVENT = 'dms-ai:open-change'
+export const EVENT_STREAM_TYPE = 'text/event-stream'
+export const JSON_CONTENT_TYPE = 'application/json'
 export const OVERLAY_BOX_SHADOW = '0 8px 24px rgba(0, 0, 0, 0.18)'
-export const SIDECAR_HOST_NAME = 'localhost'
-export const WS_HOST_PATH = '/ws/host'
-export const WS_RECONNECT_DELAYS_MS = [
+export const CHANNEL_RECONNECT_DELAYS_MS = [
 	1000, 2000, 4000, 8000, 15000, 30000,
 ] as const
 // Sidecar reachability, as seen by the host. `reviving` is the self-healing
-// state (idle-exited / crashed-respawning): the probe loop is relearning the new
-// random port and will repoint the frame. `unavailable` is terminal (the crash
-// budget is spent) and needs a reload.
+// state (idle-exited / crashed-respawning): the probe loop revives the sidecar
+// and the channels reconnect once it answers. `unavailable` is terminal (the
+// crash budget is spent) and needs a reload.
 export const SIDECAR_STATUS_CONNECTING = 'connecting'
 export const SIDECAR_STATUS_CONNECTED = 'connected'
 export const SIDECAR_STATUS_REVIVING = 'reviving'
@@ -30,13 +49,10 @@ export const PLACEHOLDER_REVIVING_TEXT = 'Reconnecting the assistant…'
 export const PLACEHOLDER_UNAVAILABLE_TITLE = 'Assistant unavailable'
 export const PLACEHOLDER_UNAVAILABLE_TEXT = 'Reload the page to try again.'
 
-export const WS_STATUS_CONNECTING = 'connecting'
-export const WS_STATUS_CONNECTED = 'connected'
-export const WS_STATUS_DISCONNECTED = 'disconnected'
-export const WS_STATUS_RECONNECTING = 'reconnecting'
-export const WS_PROTOCOL_SECURE = 'wss:'
-export const WS_PROTOCOL_INSECURE = 'ws:'
-export const PAGE_PROTOCOL_SECURE = 'https:'
+export const CHANNEL_STATUS_CONNECTING = 'connecting'
+export const CHANNEL_STATUS_CONNECTED = 'connected'
+export const CHANNEL_STATUS_DISCONNECTED = 'disconnected'
+export const CHANNEL_STATUS_RECONNECTING = 'reconnecting'
 export const HOST_ROLE = 'host'
 export const HELLO_MESSAGE_TYPE = 'hello'
 export const LOG_PREFIX = '[dms-ai]'

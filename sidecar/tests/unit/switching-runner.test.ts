@@ -5,20 +5,26 @@ import { PROVIDER_LABELS } from "../../src/constants/providers.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
 import type { ProviderName } from "../../src/state/types.js";
+import { defer, flushCallbacks, watchSettle } from "../helpers/deferred.js";
 
 interface Trace {
   built: ProviderName[];
   disposed: ProviderName[];
   applied: ProviderName[];
+  /** What each runner's dispose resolves with; immediate when absent. */
+  teardown?: Promise<void>;
 }
 
 function fakeRunner(name: ProviderName, trace: Trace): AgentRunner {
   return {
     start: async function* () {},
     interruptSession: () => {},
-    disposeSession: () => {},
+    disposeSession: () => Promise.resolve(),
     applySettings: () => trace.applied.push(name),
-    dispose: () => trace.disposed.push(name),
+    dispose: () => {
+      trace.disposed.push(name);
+      return trace.teardown ?? Promise.resolve();
+    },
   };
 }
 
@@ -84,6 +90,33 @@ describe("switching runner", () => {
     expect(trace.built).toEqual(["claude", "codex"]);
   });
 
+  // The switch itself does not wait for the backend it retires, but a shutdown
+  // must: that backend may still be stopping a process.
+  it("waits, on dispose, for a backend a provider switch retired", async () => {
+    const retired = defer();
+    const trace: Trace = {
+      built: [],
+      disposed: [],
+      applied: [],
+      teardown: retired.promise,
+    };
+    const runner = createSwitchingRunner(
+      build(trace),
+      settingsFor("claude"),
+      ALL_AVAILABLE,
+    );
+    await drain(runner);
+    runner.applySettings(settingsFor("codex"));
+
+    const disposal = watchSettle(runner.dispose());
+    await flushCallbacks();
+    expect(disposal.isSettled()).toBe(false);
+
+    retired.resolve();
+    await flushCallbacks();
+    expect(disposal.isSettled()).toBe(true);
+  });
+
   it("keeps the live backend on an unrelated settings change", async () => {
     const trace: Trace = { built: [], disposed: [], applied: [] };
     const runner = createSwitchingRunner(
@@ -133,7 +166,7 @@ describe("switching runner", () => {
 
   // activate() throws before a backend exists, so a stop or a close arriving
   // after a refused turn must not fail on a runner that was never built.
-  it("stays quiet on interrupt and dispose when nothing was ever built", () => {
+  it("stays quiet on interrupt and dispose when nothing was ever built", async () => {
     const trace: Trace = { built: [], disposed: [], applied: [] };
     const runner = createSwitchingRunner(
       build(trace),
@@ -141,7 +174,7 @@ describe("switching runner", () => {
       CODEX_UNAVAILABLE,
     );
     expect(() => runner.interruptSession("c1")).not.toThrow();
-    expect(() => runner.disposeSession("c1")).not.toThrow();
-    expect(() => runner.dispose()).not.toThrow();
+    await expect(runner.disposeSession("c1")).resolves.toBeUndefined();
+    await expect(runner.dispose()).resolves.toBeUndefined();
   });
 });

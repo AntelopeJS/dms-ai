@@ -292,6 +292,7 @@ async function createProviderSession(
         for (const event of adapter.handle(notification)) stream.push(event);
       },
       onServerRequest: (request) => permissions.handle(request),
+      onAbort: (reason) => stream.fail(reason),
     },
   });
 
@@ -335,13 +336,13 @@ async function createProviderSession(
       close: () => {
         stream.end();
         void options.mcpHttpRegistry.release(ctx.conversationId);
-        void codexProcess.dispose();
+        return codexProcess.dispose();
       },
     },
     abortController,
-    onDisposed: () => {
+    onDisposed: (disposal) => {
       live.delete(ctx.conversationId);
-      ctx.onDisposed();
+      ctx.onDisposed(disposal);
     },
   });
 
@@ -366,7 +367,7 @@ function evictOverflow(live: Map<string, ProviderSession>): void {
     if (oldest.done === true) return;
     const session = live.get(oldest.value);
     live.delete(oldest.value);
-    session?.dispose();
+    if (session !== undefined) void session.dispose();
   }
 }
 

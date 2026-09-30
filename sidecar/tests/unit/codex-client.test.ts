@@ -18,6 +18,8 @@ interface Harness {
   stdout: PassThrough;
   /** Frames the client wrote, as parsed objects. */
   sent: () => Record<string, unknown>[];
+  /** Reasons the client reported to its owner when it aborted. */
+  aborts: () => string[];
 }
 
 function harness(): Harness {
@@ -30,11 +32,13 @@ function harness(): Harness {
       written.push(JSON.parse(line) as Record<string, unknown>);
     }
   });
+  const aborts: string[] = [];
   const client = createCodexClient(stdin, stdout, {
     onNotification: () => {},
     onServerRequest: async () => ({}),
+    onAbort: (reason) => aborts.push(reason.message),
   });
-  return { client, stdout, sent: () => written };
+  return { client, stdout, sent: () => written, aborts: () => aborts };
 }
 
 function settles<T>(promise: Promise<T>): Promise<string> {
@@ -71,6 +75,14 @@ describe("codex client end-of-life", () => {
     client.abort(new Error(ABORT_REASON));
     stdout.end();
     await expect(settles(inFlight)).resolves.toBe(ABORT_REASON);
+  });
+
+  it("tells its owner once why it stopped, so a running turn can end", async () => {
+    const { client, stdout, aborts } = harness();
+    client.abort(new Error(ABORT_REASON));
+    stdout.end();
+    await settles(client.request("turn/start", {}));
+    expect(aborts()).toEqual([ABORT_REASON]);
   });
 });
 

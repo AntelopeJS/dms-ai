@@ -12,10 +12,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
   allowLocalSkills: false,
 };
 
-// In safe mode the agent may act ONLY through the Builder (MCP) tools and
-// read-only inspection; these raw-mutation tools are blocked so it cannot write
-// bespoke code. Enforced live by the permission callback (not baked per session),
-// so a mode flip takes effect immediately without discarding the conversation.
+/**
+ * In safe mode the agent may act ONLY through the Builder (MCP) tools and
+ * read-only inspection; these raw-mutation tools are blocked so it cannot write
+ * bespoke code. On Claude a `PreToolUse` hook refuses them, which holds in every
+ * permission mode (providers/claude/safe-mode.ts); on Codex the sandbox is
+ * pinned read-only. Both read the mode live, so a flip takes effect without
+ * discarding the conversation. `Bash` goes as a whole: the CLI runs the
+ * commands it deems read-only without asking, in every mode, and `Read`,
+ * `Glob` and `Grep` cover inspection under the workspace read scoping.
+ */
 export const SAFE_MODE_DISALLOWED_TOOLS = [
   "Write",
   "Edit",

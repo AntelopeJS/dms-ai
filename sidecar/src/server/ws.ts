@@ -2,6 +2,7 @@ import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { type WebSocket, WebSocketServer } from "ws";
 import { createEditTracker, type EditTracker } from "../agent/edit-tracker.js";
+import { effectiveChatboxMode } from "../agent/effective-mode.js";
 import {
   createPermissionBus,
   type PendingRequest,
@@ -309,7 +310,9 @@ export function attachWsServer(
   const createMcpServer = buildMcpServerFactory(createMcpDeps);
   const settingsStore = options.settingsStore ?? NOOP_SETTINGS_STORE;
   const initialSettings = settingsStore.get();
-  permissionBus.setAutoApprove(initialSettings.mode === "auto");
+  permissionBus.setAutoApprove(
+    effectiveChatboxMode(initialSettings) === "auto",
+  );
   const config: RoutingConfig = {
     hostProjectRoot: options.hostProjectRoot,
     conversationStore: options.conversationStore,
@@ -345,9 +348,10 @@ export function attachWsServer(
   return {
     close: async () => {
       httpServer.removeListener("upgrade", onUpgrade);
-      config.runner.dispose();
+      const disposal = config.runner.dispose();
       await closeWss(wssIframe);
       await closeWss(wssHost);
+      await disposal;
     },
   };
 }
