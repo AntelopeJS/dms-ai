@@ -292,6 +292,7 @@ async function createProviderSession(
         for (const event of adapter.handle(notification)) stream.push(event);
       },
       onServerRequest: (request) => permissions.handle(request),
+      onAbort: (reason) => stream.fail(reason),
     },
   });
 

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
-import { TURN_IDLE_TIMEOUT_MESSAGE } from "../../src/constants/agent.js";
+import { idleTimeoutReason } from "../../src/agent/turn-end-reasons.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
 import { PROVIDER_FIXTURES } from "../helpers/provider-fixtures.js";
 import { buildRunner, type RunnerHandle } from "../helpers/provider-runner.js";
@@ -55,7 +55,7 @@ describe.each(PROVIDER_FIXTURES)("turn idle timeout on $name", (fixture) => {
       const failure = events.find((e) => e.type === "error");
       expect(failure).toBeDefined();
       if (failure?.type !== "error") return;
-      expect(failure.message).toBe(TURN_IDLE_TIMEOUT_MESSAGE);
+      expect(failure.message).toBe(idleTimeoutReason(IMMEDIATE_TIMEOUT_MS));
     },
     TEST_TIMEOUT_MS,
   );

@@ -49,6 +49,9 @@ jobs:
       - run: cd sidecar && pnpm knip
       - run: pnpm build
       - run: pnpm test:frontend-registration
+      # The browser's way to the sidecar: event streams, posted messages, the
+      # chatbox passthrough and their teardown, against a stand-in sidecar.
+      - run: pnpm test:channels
       # Pins the flags the launcher hands the sidecar, with the child process
       # and the lock file stubbed.
       - run: pnpm test:spawn-args

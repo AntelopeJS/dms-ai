@@ -9,7 +9,10 @@ import {
   buildTurnOverrides,
   resolveModePolicy,
 } from "../../src/providers/codex/config.js";
-import type { AppSettings } from "../../src/state/settings-types.js";
+import {
+  type AppSettings,
+  CHATBOX_MODES,
+} from "../../src/state/settings-types.js";
 
 const HOST_ROOT = "/srv/app";
 const MODULE_ROOT = "/srv/app/node_modules/cms-builder";
@@ -79,6 +82,25 @@ describe("mode mapping", () => {
       setBuilderAvailable(false);
     }
   });
+
+  it.each(CHATBOX_MODES)(
+    "keeps safe mode read-only, offline and declining in %s mode",
+    (mode) => {
+      setBuilderAvailable(true);
+      try {
+        const safe = settings({ mode, generationMode: "safe" });
+        const overrides = buildTurnOverrides(safe, WORKSPACE);
+        expect(overrides.approvalPolicy).toBe("on-request");
+        expect(overrides.sandboxPolicy).toEqual({
+          type: "readOnly",
+          networkAccess: false,
+        });
+        expect(resolveModePolicy(safe).autoDeclineEscalations).toBe(true);
+      } finally {
+        setBuilderAvailable(false);
+      }
+    },
+  );
 
   // Without the Builder there is no write route left at all, so safe mode
   // degrades to vibe here exactly as it does on the Claude path.

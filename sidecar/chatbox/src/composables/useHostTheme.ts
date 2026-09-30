@@ -62,6 +62,7 @@ export function useHostTheme(): void {
 		// The theme is driven by the host that embeds us; ignore messages from any
 		// other frame so a third party can't repaint the chatbox.
 		if (event.source !== globalThis.parent) return;
+		if (event.origin !== globalThis.location.origin) return;
 		const data = event.data as ThemeMessage | null;
 		if (data?.type === THEME_MESSAGE_TYPE) applyTheme(data);
 	};
@@ -70,7 +71,10 @@ export function useHostTheme(): void {
 		globalThis.addEventListener("message", onMessage);
 		// Announce readiness so the host pushes the current theme immediately,
 		// covering the case where the host attached its listener after we loaded.
-		globalThis.parent?.postMessage({ type: READY_MESSAGE_TYPE }, "*");
+		globalThis.parent?.postMessage(
+			{ type: READY_MESSAGE_TYPE },
+			globalThis.location.origin,
+		);
 	});
 
 	onBeforeUnmount(() => {

@@ -34,6 +34,12 @@ export interface CodexClientHandlers {
   onNotification: (notification: CodexNotification) => void;
   /** Resolved value is sent back as the JSON-RPC result. */
   onServerRequest: (request: CodexServerRequest) => Promise<unknown>;
+  /**
+   * Called once, with the reason, when the client aborts. A turn in flight only
+   * hears from the app-server through notifications, so the child's death has
+   * to reach it from here, or it waits for a notification that never comes.
+   */
+  onAbort?: (reason: Error) => void;
 }
 
 export interface CodexRequestOptions {
@@ -107,6 +113,7 @@ export function createCodexClient(
     const waiters = [...pending.values()];
     pending.clear();
     for (const waiter of waiters) waiter.reject(reason);
+    handlers.onAbort?.(reason);
   }
 
   function settleResponse(frame: JsonRpcFrame): void {

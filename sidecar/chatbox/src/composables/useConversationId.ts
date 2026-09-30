@@ -1,4 +1,5 @@
 import { STORAGE_CONVERSATION_ID_KEY } from "../constants/conversation";
+import { newUuid } from "../utils/ids";
 
 function readPersisted(): string | null {
 	try {
@@ -19,7 +20,7 @@ function persist(id: string): void {
 export function resolveConversationId(): string {
 	const existing = readPersisted();
 	if (existing !== null && existing.length > 0) return existing;
-	const next = crypto.randomUUID();
+	const next = newUuid();
 	persist(next);
 	return next;
 }
@@ -29,5 +30,5 @@ export function persistConversationId(id: string): void {
 }
 
 export function newConversationId(): string {
-	return crypto.randomUUID();
+	return newUuid();
 }

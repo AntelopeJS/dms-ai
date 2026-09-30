@@ -1,5 +1,8 @@
 import type { RunnerEvent } from "../../agent/runner-events.js";
-import { CODEX_TURN_FAILED_MESSAGE } from "../../constants/codex.js";
+import {
+  CODEX_ACTIVITY_BY_METHOD,
+  CODEX_TURN_FAILED_MESSAGE,
+} from "../../constants/codex.js";
 import { MCP_TOOL_NAME_PREFIX } from "../../constants/mcp.js";
 import {
   BASH_COMMAND_ARG,
@@ -98,6 +101,12 @@ function planUpdatedEvents(params: unknown, seq: number): RunnerEvent[] {
     toolUse(callId, TOOL_LEXICON.TODO_WRITE, { todos }),
     toolResult(callId, null, false),
   ];
+}
+
+function activityEvents(method: string): RunnerEvent[] {
+  const kind = CODEX_ACTIVITY_BY_METHOD[method];
+  if (kind === undefined) return [];
+  return [{ type: "activity", kind }];
 }
 
 function agentMessageDeltaEvents(params: unknown): RunnerEvent[] {
@@ -264,10 +273,7 @@ export function createCodexAdapter(): CodexAdapter {
     getChangedPaths: (itemId) => changedPathsByItemId.get(itemId) ?? [],
     handle(notification) {
       const handler = HANDLERS[notification.method];
-      // Everything else is ignored on purpose, `error` notifications first:
-      // Codex emits them while reconnecting and the turn still completes
-      // normally, so treating one as terminal would cut the conversation.
-      if (handler === undefined) return [];
+      if (handler === undefined) return activityEvents(notification.method);
       return handler(notification.params);
     },
   };

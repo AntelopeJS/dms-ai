@@ -2,6 +2,8 @@ import ui from "@nuxt/ui/vite";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 
+const RELATIVE_ASSET_BASE = "./";
+
 export default defineConfig({
 	// `colorMode: false` — the chatbox is a pure mirror of the host DMS theme:
 	// it never picks its own light/dark preference. The host drives the `.dark`
@@ -12,6 +14,7 @@ export default defineConfig({
 		vue(),
 		ui({ colorMode: false, ui: { colors: { neutral: "neutral" } } }),
 	],
+	base: RELATIVE_ASSET_BASE,
 	build: { outDir: "dist", emptyOutDir: true },
 	server: { port: 5173 },
 });

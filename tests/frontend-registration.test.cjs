@@ -45,7 +45,7 @@ function loadModule(registrations, sidecars) {
   }
 }
 
-test("registers Vue and preserves sidecar inputs without launching an agent", async () => {
+void test("registers Vue and preserves sidecar inputs without launching an agent", async () => {
   const registrations = [];
   const sidecars = [];
   const loaded = loadModule(registrations, sidecars);
@@ -71,7 +71,7 @@ test("registers Vue and preserves sidecar inputs without launching an agent", as
   ]);
 });
 
-test("omits the origins the project did not configure", async () => {
+void test("omits the origins the project did not configure", async () => {
   const sidecars = [];
   const loaded = loadModule([], sidecars);
   loaded.construct(undefined);
@@ -86,7 +86,7 @@ test("omits the origins the project did not configure", async () => {
   ]);
 });
 
-test("ignores config entries that are not usable origins", async () => {
+void test("ignores config entries that are not usable origins", async () => {
   const sidecars = [];
   const loaded = loadModule([], sidecars);
   loaded.construct({ backendUrl: "   ", hostOrigin: 5010 });

@@ -122,6 +122,11 @@ export function codexScript(file: string): string {
   return fixtureFor(CODEX_SCRIPTS, file);
 }
 
+/** A mock Claude script by file name, for a scenario no turn kind covers. */
+export function claudeScript(file: string): string {
+  return fixtureFor(CLAUDE_SCRIPTS, file);
+}
+
 export interface TracedRequest {
   kind: string;
   method?: string;
@@ -183,19 +188,26 @@ export function readTrace(provider: ProviderName, file: string): string {
   return JSON.stringify(TRACE_READERS[provider](file));
 }
 
-export interface TracedClaudeSession {
+export interface TracedClaudeEntry {
   kind: string;
   plugins?: { path: string }[];
   skills?: string[];
+  permissionMode?: string;
+  name?: string;
+  decidedBy?: string;
+  isAllowed?: boolean;
 }
 
-/** What the SDK was asked to load, the Claude counterpart of the Codex trace. */
-export function readClaudeTrace(file: string): TracedClaudeSession[] {
+/**
+ * What the SDK was asked to load, the permission mode it was switched to and
+ * which layer decided each tool call: the Claude counterpart of the Codex trace.
+ */
+export function readClaudeTrace(file: string): TracedClaudeEntry[] {
   try {
     return readFileSync(file, "utf8")
       .split("\n")
       .filter((line) => line.trim() !== "")
-      .map((line) => JSON.parse(line) as TracedClaudeSession);
+      .map((line) => JSON.parse(line) as TracedClaudeEntry);
   } catch {
     return [];
   }
