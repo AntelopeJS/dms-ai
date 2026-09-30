@@ -33,6 +33,7 @@ export interface RunnerDone {
 export interface RunnerError {
   type: "error";
   message: string;
+  isRetryable?: boolean;
 }
 
 /**

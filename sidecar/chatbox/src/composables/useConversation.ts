@@ -26,6 +26,7 @@ import type { PermissionRequestData } from "../types/permission";
 import type { QuestionData, QuestionRequestData } from "../types/question";
 import { type PendingAttachment, splitDataUrl } from "../utils/attachments";
 import { newUuid } from "../utils/ids";
+import { toActivityKind } from "../utils/run-status";
 
 export interface UseConversationOptions {
 	activeId: Ref<string>;
@@ -61,6 +62,7 @@ interface SnapshotMessage {
 	callId?: string;
 	status?: string;
 	attachments?: MessageAttachment[];
+	isRetryable?: boolean;
 	timestampMs: number;
 }
 
@@ -95,6 +97,7 @@ interface RunErrorEvent {
 	type: typeof SERVER_EVENT_TYPES.RUN_ERROR;
 	conversationId: string;
 	error: string;
+	isRetryable?: boolean;
 }
 
 interface RunResumedEvent {
@@ -173,6 +176,10 @@ function buildUserMessage(
 		attachments,
 		timestampMs: Date.now(),
 	};
+}
+
+function markUnsent(message: UserMessage, isSent: boolean): UserMessage {
+	return isSent ? message : { ...message, isUnsent: true };
 }
 
 function buildAssistantMessage(text: string): AssistantMessage {
@@ -322,7 +329,13 @@ function appendSnapshotItem(
 		return;
 	}
 	if (item.role === STORED_ERROR_ROLE) {
-		out.push(buildErrorMessage(item.content, item.timestampMs));
+		out.push(
+			buildErrorMessage(
+				item.content,
+				item.isRetryable ?? true,
+				item.timestampMs,
+			),
+		);
 		return;
 	}
 	if (item.role === MESSAGE_ROLES.ASSISTANT) {
@@ -341,11 +354,6 @@ function appendSnapshotItem(
 	}
 }
 
-/**
- * The transcript as stored, with any tool left without a result marked as cut
- * short: the snapshot never belongs to a live turn, whose own tools the replay
- * that follows reopens.
- */
 function snapshotToMessages(snap: SnapshotMessage[]): ConversationMessage[] {
 	const out: ConversationMessage[] = [];
 	const toolByCallId = new Map<string, ToolCallMessage>();
@@ -355,12 +363,17 @@ function snapshotToMessages(snap: SnapshotMessage[]): ConversationMessage[] {
 	return settlePendingTools(out);
 }
 
-function buildErrorMessage(error: string, timestampMs?: number): ErrorMessage {
+function buildErrorMessage(
+	error: string,
+	isRetryable: boolean,
+	timestampMs: number = Date.now(),
+): ErrorMessage {
 	return {
 		id: newId(),
 		role: MESSAGE_ROLES.ERROR,
 		content: error,
-		timestampMs: timestampMs ?? Date.now(),
+		isRetryable,
+		timestampMs,
 	};
 }
 
@@ -368,7 +381,6 @@ function isPendingTool(msg: ConversationMessage): msg is ToolCallMessage {
 	return msg.role === MESSAGE_ROLES.TOOL && msg.status === TOOL_STATUS.PENDING;
 }
 
-/** Marks the tools a finished run left open, so none keeps spinning. */
 function settlePendingTools(
 	list: ConversationMessage[],
 ): ConversationMessage[] {
@@ -381,7 +393,7 @@ function settlePendingTools(
 
 function toRunProgress(event: RunProgressEvent): RunProgress {
 	return {
-		activity: event.activity,
+		activity: toActivityKind(event.activity),
 		detail: event.detail,
 		elapsedMs: event.elapsedMs,
 		idleMs: event.idleMs,
@@ -393,10 +405,6 @@ function isUserMessage(msg: ConversationMessage): msg is UserMessage {
 	return msg.role === MESSAGE_ROLES.USER;
 }
 
-/**
- * The files of a sent message as they can be sent again, or null when one of
- * them only survives as metadata (the transcript was reloaded since).
- */
 function toResendableAttachments(
 	attachments: MessageAttachment[] | undefined,
 ): PendingAttachment[] | null {
@@ -459,8 +467,8 @@ export function useConversation(
 	const isTurnInFlight = ref(false);
 	const lastEventAtMs = ref(Date.now());
 
-	const appendError = (error: string): void => {
-		messages.value = [...messages.value, buildErrorMessage(error)];
+	const appendError = (error: string, isRetryable = true): void => {
+		messages.value = [...messages.value, buildErrorMessage(error, isRetryable)];
 	};
 
 	const expectTurn = (): void => {
@@ -477,6 +485,7 @@ export function useConversation(
 	const echoUserMessage = (
 		content: string,
 		attachments: PendingAttachment[],
+		isSent: boolean,
 	): void => {
 		const localAttachments: MessageAttachment[] = attachments.map((a) => ({
 			name: a.name,
@@ -484,13 +493,11 @@ export function useConversation(
 			size: a.size,
 			dataUrl: a.dataUrl,
 		}));
-		messages.value = [
-			...messages.value,
-			buildUserMessage(
-				content,
-				localAttachments.length > 0 ? localAttachments : undefined,
-			),
-		];
+		const message = buildUserMessage(
+			content,
+			localAttachments.length > 0 ? localAttachments : undefined,
+		);
+		messages.value = [...messages.value, markUnsent(message, isSent)];
 	};
 
 	const sendTurnMessage = (
@@ -542,7 +549,7 @@ export function useConversation(
 		},
 		[SERVER_EVENT_TYPES.RUN_ERROR]: (event: RunErrorEvent) => {
 			endTurn();
-			appendError(event.error);
+			appendError(event.error, event.isRetryable ?? true);
 			settleOrKeepRunning();
 		},
 		[SERVER_EVENT_TYPES.RUN_PROGRESS]: (event: RunProgressEvent) => {
@@ -653,8 +660,9 @@ export function useConversation(
 			if (!isQueued) appendError(NOT_SENT_MESSAGE);
 			return;
 		}
-		echoUserMessage(trimmed, attachments);
-		if (!sendTurnMessage(trimmed, attachments)) {
+		const isSent = sendTurnMessage(trimmed, attachments);
+		echoUserMessage(trimmed, attachments, isSent);
+		if (!isSent) {
 			appendError(NOT_SENT_MESSAGE);
 			return;
 		}
@@ -667,8 +675,11 @@ export function useConversation(
 		if (last === undefined) return;
 		const attachments = toResendableAttachments(last.attachments);
 		if (attachments === null) {
-			appendError(RETRY_NEEDS_FILES_MESSAGE);
+			appendError(RETRY_NEEDS_FILES_MESSAGE, false);
 			return;
+		}
+		if (last.isUnsent === true) {
+			messages.value = messages.value.filter((msg) => msg.id !== last.id);
 		}
 		sendUserMessage(last.content, attachments);
 	};
@@ -681,11 +692,6 @@ export function useConversation(
 		});
 	};
 
-	/**
-	 * Asks the sidecar to interrupt the live turn, leaving `isRunning` for the
-	 * resulting RUN_DONE to flip, so the UI tracks the real turn lifecycle. When
-	 * the request cannot even leave, nothing ever will: the run is let go here.
-	 */
 	const interrupt = (): void => {
 		if (!isRunning.value) return;
 		const isSent = options.send({

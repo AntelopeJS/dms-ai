@@ -1,56 +1,79 @@
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { RunnerEvent } from "../../agent/runner-events.js";
+import type {
+  SDKMessage,
+  SDKResultMessage,
+  TerminalReason,
+} from "@anthropic-ai/claude-agent-sdk";
+import type { RunnerError, RunnerEvent } from "../../agent/runner-events.js";
 import {
   CLAUDE_DIAGNOSTIC_ERROR_PREFIX,
   CLAUDE_RESULT_SUCCESS_SUBTYPE,
   CLAUDE_STOPPED_TERMINAL_REASONS,
   CLAUDE_TERMINAL_REASON_MESSAGES,
   CLAUDE_TURN_FAILED_MESSAGE,
+  CLAUDE_UNRETRYABLE_TERMINAL_REASONS,
 } from "../../constants/claude.js";
-
-interface SdkResultPayload {
-  subtype?: string;
-  is_error?: boolean;
-  result?: unknown;
-  errors?: unknown;
-  terminal_reason?: string;
-}
 
 const LINE_SEPARATOR = "\n";
 
-function wasStopped(payload: SdkResultPayload): boolean {
-  return CLAUDE_STOPPED_TERMINAL_REASONS.includes(
-    payload.terminal_reason ?? "",
-  );
+function endsWith(
+  result: SDKResultMessage,
+  reasons: readonly TerminalReason[],
+): boolean {
+  if (result.terminal_reason === undefined) return false;
+  return reasons.includes(result.terminal_reason);
 }
 
-function isFailure(payload: SdkResultPayload): boolean {
-  if (wasStopped(payload)) return false;
-  if (payload.is_error === true) return true;
-  const subtype = payload.subtype ?? CLAUDE_RESULT_SUCCESS_SUBTYPE;
-  return subtype !== CLAUDE_RESULT_SUCCESS_SUBTYPE;
+function wasStopped(result: SDKResultMessage): boolean {
+  return endsWith(result, CLAUDE_STOPPED_TERMINAL_REASONS);
+}
+
+function isFailure(result: SDKResultMessage): boolean {
+  if (wasStopped(result)) return false;
+  if (result.is_error) return true;
+  return result.subtype !== CLAUDE_RESULT_SUCCESS_SUBTYPE;
 }
 
 function firstLine(text: string): string {
   return (text.split(LINE_SEPARATOR)[0] ?? "").trim();
 }
 
-function readableErrors(errors: unknown): string[] {
-  if (!Array.isArray(errors)) return [];
-  return errors
-    .filter((entry): entry is string => typeof entry === "string")
+function readableErrors(errors: string[] | undefined): string[] {
+  return (errors ?? [])
     .filter((entry) => !entry.startsWith(CLAUDE_DIAGNOSTIC_ERROR_PREFIX))
     .map(firstLine)
     .filter((entry) => entry !== "");
 }
 
-function describeFailure(payload: SdkResultPayload): string {
-  const known = CLAUDE_TERMINAL_REASON_MESSAGES[payload.terminal_reason ?? ""];
-  if (known !== undefined) return known;
-  if (typeof payload.result === "string" && payload.result.trim() !== "") {
-    return payload.result.trim();
+function knownReasonMessage(result: SDKResultMessage): string | undefined {
+  if (result.terminal_reason === undefined) return undefined;
+  return CLAUDE_TERMINAL_REASON_MESSAGES[result.terminal_reason];
+}
+
+function reportedMessage(result: SDKResultMessage): string | undefined {
+  if (result.subtype !== CLAUDE_RESULT_SUCCESS_SUBTYPE) {
+    return readableErrors(result.errors)[0];
   }
-  return readableErrors(payload.errors)[0] ?? CLAUDE_TURN_FAILED_MESSAGE;
+  const text = result.result?.trim() ?? "";
+  return text === "" ? undefined : text;
+}
+
+function describeFailure(result: SDKResultMessage): string {
+  return (
+    knownReasonMessage(result) ??
+    reportedMessage(result) ??
+    CLAUDE_TURN_FAILED_MESSAGE
+  );
+}
+
+function failureEvent(result: SDKResultMessage): RunnerError {
+  const event: RunnerError = {
+    type: "error",
+    message: describeFailure(result),
+  };
+  if (endsWith(result, CLAUDE_UNRETRYABLE_TERMINAL_REASONS)) {
+    event.isRetryable = false;
+  }
+  return event;
 }
 
 /**
@@ -61,10 +84,7 @@ function describeFailure(payload: SdkResultPayload): string {
  * stopped is reported as an error by the SDK, but is not one.
  */
 export function resultEvents(message: SDKMessage): RunnerEvent[] {
-  const payload = message as SdkResultPayload;
-  if (!isFailure(payload)) return [{ type: "done" }];
-  return [
-    { type: "error", message: describeFailure(payload) },
-    { type: "done" },
-  ];
+  if (message.type !== "result") return [];
+  if (!isFailure(message)) return [{ type: "done" }];
+  return [failureEvent(message), { type: "done" }];
 }

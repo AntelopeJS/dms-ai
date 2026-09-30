@@ -6,6 +6,7 @@ import {
   toolCapReason,
 } from "../../src/agent/turn-end-reasons.js";
 import {
+  INTERRUPT_FALLBACK_MS,
   TURN_SESSION_CLOSED_MESSAGE,
   TURN_STREAM_ENDED_MESSAGE,
 } from "../../src/constants/agent.js";
@@ -101,10 +102,11 @@ function buildSession(events: ScriptedEvent[], endsAfterScript: boolean) {
 async function drain(
   session: ReturnType<typeof buildSession>["session"],
   seen: RunnerEvent[],
+  idleTimeoutMs = IDLE_TIMEOUT_MS,
 ): Promise<void> {
   for await (const event of session.sendTurn(
     { text: "go", attachments: [] },
-    IDLE_TIMEOUT_MS,
+    idleTimeoutMs,
   )) {
     seen.push(event);
   }
@@ -137,6 +139,19 @@ describe("every turn ends with a terminal event", () => {
     expect(seen).toEqual([
       { type: "error", message: TURN_SESSION_CLOSED_MESSAGE },
     ]);
+  });
+
+  it("ends a stop the provider ignored as done, not as an error", async () => {
+    vi.useFakeTimers();
+    const { session, abortController } = buildSession([], false);
+    const seen: RunnerEvent[] = [];
+    const running = drain(session, seen, INTERRUPT_FALLBACK_MS * 2);
+    await vi.advanceTimersByTimeAsync(0);
+    session.interrupt();
+    await vi.advanceTimersByTimeAsync(INTERRUPT_FALLBACK_MS + 1);
+    await running;
+    expect(abortController.signal.aborted).toBe(true);
+    expect(seen).toEqual([{ type: "done" }]);
   });
 
   it("names the idle window it waited for", async () => {

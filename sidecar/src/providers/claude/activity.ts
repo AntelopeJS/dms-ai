@@ -1,4 +1,8 @@
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  SDKAPIRetryMessage,
+  SDKMessage,
+  SDKStatusMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import type {
   ActivityKind,
   RunnerActivity,
@@ -29,20 +33,19 @@ interface StreamEventPayload {
   delta?: StreamDelta;
 }
 
-interface SystemPayload {
-  subtype?: string;
-  status?: string | null;
-  attempt?: number;
-  max_retries?: number;
-}
+type ActivitySystemMessage = SDKStatusMessage | SDKAPIRetryMessage;
 
-interface ToolProgressPayload {
-  tool_name?: string;
-}
+type ActivitySystemSubtype = ActivitySystemMessage["subtype"];
+
+type SystemActivityMappers = {
+  [Subtype in ActivitySystemSubtype]: (
+    message: Extract<ActivitySystemMessage, { subtype: Subtype }>,
+  ) => RunnerEvent[];
+};
+
+type SystemActivityMapper = (message: ActivitySystemMessage) => RunnerEvent[];
 
 type StreamActivityMapper = (payload: StreamEventPayload) => RunnerEvent[];
-
-type SystemActivityMapper = (payload: SystemPayload) => RunnerEvent[];
 
 function activity(kind: ActivityKind, detail?: string): RunnerActivity {
   if (detail === undefined || detail === "") return { type: "activity", kind };
@@ -81,35 +84,45 @@ export function streamActivity(event: unknown): RunnerEvent[] {
   return mapper(payload);
 }
 
-function retryDetail(payload: SystemPayload): string {
+function retryDetail(message: SDKAPIRetryMessage): string {
   return CLAUDE_RETRY_DETAIL_TEMPLATE.replace(
     CLAUDE_RETRY_DETAIL_TOKENS.ATTEMPT,
-    String(payload.attempt ?? ""),
-  ).replace(CLAUDE_RETRY_DETAIL_TOKENS.MAX, String(payload.max_retries ?? ""));
+    String(message.attempt),
+  ).replace(CLAUDE_RETRY_DETAIL_TOKENS.MAX, String(message.max_retries));
 }
 
-function statusActivity(payload: SystemPayload): RunnerEvent[] {
-  const kind = CLAUDE_STATUS_ACTIVITY[payload.status ?? ""];
+function statusActivity(message: SDKStatusMessage): RunnerEvent[] {
+  const kind = CLAUDE_STATUS_ACTIVITY[message.status ?? ""];
   if (kind === undefined) return [];
   return [activity(kind)];
 }
 
-const SYSTEM_ACTIVITY_MAPPERS: Record<string, SystemActivityMapper> = {
+const SYSTEM_ACTIVITY_MAPPERS: SystemActivityMappers = {
   [CLAUDE_SYSTEM_SUBTYPES.STATUS]: statusActivity,
-  [CLAUDE_SYSTEM_SUBTYPES.API_RETRY]: (payload) => [
-    activity("retrying", retryDetail(payload)),
+  [CLAUDE_SYSTEM_SUBTYPES.API_RETRY]: (message) => [
+    activity("retrying", retryDetail(message)),
   ],
 };
 
+function isActivitySystemMessage(
+  message: SDKMessage,
+): message is ActivitySystemMessage {
+  return (
+    message.type === "system" && message.subtype in SYSTEM_ACTIVITY_MAPPERS
+  );
+}
+
 /** The activity a system message reveals: compaction, or a retried request. */
 export function systemActivity(message: SDKMessage): RunnerEvent[] {
-  const payload = message as SystemPayload;
-  const mapper = SYSTEM_ACTIVITY_MAPPERS[payload.subtype ?? ""];
-  if (mapper === undefined) return [];
-  return mapper(payload);
+  if (!isActivitySystemMessage(message)) return [];
+  const mapper: SystemActivityMapper = SYSTEM_ACTIVITY_MAPPERS[
+    message.subtype
+  ] as SystemActivityMapper;
+  return mapper(message);
 }
 
 /** A tool reporting that it is still running. */
 export function toolProgressActivity(message: SDKMessage): RunnerEvent[] {
-  return [activity("tool", (message as ToolProgressPayload).tool_name)];
+  if (message.type !== "tool_progress") return [];
+  return [activity("tool", message.tool_name)];
 }

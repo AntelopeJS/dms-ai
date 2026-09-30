@@ -292,6 +292,7 @@ const RUNNER_EVENT_MAPPERS: {
     type: EVENT_TYPES.RUN_ERROR,
     conversationId: cid,
     error: ev.message,
+    isRetryable: ev.isRetryable,
   }),
   activity: () => null,
 };
@@ -338,6 +339,7 @@ const RUNNER_EVENT_PERSISTERS: {
   error: (ev, nowMs) => ({
     role: "error",
     content: ev.message,
+    isRetryable: ev.isRetryable,
     timestampMs: nowMs,
   }),
   activity: () => null,

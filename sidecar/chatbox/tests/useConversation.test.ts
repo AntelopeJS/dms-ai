@@ -9,8 +9,14 @@ import {
 	TOOL_CUT_SHORT_RESULT,
 	TOOL_STATUS,
 } from "../src/constants/conversation";
+import {
+	ACTIVITY_KINDS,
+	QUIET_NOTICE_AFTER_MS,
+} from "../src/constants/run-status";
 import { CLIENT_MESSAGE_TYPES, SERVER_EVENT_TYPES } from "../src/constants/ws";
+import type { RunProgress } from "../src/types/conversation";
 import type { PendingAttachment } from "../src/utils/attachments";
+import { isAgentQuiet } from "../src/utils/run-status";
 
 const CONVERSATION_ID = "conv-chatbox-1";
 const FILE_DATA = "PGh0bWw+PC9odG1sPg==";
@@ -120,6 +126,46 @@ describe("a run that fails reaches the user", () => {
 		expect(h.conversation.isRunning.value).toBe(true);
 	});
 
+	it("shows an unsent message once, even after a retry", () => {
+		const h = harness();
+		h.setConnected(false);
+		h.conversation.sendUserMessage("reproduire sans casser le design");
+		h.setConnected(true);
+		h.conversation.retry();
+		const bubbles = h.conversation.messages.value.filter(
+			(msg) => msg.role === MESSAGE_ROLES.USER,
+		);
+		expect(bubbles).toHaveLength(1);
+		expect(bubbles[0]).not.toHaveProperty("isUnsent");
+		expect(h.sent).toHaveLength(1);
+	});
+
+	it("offers no retry for a failure the same request cannot get past", () => {
+		const h = harness();
+		h.conversation.sendUserMessage("go");
+		h.receive({
+			type: SERVER_EVENT_TYPES.RUN_ERROR,
+			error: "The conversation no longer fits in the model's context.",
+			isRetryable: false,
+		});
+		h.receive({
+			type: SERVER_EVENT_TYPES.CONVERSATION_SNAPSHOT,
+			messages: [
+				{ role: "user", content: "go", timestampMs: 1 },
+				{
+					role: "error",
+					content: "The conversation no longer fits in the model's context.",
+					isRetryable: false,
+					timestampMs: 2,
+				},
+				{ role: "error", content: "API Error: 529", timestampMs: 3 },
+			],
+		});
+		const [, tooLong, overloaded] = h.conversation.messages.value;
+		expect(tooLong).toMatchObject({ isRetryable: false });
+		expect(overloaded).toMatchObject({ isRetryable: true });
+	});
+
 	it("asks for the files again when a reload dropped them", () => {
 		const h = harness();
 		h.receive({
@@ -213,5 +259,22 @@ describe("a run that keeps working shows it", () => {
 		expect(h.conversation.progress.value).toBeNull();
 		expect(h.conversation.isTurnInFlight.value).toBe(false);
 		expect(h.conversation.isRunning.value).toBe(false);
+	});
+});
+
+describe("a quiet agent is only called out when silence is unexpected", () => {
+	const quietFor = (activity: RunProgress["activity"]): RunProgress => ({
+		activity,
+		elapsedMs: QUIET_NOTICE_AFTER_MS,
+		idleMs: QUIET_NOTICE_AFTER_MS,
+		receivedAtMs: 0,
+	});
+
+	it("says so while the model is thinking", () => {
+		expect(isAgentQuiet(quietFor(ACTIVITY_KINDS.THINKING), 0)).toBe(true);
+	});
+
+	it("stays silent while a tool runs without output", () => {
+		expect(isAgentQuiet(quietFor(ACTIVITY_KINDS.TOOL), 0)).toBe(false);
 	});
 });
