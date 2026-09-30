@@ -102,6 +102,25 @@ may have picked it precisely so their code does not reach Anthropic.
 Switching provider disposes the live sessions of the previous one — an open conversation loses its
 in-agent context, its transcript is kept.
 
+### Safe mode and permission modes
+
+Safe mode, the default whenever `@antelopejs/dms-builder` is loaded, lets the agent change the
+project only through the Builder tools. It holds whatever permission mode is selected:
+
+- On Claude, a `PreToolUse` hook refuses `Write`, `Edit`, `MultiEdit`, `NotebookEdit` and `Bash`.
+  The CLI runs hooks before it applies the permission mode, whereas `acceptEdits` and
+  `bypassPermissions` approve those tools without consulting the permission prompt, and every
+  mode, *Normal* included, runs the shell commands the CLI deems read-only (`ls`, `wc`, `cat`,
+  `grep`, `git log`…) without asking. Reading, listing and searching stay available through
+  `Read`, `Glob` and `Grep`, allowed inside the workspace and asked outside it.
+- On Codex, the sandbox stays read-only, without network, and every escalation is declined.
+- Safe mode caps *Auto* at *Accept edits*: the sidecar stops approving prompts on its own, and the
+  Claude CLI never runs in `bypassPermissions`, so the prompts that remain (reads outside the
+  workspace, web access) still reach you.
+
+A switch between safe and vibe mode applies from the next tool call on Claude and from the next
+turn on Codex, without discarding the conversation.
+
 ### Enabling Codex
 
 1. **Install the `codex` CLI.** It is an *optional* peer dependency, so it is never installed for

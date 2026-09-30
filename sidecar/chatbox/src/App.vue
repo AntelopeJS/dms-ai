@@ -38,6 +38,7 @@ import {
 	PROVIDER_SWITCH_CONFIRM,
 	PROVIDER_SWITCH_WARNING,
 	PROVIDER_UNAVAILABLE_PREFIX,
+	SAFE_MODE_MODE_NOTE,
 } from "./constants/settings";
 import {
 	CLIENT_MESSAGE_TYPES,
@@ -102,6 +103,14 @@ function openSettingsPage(): void {
 		path: SETTINGS_PAGE_PATH,
 	});
 }
+
+const modeHint = computed(() => {
+	const { mode, generationMode, builderAvailable } = settings.settings.value;
+	const isSafeModeActive = generationMode === "safe" && builderAvailable;
+	return isSafeModeActive
+		? `${MODE_HINTS[mode]}. ${SAFE_MODE_MODE_NOTE}`
+		: MODE_HINTS[mode];
+});
 
 const modeModel = computed<ChatboxMode>({
 	get: () => settings.settings.value.mode,
@@ -314,7 +323,7 @@ function retryLastMessage(): void {
 				:items="MODE_OPTIONS"
 				variant="ghost"
 				size="sm"
-				:title="MODE_HINTS[settings.settings.value.mode]"
+				:title="modeHint"
 				class="font-semibold text-primary"
 			/>
 			<span class="modebar-label">{{ PROVIDER_SECTION_LABEL }}</span>
