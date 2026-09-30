@@ -34,7 +34,7 @@
     "prepack": "pnpm run build && pnpm run build:sidecar",
     "frontend:dev": "cd playground && pnpm frontend:dev",
     "dev": "cd playground && pnpm dev",
-    "lint": "oxlint --disable-nested-config && oxfmt --disable-nested-config --check . && cd frontend-vue && pnpm lint && cd ../sidecar && pnpm lint",
+    "lint": "oxlint --disable-nested-config && oxfmt --disable-nested-config --check . && cd frontend-vue && pnpm lint && cd ../sidecar && pnpm lint && antelopejs-check-interface-ranges",
     "lint:fix": "oxlint --disable-nested-config --fix --max-warnings=1000000 && oxfmt --disable-nested-config . && cd frontend-vue && pnpm lint:fix && cd ../sidecar && pnpm lint:fix",
     "typecheck": "tsc --noEmit && cd frontend-vue && pnpm typecheck && cd ../sidecar && pnpm typecheck",
     "test": "cd sidecar && pnpm test && cd ../frontend-vue && pnpm test",
@@ -59,7 +59,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@antelopejs/tooling-configs": ">=0.0.6 <1.0.0",
+    "@antelopejs/tooling-configs": ">=0.0.7 <1.0.0",
     "@types/node": "^24.0.0",
     "knip": "^6.34.0",
     "oxfmt": "^0.66.0",
