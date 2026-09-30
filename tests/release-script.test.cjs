@@ -10,7 +10,7 @@ const EXPECTED_RELEASE_COMMANDS = [
   "release-it",
 ];
 
-test("installs non-workspace projects before reaching release-it", () => {
+void test("installs non-workspace projects before reaching release-it", () => {
   const packagePath = path.resolve(__dirname, "../package.json");
   const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
   assert.deepEqual(

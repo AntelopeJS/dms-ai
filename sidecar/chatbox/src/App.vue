@@ -20,7 +20,7 @@ import { usePermissionQueue } from "./composables/usePermissionQueue";
 import { useQuestionQueue } from "./composables/useQuestionQueue";
 import { useRunClock } from "./composables/useRunClock";
 import { useSettings } from "./composables/useSettings";
-import { useWs } from "./composables/useWs";
+import { useChannel } from "./composables/useChannel";
 import {
 	TOGGLE_DRAWER_ICON,
 	TOGGLE_DRAWER_LABEL,
@@ -45,7 +45,6 @@ import {
 	type ConnectionStatus,
 	SERVER_EVENT_TYPES,
 	SETTINGS_PAGE_PATH,
-	WS_IFRAME_PATH,
 } from "./constants/ws";
 import type { ChatboxMode, ProviderName } from "./types/settings";
 import type { PendingAttachment } from "./utils/attachments";
@@ -62,8 +61,7 @@ const STATUS_LABEL_BY_STATE: Record<ConnectionStatus, string> = {
 useHostTheme();
 
 const activeId = ref(resolveConversationId());
-const ws = useWs({
-	path: WS_IFRAME_PATH,
+const ws = useChannel({
 	getConversationId: () => activeId.value,
 });
 const permissionQueue = usePermissionQueue({ send: ws.send });
@@ -163,7 +161,10 @@ const providerModel = computed<ProviderName>({
 // Close asks the host overlay (parent window) to slide the panel away. The
 // header robot launcher / Ctrl+Shift+K shortcut bring it back.
 function dismissPanel(): void {
-	globalThis.parent?.postMessage({ type: "dms-ai:close" }, "*");
+	globalThis.parent?.postMessage(
+		{ type: "dms-ai:close" },
+		globalThis.location.origin,
+	);
 }
 
 function refreshList(): void {

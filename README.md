@@ -23,6 +23,36 @@ The module starts its bundled sidecar with the project as its working directory.
 set `DMS_AI=0` before starting the backend to disable the sidecar. If
 `@antelopejs/dms-builder` is installed, the assistant also exposes its builder integration.
 
+The assistant is a development tool, on purpose: the backend and the sidecar refuse to run with
+`NODE_ENV=production`, and the chat is reserved to owners. Remote *development* is supported (see
+below); a hosted use would be a separate product with its own design.
+
+## Remote access
+
+The sidecar only listens on `127.0.0.1`, and the browser never talks to it: everything goes through
+the DMS frontend server, over the same HTTP relay as the rest of the dashboard. The assistant
+therefore works wherever the dashboard does — another machine on the LAN, Tailscale, an SSH tunnel to
+the frontend port, a reverse proxy or a gateway — and the sidecar's port and client credential stay on
+the server.
+
+| Route (owner only)                         | Purpose                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------ |
+| `GET /ai/channels/host,chat/events`        | One event stream per tab: the dashboard's and the chat's sidecar frames. |
+| `POST /ai/channels/:connectionId/messages` | One client message, relayed to that channel's sidecar socket.            |
+| `GET /api/ai/chatbox/*`                    | The chat document and its assets, from the sidecar's static server.      |
+
+Browsers keep at most six HTTP/1.1 connections per origin, and every dashboard tab already holds two
+long-lived ones for the DMS. The assistant adds its stream only in the visible tab whose panel is
+open, which leaves two dashboard tabs usable side by side; over HTTPS with HTTP/2 the limit goes away.
+Over plain HTTP on an address other than `localhost`, start the frontend server with
+`DMS_COOKIE_SECURE=false`, or the browser drops the `Secure` session cookie.
+
+The chat document is served from the dashboard's own origin and renders model output, so it runs
+under a strict Content-Security-Policy: scripts from the bundle only, and no image, font or request
+outside the origin (bar the Iconify API its icons come from). The frame is not sandboxed: without
+`allow-same-origin` its own module scripts are refused, and with it a same-origin frame can lift the
+sandbox anyway.
+
 ## Configuration
 
 Both keys are optional. Left out, the sidecar keeps the defaults it uses when run standalone

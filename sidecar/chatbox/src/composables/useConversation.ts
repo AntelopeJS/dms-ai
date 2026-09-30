@@ -25,6 +25,7 @@ import type {
 import type { PermissionRequestData } from "../types/permission";
 import type { QuestionData, QuestionRequestData } from "../types/question";
 import { type PendingAttachment, splitDataUrl } from "../utils/attachments";
+import { newUuid } from "../utils/ids";
 import { toActivityKind } from "../utils/run-status";
 
 export interface UseConversationOptions {
@@ -161,7 +162,7 @@ interface UserMessageEchoEvent {
 }
 
 function newId(): string {
-	return crypto.randomUUID();
+	return newUuid();
 }
 
 function buildUserMessage(
