@@ -1,0 +1,391 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "apiKeySource": "user",
+    "claude_code_version": "0.0.0-mock",
+    "cwd": "/mock",
+    "tools": ["Read", "Edit", "Glob", "Grep", "Bash"],
+    "mcp_servers": [],
+    "model": "claude-mock",
+    "permissionMode": "default",
+    "slash_commands": [],
+    "output_style": "default",
+    "skills": [],
+    "plugins": [],
+    "agents": [],
+    "uuid": "00000000-0000-0000-0000-000000000001",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000"
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000101",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "message_start",
+      "message": {
+        "id": "msg_mock_long",
+        "type": "message",
+        "role": "assistant",
+        "content": [],
+        "model": "claude-mock",
+        "usage": {
+          "input_tokens": 10,
+          "output_tokens": 12,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000102",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_start",
+      "index": 0,
+      "content_block": {
+        "type": "tool_use",
+        "id": "toolu_mock_write_1",
+        "name": "Write",
+        "input": {}
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000110",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000111",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000112",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000113",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000114",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000115",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000116",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000117",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000118",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000119",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000120",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000121",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000122",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000123",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000124",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000125",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "input_json_delta",
+        "partial_json": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  {
+    "type": "assistant",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000130",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "message": {
+      "id": "msg_mock_130",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-mock",
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 10,
+        "output_tokens": 12,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0
+      },
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_mock_write_1",
+          "name": "Write",
+          "input": {
+            "file_path": "/mock/OpManager.vue",
+            "content": "<template><div class=\"op-manager\">\u2026</div></template>"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "user",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000131",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "message": {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_mock_write_1",
+          "content": "File created successfully at: /mock/OpManager.vue",
+          "is_error": false
+        }
+      ]
+    }
+  },
+  {
+    "type": "stream_event",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000132",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "event": {
+      "type": "content_block_delta",
+      "index": 0,
+      "delta": {
+        "type": "text_delta",
+        "text": "The page is ready."
+      }
+    }
+  },
+  {
+    "type": "assistant",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000133",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "message": {
+      "id": "msg_mock_133",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-mock",
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 10,
+        "output_tokens": 12,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "The page is ready."
+        }
+      ]
+    }
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "duration_ms": 250,
+    "duration_api_ms": 200,
+    "is_error": false,
+    "num_turns": 1,
+    "result": "The page is ready.",
+    "stop_reason": "end_turn",
+    "total_cost_usd": 0,
+    "usage": {
+      "input_tokens": 10,
+      "output_tokens": 12,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0
+    },
+    "modelUsage": {},
+    "permission_denials": [],
+    "uuid": "00000000-0000-0000-0000-000000000134",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000"
+  }
+]

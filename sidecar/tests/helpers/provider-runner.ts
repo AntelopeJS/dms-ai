@@ -70,7 +70,7 @@ export function buildRunner(
   return {
     runner,
     dispose: async () => {
-      runner.dispose();
+      await runner.dispose();
       await built.dispose();
     },
   };

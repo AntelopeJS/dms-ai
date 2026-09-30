@@ -3,13 +3,15 @@ import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import { ROUTE_PREFIX } from "../constants/module";
 import {
   ensureSidecarRunning,
-  getSidecarClientToken,
-  getSidecarPort,
   hasSidecarGivenUp,
   isSidecarDisabled,
   isSidecarRunning,
 } from "../lifecycle/spawn-sidecar";
 
+/**
+ * Status only: the port and the client credential stay on the server, since
+ * the browser reaches the sidecar through the channel routes.
+ */
 @AuthOwnerOnly()
 export class AISidecarInfoController extends Controller(ROUTE_PREFIX) {
   @Get("/sidecar-info")
@@ -19,8 +21,6 @@ export class AISidecarInfoController extends Controller(ROUTE_PREFIX) {
     await ensureSidecarRunning();
     return HTTPResult.withHeaders(
       {
-        port: getSidecarPort(),
-        clientToken: getSidecarClientToken(),
         isRunning: isSidecarRunning(),
         hasGivenUp: hasSidecarGivenUp(),
         disabled: isSidecarDisabled(),

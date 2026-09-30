@@ -2,6 +2,7 @@ import {
 	INLINE_IMAGE_MIME_TYPES,
 	MAX_ATTACHMENT_BYTES,
 } from "../constants/attachments";
+import { newUuid } from "./ids";
 
 // A file the user has staged in the composer. `data` is the base64 payload
 // (no `data:` prefix) sent to the sidecar; `dataUrl` is the full data URL kept
@@ -29,7 +30,8 @@ export function exceedsSizeLimit(file: File): boolean {
 	return file.size > MAX_ATTACHMENT_BYTES;
 }
 
-function splitDataUrl(dataUrl: string): string {
+/** The base64 payload of a data URL, without its `data:…;base64,` prefix. */
+export function splitDataUrl(dataUrl: string): string {
 	const comma = dataUrl.indexOf(",");
 	return comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
 }
@@ -43,7 +45,7 @@ export function readFileAsAttachment(file: File): Promise<PendingAttachment> {
 		reader.onload = () => {
 			const dataUrl = String(reader.result);
 			resolve({
-				id: crypto.randomUUID(),
+				id: newUuid(),
 				name: file.name,
 				mimeType: file.type || "application/octet-stream",
 				size: file.size,

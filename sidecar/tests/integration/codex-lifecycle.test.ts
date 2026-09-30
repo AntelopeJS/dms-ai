@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ProviderSession } from "../../src/agent/provider.js";
+import { type AgentRunner, createAgentRunner } from "../../src/agent/runner.js";
 import { CODEX_PID_REGISTRY_FILE } from "../../src/constants/codex.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
@@ -17,7 +18,8 @@ import {
   type CodexProviderOptions,
   createCodexProvider,
 } from "../../src/providers/codex/provider.js";
-import { CODEX_FIXTURE } from "../helpers/provider-fixtures.js";
+import { isRunning } from "../helpers/processes.js";
+import { CODEX_FIXTURE, codexOnSigterm } from "../helpers/provider-fixtures.js";
 
 const TEST_TIMEOUT_MS = 30_000;
 const SETTLE_MS = 400;
@@ -38,6 +40,7 @@ describe("codex process lifecycle", () => {
   let stateDir: string;
   let registry: McpHttpRegistry | undefined;
   const opened: ProviderSession[] = [];
+  const teardowns: Promise<void>[] = [];
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "dms-ai-life-"));
@@ -46,11 +49,11 @@ describe("codex process lifecycle", () => {
   });
 
   afterEach(async () => {
-    for (const session of opened.splice(0)) session.dispose();
+    await Promise.all(opened.splice(0).map((session) => session.dispose()));
+    await Promise.all(teardowns.splice(0));
     await registry?.dispose();
     registry = undefined;
     CODEX_FIXTURE.reset();
-    await settle();
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -76,10 +79,23 @@ describe("codex process lifecycle", () => {
       hostProjectRoot: dir,
       getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
       settings: DEFAULT_SETTINGS,
-      onDisposed: () => {},
+      onDisposed: (disposal) => teardowns.push(disposal),
     });
     opened.push(session);
     return session;
+  }
+
+  async function runTurn(
+    runner: AgentRunner,
+    conversationId: string,
+  ): Promise<void> {
+    for await (const _ of runner.start("hello", {
+      conversationId,
+      hostProjectRoot: dir,
+      getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
+    })) {
+      // Draining is what opens the session and runs its turn.
+    }
   }
 
   async function readPids(): Promise<number[]> {
@@ -103,8 +119,7 @@ describe("codex process lifecycle", () => {
       expect(pid).toBeDefined();
       expect(isAlive(pid as number)).toBe(true);
 
-      session.dispose();
-      await settle();
+      await session.dispose();
       expect(await readPids()).toEqual([]);
       expect(isAlive(pid as number)).toBe(false);
       expect(existsSync(join(stateDir, "codex-home", "conv-life-1"))).toBe(
@@ -123,8 +138,7 @@ describe("codex process lifecycle", () => {
       const pids = await readPids();
       expect(pids).toHaveLength(2);
 
-      for (const session of opened.splice(0)) session.dispose();
-      await settle();
+      await Promise.all(opened.splice(0).map((session) => session.dispose()));
       expect(await readPids()).toEqual([]);
       for (const pid of pids) expect(isAlive(pid)).toBe(false);
     },
@@ -160,8 +174,34 @@ describe("codex process lifecycle", () => {
       expect(await readPids()).toHaveLength(LIVE_SESSION_CAP);
 
       await open(provider, "conv-life-cap-extra");
-      await settle();
+      await Promise.all(teardowns);
       expect(await readPids()).toHaveLength(LIVE_SESSION_CAP);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  // The evicted app-server ignores SIGTERM, so it is still stopping when the
+  // runner is disposed, and nothing holds its session any more. Whether it has
+  // already been killed by then is left unasserted: that only depends on how
+  // fast the last turn ran, and the runner's own tests pin the bookkeeping.
+  it(
+    "waits, on the runner's dispose, for an evicted app-server that is still stopping",
+    async () => {
+      CODEX_FIXTURE.use("simple");
+      const runner = createAgentRunner(buildProvider(), {
+        settings: DEFAULT_SETTINGS,
+      });
+      codexOnSigterm("ignore");
+      await runTurn(runner, "conv-life-run-0");
+      const [stubborn] = await readPids();
+      codexOnSigterm("die");
+      for (let i = 1; i <= LIVE_SESSION_CAP; i++) {
+        await runTurn(runner, `conv-life-run-${i}`);
+      }
+
+      await runner.dispose();
+      expect(isRunning(stubborn)).toBe(false);
+      expect(await readPids()).toEqual([]);
     },
     TEST_TIMEOUT_MS,
   );

@@ -1,0 +1,24 @@
+{"dir": "out", "msg": {"jsonrpc": "2.0", "id": 3, "method": "turn/start", "params": {}}}
+{"dir": "in", "msg": {"method": "turn/started", "params": {"threadId": "mock-thread", "turn": {"id": "mock-turn", "status": "inProgress"}}}}
+{"dir": "in", "msg": {"method": "item/started", "params": {"threadId": "mock-thread", "item": {"type": "reasoning", "id": "item-r", "summary": [], "content": []}}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/reasoning/summaryTextDelta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-r", "delta": "Reading the mockup ", "summaryIndex": 0}}}
+{"dir": "in", "msg": {"method": "item/completed", "params": {"threadId": "mock-thread", "item": {"type": "reasoning", "id": "item-r", "summary": ["Reading the mockup"], "content": []}}}}
+{"dir": "in", "msg": {"method": "item/started", "params": {"threadId": "mock-thread", "item": {"type": "agentMessage", "id": "item-a", "text": ""}}}}
+{"dir": "in", "msg": {"method": "item/agentMessage/delta", "params": {"threadId": "mock-thread", "turnId": "mock-turn", "itemId": "item-a", "delta": "The page is ready."}}}
+{"dir": "in", "msg": {"method": "item/completed", "params": {"threadId": "mock-thread", "item": {"type": "agentMessage", "id": "item-a", "text": "The page is ready."}}}}
+{"dir": "in", "msg": {"method": "turn/completed", "params": {"threadId": "mock-thread", "turn": {"id": "mock-turn", "status": "completed"}}}}

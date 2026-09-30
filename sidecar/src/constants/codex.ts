@@ -1,3 +1,4 @@
+import type { ActivityKind } from "../agent/runner-events.js";
 import { MCP_SERVER_KEY } from "./mcp.js";
 
 // Skill the safe-mode prompt sends the agent to. Codex budgets its skill index
@@ -95,6 +96,12 @@ export const CODEX_PID_REGISTRY_FILE = "codex-pids.json";
 // Grace left to SIGTERM before SIGKILL. The app-server exits promptly; this only
 // covers a wedged child.
 export const CODEX_TERMINATE_GRACE_MS = 2000;
+export const CODEX_KILL_GRACE_MS = 2000;
+export const CODEX_SURVIVED_STOP_MESSAGE =
+  "app-server outlived its termination, left for the next start to reap:";
+export const CODEX_PID_RELEASE_FAILED_MESSAGE = "could not unregister pid";
+export const CODEX_HOME_REMOVAL_FAILED_MESSAGE =
+  "could not remove the app-server's home";
 export const CODEX_PID_TOKEN = "%pid%";
 export const CODEX_PROC_CMDLINE = `/proc/${CODEX_PID_TOKEN}/cmdline`;
 
@@ -205,3 +212,18 @@ export const MOCK_CODEX_BINARY_RELATIVE =
 
 export const CODEX_TURN_FAILED_MESSAGE = "codex turn failed";
 export const CODEX_TURN_ABORTED_MESSAGE = "codex turn aborted";
+
+/**
+ * App-server notifications that report activity with nothing to show yet:
+ * reasoning, a command or a patch producing output, and the `error` it emits
+ * while reconnecting to the model (the turn then goes on).
+ */
+export const CODEX_ACTIVITY_BY_METHOD: Record<string, ActivityKind> = {
+  "turn/started": "thinking",
+  "item/reasoning/summaryTextDelta": "thinking",
+  "item/reasoning/summaryPartAdded": "thinking",
+  "item/reasoning/textDelta": "thinking",
+  "item/commandExecution/outputDelta": "tool",
+  "item/fileChange/outputDelta": "tool",
+  error: "retrying",
+};

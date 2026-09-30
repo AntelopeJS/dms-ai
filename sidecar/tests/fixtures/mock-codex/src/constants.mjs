@@ -11,6 +11,16 @@ export const VERSION_ENV_VAR = "MOCK_CODEX_VERSION";
 export const MCP_TOKEN_ENV_VAR = "DMS_AI_MCP_TOKEN";
 export const CODEX_HOME_ENV_VAR = "CODEX_HOME";
 
+// How the app-server takes a SIGTERM. Unset or "die", it dies on the spot, which
+// is what the real one does. "linger" keeps writing into its home for a while
+// and then exits; "ignore" keeps writing until it is killed.
+export const ON_SIGTERM_ENV_VAR = "MOCK_CODEX_ON_SIGTERM";
+export const LINGER_ON_SIGTERM = "linger";
+export const IGNORE_SIGTERM = "ignore";
+export const LINGER_MS = 300;
+export const HOME_WRITE_INTERVAL_MS = 10;
+export const HOME_WRITE_PREFIX = "written-after-sigterm-";
+
 export const DEFAULT_VERSION = "9999.0.0";
 export const VERSION_ARGUMENT = "--version";
 export const VERSION_PREFIX = "codex-cli ";
@@ -25,6 +35,12 @@ export const TURN_INTERRUPT_METHOD = "turn/interrupt";
 export const TURN_COMPLETED_METHOD = "turn/completed";
 export const ITEM_COMPLETED_METHOD = "item/completed";
 export const MCP_TOOL_CALL_ITEM = "mcpToolCall";
+
+/**
+ * Not an app-server frame: a script line that makes the fake binary die where
+ * it stands, the way a crashed app-server leaves a turn in flight.
+ */
+export const EXIT_DIRECTIVE_METHOD = "mock/exit";
 
 export const INTERRUPTED_TURN_STATUS = "interrupted";
 export const COMPLETED_ITEM_STATUS = "completed";

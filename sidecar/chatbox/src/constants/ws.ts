@@ -1,5 +1,3 @@
-export const WS_IFRAME_PATH = "/ws/iframe";
-
 export const CLIENT_MESSAGE_TYPES = {
 	HELLO: "hello",
 	USER_MESSAGE: "user_message",
@@ -32,6 +30,7 @@ export const SERVER_EVENT_TYPES = {
 	ASK_QUESTION: "ask_question",
 	QUEUE_STATE: "queue_state",
 	USER_MESSAGE_ECHO: "user_message_echo",
+	RUN_PROGRESS: "run_progress",
 } as const;
 
 export const ROLES = {
@@ -40,13 +39,6 @@ export const ROLES = {
 } as const;
 
 export const MOUNT_SELECTOR = "#app";
-
-export const WS_PROTOCOLS = { SECURE: "wss:", INSECURE: "ws:" } as const;
-export const PAGE_PROTOCOL_SECURE = "https:";
-
-export const WS_RECONNECT_DELAYS_MS = [
-	1000, 2000, 4000, 8000, 15000, 30000,
-] as const;
 
 export const CONNECTION_STATUSES = {
 	CONNECTING: "connecting",

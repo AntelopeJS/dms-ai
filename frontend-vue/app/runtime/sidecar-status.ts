@@ -14,8 +14,6 @@ export type SidecarStatus =
 	| typeof SIDECAR_STATUS_UNAVAILABLE
 
 interface SidecarInfo {
-	port: number | null
-	clientToken: string | null
 	isRunning: boolean
 	hasGivenUp: boolean
 	disabled: boolean
@@ -27,14 +25,14 @@ export interface SidecarStatusController {
 	// is disabled for this process — so the caller skips injection entirely.
 	init: () => Promise<boolean>
 	getStatus: () => SidecarStatus
-	getPort: () => number | null
-	getClientToken: () => string | null
 	// Subscribe to status changes; fires immediately with the current status so a
 	// late subscriber (overlay/icon injected after init) reflects it right away.
 	subscribe: (cb: (status: SidecarStatus) => void) => () => void
-	// The host WebSocket dropped: re-probe now to relearn a possibly-new port
-	// rather than let the socket keep retrying the dead one.
-	reportWsDown: () => void
+	/**
+	 * The host channel dropped: re-probe now, which also revives an idle-exited
+	 * sidecar, and report `connected` again once it answers.
+	 */
+	reportChannelDown: () => void
 	dispose: () => void
 }
 
@@ -46,9 +44,6 @@ async function fetchInfo(
 	try {
 		const body = await fetchDetails()
 		return {
-			port: typeof body.port === 'number' ? body.port : null,
-			clientToken:
-				typeof body.clientToken === 'string' ? body.clientToken : null,
 			isRunning: body.isRunning === true,
 			hasGivenUp: body.hasGivenUp === true,
 			disabled: body.disabled === true,
@@ -64,8 +59,6 @@ export function createSidecarStatusController(
 	const backoff = createBackoff()
 	const subscribers = new Set<(status: SidecarStatus) => void>()
 	let status: SidecarStatus = SIDECAR_STATUS_CONNECTING
-	let port: number | null = null
-	let clientToken: string | null = null
 	let pollTimer: ReturnType<typeof setTimeout> | null = null
 	let disposed = false
 
@@ -105,19 +98,13 @@ export function createSidecarStatusController(
 			setStatus(SIDECAR_STATUS_UNAVAILABLE)
 			return
 		}
-		if (info.isRunning && info.port !== null && info.clientToken) {
-			port = info.port
-			clientToken = info.clientToken
+		if (info.isRunning) {
 			resetBackoff(backoff)
-			// A reviving→connected transition notifies via setStatus; a port change
-			// while already connected leaves the status word unchanged, so force a
-			// notify there too to drive the overlay/WS onto the new port.
-			if (status === SIDECAR_STATUS_CONNECTED) notify()
-			else setStatus(SIDECAR_STATUS_CONNECTED)
+			setStatus(SIDECAR_STATUS_CONNECTED)
 			return
 		}
 		// Down but not terminal — the probe already asked the backend to respawn;
-		// keep polling until it reports a port.
+		// keep polling until it reports the sidecar running.
 		setStatus(SIDECAR_STATUS_REVIVING)
 		schedulePoll()
 	}
@@ -131,8 +118,6 @@ export function createSidecarStatusController(
 			return true
 		},
 		getStatus: () => status,
-		getPort: () => port,
-		getClientToken: () => clientToken,
 		subscribe: (cb) => {
 			subscribers.add(cb)
 			cb(status)
@@ -140,13 +125,13 @@ export function createSidecarStatusController(
 				subscribers.delete(cb)
 			}
 		},
-		reportWsDown: () => {
+		reportChannelDown: () => {
 			if (disposed) return
 			if (status !== SIDECAR_STATUS_CONNECTED) return
 			// Surface the drop right away (amber dot + spinner) instead of waiting on
 			// the re-probe: that probe awaits a respawn and can take a second or two,
 			// during which the icon would otherwise look healthy. poll() flips back
-			// to connected once the new port is live.
+			// to connected once the sidecar answers again.
 			resetBackoff(backoff)
 			setStatus(SIDECAR_STATUS_REVIVING)
 			void poll()

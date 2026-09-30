@@ -1,7 +1,8 @@
 // Theme bridge (host → chatbox iframe). The host DMS is the source of truth for
 // the active Nuxt UI primary palette and the light/dark mode; the chatbox iframe
-// is a separate document (different origin) so it cannot inherit them through
-// CSS — we forward them explicitly here.
+// is a separate document, so it cannot inherit them through CSS — we forward
+// them explicitly here. Both documents share the dashboard's origin, which is
+// the only one either side posts to or accepts messages from.
 //
 // Protocol:
 //   iframe → host : { type: "dms-ai:ready" }            (chatbox announces mount)
@@ -113,6 +114,17 @@ interface MessageData {
 
 type ThemePush = (force: boolean) => void
 
+/** True for a message the chatbox frame itself posted, from our own origin. */
+export function isFromFrame(
+	event: MessageEvent,
+	iframe: HTMLIFrameElement,
+): boolean {
+	return (
+		event.source === iframe.contentWindow &&
+		event.origin === globalThis.location.origin
+	)
+}
+
 // Only answer the handshake from our own iframe, never an arbitrary frame.
 function answerReadyHandshake(
 	iframe: HTMLIFrameElement,
@@ -120,7 +132,7 @@ function answerReadyHandshake(
 ): void {
 	globalThis.addEventListener('message', (event: MessageEvent) => {
 		const type = (event.data as MessageData)?.type
-		if (type === READY_MESSAGE_TYPE && event.source === iframe.contentWindow) {
+		if (type === READY_MESSAGE_TYPE && isFromFrame(event, iframe)) {
 			post(true)
 		}
 	})
@@ -165,7 +177,7 @@ export function installThemeBridge(
 		onTheme?.(theme)
 		iframe.contentWindow?.postMessage(
 			{ type: THEME_MESSAGE_TYPE, ...theme },
-			'*',
+			globalThis.location.origin,
 		)
 	}
 

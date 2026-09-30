@@ -12,8 +12,8 @@
     "@antelopejs/dms": ">=0.4.3 <1.0.0",
     "@antelopejs/interface-api": ">=0.0.14 <1.0.0",
     "@antelopejs/interface-core": ">=0.1.1 <1.0.0",
-    "@antelopejs/interface-data-api": "0.1.9",
-    "@antelopejs/interface-database": "0.1.7",
+    "@antelopejs/interface-data-api": ">=0.1.9 <1.0.0",
+    "@antelopejs/interface-database": ">=0.1.7 <1.0.0",
     "@antelopejs/interface-dms": ">=0.2.0 <1.0.0"
   },
   "devDependencies": {
