@@ -1,4 +1,5 @@
 import path from "node:path";
+import { effectiveChatboxMode } from "../../agent/effective-mode.js";
 import { effectiveGenerationMode } from "../../builder/capability.js";
 import {
   CODEX_AUTH_MODE_API_KEY,
@@ -112,12 +113,13 @@ function buildSandboxPolicy(
 }
 
 /**
- * Policy in force for a conversation. Safe mode pins the sandbox to read-only
+ * Policy in force for a conversation, read from the mode in force (safe mode
+ * caps *Auto* at `acceptEdits`). Safe mode also pins the sandbox to read-only
  * whatever the chatbox mode says: the Builder MCP tools write through the host
  * over HTTP, so they are outside the sandbox and keep working.
  */
 export function resolveModePolicy(settings: AppSettings): CodexModePolicy {
-  const base = CODEX_MODE_POLICIES[settings.mode];
+  const base = CODEX_MODE_POLICIES[effectiveChatboxMode(settings)];
   // Through effectiveGenerationMode, as the Claude path does: safe mode without
   // the Builder loaded has no write route at all, so it degrades to vibe rather
   // than declining everything.

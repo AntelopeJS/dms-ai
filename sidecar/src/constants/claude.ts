@@ -18,6 +18,9 @@ export const SYSTEM_PROMPT_PRESET_NAME = "claude_code" as const;
 export const SDK_SETTING_SOURCES_ISOLATED: SettingSource[] = [];
 export const SDK_INCLUDE_PARTIAL_MESSAGES = true;
 
+/** The hook event the CLI raises before any permission check of a tool call. */
+export const PRE_TOOL_USE_HOOK_EVENT = "PreToolUse" as const;
+
 // Generated skill plugin wrappers live under the sidecar state dir, never the
 // repo. The loader passes these as `plugins:[{type:'local'}]` alongside an
 // explicit `plugin:skill` allowlist — NEVER `skills:'all'` (Task 1 finding: it
