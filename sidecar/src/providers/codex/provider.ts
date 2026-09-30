@@ -360,9 +360,7 @@ async function createProviderSession(
   return providerSession;
 }
 
-// Oldest-first eviction: each live conversation holds its own app-server
-// process. The evicted teardown reaches the runner through onDisposed, which
-// is where a shutdown waits for it.
+// Oldest-first eviction: each live conversation holds its own app-server process.
 function evictOverflow(live: Map<string, ProviderSession>): void {
   while (live.size >= CODEX_MAX_LIVE_SESSIONS) {
     const oldest = live.keys().next();

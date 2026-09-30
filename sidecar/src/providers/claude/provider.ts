@@ -415,8 +415,6 @@ function buildSessionControls(backend: ClaudeBackend): SessionControls {
     interrupt: () => {
       void backend.output.interrupt().catch(() => undefined);
     },
-    // The SDK owns its CLI process, and the sidecar keeps nothing of it on disk
-    // to remove afterwards, so there is nothing to wait for once the input ends.
     close: () => {
       backend.queue.close();
       return Promise.resolve();

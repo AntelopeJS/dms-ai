@@ -14,10 +14,13 @@ export function createDisposalTracker(): DisposalTracker {
   return {
     track: (disposal) => {
       pending.add(disposal);
-      void disposal.then(() => pending.delete(disposal));
+      const forget = (): void => {
+        pending.delete(disposal);
+      };
+      void disposal.then(forget, forget);
     },
     settle: async () => {
-      while (pending.size > 0) await Promise.all(pending);
+      while (pending.size > 0) await Promise.allSettled(pending);
     },
   };
 }

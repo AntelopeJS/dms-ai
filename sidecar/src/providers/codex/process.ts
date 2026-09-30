@@ -1,7 +1,13 @@
-import { type ChildProcess, execFileSync, spawn } from "node:child_process";
+import {
+  type ChildProcess,
+  execFile,
+  execFileSync,
+  spawn,
+} from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import {
   CODEX_APP_SERVER_COMMAND,
   CODEX_AUTH_FILE_MODE,
@@ -137,19 +143,17 @@ export function isCodexProcess(pid: number): boolean {
   return readProcessCommand(pid)?.includes(CODEX_BINARY_NAME) === true;
 }
 
+const execFileAsync = promisify(execFile);
+
 // Windows has no signals: `process.kill` terminates the app-server and leaves
 // whatever it spawned behind, so the tree is killed through taskkill instead.
-function terminateWindows(pid: number): void {
+async function terminateWindows(pid: number): Promise<void> {
   const [command, ...args] = WINDOWS_TREE_KILL;
-  try {
-    execFileSync(
-      command,
-      args.map((arg) => arg.replace(CODEX_PID_TOKEN, String(pid))),
-      { windowsHide: true, stdio: "ignore" },
-    );
-  } catch {
-    // Already gone, or never ours to kill.
-  }
+  await execFileAsync(
+    command,
+    args.map((arg) => arg.replace(CODEX_PID_TOKEN, String(pid))),
+    { windowsHide: true },
+  ).catch(() => undefined);
 }
 
 function sendSignal(pid: number, signal: NodeJS.Signals): void {
@@ -160,32 +164,13 @@ function sendSignal(pid: number, signal: NodeJS.Signals): void {
   }
 }
 
-function terminatePosix(pid: number): void {
-  try {
-    process.kill(pid, "SIGTERM");
-  } catch {
-    return;
-  }
-  setTimeout(
-    () => sendSignal(pid, "SIGKILL"),
-    CODEX_TERMINATE_GRACE_MS,
-  ).unref();
-}
-
-function terminate(pid: number): void {
-  const kill =
-    process.platform === WINDOWS_PLATFORM ? terminateWindows : terminatePosix;
-  kill(pid);
-}
-
 interface StopStep {
-  send: (pid: number) => void;
-  /** How long the child is given to exit after this step. */
+  send: (pid: number) => void | Promise<void>;
   waitMs: number;
 }
 
-// The tree kill is already forceful on Windows, so there is nothing to
-// escalate to there.
+type StoppedWithin = (waitMs: number) => Promise<boolean>;
+
 const POSIX_STOP_STEPS: readonly StopStep[] = [
   {
     send: (pid) => sendSignal(pid, "SIGTERM"),
@@ -197,8 +182,34 @@ const WINDOWS_STOP_STEPS: readonly StopStep[] = [
   { send: terminateWindows, waitMs: CODEX_KILL_GRACE_MS },
 ];
 
-// Node records how a child ended right after reaping it, which is also when its
-// pid becomes free for the system to hand out again.
+function platformStopSteps(): readonly StopStep[] {
+  return process.platform === WINDOWS_PLATFORM
+    ? WINDOWS_STOP_STEPS
+    : POSIX_STOP_STEPS;
+}
+
+async function runStopSteps(
+  pid: number,
+  stoppedWithin: StoppedWithin,
+): Promise<boolean> {
+  for (const step of platformStopSteps()) {
+    await step.send(pid);
+    if (await stoppedWithin(step.waitMs)) return true;
+  }
+  return false;
+}
+
+function waitUnref(waitMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, waitMs).unref());
+}
+
+function orphanGoneWithin(pid: number): StoppedWithin {
+  return async (waitMs) => {
+    await waitUnref(waitMs);
+    return !isCodexProcess(pid);
+  };
+}
+
 function hasExited(child: ChildProcess): boolean {
   return child.exitCode !== null || child.signalCode !== null;
 }
@@ -218,23 +229,9 @@ function exitsWithin(child: ChildProcess, waitMs: number): Promise<boolean> {
   });
 }
 
-/**
- * Stops a child this sidecar spawned and waits for its exit, which a bare
- * signal does not: until then it can still write into its home. A child that
- * is already gone is not signalled at all: its pid may belong to another
- * process by now. False when it outlived every step.
- */
 async function stopChild(child: ChildProcess, pid: number): Promise<boolean> {
-  const steps =
-    process.platform === WINDOWS_PLATFORM
-      ? WINDOWS_STOP_STEPS
-      : POSIX_STOP_STEPS;
-  for (const step of steps) {
-    if (hasExited(child)) return true;
-    step.send(pid);
-    if (await exitsWithin(child, step.waitMs)) return true;
-  }
-  return false;
+  if (hasExited(child)) return true;
+  return runStopSteps(pid, (waitMs) => exitsWithin(child, waitMs));
 }
 
 /**
@@ -248,7 +245,7 @@ export async function reapOrphanCodexProcesses(
   const recorded = await readPidRegistry(stateDir);
   if (recorded.length === 0) return [];
   const killed = recorded.filter(isCodexProcess);
-  for (const pid of killed) terminate(pid);
+  for (const pid of killed) void runStopSteps(pid, orphanGoneWithin(pid));
   await updateRegistry(stateDir, () => []);
   if (killed.length > 0) {
     console.warn(
@@ -288,10 +285,6 @@ function forgetPid(stateDir: string, pid: number): Promise<void> {
   );
 }
 
-// A conversation keeps the same home path from one process to the next, and a
-// teardown only removes that home once its process has exited. Reopened in
-// the meantime, the conversation would have its fresh home removed under it,
-// so a home is only prepared again once the previous teardown has let go.
 const releasingHomes = new Map<string, Promise<void>>();
 
 function trackRelease(codexHome: string, release: Promise<void>): void {
@@ -415,23 +408,22 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-// Forgotten only once it is gone: a pid dropped while the process still runs is
-// an orphan the next start can no longer find.
 async function retireChild(
   stateDir: string,
   child: ChildProcess,
-): Promise<void> {
+): Promise<boolean> {
   const { pid } = child;
-  if (pid === undefined) return;
+  if (pid === undefined) return true;
   if (!(await stopChild(child, pid))) {
     console.warn(`${CODEX_LOG_PREFIX} ${CODEX_SURVIVED_STOP_MESSAGE} ${pid}`);
-    return;
+    return false;
   }
   await forgetPid(stateDir, pid).catch((error: unknown) => {
     console.warn(
       `${CODEX_LOG_PREFIX} ${CODEX_PID_RELEASE_FAILED_MESSAGE} ${pid}: ${describeError(error)}`,
     );
   });
+  return true;
 }
 
 // The whole home goes, not just sessions/: a fresh home already carries state,
@@ -455,16 +447,14 @@ interface ProcessTeardown {
   child: ChildProcess;
 }
 
-// In this order because the home is only safe to remove once nothing writes to
-// it any more. Never rejects: the callers are teardown paths with nothing
-// better to do with a failure than to report it, which happens here.
 async function disposeProcess(teardown: ProcessTeardown): Promise<void> {
   teardown.watchdog.markDisposed();
   teardown.client.abort(
     new Error(`${CODEX_LOG_PREFIX} ${CODEX_CLIENT_ABORTED_MESSAGE}`),
   );
-  await retireChild(teardown.stateDir, teardown.child);
-  await removeHome(teardown.codexHome);
+  if (await retireChild(teardown.stateDir, teardown.child)) {
+    await removeHome(teardown.codexHome);
+  }
 }
 
 export async function spawnCodexProcess(
@@ -483,8 +473,6 @@ export async function spawnCodexProcess(
   const pid = child.pid;
   if (pid !== undefined) await recordPid(options.stateDir, pid);
 
-  // Shared, so a second caller waits for the teardown already under way rather
-  // than returning while the child still runs.
   let disposal: Promise<void> | null = null;
   return {
     client,
