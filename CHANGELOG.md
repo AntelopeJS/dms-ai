@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.1.3
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.2...v0.1.3)
+
+### 🚀 Enhancements
+
+- Reach the sidecar from any browser through the DMS ([#36](https://github.com/AntelopeJS/dms-ai/pull/36))
+- **frontend-vue:** Declare the @antelopejs/dms-frontend releases the layer supports ([#47](https://github.com/AntelopeJS/dms-ai/pull/47))
+
+### 🩹 Fixes
+
+- **deps:** Accept compatible 0.x versions of the interface packages ([#28](https://github.com/AntelopeJS/dms-ai/pull/28))
+- **sidecar:** Hold safe mode in every permission mode ([#35](https://github.com/AntelopeJS/dms-ai/pull/35))
+- Never leave the chat spinning, and show what a long turn is doing ([#29](https://github.com/AntelopeJS/dms-ai/pull/29))
+- **sidecar:** Make shutdown wait for codex app-servers to exit ([#42](https://github.com/AntelopeJS/dms-ai/pull/42))
+
+### 🏡 Chore
+
+- **playground:** Move to @antelopejs/dms-frontend 0.3.2 ([#27](https://github.com/AntelopeJS/dms-ai/pull/27))
+- **lint:** Check @antelopejs/interface-* ranges ([#49](https://github.com/AntelopeJS/dms-ai/pull/49))
+
+### ❤️ Contributors
+
+- Alessandro Aloisio ([@alessaloisio](http://github.com/alessaloisio))
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.1.2
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.1...v0.1.2)
