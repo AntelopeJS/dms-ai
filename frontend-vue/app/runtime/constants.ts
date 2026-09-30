@@ -68,7 +68,7 @@ export const TOGGLE_SHORTCUT_KEY = 'k'
 export const MODAL_OPEN_SELECTOR = '[role="dialog"][aria-modal="true"]'
 
 // Generic header-action registry exposed by the DMS core (dms-back). Any module
-// can push a button by writing to this shared Nuxt state key; the core renders
+// can push a button by writing to this shared `useDmsState` key; the core renders
 // it with no knowledge of who registered it.
 export const HEADER_ACTIONS_STATE_KEY = 'dms:header-actions'
 export const LAUNCHER_ACTION_ID = 'dms-ai-launcher'

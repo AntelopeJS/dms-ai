@@ -52,13 +52,14 @@ const MODE_OPTIONS: Array<{ value: Mode; label: string; hint: string }> = [
 const SAFE_MODE_MODE_NOTE =
 	'Safe mode: raw edits and shell commands stay blocked, and Auto still asks before other actions.'
 
-const PROVIDER_OPTIONS: Array<{
+interface ProviderOption {
 	value: ProviderName
 	label: string
-	model: string
-}> = [
-	{ value: 'claude', label: 'Anthropic (Claude)', model: 'Claude Opus 4.x' },
-	{ value: 'codex', label: 'OpenAI (Codex)', model: 'GPT-5.x (Codex default)' },
+}
+
+const PROVIDER_OPTIONS: ProviderOption[] = [
+	{ value: 'claude', label: 'Anthropic (Claude)' },
+	{ value: 'codex', label: 'OpenAI (Codex)' },
 ]
 
 // One control, two meanings: a token budget on Claude, a reasoning effort level
@@ -107,7 +108,7 @@ function availabilityOf(name: ProviderName): ProviderAvailability {
 	return settings.value.providers?.[name] ?? { available: false }
 }
 
-function providerLabel(option: (typeof PROVIDER_OPTIONS)[number]): string {
+function providerLabel(option: ProviderOption): string {
 	return availabilityOf(option.value).available
 		? option.label
 		: `${option.label} — unavailable`
@@ -117,12 +118,6 @@ const activeProvider = computed(() => settings.value.provider)
 
 const providerReason = computed(
 	() => availabilityOf(settings.value.provider).reason ?? null,
-)
-
-const activeModel = computed(
-	() =>
-		PROVIDER_OPTIONS.find((o) => o.value === settings.value.provider)?.model ??
-		'',
 )
 
 function onProvider(event: Event): void {
@@ -179,11 +174,11 @@ const SELECT_CLASS =
 			{{ error }}
 		</div>
 
-		<!-- Row 1: Model (left) · Default behavior (right) -->
+		<!-- Row 1: Provider (left) · Default behavior (right) -->
 		<div class="grid gap-5 lg:grid-cols-2">
 			<section class="rounded-xl border border-default bg-elevated/30">
 				<header class="border-b border-default px-5 py-4">
-					<h2 class="text-sm font-semibold text-highlighted">Model</h2>
+					<h2 class="text-sm font-semibold text-highlighted">Provider</h2>
 				</header>
 				<div class="flex flex-col gap-4 p-5">
 					<div>
@@ -207,15 +202,9 @@ const SELECT_CLASS =
 							{{ providerReason }}
 						</p>
 						<p class="mt-1.5 text-xs text-dimmed">
-							Switching provider ends the live context of open conversations;
-							their transcripts are kept.
+							The provider runs its own default model. Switching provider ends
+							the live context of open conversations; their transcripts are kept.
 						</p>
-					</div>
-					<div>
-						<label class="mb-1.5 block text-xs font-medium text-toned">Model</label>
-						<select :class="SELECT_CLASS" disabled>
-							<option>{{ activeModel }}</option>
-						</select>
 					</div>
 				</div>
 			</section>
