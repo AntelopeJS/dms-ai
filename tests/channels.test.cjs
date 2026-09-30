@@ -1,164 +1,31 @@
 const assert = require("node:assert/strict");
-const { EventEmitter } = require("node:events");
 const Module = require("node:module");
-const path = require("node:path");
 const { afterEach, test } = require("node:test");
 const { HTTPResult } = require("@antelopejs/interface-api");
-const { WebSocket, WebSocketServer } = require("ws");
-
-const dist = (file) => path.resolve(__dirname, "../dist", file);
-const { openBridges } = require(dist("channels/bridge.js"));
-const { openChannel, postChannelMessage } = require(
-  dist("channels/channel-service.js"),
-);
-const { closeAllBridges } = require(dist("channels/registry.js"));
-const { reserveMessageBytes } = require(dist("channels/message-budget.js"));
 const {
-  CHANNEL_MAX_SOCKETS_PER_USER,
-  CHANNEL_MESSAGE_MAX_BYTES,
-  CHANNEL_PENDING_MESSAGES_MAX_BYTES,
-} = require(dist("constants/channels.js"));
+  INTRUDER,
+  OWNER,
+  byText,
+  closeEverything,
+  dist,
+  fakeContext,
+  openOn,
+  parseEvents,
+  post,
+  startSidecar,
+  waitFor,
+} = require("./helpers/channels.cjs");
+
+const { openBridges } = require(dist("channels/bridge.js"));
+const { openChannel } = require(dist("channels/channel-service.js"));
+const { closeAllBridges } = require(dist("channels/registry.js"));
 const { createSseStream } = require(dist("channels/sse-stream.js"));
 const { relayChatboxFile } = require(dist("chatbox/passthrough.js"));
 const { CHATBOX_CONTENT_SECURITY_POLICY } = require(
   dist("constants/chatbox.js"),
 );
 
-const OWNER = "owner-1";
-const INTRUDER = "owner-2";
-const WAIT_TIMEOUT_MS = 2_000;
-const WAIT_STEP_MS = 10;
-const byText = (a, b) => a.localeCompare(b);
-
-const sidecars = [];
-
-afterEach(async () => {
-  closeAllBridges();
-  await Promise.all(sidecars.splice(0).map((sidecar) => sidecar.close()));
-});
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitFor(check, label) {
-  const deadline = Date.now() + WAIT_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    if (check()) return;
-    await delay(WAIT_STEP_MS);
-  }
-  assert.fail(`timed out waiting for ${label}`);
-}
-
-function connectTo(port, socketPath) {
-  return new Promise((resolve, reject) => {
-    const socket = new WebSocket(`ws://127.0.0.1:${port}${socketPath}`);
-    socket.once("open", () => {
-      socket.pause();
-      resolve(socket);
-    });
-    socket.once("error", reject);
-  });
-}
-
-async function startSidecar(onConnection = () => undefined) {
-  const server = new WebSocketServer({ port: 0 });
-  await new Promise((resolve) => server.once("listening", resolve));
-  const sidecar = {
-    received: [],
-    byPath: {},
-    paths: [],
-    sockets: [],
-    closed: 0,
-    connect: (socketPath) => connectTo(server.address().port, socketPath),
-    close: () => {
-      for (const client of server.clients) client.terminate();
-      return new Promise((resolve) => server.close(resolve));
-    },
-  };
-  server.on("connection", (socket, request) => {
-    sidecar.sockets.push(socket);
-    sidecar.paths.push(request.url);
-    sidecar.byPath[request.url] = socket;
-    socket.on("message", (data) =>
-      sidecar.received.push({
-        path: request.url,
-        text: Buffer.concat([data].flat()).toString("utf8"),
-      }),
-    );
-    socket.on("close", () => {
-      sidecar.closed += 1;
-    });
-    onConnection(socket, request.url);
-  });
-  sidecars.push(sidecar);
-  return sidecar;
-}
-
-function fakeContext() {
-  const rawResponse = Object.assign(new EventEmitter(), { closed: false });
-  const ctx = {
-    response: new HTTPResult(),
-    rawRequest: new EventEmitter(),
-    rawResponse,
-    url: new URL("http://frontend.test/"),
-    routeParameters: {},
-  };
-  const output = { text: "", ended: false };
-  const capture = () => {
-    const stream = ctx.response.getWriteStream(
-      ctx.response.getContentType(),
-      ctx.response.getStatus(),
-    );
-    stream.on("data", (chunk) => {
-      output.text += chunk.toString();
-    });
-    stream.on("end", () => {
-      output.ended = true;
-    });
-  };
-  const leave = () => {
-    rawResponse.closed = true;
-    rawResponse.emit("close");
-  };
-  return { ctx, output, capture, leave };
-}
-
-function parseEvents(text) {
-  return text
-    .split("\n\n")
-    .filter((block) => block.startsWith("event:"))
-    .map((block) => {
-      const lines = block.split("\n");
-      const name = lines[0].slice("event: ".length);
-      const data = lines
-        .filter((line) => line.startsWith("data: "))
-        .map((line) => line.slice("data: ".length))
-        .join("\n");
-      return { name, data };
-    });
-}
-
-async function openOn(sidecar, channels = "chat", userId = OWNER) {
-  const context = fakeContext();
-  const result = await openChannel(
-    context.ctx,
-    channels,
-    userId,
-    sidecar.connect,
-  );
-  assert.equal(result, undefined);
-  context.capture();
-  await waitFor(() => parseEvents(context.output.text).length > 0, "ready");
-  const ready = parseEvents(context.output.text)[0];
-  assert.equal(ready.name, "ready");
-  const { connections } = JSON.parse(ready.data);
-  return { ...context, connections };
-}
-
-function post(connectionId, body, userId = OWNER) {
-  return postChannelMessage(connectionId, userId, Buffer.from(body));
-}
+afterEach(closeEverything);
 
 void test("streams every sidecar frame, named after its channel, after a ready event", async () => {
   const sidecar = await startSidecar((socket) => {
@@ -449,6 +316,7 @@ function loadRoutes(files) {
     Parameter: decorator,
     RawBody: decorator,
     JSONBody: decorator,
+    SetParameterProvider: () => undefined,
   };
   const auth = {
     AuthOwnerOnly: () => (target) => {
@@ -510,72 +378,4 @@ void test("keeps the sidecar port and client credential out of /ai/sidecar-info"
     "hasGivenUp",
     "isRunning",
   ]);
-});
-
-void test("refuses a user more sidecar sockets than the cap, not another user", async () => {
-  const sidecar = await startSidecar();
-  const streamsAllowed = CHANNEL_MAX_SOCKETS_PER_USER / 2;
-  for (let i = 0; i < streamsAllowed; i += 1)
-    await openOn(sidecar, "host,chat");
-  const refused = await openChannel(
-    fakeContext().ctx,
-    "host,chat",
-    OWNER,
-    sidecar.connect,
-  );
-  assert.ok(refused instanceof HTTPResult);
-  assert.equal(refused.getStatus(), 429);
-  assert.equal(sidecar.paths.length, CHANNEL_MAX_SOCKETS_PER_USER);
-  await openOn(sidecar, "chat", INTRUDER);
-});
-
-function messageContext(contentLength) {
-  const headers =
-    contentLength === undefined
-      ? {}
-      : { "content-length": String(contentLength) };
-  const rawResponse = new EventEmitter();
-  return { rawRequest: { headers }, rawResponse };
-}
-
-void test("refuses a posted message once the memory budget is spent, until one ends", () => {
-  const fullMessages =
-    CHANNEL_PENDING_MESSAGES_MAX_BYTES / CHANNEL_MESSAGE_MAX_BYTES;
-  const held = Array.from({ length: fullMessages }, () => messageContext());
-  for (const context of held) reserveMessageBytes(context);
-  assert.throws(
-    () => reserveMessageBytes(messageContext(1)),
-    (error) => error instanceof HTTPResult && error.getStatus() === 429,
-  );
-  held[0].rawResponse.emit("close");
-  const next = messageContext(1);
-  reserveMessageBytes(next);
-  for (const context of [...held.slice(1), next])
-    context.rawResponse.emit("close");
-});
-
-void test("pauses a sidecar socket once per full sink, however many frames arrive", async () => {
-  const sidecar = await startSidecar();
-  const socket = await sidecar.connect("/ws/iframe");
-  const drains = [];
-  const stream = {
-    send: (name) => name === "ready",
-    onDrain: (listener) => drains.push(listener),
-    onClose: () => undefined,
-    close: () => undefined,
-    isClosed: () => false,
-  };
-  openBridges({
-    userId: OWNER,
-    sockets: [{ channel: "chat", socket }],
-    stream,
-    onOpened: () => undefined,
-    onClosed: () => undefined,
-  });
-  for (const client of sidecar.sockets) {
-    for (let i = 0; i < 5; i += 1) client.send(`{"n":${i}}`);
-  }
-  await delay(50);
-  assert.equal(drains.length, 1);
-  socket.terminate();
 });
