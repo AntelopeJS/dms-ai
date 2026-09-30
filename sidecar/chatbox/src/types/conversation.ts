@@ -1,7 +1,9 @@
+import type { ACTIVITY_KINDS } from "../constants/run-status";
 import type { PendingAttachment } from "../utils/attachments";
 
 export type MessageRole = "user" | "assistant" | "tool" | "error";
 export type ToolStatus = "pending" | "success" | "error";
+export type ActivityKind = (typeof ACTIVITY_KINDS)[keyof typeof ACTIVITY_KINDS];
 
 // A file attached to a user message. `dataUrl` is only present for messages
 // sent in this session (drives the image thumbnail); after a reload the snapshot
@@ -18,6 +20,7 @@ export interface UserMessage {
 	role: "user";
 	content: string;
 	attachments?: MessageAttachment[];
+	isUnsent?: boolean;
 	timestampMs: number;
 }
 
@@ -33,6 +36,7 @@ export interface ErrorMessage {
 	id: string;
 	role: "error";
 	content: string;
+	isRetryable: boolean;
 	timestampMs: number;
 }
 
@@ -42,7 +46,7 @@ export interface ErrorMessage {
  * quiet durations keep counting until the next one.
  */
 export interface RunProgress {
-	activity: string;
+	activity: ActivityKind;
 	detail?: string;
 	elapsedMs: number;
 	idleMs: number;
