@@ -92,7 +92,11 @@ function buildSession(events: ScriptedEvent[], endsAfterScript: boolean) {
   const abortController = new AbortController();
   const session = createAgentSession({
     events: scriptedEvents(events, abortController.signal, endsAfterScript),
-    controls: { submitTurn: () => {}, interrupt: () => {}, close: () => {} },
+    controls: {
+      submitTurn: () => {},
+      interrupt: () => {},
+      close: () => Promise.resolve(),
+    },
     abortController,
     onDisposed: () => {},
   });
@@ -134,7 +138,7 @@ describe("every turn ends with a terminal event", () => {
     const { session } = buildSession([], false);
     const seen: RunnerEvent[] = [];
     const running = drain(session, seen);
-    session.dispose();
+    await session.dispose();
     await running;
     expect(seen).toEqual([
       { type: "error", message: TURN_SESSION_CLOSED_MESSAGE },

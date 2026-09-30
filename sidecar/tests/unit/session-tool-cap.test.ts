@@ -30,7 +30,7 @@ function buildSession(abortController: AbortController) {
     controls: {
       submitTurn: () => {},
       interrupt: () => {},
-      close: () => {},
+      close: () => Promise.resolve(),
     },
     abortController,
     onDisposed: () => {},
@@ -65,7 +65,7 @@ describe("outstanding tool cap", () => {
     await vi.advanceTimersByTimeAsync(IDLE_TIMEOUT_MS * 10);
     expect(seen).toEqual([TOOL_USE]);
     expect(abortController.signal.aborted).toBe(false);
-    session.dispose();
+    await session.dispose();
   });
 
   it("aborts once the tool has held the timer past the cap", async () => {
@@ -76,6 +76,6 @@ describe("outstanding tool cap", () => {
     void drain(session, seen);
     await vi.advanceTimersByTimeAsync(TOOL_EXECUTION_CAP_MS + 1);
     expect(abortController.signal.aborted).toBe(true);
-    session.dispose();
+    await session.dispose();
   });
 });

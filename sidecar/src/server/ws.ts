@@ -348,9 +348,10 @@ export function attachWsServer(
   return {
     close: async () => {
       httpServer.removeListener("upgrade", onUpgrade);
-      config.runner.dispose();
+      const disposal = config.runner.dispose();
       await closeWss(wssIframe);
       await closeWss(wssHost);
+      await disposal;
     },
   };
 }

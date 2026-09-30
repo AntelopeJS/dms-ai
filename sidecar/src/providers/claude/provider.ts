@@ -415,7 +415,10 @@ function buildSessionControls(backend: ClaudeBackend): SessionControls {
     interrupt: () => {
       void backend.output.interrupt().catch(() => undefined);
     },
-    close: () => backend.queue.close(),
+    close: () => {
+      backend.queue.close();
+      return Promise.resolve();
+    },
     applySettings: (settings) => applyBackendSettings(backend, settings),
   };
 }

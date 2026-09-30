@@ -11,6 +11,16 @@ export const VERSION_ENV_VAR = "MOCK_CODEX_VERSION";
 export const MCP_TOKEN_ENV_VAR = "DMS_AI_MCP_TOKEN";
 export const CODEX_HOME_ENV_VAR = "CODEX_HOME";
 
+// How the app-server takes a SIGTERM. Unset or "die", it dies on the spot, which
+// is what the real one does. "linger" keeps writing into its home for a while
+// and then exits; "ignore" keeps writing until it is killed.
+export const ON_SIGTERM_ENV_VAR = "MOCK_CODEX_ON_SIGTERM";
+export const LINGER_ON_SIGTERM = "linger";
+export const IGNORE_SIGTERM = "ignore";
+export const LINGER_MS = 300;
+export const HOME_WRITE_INTERVAL_MS = 10;
+export const HOME_WRITE_PREFIX = "written-after-sigterm-";
+
 export const DEFAULT_VERSION = "9999.0.0";
 export const VERSION_ARGUMENT = "--version";
 export const VERSION_PREFIX = "codex-cli ";

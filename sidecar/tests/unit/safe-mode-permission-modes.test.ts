@@ -153,7 +153,7 @@ describe("safe mode on the Claude provider, whatever the permission mode", () =>
   });
 
   afterEach(async () => {
-    runner?.dispose();
+    await runner?.dispose();
     runner = undefined;
     setBuilderAvailable(false);
     delete process.env.MOCK_CLAUDE;

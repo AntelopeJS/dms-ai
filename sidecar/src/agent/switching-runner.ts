@@ -7,6 +7,7 @@ import {
 import { providerUnavailableReason } from "../providers/registry.js";
 import type { AppSettings } from "../state/settings-types.js";
 import type { ProviderName } from "../state/types.js";
+import { createDisposalTracker, type DisposalTracker } from "./disposals.js";
 import type { AgentRunner } from "./runner.js";
 
 export type ProviderRunnerFactory = (settings: AppSettings) => AgentRunner;
@@ -14,11 +15,17 @@ export type ProviderRunnerFactory = (settings: AppSettings) => AgentRunner;
 /** Why a provider cannot be driven here, or undefined when it can. */
 export type UnavailableReason = (name: ProviderName) => string | undefined;
 
+interface ActiveRunner {
+  name: ProviderName;
+  runner: AgentRunner;
+}
+
 interface SwitchState {
   build: Record<ProviderName, ProviderRunnerFactory>;
   unavailableReason: UnavailableReason;
   settings: AppSettings;
-  active: { name: ProviderName; runner: AgentRunner } | null;
+  active: ActiveRunner | null;
+  retiring: DisposalTracker;
 }
 
 function unavailableError(name: ProviderName, reason: string): Error {
@@ -48,12 +55,22 @@ function activate(state: SwitchState): AgentRunner {
 // connection and a tool loadout the other provider knows nothing about. So a
 // provider change tears them down. Transcripts are untouched — only the live
 // context of an open conversation is lost.
-function switchProvider(state: SwitchState, next: ProviderName): void {
+function retire(state: SwitchState): ActiveRunner | null {
   const previous = state.active;
   state.active = null;
+  if (previous !== null) state.retiring.track(previous.runner.dispose());
+  return previous;
+}
+
+function switchProvider(state: SwitchState, next: ProviderName): void {
+  const previous = retire(state);
   if (previous === null) return;
   console.log(`${PROVIDER_SWITCH_LOG} ${previous.name} -> ${next}`);
-  previous.runner.dispose();
+}
+
+function retireActive(state: SwitchState): Promise<void> {
+  retire(state);
+  return state.retiring.settle();
 }
 
 function applySettings(state: SwitchState, settings: AppSettings): void {
@@ -63,17 +80,6 @@ function applySettings(state: SwitchState, settings: AppSettings): void {
     return;
   }
   state.active?.runner.applySettings(settings);
-}
-
-// An unavailable provider throws from activate(), and a turn that never started
-// has nothing to interrupt or dispose — so these two answer quietly rather than
-// failing a teardown on a backend that was never built.
-function withActive(
-  state: SwitchState,
-  act: (runner: AgentRunner) => void,
-): void {
-  if (state.active === null) return;
-  act(state.active.runner);
 }
 
 /**
@@ -91,18 +97,15 @@ export function createSwitchingRunner(
     unavailableReason,
     settings,
     active: null,
+    retiring: createDisposalTracker(),
   };
   return {
     start: (message, ctx) => activate(state).start(message, ctx),
     interruptSession: (conversationId) =>
-      withActive(state, (runner) => runner.interruptSession(conversationId)),
+      state.active?.runner.interruptSession(conversationId),
     disposeSession: (conversationId) =>
-      withActive(state, (runner) => runner.disposeSession(conversationId)),
+      state.active?.runner.disposeSession(conversationId) ?? Promise.resolve(),
     applySettings: (next) => applySettings(state, next),
-    dispose: () => {
-      const previous = state.active;
-      state.active = null;
-      previous?.runner.dispose();
-    },
+    dispose: () => retireActive(state),
   };
 }
