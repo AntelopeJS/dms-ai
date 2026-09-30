@@ -19,9 +19,6 @@ export const TURN_STREAM_ENDED_MESSAGE =
 export const TURN_SESSION_CLOSED_MESSAGE =
   "The run was stopped because the assistant session was closed (sidecar restart, provider switch or deleted conversation).";
 
-/** Why a turn ended: Stop was pressed and the provider ignored the interrupt. */
-export const TURN_STOPPED_MESSAGE = "The run was stopped.";
-
 /**
  * What a running turn is busy with, carried by `activity` runner events: the
  * model thinking, streaming its answer, composing a tool call, a tool running,

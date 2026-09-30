@@ -39,6 +39,7 @@ export interface StoredMessage {
   status?: StoredMessageStatus;
   decision?: StoredPermissionDecision;
   attachments?: StoredAttachmentMeta[];
+  isRetryable?: boolean;
   timestampMs: number;
 }
 

@@ -103,12 +103,6 @@ function planUpdatedEvents(params: unknown, seq: number): RunnerEvent[] {
   ];
 }
 
-/**
- * What a notification with no handler of its own says about the turn: nothing,
- * or activity that keeps it alive and tells the user what is going on. The
- * `error` notification is one of them, never a terminal event: Codex emits it
- * while reconnecting, and the turn still completes normally.
- */
 function activityEvents(method: string): RunnerEvent[] {
   const kind = CODEX_ACTIVITY_BY_METHOD[method];
   if (kind === undefined) return [];

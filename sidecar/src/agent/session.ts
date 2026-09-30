@@ -1,13 +1,12 @@
 import {
   INTERRUPT_FALLBACK_MS,
   TURN_SESSION_CLOSED_MESSAGE,
-  TURN_STOPPED_MESSAGE,
   TURN_STREAM_ENDED_MESSAGE,
 } from "../constants/agent.js";
 import { TOOL_EXECUTION_CAP_MS } from "../constants/timing.js";
 import type { AppSettings } from "../state/settings-types.js";
 import type { TurnInput } from "./provider.js";
-import type { RunnerEvent } from "./runner-events.js";
+import type { RunnerError, RunnerEvent } from "./runner-events.js";
 import { idleTimeoutReason, toolCapReason } from "./turn-end-reasons.js";
 
 /**
@@ -42,8 +41,7 @@ interface SessionState extends SessionDeps {
   tail: Promise<void>;
   activeTurns: number;
   interruptTimer: ReturnType<typeof setTimeout> | null;
-  /** Why the session was aborted, reported instead of the provider's own wording. */
-  abortReason: string | null;
+  abortOutcome: RunnerEvent | null;
 }
 
 interface TurnTimeout {
@@ -53,9 +51,14 @@ interface TurnTimeout {
   suspend: () => void;
 }
 
-/** Aborts the backend, keeping the first reason given for it. */
-function abortWith(state: SessionState, reason: string): void {
-  if (state.abortReason === null) state.abortReason = reason;
+const STOPPED_OUTCOME: RunnerEvent = { type: "done" };
+
+function errorOutcome(message: string): RunnerError {
+  return { type: "error", message };
+}
+
+function abortWith(state: SessionState, outcome: RunnerEvent): void {
+  if (state.abortOutcome === null) state.abortOutcome = outcome;
   state.abortController.abort();
 }
 
@@ -64,7 +67,7 @@ function disposeSession(state: SessionState): void {
   state.disposed = true;
   clearInterruptFallback(state);
   state.controls.close();
-  abortWith(state, TURN_SESSION_CLOSED_MESSAGE);
+  abortWith(state, errorOutcome(TURN_SESSION_CLOSED_MESSAGE));
   state.onDisposed();
 }
 
@@ -92,7 +95,7 @@ function interrupt(state: SessionState): void {
   state.interruptTimer = setTimeout(() => {
     state.interruptTimer = null;
     if (state.disposed || state.activeTurns === 0) return;
-    abortWith(state, TURN_STOPPED_MESSAGE);
+    abortWith(state, STOPPED_OUTCOME);
   }, INTERRUPT_FALLBACK_MS);
 }
 
@@ -101,43 +104,33 @@ function interrupt(state: SessionState): void {
 // runs for a long time is never aborted — only one that goes fully silent for
 // the whole window (a genuine hang) is.
 function armTurnTimeout(state: SessionState, timeoutMs: number): TurnTimeout {
-  const idleReason = idleTimeoutReason(timeoutMs);
-  const toolReason = toolCapReason(TOOL_EXECUTION_CAP_MS);
+  const idleOutcome = errorOutcome(idleTimeoutReason(timeoutMs));
+  const toolOutcome = errorOutcome(toolCapReason(TOOL_EXECUTION_CAP_MS));
   let timer: ReturnType<typeof setTimeout>;
-  const arm = (delayMs: number, reason: string): void => {
-    timer = setTimeout(() => abortWith(state, reason), delayMs);
+  const arm = (delayMs: number, outcome: RunnerEvent): void => {
+    timer = setTimeout(() => abortWith(state, outcome), delayMs);
   };
-  arm(timeoutMs, idleReason);
+  arm(timeoutMs, idleOutcome);
   return {
     clear: () => clearTimeout(timer),
     reset: () => {
       clearTimeout(timer);
-      arm(timeoutMs, idleReason);
+      arm(timeoutMs, idleOutcome);
     },
     suspend: () => {
       clearTimeout(timer);
-      arm(TOOL_EXECUTION_CAP_MS, toolReason);
+      arm(TOOL_EXECUTION_CAP_MS, toolOutcome);
     },
   };
 }
 
 function buildErrorEvent(state: SessionState, err: unknown): RunnerEvent {
-  if (state.abortReason !== null) {
-    return { type: "error", message: state.abortReason };
-  }
-  const message = err instanceof Error ? err.message : String(err);
-  return { type: "error", message };
+  if (state.abortOutcome !== null) return state.abortOutcome;
+  return errorOutcome(err instanceof Error ? err.message : String(err));
 }
 
-/**
- * A provider stream that ends before `done` would otherwise end the turn with
- * no terminal event at all, and the chat would wait for one forever.
- */
 function buildStreamEndedEvent(state: SessionState): RunnerEvent {
-  return {
-    type: "error",
-    message: state.abortReason ?? TURN_STREAM_ENDED_MESSAGE,
-  };
+  return state.abortOutcome ?? errorOutcome(TURN_STREAM_ENDED_MESSAGE);
 }
 
 const OUTSTANDING_TOOL_DELTAS: Record<string, number> = {
@@ -150,13 +143,6 @@ function countOutstanding(outstanding: number, event: RunnerEvent): number {
   return Math.max(0, outstanding + delta);
 }
 
-/**
- * Re-arms the timer after an event. Without an outstanding tool, any event —
- * provider activity included — proves the agent alive and restarts the idle
- * window. While a tool runs, the far longer tool cap is armed again only by a
- * real turn event: progress reported by the running tool itself never extends
- * it, so a tool whose result never comes back still ends the turn.
- */
 function rearmAfter(
   timeout: TurnTimeout,
   event: RunnerEvent,
@@ -248,7 +234,7 @@ export function createAgentSession(deps: SessionDeps): AgentSession {
     tail: Promise.resolve(),
     activeTurns: 0,
     interruptTimer: null,
-    abortReason: null,
+    abortOutcome: null,
   };
   return {
     sendTurn: (input, timeoutMs) => sendTurn(state, input, timeoutMs),
