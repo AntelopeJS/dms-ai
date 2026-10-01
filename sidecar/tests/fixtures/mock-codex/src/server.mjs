@@ -1,4 +1,5 @@
-import { appendFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { appendFileSync, writeFileSync } from "node:fs";
 import {
   COMPLETED_ITEM_STATUS,
   DEFAULT_DELAY_MS,
@@ -8,6 +9,9 @@ import {
   FAIL_METHOD_ENV_VAR,
   FAILED_ITEM_STATUS,
   FALLBACK_RESULTS,
+  GRANDCHILD_ARGS,
+  GRANDCHILD_COMMAND,
+  GRANDCHILD_PID_FILE_ENV_VAR,
   INTERRUPTED_TURN_STATUS,
   ITEM_COMPLETED_METHOD,
   JSONRPC_VERSION,
@@ -170,6 +174,15 @@ function refuse(transport, frame) {
   });
 }
 
+function startGrandchild() {
+  const pidFile = process.env[GRANDCHILD_PID_FILE_ENV_VAR];
+  if (pidFile === undefined) return;
+  const grandchild = spawn(GRANDCHILD_COMMAND, GRANDCHILD_ARGS, {
+    stdio: "ignore",
+  });
+  writeFileSync(pidFile, String(grandchild.pid));
+}
+
 function handleClientRequest(state, transport, frame) {
   if (frame.method === process.env[FAIL_METHOD_ENV_VAR]) {
     refuse(transport, frame);
@@ -181,6 +194,7 @@ function handleClientRequest(state, transport, frame) {
     return;
   }
   if (frame.method !== TURN_START_METHOD) return;
+  startGrandchild();
   void replayTurn(state, transport);
 }
 

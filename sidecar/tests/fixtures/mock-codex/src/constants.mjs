@@ -26,6 +26,14 @@ export const FAIL_METHOD_ENV_VAR = "MOCK_CODEX_FAIL_METHOD";
 export const REFUSED_ERROR_CODE = -32603;
 export const REFUSED_MESSAGE_PREFIX = "mock-codex refused";
 
+/**
+ * Where the fake binary writes the pid of the long-running command it starts on
+ * every turn, the way a turn leaves a shell running. Unset, it starts none.
+ */
+export const GRANDCHILD_PID_FILE_ENV_VAR = "MOCK_CODEX_GRANDCHILD_PID_FILE";
+export const GRANDCHILD_COMMAND = "sleep";
+export const GRANDCHILD_ARGS = ["600"];
+
 export const DEFAULT_VERSION = "9999.0.0";
 export const VERSION_ARGUMENT = "--version";
 export const VERSION_PREFIX = "codex-cli ";
