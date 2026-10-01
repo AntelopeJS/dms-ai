@@ -21,7 +21,7 @@ function makeCapture(): Capture {
 
 function makeBus(capture: Capture, timeoutMs = FAST_TIMEOUT_MS) {
   return createPermissionBus({
-    onPromptIframe: (event) => {
+    onPromptChat: (event) => {
       capture.prompts.push(event);
     },
     timeoutMs,
@@ -37,7 +37,7 @@ async function settleNextTick(): Promise<void> {
 }
 
 describe("permission bus", () => {
-  it("resolves with allow_once when the iframe approves once", async () => {
+  it("resolves with allow_once when the chat approves once", async () => {
     const capture = makeCapture();
     const bus = makeBus(capture);
     const promise = bus.requestPermission(buildRequest());

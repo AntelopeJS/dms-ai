@@ -8,7 +8,7 @@ import { readRecordedPids } from "../helpers/codex-pids.js";
 import { CODEX_FIXTURE, codexOnSigterm } from "../helpers/provider-fixtures.js";
 import {
   createCollector,
-  openIframe,
+  openChat,
   sendHello,
   sendUserMessage,
   startWsHarness,
@@ -44,8 +44,8 @@ describe("a shutdown under way", () => {
       codexOnSigterm("linger");
       harness = await startWsHarness({ provider: "codex" });
       const stateDir = join(harness.tmpDir, ".state");
-      const running = await openIframe(harness.port);
-      const late = await openIframe(harness.port);
+      const running = await openChat(harness.port);
+      const late = await openChat(harness.port);
       clients.push(running, late);
       const runningEvents = createCollector(running, WAIT_TIMEOUT_MS);
       const lateEvents = createCollector(late, WAIT_TIMEOUT_MS);

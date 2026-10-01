@@ -11,7 +11,7 @@ import {
   type SkillCatalogItem,
 } from "../../src/skills/build-catalog.js";
 
-const MODULE_ROOT = "/srv/app/node_modules/cms-builder/skills";
+const MODULE_ROOT = "/srv/app/node_modules/dms-builder/skills";
 const HOME_AGENT_SKILLS = "/home/dev/.agents/skills";
 const REPO_AGENT_SKILLS = "/srv/app/.agents/skills";
 const CODEX_SYSTEM_SKILLS = "/home/dev/.codex-isolated/skills/.system";
@@ -39,8 +39,8 @@ function listing(skills: v2.SkillMetadata[]): v2.SkillsListEntry[] {
 describe("buildSkillExtraRoots", () => {
   it("deduplicates directories contributed by several modules", () => {
     const roots = buildSkillExtraRoots([
-      { module: "cms-builder", dir: MODULE_ROOT },
-      { module: "cms-other", dir: MODULE_ROOT },
+      { module: "dms-builder", dir: MODULE_ROOT },
+      { module: "dms-other", dir: MODULE_ROOT },
       { module: "local", dir: HOME_AGENT_SKILLS },
     ]);
     expect(roots).toEqual([MODULE_ROOT, HOME_AGENT_SKILLS]);

@@ -8,7 +8,7 @@ import {
   answerPermission,
   createCollector,
   interruptTurn,
-  openIframe,
+  openChat,
   sendHello,
   sendSettings,
   sendUserMessage,
@@ -37,7 +37,7 @@ function unpaired(events: WireMessage[]): string[] {
 }
 
 // Scenarios 1 to 5, 8 and 9 of the acceptance recipe: everything that is about
-// one turn's lifecycle, driven over the same WS protocol the chatbox speaks.
+// one turn's lifecycle, driven over the same WS protocol the chat speaks.
 describe.each(PROVIDER_FIXTURES)(
   "recipe — turn lifecycle on $name",
   (fixture) => {
@@ -68,7 +68,7 @@ describe.each(PROVIDER_FIXTURES)(
         .catch(() => undefined);
     }
 
-    // The chatbox echoes a queued follow-up, never an immediate message, so a
+    // The chat echoes a queued follow-up, never an immediate message, so a
     // second turn is recognized by its own terminal event.
     function terminalCount(collector: WireCollector): number {
       return collector.events.filter(isTerminalEvent).length;
@@ -76,7 +76,7 @@ describe.each(PROVIDER_FIXTURES)(
 
     async function connect(): Promise<WireCollector> {
       harness = await startWsHarness({ provider: fixture.name });
-      client = await openIframe(harness.port);
+      client = await openChat(harness.port);
       const collector = createCollector(client, WAIT_TIMEOUT_MS);
       sendHello(client, CONVERSATION_ID);
       return collector;
@@ -186,7 +186,7 @@ describe.each(PROVIDER_FIXTURES)(
           provider: fixture.name,
           settings: { generationMode: "safe" },
         });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         const collector = createCollector(client, WAIT_TIMEOUT_MS);
         sendHello(client, CONVERSATION_ID);
         sendUserMessage(client, CONVERSATION_ID, "create a file");
@@ -256,7 +256,7 @@ describe.each(PROVIDER_FIXTURES)(
           provider: fixture.name,
           settings: { generationMode: "vibe" },
         });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         const collector = createCollector(client, WAIT_TIMEOUT_MS);
         sendHello(client, CONVERSATION_ID);
         sendUserMessage(client, CONVERSATION_ID, "first");

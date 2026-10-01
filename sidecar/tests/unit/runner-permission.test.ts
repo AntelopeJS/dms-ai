@@ -25,7 +25,7 @@ function makeCapture(): Capture {
 
 function makeBus(capture: Capture, timeoutMs = FAST_TIMEOUT_MS) {
   return createPermissionBus({
-    onPromptIframe: (event) => {
+    onPromptChat: (event) => {
       capture.prompts.push(event);
     },
     timeoutMs,
@@ -76,7 +76,7 @@ describe("bridgeCanUseTool", () => {
     }
   });
 
-  it("auto-allows after a session decision without re-prompting the iframe", async () => {
+  it("auto-allows after a session decision without re-prompting the chat", async () => {
     const capture = makeCapture();
     const bus = makeBus(capture);
     const first = bridgeCanUseTool(bus, CONVERSATION_ID, TOOL_NAME, TOOL_INPUT);

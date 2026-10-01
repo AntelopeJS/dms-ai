@@ -7,8 +7,8 @@ import {
 import { STATE_FILE_ENCODING, STATE_JSON_INDENT } from "../constants/state.js";
 import {
   type AppSettings,
-  CHATBOX_MODES,
-  type ChatboxMode,
+  CHAT_MODES,
+  type ChatMode,
   GENERATION_MODES,
   type GenerationMode,
   THINKING_LEVELS,
@@ -33,8 +33,8 @@ interface SettingsState {
   inflight: Promise<void> | null;
 }
 
-function isMode(value: unknown): value is ChatboxMode {
-  return CHATBOX_MODES.includes(value as ChatboxMode);
+function isMode(value: unknown): value is ChatMode {
+  return CHAT_MODES.includes(value as ChatMode);
 }
 
 function isThinking(value: unknown): value is ThinkingLevel {

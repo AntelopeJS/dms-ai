@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import { CLAUDE_FIXTURE } from "../helpers/provider-fixtures.js";
 import {
   createCollector,
-  openIframe,
+  openChat,
   sendHello,
   sendUserMessage,
   sendWire,
@@ -55,7 +55,7 @@ describe("a selected provider that cannot run", () => {
     "fails the turn with the reason instead of falling back to the default",
     async () => {
       harness = await startWsHarness({ provider: "claude" });
-      client = await openIframe(harness.port);
+      client = await openChat(harness.port);
       const collector = createCollector(client, WAIT_TIMEOUT_MS);
       sendHello(client, CONVERSATION);
       sendWire(client, {

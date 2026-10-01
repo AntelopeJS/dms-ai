@@ -2,7 +2,7 @@
  * Display vocabulary shared by every provider adapter.
  *
  * These names are Claude's, and they stay Claude's on purpose. They are what
- * the chatbox renders and what the edit tracker, the tool summaries and the
+ * the chat renders and what the edit tracker, the tool summaries and the
  * permission prompts key off. The Codex adapter normalizes its own typed items
  * into this vocabulary so that the whole display layer — the file-change
  * animation included — works on both providers without a line of its own.

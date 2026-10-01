@@ -13,13 +13,13 @@ import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import { resolvePermissionMode } from "../../src/providers/claude/config.js";
 import { createClaudeProvider } from "../../src/providers/claude/provider.js";
-import { createIframeSocketRegistry } from "../../src/server/iframe-socket-registry.js";
+import { createChatSocketRegistry } from "../../src/server/chat-socket-registry.js";
 import { applySettings } from "../../src/server/routing.js";
 import type { SettingsStore } from "../../src/state/settings-store.js";
 import {
   type AppSettings,
-  CHATBOX_MODES,
-  type ChatboxMode,
+  CHAT_MODES,
+  type ChatMode,
 } from "../../src/state/settings-types.js";
 import {
   readClaudeTrace,
@@ -46,12 +46,12 @@ const RAW_CALLS: RawCall[] = [
   { tool: "Bash", script: "read-only-command.json" },
 ];
 
-const SAFE_CASES = CHATBOX_MODES.flatMap((mode) =>
+const SAFE_CASES = CHAT_MODES.flatMap((mode) =>
   RAW_CALLS.map((call) => ({ mode, ...call })),
 );
 
 function settingsFor(
-  mode: ChatboxMode,
+  mode: ChatMode,
   generationMode: AppSettings["generationMode"],
 ): AppSettings {
   return { ...DEFAULT_SETTINGS, mode, generationMode };
@@ -60,7 +60,7 @@ function settingsFor(
 describe("resolvePermissionMode", () => {
   afterEach(() => setBuilderAvailable(false));
 
-  it.each(CHATBOX_MODES)(
+  it.each(CHAT_MODES)(
     "never hands the SDK bypassPermissions in safe mode (%s)",
     (mode) => {
       setBuilderAvailable(true);
@@ -105,7 +105,7 @@ describe("auto-approval by the permission bus", () => {
   async function promptsUnder(settings: AppSettings): Promise<number> {
     const prompts: PendingRequest[] = [];
     const permissionBus = createPermissionBus({
-      onPromptIframe: (event) => prompts.push(event),
+      onPromptChat: (event) => prompts.push(event),
       timeoutMs: PROMPT_TIMEOUT_MS,
     });
     const runner = { applySettings: () => undefined } as unknown as AgentRunner;
@@ -114,7 +114,7 @@ describe("auto-approval by the permission bus", () => {
         settingsStore: storeOf(settings),
         permissionBus,
         runner,
-        iframeSocketRegistry: createIframeSocketRegistry(),
+        chatSocketRegistry: createChatSocketRegistry(),
       },
       settings,
     );
@@ -171,7 +171,7 @@ describe("safe mode on the Claude provider, whatever the permission mode", () =>
 
   async function runTurn(active: AgentRunner): Promise<RunnerEvent[]> {
     const permissionBus = createPermissionBus({
-      onPromptIframe: (event) => prompts.push(event),
+      onPromptChat: (event) => prompts.push(event),
       timeoutMs: PROMPT_TIMEOUT_MS,
     });
     const events: RunnerEvent[] = [];

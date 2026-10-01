@@ -34,11 +34,8 @@ export const SERVER_EVENT_TYPES = {
 	RUN_PROGRESS: "run_progress",
 } as const;
 
-/**
- * The role the chat says hello with. The sidecar still calls it `iframe`, from
- * when the chat was a separate document.
- */
-export const CHAT_ROLE = "iframe";
+/** The role the chat says hello with. */
+export const CHAT_ROLE = "chat";
 
 export const CONNECTION_STATUSES = {
 	CONNECTING: "connecting",

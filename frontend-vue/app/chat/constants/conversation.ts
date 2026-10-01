@@ -43,7 +43,7 @@ export const STATUS_LABELS = {
 	ERROR: "error",
 } as const;
 
-/** Shown when a message could not even leave the chatbox. */
+/** Shown when a message could not even leave the chat. */
 export const NOT_SENT_MESSAGE =
 	"Your message was not sent: the assistant is not connected. Reconnect, then retry.";
 

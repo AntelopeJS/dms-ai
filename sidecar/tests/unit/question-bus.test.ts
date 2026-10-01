@@ -30,7 +30,7 @@ function makeCapture(): Capture {
 
 function makeBus(capture: Capture, timeoutMs = FAST_TIMEOUT_MS) {
   return createQuestionBus({
-    onPromptIframe: (event) => {
+    onPromptChat: (event) => {
       capture.prompts.push(event);
     },
     timeoutMs,
@@ -46,7 +46,7 @@ async function settleNextTick(): Promise<void> {
 }
 
 describe("question bus", () => {
-  it("prompts the iframe and resolves with the submitted answers", async () => {
+  it("prompts the chat and resolves with the submitted answers", async () => {
     const capture = makeCapture();
     const bus = makeBus(capture);
     const promise = bus.requestQuestion(buildRequest());

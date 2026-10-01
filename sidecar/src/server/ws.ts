@@ -2,7 +2,7 @@ import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { type WebSocket, WebSocketServer } from "ws";
 import { createEditTracker, type EditTracker } from "../agent/edit-tracker.js";
-import { effectiveChatboxMode } from "../agent/effective-mode.js";
+import { effectiveChatMode } from "../agent/effective-mode.js";
 import {
   createPermissionBus,
   type PendingRequest,
@@ -60,9 +60,9 @@ import type { HostSocketRegistry } from "./host-socket-registry.js";
 import type { SettingsApplier } from "./http.js";
 import type { IdleShutdownController } from "./idle-shutdown.js";
 import {
-  createIframeSocketRegistry,
-  type IframeSocketRegistry,
-} from "./iframe-socket-registry.js";
+  createChatSocketRegistry,
+  type ChatSocketRegistry,
+} from "./chat-socket-registry.js";
 import { createLiveTurnStore } from "./live-turns.js";
 import type { NavigationCompleter } from "./navigation-completer.js";
 import { createPendingQueueStore } from "./pending-queue.js";
@@ -90,7 +90,7 @@ export interface AttachWsServerOptions {
   navigationCompleter: NavigationCompleter;
   idleController?: IdleShutdownController;
   permissionBus?: PermissionBus;
-  iframeSocketRegistry?: IframeSocketRegistry;
+  chatSocketRegistry?: ChatSocketRegistry;
   settingsApplier?: SettingsApplier;
 }
 
@@ -171,7 +171,7 @@ function bindConnection(socket: WebSocket, config: RoutingConfig): void {
   });
   socket.on("close", (code) => {
     config.hostSocketRegistry.clear(socket);
-    config.iframeSocketRegistry.clear(socket);
+    config.chatSocketRegistry.clear(socket);
     config.idleController.decrement();
     console.log(`${WS_LOG_PREFIX} close code=${code}`);
   });
@@ -191,11 +191,11 @@ function buildPermissionRequestEvent(
 }
 
 function buildSharedPermissionBus(
-  iframeSocketRegistry: IframeSocketRegistry,
+  chatSocketRegistry: ChatSocketRegistry,
 ): PermissionBus {
   return createPermissionBus({
-    onPromptIframe: (event) => {
-      iframeSocketRegistry.send(
+    onPromptChat: (event) => {
+      chatSocketRegistry.send(
         event.conversationId,
         buildPermissionRequestEvent(event),
       );
@@ -213,11 +213,11 @@ function buildAskQuestionEvent(event: PendingQuestion): AskQuestionEventType {
 }
 
 function buildSharedQuestionBus(
-  iframeSocketRegistry: IframeSocketRegistry,
+  chatSocketRegistry: ChatSocketRegistry,
 ): QuestionBus {
   return createQuestionBus({
-    onPromptIframe: (event) => {
-      iframeSocketRegistry.send(
+    onPromptChat: (event) => {
+      chatSocketRegistry.send(
         event.conversationId,
         buildAskQuestionEvent(event),
       );
@@ -225,7 +225,7 @@ function buildSharedQuestionBus(
   });
 }
 
-// Tools are bound per conversation so AskUser can reach the right iframe: no
+// Tools are bound per conversation so AskUser can reach the right chat: no
 // MCP transport carries our conversationId down to a tool handler, so it is
 // closed over here instead. Shared by both bindings.
 function buildMcpDepsFactory(
@@ -311,24 +311,22 @@ export function attachWsServer(
   httpServer: Server,
   options: AttachWsServerOptions,
 ): AttachWsServerResult {
-  const iframeSocketRegistry =
-    options.iframeSocketRegistry ?? createIframeSocketRegistry();
+  const chatSocketRegistry =
+    options.chatSocketRegistry ?? createChatSocketRegistry();
   const permissionBus =
-    options.permissionBus ?? buildSharedPermissionBus(iframeSocketRegistry);
-  const questionBus = buildSharedQuestionBus(iframeSocketRegistry);
+    options.permissionBus ?? buildSharedPermissionBus(chatSocketRegistry);
+  const questionBus = buildSharedQuestionBus(chatSocketRegistry);
   const editTracker = createEditTracker();
   const createMcpDeps = buildMcpDepsFactory(
     options.mcpDeps,
     questionBus,
     editTracker,
-    createHostCommandRouter(options.hostSocketRegistry, iframeSocketRegistry),
+    createHostCommandRouter(options.hostSocketRegistry, chatSocketRegistry),
   );
   const createMcpServer = buildMcpServerFactory(createMcpDeps);
   const settingsStore = options.settingsStore ?? NOOP_SETTINGS_STORE;
   const initialSettings = settingsStore.get();
-  permissionBus.setAutoApprove(
-    effectiveChatboxMode(initialSettings) === "auto",
-  );
+  permissionBus.setAutoApprove(effectiveChatMode(initialSettings) === "auto");
   const config: RoutingConfig = {
     hostProjectRoot: options.hostProjectRoot,
     conversationStore: options.conversationStore,
@@ -340,7 +338,7 @@ export function attachWsServer(
     moduleRoots: options.moduleRoots ?? [],
     hostState: options.hostState,
     hostSocketRegistry: options.hostSocketRegistry,
-    iframeSocketRegistry,
+    chatSocketRegistry,
     permissionBus,
     navigationCompleter: options.navigationCompleter,
     idleController: options.idleController ?? NOOP_IDLE_CONTROLLER,

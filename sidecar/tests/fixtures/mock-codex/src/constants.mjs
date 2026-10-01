@@ -67,6 +67,26 @@ export const MCP_CLIENT_VERSION = "0.0.1";
 export const AUTHORIZATION_HEADER = "Authorization";
 export const BEARER_PREFIX = "Bearer ";
 
+// The index a module that ships its safe-mode skill produces.
+const SAFE_MODE_SKILL_INDEX = {
+  data: [
+    {
+      cwd: "/srv/app",
+      skills: [
+        {
+          name: "dms-builder-safe",
+          description: "Build through the Builder tools.",
+          path: "/srv/app/node_modules/dms-builder/skills/dms-builder-safe/SKILL.md",
+          scope: "user",
+          enabled: true,
+          pluginId: null,
+        },
+      ],
+      errors: [],
+    },
+  ],
+};
+
 // Answers for calls the loaded dump does not cover. Anything the dump does
 // answer is replayed from it instead.
 export const FALLBACK_RESULTS = {
@@ -76,6 +96,6 @@ export const FALLBACK_RESULTS = {
     platformOs: "linux",
   },
   "thread/start": { thread: { id: "mock-thread" } },
-  "skills/list": { data: [] },
+  "skills/list": SAFE_MODE_SKILL_INDEX,
 };
 export const EMPTY_RESULT = {};

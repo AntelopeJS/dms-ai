@@ -1,5 +1,5 @@
 import path from "node:path";
-import { effectiveChatboxMode } from "../../agent/effective-mode.js";
+import { effectiveChatMode } from "../../agent/effective-mode.js";
 import { effectiveGenerationMode } from "../../builder/capability.js";
 import {
   CODEX_AUTH_MODE_API_KEY,
@@ -12,7 +12,7 @@ import {
 import { SAFE_MODE_DENIED_MESSAGE } from "../../constants/settings.js";
 import type {
   AppSettings,
-  ChatboxMode,
+  ChatMode,
   ThinkingLevel,
 } from "../../state/settings-types.js";
 import type { v2 } from "./protocol/index.js";
@@ -31,7 +31,7 @@ export interface CodexModePolicy {
 // workspace-write "auto": in workspace-write an edit inside the roots asks for
 // nothing, while every write under read-only escalates — which is the prompt
 // per write that the Claude path gives today.
-export const CODEX_MODE_POLICIES: Record<ChatboxMode, CodexModePolicy> = {
+export const CODEX_MODE_POLICIES: Record<ChatMode, CodexModePolicy> = {
   normal: {
     approvalPolicy: "on-request",
     sandbox: "read-only",
@@ -115,11 +115,11 @@ function buildSandboxPolicy(
 /**
  * Policy in force for a conversation, read from the mode in force (safe mode
  * caps *Auto* at `acceptEdits`). Safe mode also pins the sandbox to read-only
- * whatever the chatbox mode says: the Builder MCP tools write through the host
+ * whatever the chat mode says: the Builder MCP tools write through the host
  * over HTTP, so they are outside the sandbox and keep working.
  */
 export function resolveModePolicy(settings: AppSettings): CodexModePolicy {
-  const base = CODEX_MODE_POLICIES[effectiveChatboxMode(settings)];
+  const base = CODEX_MODE_POLICIES[effectiveChatMode(settings)];
   // Through effectiveGenerationMode, as the Claude path does: safe mode without
   // the Builder loaded has no write route at all, so it degrades to vibe rather
   // than declining everything.
@@ -192,7 +192,8 @@ export function buildAuthFile(apiKey: string): CodexAuthFile {
   return { auth_mode: CODEX_AUTH_MODE_API_KEY, OPENAI_API_KEY: apiKey };
 }
 
-function isSafeMode(settings: AppSettings): boolean {
+/** Whether a turn runs in safe mode: requested, and the Builder is present. */
+export function isSafeMode(settings: AppSettings): boolean {
   return effectiveGenerationMode(settings.generationMode) === "safe";
 }
 

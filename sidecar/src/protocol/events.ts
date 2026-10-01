@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ACTIVITY_KINDS } from "../constants/agent.js";
 import {
-  CHATBOX_MODES,
+  CHAT_MODES,
   GENERATION_MODES,
   THINKING_LEVELS,
 } from "../state/settings-types.js";
@@ -73,7 +73,7 @@ export const RunResumedEvent = z.object({
 });
 
 /**
- * Server -> iframe: what a running turn is doing, sent when its activity
+ * Server -> chat: what a running turn is doing, sent when its activity
  * changes and as a heartbeat. `elapsedMs` counts from the turn start and
  * `idleMs` from the agent's last activity, so the chat can tell a working
  * turn from a quiet one, and a live connection from a dead one.
@@ -127,7 +127,7 @@ export const AppSettingsSchema = z.object({
   // Optional rather than defaulted: an older client that omits the field must
   // leave the stored provider alone, not silently reset it to the default.
   provider: z.enum(PROVIDER_NAMES).optional(),
-  mode: z.enum(CHATBOX_MODES),
+  mode: z.enum(CHAT_MODES),
   thinking: z.enum(THINKING_LEVELS),
   // Older persisted payloads / clients omit this; safe is the product default,
   // and it self-downgrades to vibe when the Builder is absent.
@@ -184,7 +184,7 @@ export const QuestionSchema = z.object({
   options: z.array(QuestionOptionSchema).min(2).max(4),
 });
 
-// Server -> iframe: ask the user to pick answers. Mirrors the permission request
+// Server -> chat: ask the user to pick answers. Mirrors the permission request
 // round-trip; answered by a QUESTION_RESPONSE keyed by requestId.
 export const AskQuestionEvent = z.object({
   type: z.literal(EVENT_TYPES.ASK_QUESTION),
@@ -198,7 +198,7 @@ export const HostCommandNavigateEvent = z.object({
   path: z.string(),
 });
 
-// Server -> iframe: the conversation's server-owned follow-up queue, broadcast
+// Server -> chat: the conversation's server-owned follow-up queue, broadcast
 // on every queue change and on re-attach. It is the single source of truth for
 // the client's pending-queue display.
 export const QueueStateEvent = z.object({
@@ -207,7 +207,7 @@ export const QueueStateEvent = z.object({
   items: z.array(QueuedItemSchema),
 });
 
-// Server -> iframe: a queued follow-up the server just dequeued and is about to
+// Server -> chat: a queued follow-up the server just dequeued and is about to
 // run. The client renders the user bubble at this point (it did not echo the
 // item locally, since the server owns the queue). Attachments are metadata only.
 export const UserMessageEchoEvent = z.object({

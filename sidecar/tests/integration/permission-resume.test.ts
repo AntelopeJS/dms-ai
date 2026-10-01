@@ -5,7 +5,7 @@ import { PROVIDER_FIXTURES } from "../helpers/provider-fixtures.js";
 import {
   answerPermission,
   createCollector,
-  openIframe,
+  openChat,
   sendHello,
   sendUserMessage,
   startWsHarness,
@@ -17,7 +17,7 @@ const WAIT_TIMEOUT_MS = 20_000;
 const TEST_TIMEOUT_MS = 30_000;
 
 describe.each(PROVIDER_FIXTURES)(
-  "iframe reconnect resumes a pending permission on $name",
+  "chat reconnect resumes a pending permission on $name",
   (fixture) => {
     let harness: WsHarness | undefined;
     let first: WebSocket | undefined;
@@ -40,7 +40,7 @@ describe.each(PROVIDER_FIXTURES)(
         harness = await startWsHarness({ provider: fixture.name });
 
         // A real turn, paused on an approval the user never answered.
-        first = await openIframe(harness.port);
+        first = await openChat(harness.port);
         const firstEvents = createCollector(first, WAIT_TIMEOUT_MS);
         sendHello(first, CONVERSATION_ID);
         sendUserMessage(first, CONVERSATION_ID, "go");
@@ -50,7 +50,7 @@ describe.each(PROVIDER_FIXTURES)(
 
         // The tab comes back: the server owns the pending request, so it is
         // re-sent on hello alongside the transcript.
-        second = await openIframe(harness.port);
+        second = await openChat(harness.port);
         const secondEvents = createCollector(second, WAIT_TIMEOUT_MS);
         sendHello(second, CONVERSATION_ID);
         const snapshot = await secondEvents.next(

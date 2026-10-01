@@ -17,7 +17,7 @@ export interface QuestionRequest {
   questions: QuestionType[];
 }
 
-// The payload handed to the iframe when a question needs answering. Carries the
+// The payload handed to the chat when a question needs answering. Carries the
 // requestId so the eventual QUESTION_RESPONSE can be matched back.
 export interface PendingQuestion {
   requestId: string;
@@ -26,7 +26,7 @@ export interface PendingQuestion {
 }
 
 export interface QuestionBusOptions {
-  onPromptIframe: (event: PendingQuestion) => void;
+  onPromptChat: (event: PendingQuestion) => void;
   timeoutMs?: number;
 }
 
@@ -50,7 +50,7 @@ interface PendingState {
 interface BusState {
   pending: Map<string, PendingState>;
   timeoutMs: number;
-  onPromptIframe: (event: PendingQuestion) => void;
+  onPromptChat: (event: PendingQuestion) => void;
 }
 
 function pendingToQuestion(pending: PendingState): PendingQuestion {
@@ -109,7 +109,7 @@ function startRequest(
 ): Promise<QuestionAnswers> {
   return new Promise<QuestionAnswers>((resolve) => {
     const event = registerPending(state, req, resolve);
-    state.onPromptIframe(event);
+    state.onPromptChat(event);
   });
 }
 
@@ -153,7 +153,7 @@ function buildState(opts: QuestionBusOptions): BusState {
   return {
     pending: new Map(),
     timeoutMs: opts.timeoutMs ?? QUESTION_TIMEOUT_MS,
-    onPromptIframe: opts.onPromptIframe,
+    onPromptChat: opts.onPromptChat,
   };
 }
 

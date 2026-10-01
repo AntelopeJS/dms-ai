@@ -112,7 +112,7 @@ describe('the chat as a component of the dashboard', () => {
 		const panel = await openPanel(harness)
 		expect(document.querySelector('iframe')).toBeNull()
 		expect(document.getElementById('dms-ai-overlay-root')).not.toBeNull()
-		expect(panel.find('.chatbox').exists()).toBe(true)
+		expect(panel.find('.chat-view').exists()).toBe(true)
 		expect(Reflect.has(globalThis, 'dmsAiChatTransport')).toBe(false)
 	})
 
@@ -120,7 +120,7 @@ describe('the chat as a component of the dashboard', () => {
 		const harness = createHarness()
 		await openPanel(harness)
 		expect(sentOfType(harness, 'hello')).toEqual([
-			{ type: 'hello', role: 'iframe', conversationId: CONVERSATION_ID },
+			{ type: 'hello', role: 'chat', conversationId: CONVERSATION_ID },
 		])
 	})
 
@@ -148,7 +148,7 @@ describe('the chat as a component of the dashboard', () => {
 	it('closes from its own button, and on a click elsewhere in the dashboard', async () => {
 		const harness = createHarness()
 		const panel = await openPanel(harness)
-		panel.find('.chatbox').element.dispatchEvent(
+		panel.find('.chat-view').element.dispatchEvent(
 			new PointerEvent('pointerdown', { bubbles: true, composed: true }),
 		)
 		expect(harness.session.panel.isOpen.value).toBe(true)

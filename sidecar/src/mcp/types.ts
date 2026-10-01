@@ -25,7 +25,7 @@ export interface AiMcpServerStaticDeps {
 }
 
 // The MCP server is built per conversation so conversation-scoped tools (AskUser)
-// can route to the right iframe — the SDK does not pass our conversationId to tool
+// can route to the right chat — the SDK does not pass our conversationId to tool
 // handlers, so we bind it here at construction instead.
 export interface AiMcpServerDeps extends AiMcpServerStaticDeps {
   conversationId: string;
