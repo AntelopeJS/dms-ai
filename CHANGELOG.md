@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.1.5
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.4...v0.1.5)
+
+### 🚀 Enhancements
+
+- Make the chat a native component of the dashboard ([#37](https://github.com/AntelopeJS/dms-ai/pull/37))
+
+### 🩹 Fixes
+
+- Keep an unchanged sidecar and record turns cut by a restart ([#52](https://github.com/AntelopeJS/dms-ai/pull/52))
+- **sidecar:** Release a failed codex start, reap orphan homes and refuse sessions on shutdown ([#53](https://github.com/AntelopeJS/dms-ai/pull/53))
+- **sidecar:** Stop the codex app-server's whole process group on POSIX ([#54](https://github.com/AntelopeJS/dms-ai/pull/54))
+- Send the page title and resolve the page file for the host context ([#56](https://github.com/AntelopeJS/dms-ai/pull/56))
+
+### 💅 Refactors
+
+- Call the chat `chat` and finish the cms-ai renames ([#55](https://github.com/AntelopeJS/dms-ai/pull/55))
+
+### 🏡 Chore
+
+- **playground:** Open module source ranges ([#51](https://github.com/AntelopeJS/dms-ai/pull/51))
+- Deprecate the hostOrigin config option ([#57](https://github.com/AntelopeJS/dms-ai/pull/57))
+- **frontend-vue:** Check formatting with Prettier in lint ([5700ed9](https://github.com/AntelopeJS/dms-ai/commit/5700ed9))
+
+### 🎨 Styles
+
+- **frontend-vue:** Format with Prettier ([23d04ae](https://github.com/AntelopeJS/dms-ai/commit/23d04ae))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+- Alessandro Aloisio ([@alessaloisio](http://github.com/alessaloisio))
+
 ## v0.1.4
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.3...v0.1.4)
