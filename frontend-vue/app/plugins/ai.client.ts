@@ -114,18 +114,23 @@ function followPanel(panel: ChatPanelState, client: ChannelClient): () => void {
 	}
 }
 
+interface FollowedSidecarStatus {
+	status: Readonly<Ref<SidecarStatus>>
+	stop: () => void
+}
+
 function followSidecarStatus(
 	controller: SidecarStatusController,
 	client: ChannelClient,
-): Readonly<Ref<SidecarStatus>> {
+): FollowedSidecarStatus {
 	const status = ref<SidecarStatus>(controller.getStatus())
 	let isFirstReport = true
-	controller.subscribe((next) => {
+	const stop = controller.subscribe((next) => {
 		if (next === SIDECAR_STATUS_CONNECTED && !isFirstReport) client.reconnectNow()
 		status.value = next
 		isFirstReport = false
 	})
-	return readonly(status)
+	return { status: readonly(status), stop }
 }
 
 function installHostState(client: ChannelClient): () => void {
@@ -162,8 +167,9 @@ async function startAssistant({ vueApp }: DmsAppContext): Promise<void> {
 	})
 	const { client, chat } = createAssistantChannel({ $authFetch, controller, dispatchHostCommand })
 	const panel = createChatPanelState()
+	const sidecarStatus = followSidecarStatus(controller, client)
 	const session: AssistantSession = {
-		status: followSidecarStatus(controller, client),
+		status: sidecarStatus.status,
 		chat: chat.transport,
 		panel,
 		navigate: (path) => void router.push(path),
@@ -177,6 +183,8 @@ async function startAssistant({ vueApp }: DmsAppContext): Promise<void> {
 	const teardown = (): void => {
 		stopFollowing()
 		stopHostState()
+		sidecarStatus.stop()
+		controller.dispose()
 		client.stop()
 	}
 	vueApp.onUnmount(teardown)
