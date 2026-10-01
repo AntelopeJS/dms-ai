@@ -88,6 +88,16 @@ interface ToolEndEvent {
 	result: unknown;
 }
 
+interface RunDoneEvent {
+	type: typeof SERVER_EVENT_TYPES.RUN_DONE;
+	conversationId: string;
+}
+
+interface RunResumedEvent {
+	type: typeof SERVER_EVENT_TYPES.RUN_RESUMED;
+	conversationId: string;
+}
+
 interface RunErrorEvent {
 	type: typeof SERVER_EVENT_TYPES.RUN_ERROR;
 	conversationId: string;
@@ -474,7 +484,37 @@ interface ConversationState {
 	lastEventAtMs: Ref<number>;
 }
 
-type EventHandler = (state: ConversationState, event: any) => void;
+type ConversationEvent =
+	| ChunkEvent
+	| ToolStartEvent
+	| ToolEndEvent
+	| RunDoneEvent
+	| RunResumedEvent
+	| RunErrorEvent
+	| RunProgressEvent
+	| SnapshotEvent
+	| PermissionRequestEvent
+	| AskQuestionEvent
+	| QueueStateEvent
+	| UserMessageEchoEvent;
+
+type ConversationEventType = ConversationEvent["type"];
+
+interface EventTypeTag<K extends ConversationEventType> {
+	type: K;
+}
+
+type EventOfType<K extends ConversationEventType> = Extract<
+	ConversationEvent,
+	EventTypeTag<K>
+>;
+
+type EventHandlers = {
+	[K in ConversationEventType]: (
+		state: ConversationState,
+		event: EventOfType<K>,
+	) => void;
+};
 
 function appendMessage(
 	state: ConversationState,
@@ -586,14 +626,14 @@ function applyProgress(state: ConversationState, event: RunProgressEvent): void 
 	state.isTurnInFlight.value = true;
 }
 
-const EVENT_HANDLERS: Record<string, EventHandler> = {
-	[SERVER_EVENT_TYPES.ASSISTANT_MESSAGE_CHUNK]: (state, event: ChunkEvent) => {
+const EVENT_HANDLERS: EventHandlers = {
+	[SERVER_EVENT_TYPES.ASSISTANT_MESSAGE_CHUNK]: (state, event) => {
 		state.messages.value = appendChunk(state.messages.value, event.text);
 	},
-	[SERVER_EVENT_TYPES.TOOL_CALL_START]: (state, event: ToolStartEvent) => {
+	[SERVER_EVENT_TYPES.TOOL_CALL_START]: (state, event) => {
 		state.messages.value = upsertToolCall(state.messages.value, event);
 	},
-	[SERVER_EVENT_TYPES.TOOL_CALL_END]: (state, event: ToolEndEvent) => {
+	[SERVER_EVENT_TYPES.TOOL_CALL_END]: (state, event) => {
 		state.messages.value = applyToolEnd(state.messages.value, event);
 	},
 	[SERVER_EVENT_TYPES.RUN_DONE]: (state) => {
@@ -604,7 +644,7 @@ const EVENT_HANDLERS: Record<string, EventHandler> = {
 		state.isRunning.value = true;
 		expectTurn(state);
 	},
-	[SERVER_EVENT_TYPES.RUN_ERROR]: (state, event: RunErrorEvent) => {
+	[SERVER_EVENT_TYPES.RUN_ERROR]: (state, event) => {
 		endTurn(state);
 		appendError(state, event.error, event.isRetryable ?? true);
 		settleOrKeepRunning(state);
@@ -626,14 +666,25 @@ function isForActiveConversation(state: ConversationState, msg: unknown): boolea
 	return eventId === null || eventId === state.options.activeId.value;
 }
 
+function isHandledEventType(type: string | null): type is ConversationEventType {
+	return type !== null && Object.hasOwn(EVENT_HANDLERS, type);
+}
+
+function runHandler<K extends ConversationEventType>(
+	state: ConversationState,
+	type: K,
+	event: EventOfType<K>,
+): void {
+	const handler: EventHandlers[K] = EVENT_HANDLERS[type];
+	handler(state, event);
+}
+
 function dispatch(state: ConversationState, msg: unknown): void {
 	const type = getEventType(msg);
-	if (type === null) return;
-	const handler = EVENT_HANDLERS[type];
-	if (handler === undefined) return;
+	if (!isHandledEventType(type)) return;
 	if (!isForActiveConversation(state, msg)) return;
 	state.lastEventAtMs.value = Date.now();
-	handler(state, msg);
+	runHandler(state, type, msg as EventOfType<typeof type>);
 }
 
 function toWireAttachments(attachments: PendingAttachment[]): WireAttachment[] {
