@@ -352,7 +352,7 @@ async function createProviderSession(
       return session.sendTurn(input, resolveTimeoutMs(options));
     },
     interrupt: () => session.interrupt(),
-    dispose: () => session.dispose(),
+    dispose: (reason) => session.dispose(reason),
     applySettings: (settings) => {
       backend.live.settings = settings;
     },

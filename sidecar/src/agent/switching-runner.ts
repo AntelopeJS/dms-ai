@@ -9,6 +9,7 @@ import type { AppSettings } from "../state/settings-types.js";
 import type { ProviderName } from "../state/types.js";
 import { createDisposalTracker, type DisposalTracker } from "./disposals.js";
 import type { AgentRunner } from "./runner.js";
+import type { RunnerError } from "./runner-events.js";
 
 export type ProviderRunnerFactory = (settings: AppSettings) => AgentRunner;
 
@@ -55,10 +56,10 @@ function activate(state: SwitchState): AgentRunner {
 // connection and a tool loadout the other provider knows nothing about. So a
 // provider change tears them down. Transcripts are untouched — only the live
 // context of an open conversation is lost.
-function retire(state: SwitchState): ActiveRunner | null {
+function retire(state: SwitchState, reason?: RunnerError): ActiveRunner | null {
   const previous = state.active;
   state.active = null;
-  if (previous !== null) state.retiring.track(previous.runner.dispose());
+  if (previous !== null) state.retiring.track(previous.runner.dispose(reason));
   return previous;
 }
 
@@ -68,8 +69,8 @@ function switchProvider(state: SwitchState, next: ProviderName): void {
   console.log(`${PROVIDER_SWITCH_LOG} ${previous.name} -> ${next}`);
 }
 
-function retireActive(state: SwitchState): Promise<void> {
-  retire(state);
+function retireActive(state: SwitchState, reason?: RunnerError): Promise<void> {
+  retire(state, reason);
   return state.retiring.settle();
 }
 
@@ -106,6 +107,6 @@ export function createSwitchingRunner(
     disposeSession: (conversationId) =>
       state.active?.runner.disposeSession(conversationId) ?? Promise.resolve(),
     applySettings: (next) => applySettings(state, next),
-    dispose: () => retireActive(state),
+    dispose: (reason) => retireActive(state, reason),
   };
 }

@@ -3,6 +3,7 @@ import type { RunnerEvent } from "../../src/agent/runner-events.js";
 import { createAgentSession } from "../../src/agent/session.js";
 import {
   idleTimeoutReason,
+  TURN_RESTARTED_REASON,
   toolCapReason,
 } from "../../src/agent/turn-end-reasons.js";
 import {
@@ -103,6 +104,19 @@ function buildSession(events: ScriptedEvent[], endsAfterScript: boolean) {
   return { session, abortController };
 }
 
+function buildDeafSession() {
+  return createAgentSession({
+    events: { next: () => new Promise(() => {}) },
+    controls: {
+      submitTurn: () => {},
+      interrupt: () => {},
+      close: () => Promise.resolve(),
+    },
+    abortController: new AbortController(),
+    onDisposed: () => {},
+  });
+}
+
 async function drain(
   session: ReturnType<typeof buildSession>["session"],
   seen: RunnerEvent[],
@@ -143,6 +157,16 @@ describe("every turn ends with a terminal event", () => {
     expect(seen).toEqual([
       { type: "error", message: TURN_SESSION_CLOSED_MESSAGE },
     ]);
+  });
+
+  it("ends the turn with the reason it was disposed with, before the disposal resolves", async () => {
+    const session = buildDeafSession();
+    const seen: RunnerEvent[] = [];
+    const running = drain(session, seen);
+    await Promise.resolve();
+    await session.dispose(TURN_RESTARTED_REASON);
+    expect(seen).toEqual([TURN_RESTARTED_REASON]);
+    await running;
   });
 
   it("ends a stop the provider ignored as done, not as an error", async () => {

@@ -39,12 +39,10 @@ function loadLauncher(spawns) {
       closeSync() {},
       mkdirSync() {},
       openSync: () => 1,
-      readdirSync: () => [],
       readFileSync: () => {
         if (!spawned) throw new Error("no lock yet");
         return buildLock();
       },
-      statSync: () => ({ mtimeMs: 0 }),
     },
     "node:http": { get: () => ({ on() {}, destroy() {} }) },
     "node:path": path,
@@ -55,6 +53,7 @@ function loadLauncher(spawns) {
     "../constants/sidecar": require(
       path.resolve(__dirname, "../dist/constants/sidecar.js"),
     ),
+    "./build-id": { computeBuildId: () => "" },
     "./respawn-tracker": {
       createRespawnTracker: () => ({
         hasBudget: () => true,

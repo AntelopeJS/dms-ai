@@ -1,12 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import {
-  closeSync,
-  mkdirSync,
-  openSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-} from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { Logging } from "@antelopejs/interface-core/logging";
@@ -18,7 +11,6 @@ import {
   SIDECAR_BUILDER_FLAG,
   SIDECAR_CACHE_DIR_SEGMENTS,
   SIDECAR_DISABLED_FLAG,
-  SIDECAR_DIST_EXTENSION,
   SIDECAR_DIST_REL,
   SIDECAR_ENV_DISABLE_KEY,
   SIDECAR_HEALTH_PATH,
@@ -35,6 +27,7 @@ import {
   SIDECAR_SPAWN_TIMEOUT_MS,
   SIDECAR_SUCCESS_EXIT_CODE,
 } from "../constants/sidecar";
+import { computeBuildId } from "./build-id";
 import { createRespawnTracker, type RespawnTracker } from "./respawn-tracker";
 import type { SkillSource } from "./skill-sources";
 
@@ -206,22 +199,6 @@ function readLock(root: string): SidecarLock | null {
   }
 }
 
-function computeBuildId(binPath: string): string {
-  try {
-    const distDir = path.dirname(binPath);
-    const entries = readdirSync(distDir, { recursive: true }) as string[];
-    let maxMtime = 0;
-    for (const entry of entries) {
-      if (!entry.endsWith(SIDECAR_DIST_EXTENSION)) continue;
-      const mtime = statSync(path.join(distDir, entry)).mtimeMs;
-      if (mtime > maxMtime) maxMtime = mtime;
-    }
-    return String(maxMtime);
-  } catch {
-    return "";
-  }
-}
-
 function parseHealth(body: string): HealthInfo | null {
   try {
     const parsed = JSON.parse(body) as HealthResponse;
@@ -377,7 +354,7 @@ async function freshSpawn(
 
 async function ensureSidecar(root: string): Promise<void> {
   const binPath = resolveSidecarBin();
-  const buildId = computeBuildId(binPath);
+  const buildId = computeBuildId(path.dirname(binPath));
   const reused = await tryReuse(root, buildId);
   if (reused) return;
   await freshSpawn(root, binPath, buildId);
