@@ -1,11 +1,10 @@
 import { existsSync } from "node:fs";
 import { rawDataToText } from "../../src/server/raw-data.js";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type WebSocket from "ws";
-import { CODEX_PID_REGISTRY_FILE } from "../../src/constants/codex.js";
 import { ASK_USER_TOOL_NAME } from "../../src/constants/mcp.js";
 import { buildSkillCatalog } from "../../src/skills/build-catalog.js";
 import { resolveSkillSources } from "../../src/skills/resolve-sources.js";
@@ -31,6 +30,7 @@ import {
   type WireMessage,
   type WsHarness,
 } from "../helpers/ws-harness.js";
+import { readRecordedPids } from "../helpers/codex-pids.js";
 
 const CONVERSATION_A = "conv-recipe-a";
 const CONVERSATION_B = "conv-recipe-b";
@@ -46,15 +46,6 @@ const SKILL_EVIDENCE: Record<ProviderName, (skillDir: string) => string> = {
   codex: (skillDir) => skillDir,
 };
 
-async function readPidRegistry(stateDir: string): Promise<number[]> {
-  try {
-    const raw = await readFile(join(stateDir, CODEX_PID_REGISTRY_FILE), "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as number[]) : [];
-  } catch {
-    return [];
-  }
-}
 // A one-page PDF, small enough to inline: Codex has no PDF input, so this is
 // the attachment whose handling differs between providers.
 const PDF_BASE64 =
@@ -340,7 +331,7 @@ describe("recipe — session on codex only", () => {
         script: codexTurns("recette-1-simple-message.jsonl"),
       });
       const stateDir = join(harness?.tmpDir ?? "", ".state");
-      const before = await readPidRegistry(stateDir);
+      const before = await readRecordedPids(stateDir);
       expect(before).toHaveLength(1);
       expect(existsSync(`/proc/${before[0]}`)).toBe(true);
 
@@ -350,7 +341,7 @@ describe("recipe — session on codex only", () => {
       client = undefined;
       await harness?.close();
       harness = undefined;
-      expect(await readPidRegistry(stateDir)).toEqual([]);
+      expect(await readRecordedPids(stateDir)).toEqual([]);
       expect(existsSync(`/proc/${before[0]}`)).toBe(false);
     },
     TEST_TIMEOUT_MS,

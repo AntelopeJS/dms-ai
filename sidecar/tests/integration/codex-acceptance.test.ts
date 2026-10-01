@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +11,6 @@ import type {
 } from "../../src/agent/permission-bus.js";
 import type { ProviderSession } from "../../src/agent/provider.js";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
-import { CODEX_PID_REGISTRY_FILE } from "../../src/constants/codex.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
 import {
   PERMISSION_DECISIONS,
@@ -28,6 +27,7 @@ import { resolveCodexInstallation } from "../../src/providers/codex/resolve-bina
 import { createHttpServer } from "../../src/server/http.js";
 import { createNavigationCompleter } from "../../src/server/navigation-completer.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
+import { readRecordedPids } from "../helpers/codex-pids.js";
 
 // Real model turns cost money, so this suite is opt-in.
 const ENABLED =
@@ -155,16 +155,6 @@ async function collect(
     events.push(event);
   }
   return events;
-}
-
-async function readPidRegistry(stateDir: string): Promise<number[]> {
-  try {
-    const raw = await readFile(join(stateDir, CODEX_PID_REGISTRY_FILE), "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as number[]) : [];
-  } catch {
-    return [];
-  }
 }
 
 function isProcessAlive(pid: number): boolean {
@@ -309,11 +299,11 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
       harness = await startHarness(PERMISSION_DECISIONS.ALLOW_ONCE);
       const settings = settingsFor({});
       const opened = await openSession(harness, settings);
-      const before = await readPidRegistry(harness.stateDir);
+      const before = await readRecordedPids(harness.stateDir);
       expect(before.length).toBe(1);
 
       await opened.dispose();
-      expect(await readPidRegistry(harness.stateDir)).toEqual([]);
+      expect(await readRecordedPids(harness.stateDir)).toEqual([]);
       for (const pid of before) {
         expect(isProcessAlive(pid)).toBe(false);
       }

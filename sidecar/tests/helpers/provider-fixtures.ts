@@ -97,6 +97,7 @@ const codexFixture: ProviderFixture = {
     delete process.env.MOCK_CODEX_SCRIPT;
     delete process.env.MOCK_CODEX_TRACE;
     delete process.env.MOCK_CODEX_ON_SIGTERM;
+    delete process.env.MOCK_CODEX_FAIL_METHOD;
     if (!injectedApiKey) return;
     delete process.env.OPENAI_API_KEY;
     injectedApiKey = false;
@@ -164,6 +165,11 @@ export type CodexSigtermBehaviour = "die" | "linger" | "ignore";
 
 export function codexOnSigterm(behaviour: CodexSigtermBehaviour): void {
   process.env.MOCK_CODEX_ON_SIGTERM = behaviour;
+}
+
+/** Makes the fake app-server answer that request method with an error. */
+export function codexFailOn(method: string): void {
+  process.env.MOCK_CODEX_FAIL_METHOD = method;
 }
 
 const TRACE_ARMERS: Record<ProviderName, (file: string) => void> = {

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -7,7 +7,6 @@ import {
   CODEX_CLIENT_NAME,
   CODEX_CONFIG_FILE_NAME,
   CODEX_OWNED_SKILL_SCOPES,
-  CODEX_PID_REGISTRY_FILE,
   CODEX_SPAWN_FAILED_MESSAGE,
 } from "../../src/constants/codex.js";
 import {
@@ -27,6 +26,7 @@ import {
   type CodexSigtermBehaviour,
   codexOnSigterm,
 } from "../helpers/provider-fixtures.js";
+import { readRecordedPids } from "../helpers/codex-pids.js";
 
 const installation = resolveCodexInstallation();
 const TMP_PREFIX = "dms-ai-codex-";
@@ -233,11 +233,6 @@ const SIGTERM_CASES: SigtermCase[] = [
   { behaviour: "ignore", story: "ignores SIGTERM until it is killed" },
 ];
 
-async function readPidRegistry(stateDir: string): Promise<unknown> {
-  const raw = await readFile(join(stateDir, CODEX_PID_REGISTRY_FILE), "utf8");
-  return JSON.parse(raw);
-}
-
 // Not gated on the extension: the mock stands in for an app-server that is
 // still writing into its home when it is told to stop, which the real one does
 // too briefly to be caught on purpose.
@@ -293,7 +288,7 @@ describe("codex app-server teardown", () => {
       await running.dispose();
       expect(isRunning(pid)).toBe(false);
       expect(existsSync(codexHome)).toBe(false);
-      expect(await readPidRegistry(stateDir)).toEqual([]);
+      expect(await readRecordedPids(stateDir)).toEqual([]);
     },
     SPAWN_TIMEOUT_MS,
   );
