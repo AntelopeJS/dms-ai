@@ -5,12 +5,12 @@ import type { AnyServerEventType } from "../protocol/events.js";
 export interface HostSocketRegistry {
   set: (socket: WebSocket) => void;
   clear: (socket: WebSocket) => void;
-  send: (event: AnyServerEventType) => void;
+  send: (event: AnyServerEventType, preferred?: WebSocket) => void;
   has: () => boolean;
 }
 
 interface RegistryState {
-  socket: WebSocket | null;
+  sockets: WebSocket[];
 }
 
 function trySend(socket: WebSocket, event: AnyServerEventType): void {
@@ -22,23 +22,31 @@ function trySend(socket: WebSocket, event: AnyServerEventType): void {
   }
 }
 
+function removeSocket(state: RegistryState, socket: WebSocket): void {
+  state.sockets = state.sockets.filter((current) => current !== socket);
+}
+
 function buildSet(state: RegistryState) {
   return (socket: WebSocket): void => {
-    state.socket = socket;
+    removeSocket(state, socket);
+    state.sockets.push(socket);
   };
 }
 
-function buildClear(state: RegistryState) {
-  return (socket: WebSocket): void => {
-    if (state.socket !== socket) return;
-    state.socket = null;
-  };
+function pickSocket(
+  state: RegistryState,
+  preferred: WebSocket | undefined,
+): WebSocket | undefined {
+  if (preferred !== undefined && state.sockets.includes(preferred)) {
+    return preferred;
+  }
+  return state.sockets.at(-1);
 }
 
 function buildSend(state: RegistryState) {
-  return (event: AnyServerEventType): void => {
-    const socket = state.socket;
-    if (socket === null) {
+  return (event: AnyServerEventType, preferred?: WebSocket): void => {
+    const socket = pickSocket(state, preferred);
+    if (socket === undefined) {
       console.warn(`${WS_LOG_PREFIX} sendToHost: no host connected`);
       return;
     }
@@ -46,12 +54,16 @@ function buildSend(state: RegistryState) {
   };
 }
 
+/**
+ * Tracks every socket that said hello as a host. A command goes to the
+ * preferred socket when it is still a host, else to the latest host.
+ */
 export function createHostSocketRegistry(): HostSocketRegistry {
-  const state: RegistryState = { socket: null };
+  const state: RegistryState = { sockets: [] };
   return {
     set: buildSet(state),
-    clear: buildClear(state),
+    clear: (socket) => removeSocket(state, socket),
     send: buildSend(state),
-    has: () => state.socket !== null,
+    has: () => state.sockets.length > 0,
   };
 }

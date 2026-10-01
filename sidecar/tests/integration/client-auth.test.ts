@@ -57,7 +57,6 @@ function buildContext(directory: string) {
       },
     },
     builderEnabled: false,
-    sendToHost: hostSocketRegistry.send,
     navigationCompleter,
   };
   return {

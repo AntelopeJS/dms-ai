@@ -8,6 +8,7 @@ export interface IframeSocketRegistry {
   send: (conversationId: string, event: AnyServerEventType) => void;
   broadcast: (event: AnyServerEventType) => void;
   has: (conversationId: string) => boolean;
+  socketOf: (conversationId: string) => WebSocket | undefined;
 }
 
 interface RegistryState {
@@ -73,5 +74,6 @@ export function createIframeSocketRegistry(): IframeSocketRegistry {
     send: buildSend(state),
     broadcast: buildBroadcast(state),
     has: (conversationId) => state.byConversation.has(conversationId),
+    socketOf: (conversationId) => state.byConversation.get(conversationId),
   };
 }

@@ -21,7 +21,6 @@ export interface AiMcpServerStaticDeps {
   logsClient: LogsClient;
   builderClient: BuilderClient;
   builderEnabled: boolean;
-  sendToHost: (event: AnyServerEventType) => void;
   navigationCompleter: NavigationCompleter;
 }
 
@@ -30,6 +29,7 @@ export interface AiMcpServerStaticDeps {
 // handlers, so we bind it here at construction instead.
 export interface AiMcpServerDeps extends AiMcpServerStaticDeps {
   conversationId: string;
+  sendToHost: (event: AnyServerEventType) => void;
   requestQuestion: (req: QuestionRequest) => Promise<QuestionAnswers>;
   getLastEditedFile: () => string | undefined;
 }

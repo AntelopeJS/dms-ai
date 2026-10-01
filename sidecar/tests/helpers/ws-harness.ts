@@ -58,7 +58,6 @@ export interface WsHarness {
 
 function buildMcpDeps(
   hostState: ReturnType<typeof createHostState>,
-  sendToHost: AiMcpServerStaticDeps["sendToHost"],
   navigationCompleter: ReturnType<typeof createNavigationCompleter>,
 ): AiMcpServerStaticDeps {
   return {
@@ -77,7 +76,6 @@ function buildMcpDeps(
     logsClient: { getLogs: async () => [] },
     builderClient: { call: async () => undefined },
     builderEnabled: false,
-    sendToHost,
     navigationCompleter,
   };
 }
@@ -155,11 +153,7 @@ export async function startWsHarness(
     skillDirs: options.skillDirs,
     conversationStore,
     settingsStore,
-    mcpDeps: buildMcpDeps(
-      hostState,
-      hostSocketRegistry.send,
-      navigationCompleter,
-    ),
+    mcpDeps: buildMcpDeps(hostState, navigationCompleter),
     providerRuntime: buildProviderRuntime(
       join(tmpDir, ".state"),
       mcpHttpRegistry,

@@ -75,7 +75,6 @@ async function startTestServer(): Promise<ServerHandle> {
     logsClient: { getLogs: async () => [] },
     builderClient: { call: async () => undefined },
     builderEnabled: false,
-    sendToHost: hostSocketRegistry.send,
     navigationCompleter,
   };
   const ws = attachWsServer(server, {

@@ -43,6 +43,32 @@ describe("createHostSocketRegistry", () => {
     expect(registry.has()).toBe(false);
   });
 
+  it("sends to the preferred host, else to the latest one", () => {
+    const registry = createHostSocketRegistry();
+    const first = buildFakeSocket();
+    const second = buildFakeSocket();
+    registry.set(first);
+    registry.set(second);
+    registry.send(buildEvent(), first);
+    expect(first.send).toHaveBeenCalledTimes(1);
+    expect(second.send).not.toHaveBeenCalled();
+    registry.clear(first);
+    registry.send(buildEvent(), first);
+    expect(first.send).toHaveBeenCalledTimes(1);
+    expect(second.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to an earlier host once the latest one leaves", () => {
+    const registry = createHostSocketRegistry();
+    const first = buildFakeSocket();
+    const second = buildFakeSocket();
+    registry.set(first);
+    registry.set(second);
+    registry.clear(second);
+    registry.send(buildEvent());
+    expect(first.send).toHaveBeenCalledTimes(1);
+  });
+
   it("send is a no-op when no socket is set", () => {
     const registry = createHostSocketRegistry();
     expect(() => registry.send(buildEvent())).not.toThrow();

@@ -309,7 +309,6 @@ function buildWsStack({
       logsClient,
       builderClient,
       builderEnabled: args.builderEnabled,
-      sendToHost: hostSocketRegistry.send,
       navigationCompleter,
     },
     hostState,

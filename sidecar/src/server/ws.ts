@@ -47,6 +47,10 @@ import type { SettingsStore } from "../state/settings-store.js";
 import type { AppSettings } from "../state/settings-types.js";
 import { PROVIDER_NAMES, type ProviderName } from "../state/types.js";
 import { isClientAuthorized } from "./client-auth.js";
+import {
+  createHostCommandRouter,
+  type HostCommandSender,
+} from "./host-command-router.js";
 import type { HostSocketRegistry } from "./host-socket-registry.js";
 import type { SettingsApplier } from "./http.js";
 import type { IdleShutdownController } from "./idle-shutdown.js";
@@ -223,10 +227,12 @@ function buildMcpDepsFactory(
   staticDeps: AiMcpServerStaticDeps,
   questionBus: QuestionBus,
   editTracker: EditTracker,
+  hostCommandsOf: (conversationId: string) => HostCommandSender,
 ): (conversationId: string) => AiMcpServerDeps {
   return (conversationId) => ({
     ...staticDeps,
     conversationId,
+    sendToHost: hostCommandsOf(conversationId),
     requestQuestion: questionBus.requestQuestion,
     getLastEditedFile: () => editTracker.getLastEditedFile(conversationId),
   });
@@ -301,6 +307,7 @@ export function attachWsServer(
     options.mcpDeps,
     questionBus,
     editTracker,
+    createHostCommandRouter(options.hostSocketRegistry, iframeSocketRegistry),
   );
   const createMcpServer = buildMcpServerFactory(createMcpDeps);
   const settingsStore = options.settingsStore ?? NOOP_SETTINGS_STORE;
