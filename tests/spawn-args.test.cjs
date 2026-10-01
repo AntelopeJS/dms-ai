@@ -6,7 +6,6 @@ const { test } = require("node:test");
 const CHILD_PID = 4242;
 const SIDECAR_PORT = 39001;
 const BACKEND_URL = "http://127.0.0.1:41234";
-const HOST_ORIGIN = "http://localhost:4173";
 
 function buildLock() {
   return JSON.stringify({
@@ -77,22 +76,20 @@ function valueAfter(args, flag) {
   return index === -1 ? null : args[index + 1];
 }
 
-void test("passes the configured origins to the sidecar", async () => {
+void test("passes the configured backend origin to the sidecar", async () => {
   const spawns = [];
   await loadLauncher(spawns).spawnSidecar({
     hostProjectRoot: process.cwd(),
     backendUrl: BACKEND_URL,
-    hostOrigin: HOST_ORIGIN,
   });
   assert.equal(spawns.length, 1);
   assert.equal(valueAfter(spawns[0], "--backend-url"), BACKEND_URL);
-  assert.equal(valueAfter(spawns[0], "--host-origin"), HOST_ORIGIN);
+  assert.equal(spawns[0].includes("--host-origin"), false);
 });
 
-void test("omits both flags when the project configured neither", async () => {
+void test("omits the backend flag when the project did not configure it", async () => {
   const spawns = [];
   await loadLauncher(spawns).spawnSidecar({ hostProjectRoot: process.cwd() });
   assert.equal(spawns.length, 1);
   assert.equal(valueAfter(spawns[0], "--backend-url"), null);
-  assert.equal(valueAfter(spawns[0], "--host-origin"), null);
 });

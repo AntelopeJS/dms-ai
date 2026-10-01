@@ -70,19 +70,17 @@ carry a prompt injection read from a file or a page. So nothing the agent writes
 The sidecar is an agent server only: `/health`, the settings, metrics and skills routes the backend
 proxies, the MCP endpoint of its agents, and one WebSocket endpoint, `/ws`, which only accepts the
 client credential as a `Bearer` header. It serves no page or asset. Run by hand (`node
-sidecar/dist/index.js --port 0 --root <dir>`), it keeps its standalone defaults for the backend and
-frontend origins, which is how its tests drive it.
+sidecar/dist/index.js --port 0 --root <dir>`), it keeps its standalone default for the backend
+origin, which is how its tests drive it.
 
 ## Configuration
 
-Both keys are optional. Left out, the sidecar keeps the defaults it uses when run standalone
-(`http://localhost:5010` and `http://localhost:3001`), which is the behaviour every existing project
-already has.
+The key is optional. Left out, the sidecar keeps the default it uses when run standalone
+(`http://localhost:5010`), which is the behaviour every existing project already has.
 
 | Key          | What it is                                                                     |
 | ------------ | ------------------------------------------------------------------------------ |
 | `backendUrl` | Origin the sidecar calls the DMS backend on — its pages registry, logs and builder clients. |
-| `hostOrigin` | Origin the DMS frontend is served from.                                        |
 
 The api module publishes the origin it actually reserved, so `backendUrl` should reference it rather
 than repeat a port that may already be taken:
@@ -94,15 +92,11 @@ export default defineConfig({
       source: { type: "package", package: "@antelopejs/dms-ai" },
       config: {
         backendUrl: "${@api.API_LOCAL_BASE_URL}",
-        hostOrigin: "http://localhost:3001",
       },
     },
   },
 });
 ```
-
-`hostOrigin` is the *frontend* origin, which the api module cannot publish: write it out, using the
-same value as `dms`'s `clientBaseUrl`.
 
 ## Agent providers
 

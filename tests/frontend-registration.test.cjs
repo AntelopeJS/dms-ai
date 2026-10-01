@@ -6,11 +6,17 @@ const { test } = require("node:test");
 const BACKEND_URL = "http://127.0.0.1:41234";
 const HOST_ORIGIN = "http://localhost:4173";
 
-function loadModule(registrations, sidecars) {
+function loadModule(registrations, sidecars, warnings = []) {
   const filename = path.resolve(__dirname, "../dist/index.js");
   const mocks = {
     "@antelopejs/interface-dms/page": {
       AddFrontendModule: (registration) => registrations.push(registration),
+    },
+    "@antelopejs/interface-core/logging": {
+      Logging: {
+        Warn: (...args) => warnings.push(args),
+        Error() {},
+      },
     },
     "./builder/presence": { isBuilderAvailable: () => true },
     "./lifecycle/module-roots": {
@@ -31,6 +37,9 @@ function loadModule(registrations, sidecars) {
       FRONTEND_MODULE_PRIORITY: 100,
     },
     "node:path": path,
+    "./constants/sidecar": require(
+      path.resolve(__dirname, "../dist/constants/sidecar.js"),
+    ),
     // The config store is the unit under test here, so it is loaded for real.
     "./config": require(path.resolve(__dirname, "../dist/config.js")),
   };
@@ -49,7 +58,7 @@ void test("registers Vue and preserves sidecar inputs without launching an agent
   const registrations = [];
   const sidecars = [];
   const loaded = loadModule(registrations, sidecars);
-  loaded.construct({ backendUrl: BACKEND_URL, hostOrigin: HOST_ORIGIN });
+  loaded.construct({ backendUrl: BACKEND_URL });
   await loaded.start();
   assert.deepEqual(registrations, [
     {
@@ -63,12 +72,29 @@ void test("registers Vue and preserves sidecar inputs without launching an agent
     {
       hostProjectRoot: process.cwd(),
       backendUrl: BACKEND_URL,
-      hostOrigin: HOST_ORIGIN,
       moduleRoots: ["fixture-module"],
       skillDirs: ["fixture-skills"],
       builderEnabled: true,
     },
   ]);
+});
+
+void test("warns once about a set hostOrigin and otherwise ignores it", async () => {
+  const withHostOrigin = [];
+  const warnings = [];
+  const loaded = loadModule([], withHostOrigin, warnings);
+  loaded.construct({ backendUrl: BACKEND_URL, hostOrigin: HOST_ORIGIN });
+  loaded.construct({ backendUrl: BACKEND_URL, hostOrigin: HOST_ORIGIN });
+  await loaded.start();
+  const withoutHostOrigin = [];
+  const silent = [];
+  const reference = loadModule([], withoutHostOrigin, silent);
+  reference.construct({ backendUrl: BACKEND_URL });
+  await reference.start();
+  assert.equal(warnings.length, 1);
+  assert.match(String(warnings[0][0]), /hostOrigin/);
+  assert.deepEqual(silent, []);
+  assert.deepEqual(withHostOrigin, withoutHostOrigin);
 });
 
 void test("omits the origins the project did not configure", async () => {

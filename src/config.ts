@@ -2,11 +2,16 @@
 export interface AIConfig {
   /** Origin the sidecar reaches the DMS backend on, flags and all. */
   backendUrl?: string;
-  /** Origin the DMS frontend is served from. */
+  /**
+   * Accepted and ignored, with a warning.
+   *
+   * @deprecated Nothing reads it; it will be removed in the next minor.
+   */
   hostOrigin?: string;
 }
 
-const CONFIG_KEYS = ["backendUrl", "hostOrigin"] as const;
+const CONFIG_KEYS = ["backendUrl"] as const;
+const DEPRECATED_HOST_ORIGIN_KEY = "hostOrigin";
 
 let current: AIConfig = {};
 
@@ -33,6 +38,16 @@ export function parseConfig(raw: unknown): AIConfig {
     if (origin !== undefined) parsed[key] = origin;
   }
   return parsed;
+}
+
+/**
+ * Whether the raw config still sets the deprecated `hostOrigin` option.
+ */
+export function hasDeprecatedHostOrigin(raw: unknown): boolean {
+  if (raw === null || typeof raw !== "object") return false;
+  return (
+    (raw as Record<string, unknown>)[DEPRECATED_HOST_ORIGIN_KEY] !== undefined
+  );
 }
 
 export function setConfig(config: AIConfig): void {

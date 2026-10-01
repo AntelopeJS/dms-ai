@@ -23,7 +23,6 @@ export const SIDECAR_MODULE_ROOTS_FLAG = "--module-roots";
 export const SIDECAR_SKILL_DIRS_FLAG = "--skill-dirs";
 export const SIDECAR_BUILDER_FLAG = "--builder-enabled";
 export const SIDECAR_BACKEND_URL_FLAG = "--backend-url";
-export const SIDECAR_HOST_ORIGIN_FLAG = "--host-origin";
 export const MODULE_ROOTS_TIMEOUT_MS = 3_000;
 export const SIDECAR_DIST_EXTENSION = ".js";
 export const SIDECAR_BUILD_ID_HASH_ALGORITHM = "sha256";
@@ -33,3 +32,4 @@ export const SIDECAR_AUTH_HEADER = "x-dms-ai-token";
 /** Answer of a route that needs the sidecar while it cannot be reached. */
 export const SIDECAR_UNAVAILABLE_STATUS = 503;
 export const SIDECAR_UNAVAILABLE_BODY = { error: "sidecar_unavailable" };
+export const HOST_ORIGIN_DEPRECATION_WARNING = `${SIDECAR_LOG_PREFIX} the "hostOrigin" config option is deprecated and ignored: remove it from the module config.`;
