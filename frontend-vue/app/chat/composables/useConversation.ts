@@ -10,7 +10,10 @@ import {
 	TOOL_CUT_SHORT_RESULT,
 	TOOL_STATUS,
 } from "../constants/conversation";
-import { CLIENT_MESSAGE_TYPES, SERVER_EVENT_TYPES } from "../constants/protocol";
+import {
+	CLIENT_MESSAGE_TYPES,
+	SERVER_EVENT_TYPES,
+} from "../constants/protocol";
 import type {
 	AssistantMessage,
 	ConversationMessage,
@@ -562,7 +565,10 @@ function toPendingAttachment(wire: WireAttachment): PendingAttachment {
 	};
 }
 
-function applyQueueState(state: ConversationState, event: QueueStateEvent): void {
+function applyQueueState(
+	state: ConversationState,
+	event: QueueStateEvent,
+): void {
 	state.queued.value = event.items.map((item) => ({
 		id: item.id,
 		content: item.content,
@@ -597,11 +603,17 @@ function forwardPermissionRequest(
 	state.options.onPermissionRequest?.(toPermissionRequestData(event));
 }
 
-function forwardQuestion(state: ConversationState, event: AskQuestionEvent): void {
+function forwardQuestion(
+	state: ConversationState,
+	event: AskQuestionEvent,
+): void {
 	state.options.onQuestionRequest?.(toQuestionRequestData(event));
 }
 
-function applyProgress(state: ConversationState, event: RunProgressEvent): void {
+function applyProgress(
+	state: ConversationState,
+	event: RunProgressEvent,
+): void {
 	state.progress.value = toRunProgress(event);
 	state.isRunning.value = true;
 	state.isTurnInFlight.value = true;
@@ -638,12 +650,17 @@ const EVENT_HANDLERS: EventHandlers = {
 	[SERVER_EVENT_TYPES.USER_MESSAGE_ECHO]: applyUserEcho,
 };
 
-function isForActiveConversation(state: ConversationState, msg: unknown): boolean {
+function isForActiveConversation(
+	state: ConversationState,
+	msg: unknown,
+): boolean {
 	const eventId = getConversationId(msg);
 	return eventId === null || eventId === state.options.activeId.value;
 }
 
-function isHandledEventType(type: string | null): type is ConversationEventType {
+function isHandledEventType(
+	type: string | null,
+): type is ConversationEventType {
 	return type !== null && Object.hasOwn(EVENT_HANDLERS, type);
 }
 

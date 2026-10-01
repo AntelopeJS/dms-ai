@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import ChatView from '../chat/components/ChatView.vue'
-import { ASSISTANT_SESSION_KEY } from '../runtime/assistant-session'
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import ChatView from "../chat/components/ChatView.vue";
+import { ASSISTANT_SESSION_KEY } from "../runtime/assistant-session";
 import {
 	DMS_OVERLAYS_DOM_ID,
 	OVERLAY_DOM_ID,
@@ -15,30 +15,30 @@ import {
 	SIDECAR_STATUS_CONNECTING,
 	SIDECAR_STATUS_REVIVING,
 	SIDECAR_STATUS_UNAVAILABLE,
-} from '../runtime/constants'
+} from "../runtime/constants";
 
 interface StatusScreen {
-	title: string
-	text: string
-	isBusy: boolean
+	title: string;
+	text: string;
+	isBusy: boolean;
 }
 
 interface ResizeStart {
-	x: number
-	width: number
+	x: number;
+	width: number;
 }
 
-const CLOSE_ICON = 'i-ph-x-light'
-const CLOSE_LABEL = 'Close'
+const CLOSE_ICON = "i-ph-x-light";
+const CLOSE_LABEL = "Close";
 
 const STATUS_SCREENS: Record<string, StatusScreen> = {
 	[SIDECAR_STATUS_CONNECTING]: {
-		title: '',
+		title: "",
 		text: PLACEHOLDER_CONNECTING_TEXT,
 		isBusy: true,
 	},
 	[SIDECAR_STATUS_REVIVING]: {
-		title: '',
+		title: "",
 		text: PLACEHOLDER_REVIVING_TEXT,
 		isBusy: true,
 	},
@@ -47,93 +47,93 @@ const STATUS_SCREENS: Record<string, StatusScreen> = {
 		text: PLACEHOLDER_UNAVAILABLE_TEXT,
 		isBusy: false,
 	},
-}
+};
 
-const session = inject(ASSISTANT_SESSION_KEY, null)
-const panelEl = ref<HTMLElement | null>(null)
-const isOpen = computed(() => session?.panel.isOpen.value === true)
-const hasOpened = ref(isOpen.value)
-const isResizing = ref(false)
-let resizeStart: ResizeStart | null = null
+const session = inject(ASSISTANT_SESSION_KEY, null);
+const panelEl = ref<HTMLElement | null>(null);
+const isOpen = computed(() => session?.panel.isOpen.value === true);
+const hasOpened = ref(isOpen.value);
+const isResizing = ref(false);
+let resizeStart: ResizeStart | null = null;
 
 const statusScreen = computed<StatusScreen | null>(() => {
-	const status = session?.status.value ?? SIDECAR_STATUS_CONNECTING
-	if (status === SIDECAR_STATUS_CONNECTED) return null
-	return STATUS_SCREENS[status] ?? null
-})
+	const status = session?.status.value ?? SIDECAR_STATUS_CONNECTING;
+	if (status === SIDECAR_STATUS_CONNECTED) return null;
+	return STATUS_SCREENS[status] ?? null;
+});
 
 const panelStyle = computed(() => ({
 	width: `${session?.panel.width.value ?? 0}px`,
 	zIndex: OVERLAY_Z_INDEX,
-}))
+}));
 
 watch(isOpen, (open) => {
-	if (open) hasOpened.value = true
-})
+	if (open) hasOpened.value = true;
+});
 
 function onResizeMove(event: PointerEvent): void {
-	if (resizeStart === null) return
-	session?.panel.resize(resizeStart.width + (resizeStart.x - event.clientX))
+	if (resizeStart === null) return;
+	session?.panel.resize(resizeStart.width + (resizeStart.x - event.clientX));
 }
 
 function stopResizing(): void {
-	resizeStart = null
-	isResizing.value = false
-	globalThis.removeEventListener('pointermove', onResizeMove)
-	globalThis.removeEventListener('pointerup', onResizeEnd)
+	resizeStart = null;
+	isResizing.value = false;
+	globalThis.removeEventListener("pointermove", onResizeMove);
+	globalThis.removeEventListener("pointerup", onResizeEnd);
 }
 
 function onResizeEnd(): void {
-	stopResizing()
-	session?.panel.commitWidth()
+	stopResizing();
+	session?.panel.commitWidth();
 }
 
 function startResize(event: PointerEvent): void {
-	if (session === null) return
-	event.preventDefault()
-	resizeStart = { x: event.clientX, width: session.panel.width.value }
-	isResizing.value = true
-	globalThis.addEventListener('pointermove', onResizeMove)
-	globalThis.addEventListener('pointerup', onResizeEnd)
+	if (session === null) return;
+	event.preventDefault();
+	resizeStart = { x: event.clientX, width: session.panel.width.value };
+	isResizing.value = true;
+	globalThis.addEventListener("pointermove", onResizeMove);
+	globalThis.addEventListener("pointerup", onResizeEnd);
 }
 
 function isInside(event: Event, element: HTMLElement | null): boolean {
-	return element !== null && event.composedPath().includes(element)
+	return element !== null && event.composedPath().includes(element);
 }
 
 function isInsidePanelOrDmsOverlays(event: Event): boolean {
 	return (
 		isInside(event, panelEl.value) ||
 		isInside(event, document.getElementById(DMS_OVERLAYS_DOM_ID))
-	)
+	);
 }
 
 function onDocumentPointerDown(event: PointerEvent): void {
-	if (!isOpen.value || panelEl.value === null) return
-	if (isInsidePanelOrDmsOverlays(event)) return
-	session?.panel.closeFromOutside(event.timeStamp)
+	if (!isOpen.value || panelEl.value === null) return;
+	if (isInsidePanelOrDmsOverlays(event)) return;
+	session?.panel.closeFromOutside(event.timeStamp);
 }
 
 function close(): void {
-	session?.panel.close()
+	session?.panel.close();
 }
 
 function navigate(path: string): void {
-	session?.navigate(path)
+	session?.navigate(path);
 }
 
 onMounted(() => {
-	document.addEventListener('pointerdown', onDocumentPointerDown, {
+	document.addEventListener("pointerdown", onDocumentPointerDown, {
 		capture: true,
-	})
-})
+	});
+});
 
 onBeforeUnmount(() => {
-	document.removeEventListener('pointerdown', onDocumentPointerDown, {
+	document.removeEventListener("pointerdown", onDocumentPointerDown, {
 		capture: true,
-	})
-	stopResizing()
-})
+	});
+	stopResizing();
+});
 </script>
 
 <template>
@@ -167,9 +167,9 @@ onBeforeUnmount(() => {
 				<UIcon :name="CLOSE_ICON" class="size-[18px]" />
 			</button>
 			<span v-if="statusScreen.isBusy" class="dms-ai-panel-spinner" />
-			<b v-if="statusScreen.title" class="dms-ai-panel-status-title">{{
-				statusScreen.title
-			}}</b>
+			<b v-if="statusScreen.title" class="dms-ai-panel-status-title">
+				{{ statusScreen.title }}
+			</b>
 			<span class="dms-ai-panel-status-text">{{ statusScreen.text }}</span>
 		</div>
 	</aside>
@@ -191,11 +191,11 @@ onBeforeUnmount(() => {
 	transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.dms-ai-panel[data-open='true'] {
+.dms-ai-panel[data-open="true"] {
 	transform: none;
 }
 
-.dms-ai-panel[data-resizing='true'] {
+.dms-ai-panel[data-resizing="true"] {
 	user-select: none;
 }
 

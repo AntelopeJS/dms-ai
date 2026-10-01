@@ -90,7 +90,10 @@ async function addFiles(files: FileList | File[]): Promise<void> {
 			continue;
 		}
 		try {
-			attachments.value = [...attachments.value, await readFileAsAttachment(file)];
+			attachments.value = [
+				...attachments.value,
+				await readFileAsAttachment(file),
+			];
 		} catch {
 			errorMsg.value = `Could not read "${file.name}".`;
 		}
@@ -224,7 +227,11 @@ function onKeydown(event: KeyboardEvent): void {
 				ref="textareaRef"
 				v-model="draft"
 				class="composer-input"
-				:placeholder="isRunning ? 'Queue a follow-up message…' : 'Ask AntelopeJS to modify this page'"
+				:placeholder="
+					isRunning
+						? 'Queue a follow-up message…'
+						: 'Ask AntelopeJS to modify this page'
+				"
 				rows="1"
 				aria-label="message input"
 				:disabled="isInputDisabled"
@@ -261,18 +268,44 @@ function onKeydown(event: KeyboardEvent): void {
 						<button
 							type="button"
 							class="seg"
-							:class="{ 'seg-active': activeMode === 'safe', 'seg-disabled': !builderAvailable }"
+							:class="{
+								'seg-active': activeMode === 'safe',
+								'seg-disabled': !builderAvailable,
+							}"
 							aria-describedby="dms-ai-composer-tip-safe"
 							:aria-disabled="!builderAvailable"
 							@click="selectGeneration('safe')"
 						>
-							<svg class="seg-ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+							<svg
+								class="seg-ic"
+								viewBox="0 0 24 24"
+								width="13"
+								height="13"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path
+									d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+								/>
+							</svg>
 							Safe code
 						</button>
-						<div id="dms-ai-composer-tip-safe" class="composer-tip" role="tooltip">
+						<div
+							id="dms-ai-composer-tip-safe"
+							class="composer-tip"
+							role="tooltip"
+						>
 							<b>Safe code</b>
-							<p>Acts only through the Builder (MCP) — emits configurations it accepts, never raw code. Predictable diffs, safer deploys.</p>
-							<p v-if="!builderAvailable" class="tip-note">Safe code unlocks once the Builder module is loaded.</p>
+							<p>
+								Acts only through the Builder (MCP) — emits configurations it
+								accepts, never raw code. Predictable diffs, safer deploys.
+							</p>
+							<p v-if="!builderAvailable" class="tip-note">
+								Safe code unlocks once the Builder module is loaded.
+							</p>
 						</div>
 					</div>
 					<div class="mode-opt">
@@ -283,12 +316,40 @@ function onKeydown(event: KeyboardEvent): void {
 							aria-describedby="dms-ai-composer-tip-vibe"
 							@click="selectGeneration('vibe')"
 						>
-							<svg class="seg-ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
+							<svg
+								class="seg-ic"
+								viewBox="0 0 24 24"
+								width="13"
+								height="13"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path
+									d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"
+								/>
+								<path d="m14 7 3 3" />
+								<path d="M5 6v4" />
+								<path d="M19 14v4" />
+								<path d="M10 2v2" />
+								<path d="M7 8H3" />
+								<path d="M21 16h-4" />
+								<path d="M11 3H9" />
+							</svg>
 							Vibe code
 						</button>
-						<div id="dms-ai-composer-tip-vibe" class="composer-tip" role="tooltip">
+						<div
+							id="dms-ai-composer-tip-vibe"
+							class="composer-tip"
+							role="tooltip"
+						>
 							<b>Vibe code</b>
-							<p>Free to write custom code and bespoke pages beyond the Builder's blocks — full creative range.</p>
+							<p>
+								Free to write custom code and bespoke pages beyond the Builder's
+								blocks — full creative range.
+							</p>
 						</div>
 					</div>
 				</div>
@@ -303,7 +364,15 @@ function onKeydown(event: KeyboardEvent): void {
 					:disabled="isDisabled"
 					@click="onStop"
 				>
-					<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+					<svg
+						viewBox="0 0 24 24"
+						width="16"
+						height="16"
+						fill="currentColor"
+						stroke="none"
+					>
+						<rect x="6" y="6" width="12" height="12" rx="2" />
+					</svg>
 				</button>
 				<button
 					type="submit"
@@ -312,7 +381,19 @@ function onKeydown(event: KeyboardEvent): void {
 					:title="isRunning ? 'Queue to send after the current turn' : 'Send'"
 					aria-label="Send"
 				>
-					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+					<svg
+						viewBox="0 0 24 24"
+						width="18"
+						height="18"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<line x1="22" y1="2" x2="11" y2="13" />
+						<polygon points="22 2 15 22 11 13 2 9 22 2" />
+					</svg>
 				</button>
 			</div>
 		</div>
@@ -530,7 +611,9 @@ function onKeydown(event: KeyboardEvent): void {
 	font-weight: 600;
 	color: var(--fg-tertiary);
 	cursor: pointer;
-	transition: background var(--dur-fast), color var(--dur-fast);
+	transition:
+		background var(--dur-fast),
+		color var(--dur-fast);
 }
 
 .seg-ic {

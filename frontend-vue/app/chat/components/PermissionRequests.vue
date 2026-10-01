@@ -77,14 +77,23 @@ function denyAll(): void {
 			</div>
 		</header>
 
-		<article
-			v-for="req in requests"
-			:key="req.requestId"
-			class="perm-card"
-		>
+		<article v-for="req in requests" :key="req.requestId" class="perm-card">
 			<div class="perm-card-top">
 				<span class="perm-icon" aria-hidden="true">
-					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.6 5.6l-6 6a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l6-6a4 4 0 0 0 5.6-5.6l-2.5 2.5-2-2 2.5-2.5z"/></svg>
+					<svg
+						viewBox="0 0 24 24"
+						width="14"
+						height="14"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path
+							d="M14.7 6.3a4 4 0 0 0-5.6 5.6l-6 6a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l6-6a4 4 0 0 0 5.6-5.6l-2.5 2.5-2-2 2.5-2.5z"
+						/>
+					</svg>
 				</span>
 				<div class="perm-card-text">
 					<span class="perm-tool">{{ req.toolName }}</span>
@@ -105,7 +114,9 @@ function denyAll(): void {
 						: PERMISSION_LABELS.ARGS_TOGGLE_SHOW
 				}}
 			</button>
-			<pre v-if="isExpanded(req.requestId)" class="perm-args-pre">{{ argsTextById[req.requestId] }}</pre>
+			<pre v-if="isExpanded(req.requestId)" class="perm-args-pre">{{
+				argsTextById[req.requestId]
+			}}</pre>
 
 			<footer class="perm-actions">
 				<button

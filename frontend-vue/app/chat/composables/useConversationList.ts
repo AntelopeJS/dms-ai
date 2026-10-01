@@ -1,5 +1,8 @@
 import { type Ref, ref } from "vue";
-import { CLIENT_MESSAGE_TYPES, SERVER_EVENT_TYPES } from "../constants/protocol";
+import {
+	CLIENT_MESSAGE_TYPES,
+	SERVER_EVENT_TYPES,
+} from "../constants/protocol";
 import type { ConversationSummary } from "../types/conversation";
 
 export interface UseConversationListOptions {

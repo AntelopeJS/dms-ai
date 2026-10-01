@@ -48,13 +48,30 @@ function toggle(): void {
 			@click="toggle"
 		>
 			<span class="tool-icon" aria-hidden="true">
-				<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.6 5.6l-6 6a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l6-6a4 4 0 0 0 5.6-5.6l-2.5 2.5-2-2 2.5-2.5z"/></svg>
+				<svg
+					viewBox="0 0 24 24"
+					width="14"
+					height="14"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path
+						d="M14.7 6.3a4 4 0 0 0-5.6 5.6l-6 6a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l6-6a4 4 0 0 0 5.6-5.6l-2.5 2.5-2-2 2.5-2.5z"
+					/>
+				</svg>
 			</span>
 			<span class="tool-text">
 				<span class="tool-name">{{ title }}</span>
-				<span v-if="summary.length > 0" class="tool-summary">{{ summary }}</span>
+				<span v-if="summary.length > 0" class="tool-summary">
+					{{ summary }}
+				</span>
 			</span>
-			<span class="tool-status" :data-status="message.status">{{ statusLabel }}</span>
+			<span class="tool-status" :data-status="message.status">
+				{{ statusLabel }}
+			</span>
 			<span class="tool-toggle">{{ isExpanded ? "▾" : "▸" }}</span>
 		</button>
 		<div v-if="isExpanded" class="tool-body">

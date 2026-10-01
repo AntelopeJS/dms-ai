@@ -1,12 +1,12 @@
-import { defineAsyncComponent, type Component } from 'vue'
-import type { DmsFrontendModule } from '#dms/frontend-module'
-import aiPlugin from './app/plugins/ai.client'
+import { defineAsyncComponent, type Component } from "vue";
+import type { DmsFrontendModule } from "#dms/frontend-module";
+import aiPlugin from "./app/plugins/ai.client";
 
 interface VueModule {
-	default: Component
+	default: Component;
 }
 
-const components = import.meta.glob<VueModule>('./app/components/**/*.vue')
+const components = import.meta.glob<VueModule>("./app/components/**/*.vue");
 
 const frontendModule: DmsFrontendModule = {
 	setup(sdk) {
@@ -14,13 +14,13 @@ const frontendModule: DmsFrontendModule = {
 			.sort(([left], [right]) => left.localeCompare(right))
 			.forEach(([path, loader]) => {
 				const name = `DmsAi${path
-					.split('/')
+					.split("/")
 					.at(-1)!
-					.replace(/\.vue$/, '')}`
-				sdk.registerComponent(name, defineAsyncComponent(loader))
-			})
-		sdk.registerPlugin(aiPlugin, { clientOnly: true })
+					.replace(/\.vue$/, "")}`;
+				sdk.registerComponent(name, defineAsyncComponent(loader));
+			});
+		sdk.registerPlugin(aiPlugin, { clientOnly: true });
 	},
-}
+};
 
-export default frontendModule
+export default frontendModule;

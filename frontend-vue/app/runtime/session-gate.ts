@@ -1,4 +1,4 @@
-import { watch } from 'vue'
+import { watch } from "vue";
 
 // Plugins run once, when the Vue app boots, on whatever page the browser landed
 // on. Landing on the sign-in screen means there is no session yet, and signing
@@ -10,13 +10,13 @@ export function runWhenLoggedIn(
 	start: () => void,
 ): () => void {
 	if (isLoggedIn()) {
-		start()
-		return () => undefined
+		start();
+		return () => undefined;
 	}
 	const stop = watch(isLoggedIn, (loggedIn) => {
-		if (!loggedIn) return
-		stop()
-		start()
-	})
-	return stop
+		if (!loggedIn) return;
+		stop();
+		start();
+	});
+	return stop;
 }

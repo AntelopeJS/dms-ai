@@ -1,6 +1,9 @@
 import { type Ref, ref } from "vue";
 import { DEFAULT_SETTINGS } from "../constants/settings";
-import { CLIENT_MESSAGE_TYPES, SERVER_EVENT_TYPES } from "../constants/protocol";
+import {
+	CLIENT_MESSAGE_TYPES,
+	SERVER_EVENT_TYPES,
+} from "../constants/protocol";
 import type {
 	AppSettings,
 	ProviderAvailability,

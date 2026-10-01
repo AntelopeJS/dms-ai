@@ -1,8 +1,8 @@
-import { HOST_COMMAND_NAVIGATE_TYPE, LOG_PREFIX } from './constants'
-import { isTypedMessage } from './typed-message'
+import { HOST_COMMAND_NAVIGATE_TYPE, LOG_PREFIX } from "./constants";
+import { isTypedMessage } from "./typed-message";
 
 interface RouterLike {
-	push: (path: string) => unknown
+	push: (path: string) => unknown;
 }
 
 /**
@@ -11,23 +11,23 @@ interface RouterLike {
  * timeout.
  */
 export interface DevReloadWaiter {
-	awaitRoute: (path: string) => Promise<boolean>
+	awaitRoute: (path: string) => Promise<boolean>;
 }
 
 export interface HostCommandContext {
-	router: RouterLike
-	devReload: DevReloadWaiter
+	router: RouterLike;
+	devReload: DevReloadWaiter;
 }
 
 export interface HostCommandNavigateMessage {
-	type: typeof HOST_COMMAND_NAVIGATE_TYPE
-	path: string
+	type: typeof HOST_COMMAND_NAVIGATE_TYPE;
+	path: string;
 }
 
-export type HostCommandMessage = HostCommandNavigateMessage
+export type HostCommandMessage = HostCommandNavigateMessage;
 
 /** Takes a sidecar message already parsed; anything that is not a host command is ignored. */
-export type HostCommandDispatcher = (msg: unknown) => void
+export type HostCommandDispatcher = (msg: unknown) => void;
 
 /**
  * Commands run one at a time on `tail`. `nextPath` holds the newest navigation
@@ -35,22 +35,22 @@ export type HostCommandDispatcher = (msg: unknown) => void
  * the latest path instead of racing and landing on the oldest one.
  */
 interface DispatcherState {
-	ctx: HostCommandContext
-	tail: Promise<void>
-	nextPath: string | null
+	ctx: HostCommandContext;
+	tail: Promise<void>;
+	nextPath: string | null;
 }
 
 type HostCommandHandler = (
 	msg: HostCommandMessage,
 	state: DispatcherState,
-) => void
+) => void;
 
-const IN_APP_PATH = /^\/(?![/\\])/
+const IN_APP_PATH = /^\/(?![/\\])/;
 
 function enqueue(state: DispatcherState, job: () => Promise<void>): void {
 	state.tail = state.tail.then(job).catch((err: unknown) => {
-		console.error(`${LOG_PREFIX} host command failed`, err)
-	})
+		console.error(`${LOG_PREFIX} host command failed`, err);
+	});
 }
 
 // The agent asks to navigate right after writing the page, while the host is
@@ -64,20 +64,20 @@ async function awaitRouteThenPush(
 	ctx: HostCommandContext,
 ): Promise<void> {
 	try {
-		await ctx.devReload.awaitRoute(path)
+		await ctx.devReload.awaitRoute(path);
 	} catch (err: unknown) {
-		console.error(`${LOG_PREFIX} dev reload wait failed for ${path}`, err)
+		console.error(`${LOG_PREFIX} dev reload wait failed for ${path}`, err);
 	}
-	void ctx.router.push(path)
+	void ctx.router.push(path);
 }
 
 async function runNavigate(state: DispatcherState): Promise<void> {
-	const path = state.nextPath
+	const path = state.nextPath;
 	// A newer navigate already claimed this slot's target: this one is superseded
 	// and must not drag the user back to the older path.
-	if (path === null) return
-	state.nextPath = null
-	await awaitRouteThenPush(path, state.ctx)
+	if (path === null) return;
+	state.nextPath = null;
+	await awaitRouteThenPush(path, state.ctx);
 }
 
 /**
@@ -85,31 +85,28 @@ async function runNavigate(state: DispatcherState): Promise<void> {
  * from model output, so it may only ever lead to a page of this origin.
  */
 export function isInAppPath(path: unknown): path is string {
-	if (typeof path !== 'string' || !IN_APP_PATH.test(path)) return false
+	if (typeof path !== "string" || !IN_APP_PATH.test(path)) return false;
 	try {
-		const origin = globalThis.location.origin
-		return new URL(path, origin).origin === origin
+		const origin = globalThis.location.origin;
+		return new URL(path, origin).origin === origin;
 	} catch {
-		return false
+		return false;
 	}
 }
 
-function handleNavigate(
-	msg: HostCommandMessage,
-	state: DispatcherState,
-): void {
-	if (msg.type !== HOST_COMMAND_NAVIGATE_TYPE) return
+function handleNavigate(msg: HostCommandMessage, state: DispatcherState): void {
+	if (msg.type !== HOST_COMMAND_NAVIGATE_TYPE) return;
 	if (!isInAppPath(msg.path)) {
-		console.warn(`${LOG_PREFIX} refused to navigate off the dashboard`)
-		return
+		console.warn(`${LOG_PREFIX} refused to navigate off the dashboard`);
+		return;
 	}
-	state.nextPath = msg.path
-	enqueue(state, () => runNavigate(state))
+	state.nextPath = msg.path;
+	enqueue(state, () => runNavigate(state));
 }
 
 const COMMAND_HANDLERS: Record<string, HostCommandHandler> = {
 	[HOST_COMMAND_NAVIGATE_TYPE]: handleNavigate,
-}
+};
 
 export function createHostCommandDispatcher(
 	ctx: HostCommandContext,
@@ -118,14 +115,14 @@ export function createHostCommandDispatcher(
 		ctx,
 		tail: Promise.resolve(),
 		nextPath: null,
-	}
+	};
 	return (msg: unknown): void => {
-		if (!isTypedMessage<HostCommandMessage>(msg)) return
-		const handler = COMMAND_HANDLERS[msg.type]
+		if (!isTypedMessage<HostCommandMessage>(msg)) return;
+		const handler = COMMAND_HANDLERS[msg.type];
 		if (handler === undefined) {
-			console.warn(`${LOG_PREFIX} unknown host command type=${msg.type}`)
-			return
+			console.warn(`${LOG_PREFIX} unknown host command type=${msg.type}`);
+			return;
 		}
-		handler(msg, state)
-	}
+		handler(msg, state);
+	};
 }

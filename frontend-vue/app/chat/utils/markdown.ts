@@ -118,7 +118,8 @@ function splitTopLevelBlocks(tokens: Token[]): TopLevelBlock[] {
 	const blocks: TopLevelBlock[] = [];
 	for (const token of tokens) {
 		const map = token.map;
-		const opensBlock = token.level === 0 && token.nesting !== -1 && map !== null;
+		const opensBlock =
+			token.level === 0 && token.nesting !== -1 && map !== null;
 		if (opensBlock) blocks.push({ tokens: [token], startLine: map[0] });
 		else blocks.at(-1)?.tokens.push(token);
 	}
@@ -157,7 +158,10 @@ function renderBlock(block: TopLevelBlock, state: IncrementalState): string {
 	return sanitize(md.renderer.render(block.tokens, md.options, state.env));
 }
 
-function renderIncrement(state: IncrementalState, text: string): MarkdownBlocks {
+function renderIncrement(
+	state: IncrementalState,
+	text: string,
+): MarkdownBlocks {
 	if (!text.startsWith(state.settledSource)) {
 		state.settledSource = "";
 		state.settled = [];

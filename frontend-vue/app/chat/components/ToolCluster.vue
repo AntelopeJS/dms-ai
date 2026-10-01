@@ -67,7 +67,9 @@ const autoOpen = computed<boolean>(
 const isOpen = computed<boolean>(() =>
 	override.value !== null ? override.value : autoOpen.value,
 );
-const isFull = computed<boolean>(() => override.value === true || showAll.value);
+const isFull = computed<boolean>(
+	() => override.value === true || showAll.value,
+);
 
 const visibleTools = computed<ToolCallMessage[]>(() =>
 	isFull.value ? props.tools : props.tools.slice(-TOOL_CLUSTER_VISIBLE_LIMIT),
@@ -111,9 +113,45 @@ function revealEarlier(): void {
 		>
 			<span class="cluster-toggle">{{ isOpen ? "▾" : "▸" }}</span>
 			<span class="cluster-glyph" :data-status="glyphStatus" aria-hidden="true">
-				<svg v-if="glyphStatus === 'pending'" class="cluster-spin" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>
-				<svg v-else-if="glyphStatus === 'error'" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-				<svg v-else viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+				<svg
+					v-if="glyphStatus === 'pending'"
+					class="cluster-spin"
+					viewBox="0 0 24 24"
+					width="13"
+					height="13"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="round"
+				>
+					<path d="M21 12a9 9 0 1 1-6.2-8.6" />
+				</svg>
+				<svg
+					v-else-if="glyphStatus === 'error'"
+					viewBox="0 0 24 24"
+					width="13"
+					height="13"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M18 6 6 18M6 6l12 12" />
+				</svg>
+				<svg
+					v-else
+					viewBox="0 0 24 24"
+					width="13"
+					height="13"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M20 6 9 17l-5-5" />
+				</svg>
 			</span>
 			<span class="cluster-count">{{ countLabel }}</span>
 			<span v-if="!isOpen && headline.length > 0" class="cluster-headline">

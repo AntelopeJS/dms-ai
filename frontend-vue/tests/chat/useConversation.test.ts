@@ -9,7 +9,10 @@ import {
 	TOOL_CUT_SHORT_RESULT,
 	TOOL_STATUS,
 } from "../../app/chat/constants/conversation";
-import { CLIENT_MESSAGE_TYPES, SERVER_EVENT_TYPES } from "../../app/chat/constants/protocol";
+import {
+	CLIENT_MESSAGE_TYPES,
+	SERVER_EVENT_TYPES,
+} from "../../app/chat/constants/protocol";
 import {
 	ACTIVITY_KINDS,
 	QUIET_NOTICE_AFTER_MS,

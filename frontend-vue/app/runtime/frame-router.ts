@@ -1,17 +1,17 @@
-import { HOST_COMMAND_TYPES } from './constants'
-import { isTypedMessage, type TypedMessage } from './typed-message'
+import { HOST_COMMAND_TYPES } from "./constants";
+import { isTypedMessage, type TypedMessage } from "./typed-message";
 
 export interface FrameRoutes {
-	host: (msg: TypedMessage) => void
-	chat: (msg: TypedMessage) => void
+	host: (msg: TypedMessage) => void;
+	chat: (msg: TypedMessage) => void;
 }
 
 function parseFrame(raw: string): TypedMessage | null {
 	try {
-		const parsed: unknown = JSON.parse(raw)
-		return isTypedMessage(parsed) ? parsed : null
+		const parsed: unknown = JSON.parse(raw);
+		return isTypedMessage(parsed) ? parsed : null;
 	} catch {
-		return null
+		return null;
 	}
 }
 
@@ -22,9 +22,9 @@ function parseFrame(raw: string): TypedMessage | null {
  */
 export function createFrameRouter(routes: FrameRoutes): (raw: string) => void {
 	return (raw) => {
-		const msg = parseFrame(raw)
-		if (msg === null) return
-		const route = HOST_COMMAND_TYPES.has(msg.type) ? routes.host : routes.chat
-		route(msg)
-	}
+		const msg = parseFrame(raw);
+		if (msg === null) return;
+		const route = HOST_COMMAND_TYPES.has(msg.type) ? routes.host : routes.chat;
+		route(msg);
+	};
 }

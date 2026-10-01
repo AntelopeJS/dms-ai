@@ -1,10 +1,10 @@
-import { LOG_PREFIX } from './constants'
+import { LOG_PREFIX } from "./constants";
 
-export type Listener<T> = (value: T) => void
+export type Listener<T> = (value: T) => void;
 
 export interface Listeners<T> {
-	add: (listener: Listener<T>) => () => void
-	emit: Listener<T>
+	add: (listener: Listener<T>) => () => void;
+	emit: Listener<T>;
 }
 
 /**
@@ -12,20 +12,20 @@ export interface Listeners<T> {
  * may already be failing: one throwing must not stop the others.
  */
 export function createListeners<T>(): Listeners<T> {
-	const listeners = new Set<Listener<T>>()
+	const listeners = new Set<Listener<T>>();
 	return {
 		add: (listener) => {
-			listeners.add(listener)
-			return () => listeners.delete(listener)
+			listeners.add(listener);
+			return () => listeners.delete(listener);
 		},
 		emit: (value) => {
 			for (const listener of listeners) {
 				try {
-					listener(value)
+					listener(value);
 				} catch (error: unknown) {
-					console.error(`${LOG_PREFIX} listener failed`, error)
+					console.error(`${LOG_PREFIX} listener failed`, error);
 				}
 			}
 		},
-	}
+	};
 }

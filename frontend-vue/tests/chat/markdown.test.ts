@@ -65,7 +65,8 @@ function expectHarmless(html: string): void {
 describe("model output renders as inert markup", () => {
 	const injections: Record<string, string> = {
 		"a raw script": "<script>fetch('/api/_auth/session')</script>",
-		"an image with an error handler": '<img src=x onerror="alert(document.cookie)">',
+		"an image with an error handler":
+			'<img src=x onerror="alert(document.cookie)">',
 		"an svg with a load handler": "<svg onload=alert(1)><circle/></svg>",
 		"an iframe": '<iframe src="https://attacker.example"></iframe>',
 		"a style block dressing up the page":
@@ -77,7 +78,8 @@ describe("model output renders as inert markup", () => {
 		"an entity-encoded javascript link": "[click](&#106;avascript:alert(1))",
 		"a tab-split javascript link": "[click](java\tscript:alert(1))",
 		"a vbscript link": "[click](vbscript:msgbox(1))",
-		"a data: html link": "[click](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)",
+		"a data: html link":
+			"[click](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)",
 		"a javascript autolink": "<javascript:alert(1)>",
 		"a javascript reference link": "[click][x]\n\n[x]: javascript:alert(1)",
 		"a title breaking out of its attribute":
@@ -124,7 +126,9 @@ describe("model output renders as inert markup", () => {
 		);
 		expect(host.querySelector("img")).toBeNull();
 		const link = host.querySelector("a");
-		expect(link?.getAttribute("href")).toBe("https://example.com/chart.png?q=1");
+		expect(link?.getAttribute("href")).toBe(
+			"https://example.com/chart.png?q=1",
+		);
 		expect(link?.textContent).toBe("a chart (example.com)");
 	});
 
@@ -170,7 +174,18 @@ describe("model output renders as inert markup", () => {
 		const host = renderInDocument(
 			"# Title\n\n- **bold** and *em* and ~~gone~~\n- `code`\n\n```ts\nconst a = 1\n```\n\n> quote\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n---",
 		);
-		for (const tag of ["h1", "ul", "strong", "em", "s", "code", "pre", "blockquote", "table", "hr"]) {
+		for (const tag of [
+			"h1",
+			"ul",
+			"strong",
+			"em",
+			"s",
+			"code",
+			"pre",
+			"blockquote",
+			"table",
+			"hr",
+		]) {
 			expect(host.querySelector(tag), tag).not.toBeNull();
 		}
 	});
