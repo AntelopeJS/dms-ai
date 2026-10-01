@@ -1,13 +1,7 @@
-import {
-  type ChildProcess,
-  execFile,
-  execFileSync,
-  spawn,
-} from "node:child_process";
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
 import {
   CODEX_APP_SERVER_COMMAND,
   CODEX_AUTH_FILE_MODE,
@@ -19,7 +13,6 @@ import {
   CODEX_HOME_DIR_NAME,
   CODEX_HOME_ENV_VAR,
   CODEX_HOME_REMOVAL_FAILED_MESSAGE,
-  CODEX_KILL_GRACE_MS,
   CODEX_LOG_PREFIX,
   CODEX_MCP_TOKEN_ENV_VAR,
   CODEX_ORPHAN_POLL_MS,
@@ -31,16 +24,19 @@ import {
   CODEX_STDERR_TAIL_BYTES,
   CODEX_STRICT_CONFIG_FLAG,
   CODEX_SURVIVED_STOP_MESSAGE,
-  CODEX_TERMINATE_GRACE_MS,
   PROCESS_QUERY_BY_PLATFORM,
-  WINDOWS_PLATFORM,
-  WINDOWS_TREE_KILL,
 } from "../../constants/codex.js";
 import { safeDirSegment } from "../../state/safe-segment.js";
 import type { CodexClient, CodexClientHandlers } from "./client.js";
 import { createCodexClient } from "./client.js";
 import { buildAuthFile, buildConfigToml } from "./config.js";
 import type { CodexInstallation } from "./resolve-binary.js";
+import {
+  isWindowsHost,
+  runStopSteps,
+  type StoppedWithin,
+  sweepProcessTree,
+} from "./stop.js";
 
 export interface CodexProcessOptions {
   conversationId: string;
@@ -164,62 +160,6 @@ export function readProcessCommand(pid: number): string | undefined {
 // (`codex.exe`), which carries the binary name just the same.
 export function isCodexProcess(pid: number): boolean {
   return readProcessCommand(pid)?.includes(CODEX_BINARY_NAME) === true;
-}
-
-const execFileAsync = promisify(execFile);
-
-// Windows has no signals: `process.kill` terminates the app-server and leaves
-// whatever it spawned behind, so the tree is killed through taskkill instead.
-async function terminateWindows(pid: number): Promise<void> {
-  const [command, ...args] = WINDOWS_TREE_KILL;
-  await execFileAsync(
-    command,
-    args.map((arg) => arg.replace(CODEX_PID_TOKEN, String(pid))),
-    { windowsHide: true },
-  ).catch(() => undefined);
-}
-
-function sendSignal(pid: number, signal: NodeJS.Signals): void {
-  try {
-    process.kill(pid, signal);
-  } catch {
-    // Already gone.
-  }
-}
-
-interface StopStep {
-  send: (pid: number) => void | Promise<void>;
-  waitMs: number;
-}
-
-type StoppedWithin = (waitMs: number) => Promise<boolean>;
-
-const POSIX_STOP_STEPS: readonly StopStep[] = [
-  {
-    send: (pid) => sendSignal(pid, "SIGTERM"),
-    waitMs: CODEX_TERMINATE_GRACE_MS,
-  },
-  { send: (pid) => sendSignal(pid, "SIGKILL"), waitMs: CODEX_KILL_GRACE_MS },
-];
-const WINDOWS_STOP_STEPS: readonly StopStep[] = [
-  { send: terminateWindows, waitMs: CODEX_KILL_GRACE_MS },
-];
-
-function platformStopSteps(): readonly StopStep[] {
-  return process.platform === WINDOWS_PLATFORM
-    ? WINDOWS_STOP_STEPS
-    : POSIX_STOP_STEPS;
-}
-
-async function runStopSteps(
-  pid: number,
-  stoppedWithin: StoppedWithin,
-): Promise<boolean> {
-  for (const step of platformStopSteps()) {
-    await step.send(pid);
-    if (await stoppedWithin(step.waitMs)) return true;
-  }
-  return false;
 }
 
 function waitUnref(waitMs: number): Promise<void> {
@@ -411,6 +351,7 @@ function spawnChild(
     ],
     {
       stdio: ["pipe", "pipe", "pipe"],
+      detached: !isWindowsHost(),
       env: {
         ...process.env,
         [CODEX_HOME_ENV_VAR]: codexHome,
@@ -539,6 +480,16 @@ async function disposeProcess(teardown: ProcessTeardown): Promise<void> {
   }
 }
 
+/**
+ * A crashed app-server leaves its group behind as surely as a stopped one: what
+ * it started is killed as soon as it exits, whatever the cause.
+ */
+function sweepOnExit(child: ChildProcess): void {
+  const { pid } = child;
+  if (pid === undefined) return;
+  child.once("exit", () => sweepProcessTree(pid));
+}
+
 function buildCodexProcess(teardown: ProcessTeardown): CodexProcess {
   let disposal: Promise<void> | null = null;
   return {
@@ -575,6 +526,7 @@ export async function spawnCodexProcess(
   // Both before any `await` and before the pipe check below: a spawn failure is
   // reported on the next tick, and an unhandled `error` event is fatal.
   const watchdog = watchChild(child, drainStderr(child));
+  sweepOnExit(child);
   if (child.stdin === null || child.stdout === null) {
     throw new Error(`${CODEX_LOG_PREFIX} failed to open app-server pipes`);
   }
