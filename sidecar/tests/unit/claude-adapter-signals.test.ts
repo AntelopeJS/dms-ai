@@ -94,6 +94,7 @@ describe("claude adapter: how a turn ends", () => {
       {
         type: "error",
         message: CLAUDE_TERMINAL_REASON_MESSAGES.prompt_too_long,
+        isRetryable: false,
       },
       { type: "done" },
     ]);

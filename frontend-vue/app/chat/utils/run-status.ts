@@ -1,18 +1,28 @@
 import {
 	ACTIVITY_ELLIPSIS,
+	ACTIVITY_KINDS,
 	ACTIVITY_LABELS,
 	DEFAULT_ACTIVITY_LABEL,
 	QUIET_NOTICE_AFTER_MS,
+	SILENT_ACTIVITIES,
 	STALL_AFTER_MS,
 	TOOL_DETAIL_ACTIVITIES,
 } from "../constants/run-status";
-import type { RunProgress } from "../types/conversation";
+import type { ActivityKind, RunProgress } from "../types/conversation";
 import { toolLabel } from "./tool-summary";
 
 const MS_PER_SECOND = 1_000;
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_WIDTH = 2;
 const DETAIL_SEPARATOR = " · ";
+
+const KNOWN_ACTIVITIES: readonly string[] = Object.values(ACTIVITY_KINDS);
+
+/** A reported activity, read as thinking when this chat does not know it. */
+export function toActivityKind(reported: string): ActivityKind {
+	if (!KNOWN_ACTIVITIES.includes(reported)) return ACTIVITY_KINDS.THINKING;
+	return reported as ActivityKind;
+}
 
 /** A duration as m:ss. */
 export function formatClock(ms: number): string {
@@ -35,7 +45,7 @@ function describeDetail(progress: RunProgress): string {
 /** The line a running turn shows: what the agent is doing, and on what. */
 export function describeActivity(progress: RunProgress | null): string {
 	if (progress === null) return `${DEFAULT_ACTIVITY_LABEL}${ACTIVITY_ELLIPSIS}`;
-	const label = ACTIVITY_LABELS[progress.activity] ?? DEFAULT_ACTIVITY_LABEL;
+	const label = ACTIVITY_LABELS[progress.activity];
 	return `${label}${describeDetail(progress)}${ACTIVITY_ELLIPSIS}`;
 }
 
@@ -66,6 +76,8 @@ export function isAgentQuiet(
 	progress: RunProgress | null,
 	nowMs: number,
 ): boolean {
+	if (progress === null) return false;
+	if (SILENT_ACTIVITIES.includes(progress.activity)) return false;
 	return agentQuietMs(progress, nowMs) >= QUIET_NOTICE_AFTER_MS;
 }
 

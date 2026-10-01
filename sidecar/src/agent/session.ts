@@ -1,13 +1,12 @@
 import {
   INTERRUPT_FALLBACK_MS,
   TURN_SESSION_CLOSED_MESSAGE,
-  TURN_STOPPED_MESSAGE,
   TURN_STREAM_ENDED_MESSAGE,
 } from "../constants/agent.js";
 import { TOOL_EXECUTION_CAP_MS } from "../constants/timing.js";
 import type { AppSettings } from "../state/settings-types.js";
 import type { TurnInput } from "./provider.js";
-import type { RunnerEvent } from "./runner-events.js";
+import type { RunnerError, RunnerEvent } from "./runner-events.js";
 import { idleTimeoutReason, toolCapReason } from "./turn-end-reasons.js";
 
 /**
@@ -18,8 +17,11 @@ export interface SessionControls {
   /** Hands one turn to the backend. Called from inside the turn chain. */
   submitTurn(input: TurnInput): void | Promise<void>;
   interrupt(): void;
-  /** Releases whatever the backend holds between turns. */
-  close(): void;
+  /**
+   * Releases whatever the backend holds between turns, and resolves once it is
+   * released. Never rejects.
+   */
+  close(): Promise<void>;
   applySettings?(settings: AppSettings): void;
 }
 
@@ -27,23 +29,34 @@ export interface AgentSession {
   sendTurn(input: TurnInput, timeoutMs: number): AsyncIterable<RunnerEvent>;
   applySettings(settings: AppSettings): void;
   interrupt(): void;
-  dispose: () => void;
+  /**
+   * Ends a running turn with `reason`, or with the session-closed one, and
+   * resolves once the backend has released everything and that turn has ended.
+   * Every caller gets the same teardown, so a second one never returns ahead of
+   * it.
+   */
+  dispose: (reason?: RunnerError) => Promise<void>;
 }
 
 export interface SessionDeps {
   events: AsyncIterator<RunnerEvent, void>;
   controls: SessionControls;
   abortController: AbortController;
-  onDisposed: () => void;
+  /**
+   * Handed the teardown as well, so whoever drops the session can still wait
+   * for it.
+   */
+  onDisposed: (disposal: Promise<void>) => void;
 }
 
 interface SessionState extends SessionDeps {
-  disposed: boolean;
+  disposal: Promise<void> | null;
   tail: Promise<void>;
   activeTurns: number;
   interruptTimer: ReturnType<typeof setTimeout> | null;
-  /** Why the session was aborted, reported instead of the provider's own wording. */
-  abortReason: string | null;
+  abortOutcome: RunnerEvent | null;
+  aborted: Promise<never>;
+  turnsSettledWaiters: Array<() => void>;
 }
 
 interface TurnTimeout {
@@ -53,23 +66,59 @@ interface TurnTimeout {
   suspend: () => void;
 }
 
-/** Aborts the backend, keeping the first reason given for it. */
-function abortWith(state: SessionState, reason: string): void {
-  if (state.abortReason === null) state.abortReason = reason;
+function isDisposed(state: SessionState): boolean {
+  return state.disposal !== null;
+}
+
+const STOPPED_OUTCOME: RunnerEvent = { type: "done" };
+
+const SESSION_CLOSED_OUTCOME: RunnerError = {
+  type: "error",
+  message: TURN_SESSION_CLOSED_MESSAGE,
+};
+
+function errorOutcome(message: string): RunnerError {
+  return { type: "error", message };
+}
+
+function rejectOnAbort(signal: AbortSignal): Promise<never> {
+  const aborted = new Promise<never>((_resolve, reject) => {
+    const rejectWithReason = (): void => reject(signal.reason);
+    if (signal.aborted) rejectWithReason();
+    signal.addEventListener("abort", rejectWithReason, { once: true });
+  });
+  aborted.catch(() => undefined);
+  return aborted;
+}
+
+function whenTurnsSettled(state: SessionState): Promise<void> {
+  if (state.activeTurns === 0) return Promise.resolve();
+  return new Promise((resolve) => state.turnsSettledWaiters.push(resolve));
+}
+
+function abortWith(state: SessionState, outcome: RunnerEvent): void {
+  if (state.abortOutcome === null) state.abortOutcome = outcome;
   state.abortController.abort();
 }
 
-function disposeSession(state: SessionState): void {
-  if (state.disposed) return;
-  state.disposed = true;
+function disposeSession(
+  state: SessionState,
+  reason: RunnerError = SESSION_CLOSED_OUTCOME,
+): Promise<void> {
+  if (state.disposal !== null) return state.disposal;
   clearInterruptFallback(state);
-  state.controls.close();
-  abortWith(state, TURN_SESSION_CLOSED_MESSAGE);
-  state.onDisposed();
+  const released = state.controls.close();
+  const disposal = Promise.all([released, whenTurnsSettled(state)]).then(
+    () => undefined,
+  );
+  state.disposal = disposal;
+  abortWith(state, reason);
+  state.onDisposed(disposal);
+  return disposal;
 }
 
 function applySettings(state: SessionState, settings: AppSettings): void {
-  if (state.disposed) return;
+  if (isDisposed(state)) return;
   state.controls.applySettings?.(settings);
 }
 
@@ -85,14 +134,14 @@ function clearInterruptFallback(state: SessionState): void {
 // (or the turn is mid-tool and won't settle), a fallback hard-aborts after a
 // grace window so Stop can never silently hang.
 function interrupt(state: SessionState): void {
-  if (state.disposed) return;
+  if (isDisposed(state)) return;
   if (state.activeTurns === 0) return;
   state.controls.interrupt();
   clearInterruptFallback(state);
   state.interruptTimer = setTimeout(() => {
     state.interruptTimer = null;
-    if (state.disposed || state.activeTurns === 0) return;
-    abortWith(state, TURN_STOPPED_MESSAGE);
+    if (isDisposed(state) || state.activeTurns === 0) return;
+    abortWith(state, STOPPED_OUTCOME);
   }, INTERRUPT_FALLBACK_MS);
 }
 
@@ -101,43 +150,33 @@ function interrupt(state: SessionState): void {
 // runs for a long time is never aborted — only one that goes fully silent for
 // the whole window (a genuine hang) is.
 function armTurnTimeout(state: SessionState, timeoutMs: number): TurnTimeout {
-  const idleReason = idleTimeoutReason(timeoutMs);
-  const toolReason = toolCapReason(TOOL_EXECUTION_CAP_MS);
+  const idleOutcome = errorOutcome(idleTimeoutReason(timeoutMs));
+  const toolOutcome = errorOutcome(toolCapReason(TOOL_EXECUTION_CAP_MS));
   let timer: ReturnType<typeof setTimeout>;
-  const arm = (delayMs: number, reason: string): void => {
-    timer = setTimeout(() => abortWith(state, reason), delayMs);
+  const arm = (delayMs: number, outcome: RunnerEvent): void => {
+    timer = setTimeout(() => abortWith(state, outcome), delayMs);
   };
-  arm(timeoutMs, idleReason);
+  arm(timeoutMs, idleOutcome);
   return {
     clear: () => clearTimeout(timer),
     reset: () => {
       clearTimeout(timer);
-      arm(timeoutMs, idleReason);
+      arm(timeoutMs, idleOutcome);
     },
     suspend: () => {
       clearTimeout(timer);
-      arm(TOOL_EXECUTION_CAP_MS, toolReason);
+      arm(TOOL_EXECUTION_CAP_MS, toolOutcome);
     },
   };
 }
 
 function buildErrorEvent(state: SessionState, err: unknown): RunnerEvent {
-  if (state.abortReason !== null) {
-    return { type: "error", message: state.abortReason };
-  }
-  const message = err instanceof Error ? err.message : String(err);
-  return { type: "error", message };
+  if (state.abortOutcome !== null) return state.abortOutcome;
+  return errorOutcome(err instanceof Error ? err.message : String(err));
 }
 
-/**
- * A provider stream that ends before `done` would otherwise end the turn with
- * no terminal event at all, and the chat would wait for one forever.
- */
 function buildStreamEndedEvent(state: SessionState): RunnerEvent {
-  return {
-    type: "error",
-    message: state.abortReason ?? TURN_STREAM_ENDED_MESSAGE,
-  };
+  return state.abortOutcome ?? errorOutcome(TURN_STREAM_ENDED_MESSAGE);
 }
 
 const OUTSTANDING_TOOL_DELTAS: Record<string, number> = {
@@ -150,13 +189,6 @@ function countOutstanding(outstanding: number, event: RunnerEvent): number {
   return Math.max(0, outstanding + delta);
 }
 
-/**
- * Re-arms the timer after an event. Without an outstanding tool, any event —
- * provider activity included — proves the agent alive and restarts the idle
- * window. While a tool runs, the far longer tool cap is armed again only by a
- * real turn event: progress reported by the running tool itself never extends
- * it, so a tool whose result never comes back still ends the turn.
- */
 function rearmAfter(
   timeout: TurnTimeout,
   event: RunnerEvent,
@@ -169,6 +201,14 @@ function rearmAfter(
   if (event.type !== "activity") timeout.suspend();
 }
 
+function nextUnlessAborted(
+  state: SessionState,
+): Promise<IteratorResult<RunnerEvent, void>> {
+  const next = state.events.next();
+  next.catch(() => undefined);
+  return Promise.race([next, state.aborted]);
+}
+
 async function* readTurn(
   state: SessionState,
   timeout: TurnTimeout,
@@ -177,15 +217,15 @@ async function* readTurn(
   while (true) {
     let result: IteratorResult<RunnerEvent, void>;
     try {
-      result = await state.events.next();
+      result = await nextUnlessAborted(state);
     } catch (err) {
       yield buildErrorEvent(state, err);
-      disposeSession(state);
+      void disposeSession(state);
       return;
     }
     if (result.done) {
       yield buildStreamEndedEvent(state);
-      disposeSession(state);
+      void disposeSession(state);
       return;
     }
     const event = result.value;
@@ -196,20 +236,36 @@ async function* readTurn(
   }
 }
 
-async function* runTurn(
+function settleTurns(state: SessionState): void {
+  clearInterruptFallback(state);
+  const waiters = state.turnsSettledWaiters.splice(0);
+  for (const resolve of waiters) resolve();
+}
+
+async function* readArmedTurn(
   state: SessionState,
-  input: TurnInput,
   timeoutMs: number,
 ): AsyncIterable<RunnerEvent> {
-  await state.controls.submitTurn(input);
-  state.activeTurns += 1;
   const timeout = armTurnTimeout(state, timeoutMs);
   try {
     yield* readTurn(state, timeout);
   } finally {
     timeout.clear();
+  }
+}
+
+async function* runTurn(
+  state: SessionState,
+  input: TurnInput,
+  timeoutMs: number,
+): AsyncIterable<RunnerEvent> {
+  state.activeTurns += 1;
+  try {
+    await state.controls.submitTurn(input);
+    yield* readArmedTurn(state, timeoutMs);
+  } finally {
     state.activeTurns -= 1;
-    if (state.activeTurns === 0) clearInterruptFallback(state);
+    if (state.activeTurns === 0) settleTurns(state);
   }
 }
 
@@ -244,16 +300,18 @@ function sendTurn(
 export function createAgentSession(deps: SessionDeps): AgentSession {
   const state: SessionState = {
     ...deps,
-    disposed: false,
+    disposal: null,
     tail: Promise.resolve(),
     activeTurns: 0,
     interruptTimer: null,
-    abortReason: null,
+    abortOutcome: null,
+    aborted: rejectOnAbort(deps.abortController.signal),
+    turnsSettledWaiters: [],
   };
   return {
     sendTurn: (input, timeoutMs) => sendTurn(state, input, timeoutMs),
     applySettings: (settings) => applySettings(state, settings),
     interrupt: () => interrupt(state),
-    dispose: () => disposeSession(state),
+    dispose: (reason) => disposeSession(state, reason),
   };
 }

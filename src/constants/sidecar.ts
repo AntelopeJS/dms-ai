@@ -26,5 +26,10 @@ export const SIDECAR_BACKEND_URL_FLAG = "--backend-url";
 export const SIDECAR_HOST_ORIGIN_FLAG = "--host-origin";
 export const MODULE_ROOTS_TIMEOUT_MS = 3_000;
 export const SIDECAR_DIST_EXTENSION = ".js";
+export const SIDECAR_BUILD_ID_HASH_ALGORITHM = "sha256";
 export const SIDECAR_LOOPBACK_HOST = "127.0.0.1";
 export const SIDECAR_AUTH_HEADER = "x-dms-ai-token";
+
+/** Answer of a route that needs the sidecar while it cannot be reached. */
+export const SIDECAR_UNAVAILABLE_STATUS = 503;
+export const SIDECAR_UNAVAILABLE_BODY = { error: "sidecar_unavailable" };

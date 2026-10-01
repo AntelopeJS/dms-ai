@@ -27,6 +27,7 @@ import {
 	JSON_CONTENT_TYPE,
 	SIDECAR_INFO_PATH,
 	SIDECAR_STATUS_CONNECTED,
+	VISIBILITY_CHANGE_EVENT,
 } from '../runtime/constants'
 import {
 	buildCurrentPageUpdate,
@@ -104,18 +105,26 @@ function createAssistantChannel(deps: ChannelDeps): AssistantChannel {
  * HTTP/1.1 connections to the dashboard are shared by every tab, and the DMS
  * already keeps two of them per tab.
  */
-function followPanel(panel: ChatPanelState, client: ChannelClient): void {
+function followPanel(panel: ChatPanelState, client: ChannelClient): () => void {
 	let stopTimer: ReturnType<typeof setTimeout> | null = null
-	const follow = (): void => {
+	const clearStopTimer = (): void => {
 		if (stopTimer !== null) clearTimeout(stopTimer)
 		stopTimer = null
+	}
+	const follow = (): void => {
+		clearStopTimer()
 		const isNeeded = panel.isOpen.value && document.visibilityState === 'visible'
 		if (isNeeded) client.start()
 		else stopTimer = setTimeout(() => client.stop(), CHANNEL_IDLE_STOP_MS)
 	}
-	watch(panel.isOpen, follow)
-	document.addEventListener('visibilitychange', follow)
+	const stopWatchingPanel = watch(panel.isOpen, follow)
+	document.addEventListener(VISIBILITY_CHANGE_EVENT, follow)
 	follow()
+	return () => {
+		clearStopTimer()
+		stopWatchingPanel()
+		document.removeEventListener(VISIBILITY_CHANGE_EVENT, follow)
+	}
 }
 
 /**
@@ -188,13 +197,15 @@ async function startAssistant({ vueApp }: DmsAppContext): Promise<void> {
 	registerChatPanel()
 	installToggleShortcut({ onToggle: panel.toggle })
 	registerLauncherAction(panel.toggleFromLauncher)
-	followPanel(panel, client)
-	const stop = installHostState(client)
-	vueApp.onUnmount(() => {
-		stop()
+	const stopFollowing = followPanel(panel, client)
+	const stopHostState = installHostState(client)
+	const teardown = (): void => {
+		stopFollowing()
+		stopHostState()
 		client.stop()
-	})
-	import.meta.hot?.dispose(stop)
+	}
+	vueApp.onUnmount(teardown)
+	import.meta.hot?.dispose(teardown)
 }
 
 /**

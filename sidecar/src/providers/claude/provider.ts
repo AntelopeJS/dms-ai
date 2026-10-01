@@ -59,10 +59,6 @@ import {
   type PermissionDecision,
   SDK_PERMISSION_BEHAVIOR,
 } from "../../constants/permissions.js";
-import {
-  SAFE_MODE_DENIED_MESSAGE,
-  SAFE_MODE_DISALLOWED_TOOLS,
-} from "../../constants/settings.js";
 import { readProjectInfo } from "../../host/project-info.js";
 import type { AiMcpServer } from "../../mcp/types.js";
 import { buildSkillCatalog } from "../../skills/build-catalog.js";
@@ -76,9 +72,10 @@ import type {
 import type { TokenUsage } from "../../state/types.js";
 import { extractTokenUsage, messageToEvents } from "./adapter.js";
 import { buildTurnContent, type TurnContent } from "./attachments.js";
-import { PERMISSION_MODE_BY_MODE, THINKING_TOKENS } from "./config.js";
+import { resolvePermissionMode, THINKING_TOKENS } from "./config.js";
 import { createInputQueue, type InputQueue } from "./input-queue.js";
 import { resolveClaudeBinary } from "./resolve-binary.js";
+import { buildSafeModeHooks, type SdkHooks } from "./safe-mode.js";
 import { type LoadedSdk, loadSdk } from "./sdk-loader.js";
 
 export type ClaudeRunner = AgentRunner;
@@ -94,6 +91,7 @@ interface PromptOptions {
   settingSources: SettingSource[];
   includePartialMessages: boolean;
   permissionMode: PermissionMode;
+  hooks: SdkHooks;
   thinking: ThinkingConfig;
   pathToClaudeCodeExecutable?: string;
   canUseTool?: CanUseTool;
@@ -113,6 +111,7 @@ interface SkillLoadout {
 
 interface PromptOptionsInput {
   systemPrompt: string;
+  hooks: SdkHooks;
   canUseTool: CanUseTool | undefined;
   mcpServer: AiMcpServer | undefined;
   settings: AppSettings;
@@ -125,22 +124,19 @@ function buildThinkingConfig(settings: AppSettings): ThinkingConfig {
   return { type: "enabled", budgetTokens: THINKING_TOKENS[settings.thinking] };
 }
 
-function buildBasePromptOptions(
-  systemPrompt: string,
-  settings: AppSettings,
-  abortController: AbortController,
-): PromptOptions {
+function buildBasePromptOptions(input: PromptOptionsInput): PromptOptions {
   const base: PromptOptions = {
     systemPrompt: {
       type: SYSTEM_PROMPT_PRESET_TYPE,
       preset: SYSTEM_PROMPT_PRESET_NAME,
-      append: systemPrompt,
+      append: input.systemPrompt,
     },
     settingSources: SDK_SETTING_SOURCES_ISOLATED,
     includePartialMessages: SDK_INCLUDE_PARTIAL_MESSAGES,
-    permissionMode: PERMISSION_MODE_BY_MODE[settings.mode],
-    thinking: buildThinkingConfig(settings),
-    abortController,
+    permissionMode: resolvePermissionMode(input.settings),
+    hooks: input.hooks,
+    thinking: buildThinkingConfig(input.settings),
+    abortController: input.abortController,
   };
   const claudeBinary = resolveClaudeBinary();
   if (claudeBinary === undefined) return base;
@@ -154,11 +150,7 @@ function buildMcpServersMap(
 }
 
 function buildPromptOptions(input: PromptOptionsInput): PromptOptions {
-  const base = buildBasePromptOptions(
-    input.systemPrompt,
-    input.settings,
-    input.abortController,
-  );
+  const base = buildBasePromptOptions(input);
   const withTool =
     input.canUseTool === undefined
       ? base
@@ -252,15 +244,6 @@ function isFirstPartyMcpTool(toolName: string): boolean {
   return FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES.has(toolName);
 }
 
-const SAFE_MODE_BLOCKED_TOOLS = new Set(SAFE_MODE_DISALLOWED_TOOLS);
-
-function buildSafeModeDenyResult(): SdkPermissionDeny {
-  return {
-    behavior: SDK_PERMISSION_BEHAVIOR.DENY,
-    message: SAFE_MODE_DENIED_MESSAGE,
-  };
-}
-
 function buildAskUserRedirectResult(): SdkPermissionDeny {
   return {
     behavior: SDK_PERMISSION_BEHAVIOR.DENY,
@@ -274,7 +257,6 @@ interface CanUseToolDeps {
   conversationId: string;
   readRoots: string[];
   cwd: string;
-  getGenerationMode: () => GenerationMode;
   onDecision?: (toolName: string, decision: PermissionDecision) => void;
 }
 
@@ -283,7 +265,6 @@ function buildCanUseTool({
   conversationId,
   readRoots,
   cwd,
-  getGenerationMode,
   onDecision,
 }: CanUseToolDeps): CanUseTool {
   return (toolName, input) => {
@@ -292,14 +273,6 @@ function buildCanUseTool({
     // permission prompt the host can't show.
     if (toolName === ASK_USER_QUESTION_BUILTIN_TOOL_NAME) {
       return Promise.resolve(buildAskUserRedirectResult());
-    }
-    // Enforced live (not baked per session) so a safe/vibe flip mid-conversation
-    // takes effect on the next tool call without discarding the session.
-    if (
-      getGenerationMode() === "safe" &&
-      SAFE_MODE_BLOCKED_TOOLS.has(toolName)
-    ) {
-      return Promise.resolve(buildSafeModeDenyResult());
     }
     // The module's own MCP tools (the FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES set)
     // are first-party — the documented workflow drives them constantly — so
@@ -321,7 +294,6 @@ function resolveCanUseTool(
   ctx: ProviderSessionContext,
   moduleRoots: string[],
   skillRoots: string[],
-  getGenerationMode: () => GenerationMode,
 ): CanUseTool | undefined {
   if (ctx.permissionBus === undefined) return undefined;
   // Skill source dirs are auto-allowed for read-only tools too, so the agent can
@@ -335,7 +307,6 @@ function resolveCanUseTool(
     conversationId: ctx.conversationId,
     readRoots,
     cwd: ctx.hostProjectRoot,
-    getGenerationMode,
     onDecision: ctx.onPermissionDecision,
   });
 }
@@ -347,14 +318,14 @@ interface ProviderConfig {
   skillDirs: SkillSource[];
 }
 
-// Mutable settings cell shared by the session and the permission callback, so a
-// safe/vibe flip is seen by `canUseTool` without rebuilding the SDK options.
+// Mutable settings cell shared by the session and the safe-mode hook, so a
+// safe/vibe flip is seen by the hook without rebuilding the SDK options.
 interface LiveSettings {
   settings: AppSettings;
 }
 
 // The Claude half of a session: the SDK stream, the prompt queue it consumes,
-// and the settings cell the permission callback reads live.
+// and the settings cell the safe-mode hook reads live.
 interface ClaudeBackend {
   output: Query;
   queue: InputQueue;
@@ -431,7 +402,7 @@ function applyBackendSettings(
 ): void {
   backend.live.settings = settings;
   void backend.output
-    .setPermissionMode(PERMISSION_MODE_BY_MODE[settings.mode])
+    .setPermissionMode(resolvePermissionMode(settings))
     .catch(() => undefined);
   void backend.output
     .setMaxThinkingTokens(THINKING_TOKENS[settings.thinking])
@@ -444,7 +415,10 @@ function buildSessionControls(backend: ClaudeBackend): SessionControls {
     interrupt: () => {
       void backend.output.interrupt().catch(() => undefined);
     },
-    close: () => backend.queue.close(),
+    close: () => {
+      backend.queue.close();
+      return Promise.resolve();
+    },
     applySettings: (settings) => applyBackendSettings(backend, settings),
   };
 }
@@ -474,11 +448,11 @@ async function buildSessionOptions(
   );
   return buildPromptOptions({
     systemPrompt: await buildSessionPrompt(ctx),
+    hooks: buildSafeModeHooks(() => activeGenerationMode(live)),
     canUseTool: resolveCanUseTool(
       ctx,
       config.moduleRoots,
       skillSources.map((s) => s.dir),
-      () => activeGenerationMode(live),
     ),
     mcpServer: ctx.mcpServer,
     settings: ctx.settings,
@@ -516,7 +490,7 @@ async function createProviderSession(
   return {
     runTurn: (input, settings) => runTurn(state, input, settings),
     interrupt: () => state.session.interrupt(),
-    dispose: () => state.session.dispose(),
+    dispose: (reason) => state.session.dispose(reason),
     applySettings: (settings) => state.session.applySettings(settings),
   };
 }

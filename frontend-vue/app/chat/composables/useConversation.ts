@@ -26,6 +26,7 @@ import type { PermissionRequestData } from "../types/permission";
 import type { QuestionData, QuestionRequestData } from "../types/question";
 import { type PendingAttachment, splitDataUrl } from "../utils/attachments";
 import { newUuid } from "../utils/ids";
+import { toActivityKind } from "../utils/run-status";
 
 export interface UseConversationOptions {
 	activeId: Ref<string>;
@@ -61,6 +62,7 @@ interface SnapshotMessage {
 	callId?: string;
 	status?: string;
 	attachments?: MessageAttachment[];
+	isRetryable?: boolean;
 	timestampMs: number;
 }
 
@@ -90,6 +92,7 @@ interface RunErrorEvent {
 	type: typeof SERVER_EVENT_TYPES.RUN_ERROR;
 	conversationId: string;
 	error: string;
+	isRetryable?: boolean;
 }
 
 interface RunProgressEvent {
@@ -173,6 +176,10 @@ function buildUserMessage(
 		attachments,
 		timestampMs: Date.now(),
 	};
+}
+
+function markUnsent(message: UserMessage, isSent: boolean): UserMessage {
+	return isSent ? message : { ...message, isUnsent: true };
 }
 
 function buildAssistantMessage(text: string): AssistantMessage {
@@ -322,7 +329,13 @@ function appendSnapshotItem(
 		return;
 	}
 	if (item.role === STORED_ERROR_ROLE) {
-		out.push(buildErrorMessage(item.content, item.timestampMs));
+		out.push(
+			buildErrorMessage(
+				item.content,
+				item.isRetryable ?? true,
+				item.timestampMs,
+			),
+		);
 		return;
 	}
 	if (item.role === MESSAGE_ROLES.ASSISTANT) {
@@ -341,11 +354,6 @@ function appendSnapshotItem(
 	}
 }
 
-/**
- * The transcript as stored, with any tool left without a result marked as cut
- * short: the snapshot never belongs to a live turn, whose own tools the replay
- * that follows reopens.
- */
 function snapshotToMessages(snap: SnapshotMessage[]): ConversationMessage[] {
 	const out: ConversationMessage[] = [];
 	const toolByCallId = new Map<string, ToolCallMessage>();
@@ -355,12 +363,17 @@ function snapshotToMessages(snap: SnapshotMessage[]): ConversationMessage[] {
 	return settlePendingTools(out);
 }
 
-function buildErrorMessage(error: string, timestampMs?: number): ErrorMessage {
+function buildErrorMessage(
+	error: string,
+	isRetryable: boolean,
+	timestampMs: number = Date.now(),
+): ErrorMessage {
 	return {
 		id: newId(),
 		role: MESSAGE_ROLES.ERROR,
 		content: error,
-		timestampMs: timestampMs ?? Date.now(),
+		isRetryable,
+		timestampMs,
 	};
 }
 
@@ -368,7 +381,6 @@ function isPendingTool(msg: ConversationMessage): msg is ToolCallMessage {
 	return msg.role === MESSAGE_ROLES.TOOL && msg.status === TOOL_STATUS.PENDING;
 }
 
-/** Marks the tools a finished run left open, so none keeps spinning. */
 function settlePendingTools(
 	list: ConversationMessage[],
 ): ConversationMessage[] {
@@ -381,7 +393,7 @@ function settlePendingTools(
 
 function toRunProgress(event: RunProgressEvent): RunProgress {
 	return {
-		activity: event.activity,
+		activity: toActivityKind(event.activity),
 		detail: event.detail,
 		elapsedMs: event.elapsedMs,
 		idleMs: event.idleMs,
@@ -401,10 +413,6 @@ function lastUserMessage(list: ConversationMessage[]): UserMessage | undefined {
 	return undefined;
 }
 
-/**
- * The files of a sent message as they can be sent again, or null when one of
- * them only survives as metadata (the transcript was reloaded since).
- */
 function toResendableAttachments(
 	attachments: MessageAttachment[] | undefined,
 ): PendingAttachment[] | null {
@@ -475,8 +483,12 @@ function appendMessage(
 	state.messages.value = [...state.messages.value, message];
 }
 
-function appendError(state: ConversationState, error: string): void {
-	appendMessage(state, buildErrorMessage(error));
+function appendError(
+	state: ConversationState,
+	error: string,
+	isRetryable = true,
+): void {
+	appendMessage(state, buildErrorMessage(error, isRetryable));
 }
 
 function expectTurn(state: ConversationState): void {
@@ -594,7 +606,7 @@ const EVENT_HANDLERS: Record<string, EventHandler> = {
 	},
 	[SERVER_EVENT_TYPES.RUN_ERROR]: (state, event: RunErrorEvent) => {
 		endTurn(state);
-		appendError(state, event.error);
+		appendError(state, event.error, event.isRetryable ?? true);
 		settleOrKeepRunning(state);
 	},
 	[SERVER_EVENT_TYPES.RUN_PROGRESS]: applyProgress,
@@ -667,10 +679,6 @@ function startTurn(
 	content: string,
 	attachments: PendingAttachment[],
 ): void {
-	appendMessage(
-		state,
-		buildUserMessage(content, withAttachments(toLocalAttachments(attachments))),
-	);
 	const wire = toWireAttachments(attachments);
 	const isSent = state.options.send({
 		type: CLIENT_MESSAGE_TYPES.USER_MESSAGE,
@@ -678,6 +686,11 @@ function startTurn(
 		content,
 		...(wire.length > 0 ? { attachments: wire } : {}),
 	});
+	const message = buildUserMessage(
+		content,
+		withAttachments(toLocalAttachments(attachments)),
+	);
+	appendMessage(state, markUnsent(message, isSent));
 	if (!isSent) {
 		appendError(state, NOT_SENT_MESSAGE);
 		return;
@@ -711,8 +724,13 @@ function retry(state: ConversationState): void {
 	if (last === undefined) return;
 	const attachments = toResendableAttachments(last.attachments);
 	if (attachments === null) {
-		appendError(state, RETRY_NEEDS_FILES_MESSAGE);
+		appendError(state, RETRY_NEEDS_FILES_MESSAGE, false);
 		return;
+	}
+	if (last.isUnsent === true) {
+		state.messages.value = state.messages.value.filter(
+			(msg) => msg.id !== last.id,
+		);
 	}
 	sendUserMessage(state, last.content, attachments);
 }

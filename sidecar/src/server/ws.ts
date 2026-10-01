@@ -2,6 +2,7 @@ import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { type WebSocket, WebSocketServer } from "ws";
 import { createEditTracker, type EditTracker } from "../agent/edit-tracker.js";
+import { effectiveChatboxMode } from "../agent/effective-mode.js";
 import {
   createPermissionBus,
   type PendingRequest,
@@ -19,6 +20,7 @@ import {
   type ProviderRunnerFactory,
 } from "../agent/switching-runner.js";
 import { buildToolSummary } from "../agent/tool-summary.js";
+import { TURN_RESTARTED_REASON } from "../agent/turn-end-reasons.js";
 import { WS_MAX_PAYLOAD_BYTES } from "../constants/attachments.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import { WS_LOG_PREFIX, WS_PATH } from "../constants/ws.js";
@@ -303,7 +305,9 @@ export function attachWsServer(
   const createMcpServer = buildMcpServerFactory(createMcpDeps);
   const settingsStore = options.settingsStore ?? NOOP_SETTINGS_STORE;
   const initialSettings = settingsStore.get();
-  permissionBus.setAutoApprove(initialSettings.mode === "auto");
+  permissionBus.setAutoApprove(
+    effectiveChatboxMode(initialSettings) === "auto",
+  );
   const config: RoutingConfig = {
     hostProjectRoot: options.hostProjectRoot,
     conversationStore: options.conversationStore,
@@ -334,8 +338,9 @@ export function attachWsServer(
   return {
     close: async () => {
       httpServer.removeListener("upgrade", onUpgrade);
-      config.runner.dispose();
+      const disposal = config.runner.dispose(TURN_RESTARTED_REASON);
       await closeWss(wss);
+      await disposal;
     },
   };
 }

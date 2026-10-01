@@ -1,11 +1,13 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CODEX_CLIENT_NAME,
+  CODEX_CONFIG_FILE_NAME,
   CODEX_OWNED_SKILL_SCOPES,
+  CODEX_PID_REGISTRY_FILE,
   CODEX_SPAWN_FAILED_MESSAGE,
 } from "../../src/constants/codex.js";
 import {
@@ -19,6 +21,12 @@ import {
   resolveCodexInstallation,
 } from "../../src/providers/codex/resolve-binary.js";
 import { selectSkillsToDisable } from "../../src/providers/codex/skills.js";
+import { isRunning } from "../helpers/processes.js";
+import {
+  CODEX_FIXTURE,
+  type CodexSigtermBehaviour,
+  codexOnSigterm,
+} from "../helpers/provider-fixtures.js";
 
 const installation = resolveCodexInstallation();
 const TMP_PREFIX = "dms-ai-codex-";
@@ -210,6 +218,121 @@ describe("codex app-server spawn failure", () => {
         process.off("uncaughtException", onUncaught);
         await rm(stateDir, { recursive: true, force: true });
       }
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+});
+
+interface SigtermCase {
+  behaviour: CodexSigtermBehaviour;
+  story: string;
+}
+
+const SIGTERM_CASES: SigtermCase[] = [
+  { behaviour: "linger", story: "keeps writing into its home after SIGTERM" },
+  { behaviour: "ignore", story: "ignores SIGTERM until it is killed" },
+];
+
+async function readPidRegistry(stateDir: string): Promise<unknown> {
+  const raw = await readFile(join(stateDir, CODEX_PID_REGISTRY_FILE), "utf8");
+  return JSON.parse(raw);
+}
+
+// Not gated on the extension: the mock stands in for an app-server that is
+// still writing into its home when it is told to stop, which the real one does
+// too briefly to be caught on purpose.
+describe("codex app-server teardown", () => {
+  const HANDSHAKE_BUDGET_MS = 10_000;
+  let stateDir: string | undefined;
+  let running: CodexProcess | undefined;
+
+  afterEach(async () => {
+    await running?.dispose();
+    running = undefined;
+    CODEX_FIXTURE.reset();
+    if (stateDir !== undefined)
+      await rm(stateDir, { recursive: true, force: true });
+    stateDir = undefined;
+  });
+
+  async function spawnMock(dir: string): Promise<CodexProcess> {
+    const mock = resolveCodexInstallation();
+    if (mock === undefined) throw new Error("the mock binary did not resolve");
+    const spawned = await spawnCodexProcess({
+      conversationId: CONVERSATION,
+      stateDir: dir,
+      installation: mock,
+      mcpUrl: MCP_URL,
+      mcpToken: FAKE_TOKEN,
+      hostProjectRoot: dir,
+      apiKey: FAKE_API_KEY,
+      handlers: {
+        onNotification: () => {},
+        onServerRequest: async () => ({}),
+      },
+    });
+    // Answered only once the mock runs, so its SIGTERM handler is in place.
+    await spawned.client.request(
+      "initialize",
+      {},
+      { timeoutMs: HANDSHAKE_BUDGET_MS },
+    );
+    return spawned;
+  }
+
+  it.each(SIGTERM_CASES)(
+    "resolves dispose only once an app-server that $story is gone, then removes its home",
+    async ({ behaviour }) => {
+      CODEX_FIXTURE.use("simple");
+      codexOnSigterm(behaviour);
+      stateDir = await mkdtemp(join(tmpdir(), TMP_PREFIX));
+      running = await spawnMock(stateDir);
+      const { pid, codexHome } = running;
+      expect(isRunning(pid)).toBe(true);
+
+      await running.dispose();
+      expect(isRunning(pid)).toBe(false);
+      expect(existsSync(codexHome)).toBe(false);
+      expect(await readPidRegistry(stateDir)).toEqual([]);
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it(
+    "hands every caller the same teardown",
+    async () => {
+      CODEX_FIXTURE.use("simple");
+      codexOnSigterm("linger");
+      stateDir = await mkdtemp(join(tmpdir(), TMP_PREFIX));
+      running = await spawnMock(stateDir);
+      const { pid } = running;
+
+      const first = running.dispose();
+      await running.dispose();
+      expect(isRunning(pid)).toBe(false);
+      await first;
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  // Same conversation, same home path: the previous teardown, still waiting for
+  // its process, must not remove the home the reopened one was just given.
+  it(
+    "prepares a reopened conversation's home only once the previous app-server let go of it",
+    async () => {
+      CODEX_FIXTURE.use("simple");
+      codexOnSigterm("ignore");
+      stateDir = await mkdtemp(join(tmpdir(), TMP_PREFIX));
+      const previous = await spawnMock(stateDir);
+      const released = previous.dispose();
+      codexOnSigterm("die");
+      running = await spawnMock(stateDir);
+      await released;
+
+      expect(running.codexHome).toBe(previous.codexHome);
+      expect(existsSync(join(running.codexHome, CODEX_CONFIG_FILE_NAME))).toBe(
+        true,
+      );
     },
     SPAWN_TIMEOUT_MS,
   );

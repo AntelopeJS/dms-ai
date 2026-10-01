@@ -1,7 +1,13 @@
-import { type ChildProcess, execFileSync, spawn } from "node:child_process";
+import {
+  type ChildProcess,
+  execFile,
+  execFileSync,
+  spawn,
+} from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import {
   CODEX_APP_SERVER_COMMAND,
   CODEX_AUTH_FILE_MODE,
@@ -12,14 +18,18 @@ import {
   CODEX_EXITED_MESSAGE,
   CODEX_HOME_DIR_NAME,
   CODEX_HOME_ENV_VAR,
+  CODEX_HOME_REMOVAL_FAILED_MESSAGE,
+  CODEX_KILL_GRACE_MS,
   CODEX_LOG_PREFIX,
   CODEX_MCP_TOKEN_ENV_VAR,
   CODEX_PID_REGISTRY_FILE,
+  CODEX_PID_RELEASE_FAILED_MESSAGE,
   CODEX_PID_TOKEN,
   CODEX_PROC_CMDLINE,
   CODEX_SPAWN_FAILED_MESSAGE,
   CODEX_STDERR_TAIL_BYTES,
   CODEX_STRICT_CONFIG_FLAG,
+  CODEX_SURVIVED_STOP_MESSAGE,
   CODEX_TERMINATE_GRACE_MS,
   PROCESS_QUERY_BY_PLATFORM,
   WINDOWS_PLATFORM,
@@ -46,6 +56,10 @@ export interface CodexProcess {
   client: CodexClient;
   codexHome: string;
   pid: number | undefined;
+  /**
+   * Stops the app-server and removes its home, in that order: resolves once the
+   * process has exited and its files are gone. Never rejects.
+   */
   dispose: () => Promise<void>;
 }
 
@@ -129,40 +143,95 @@ export function isCodexProcess(pid: number): boolean {
   return readProcessCommand(pid)?.includes(CODEX_BINARY_NAME) === true;
 }
 
+const execFileAsync = promisify(execFile);
+
 // Windows has no signals: `process.kill` terminates the app-server and leaves
 // whatever it spawned behind, so the tree is killed through taskkill instead.
-function terminateWindows(pid: number): void {
+async function terminateWindows(pid: number): Promise<void> {
   const [command, ...args] = WINDOWS_TREE_KILL;
+  await execFileAsync(
+    command,
+    args.map((arg) => arg.replace(CODEX_PID_TOKEN, String(pid))),
+    { windowsHide: true },
+  ).catch(() => undefined);
+}
+
+function sendSignal(pid: number, signal: NodeJS.Signals): void {
   try {
-    execFileSync(
-      command,
-      args.map((arg) => arg.replace(CODEX_PID_TOKEN, String(pid))),
-      { windowsHide: true, stdio: "ignore" },
-    );
+    process.kill(pid, signal);
   } catch {
-    // Already gone, or never ours to kill.
+    // Already gone.
   }
 }
 
-function terminatePosix(pid: number): void {
-  try {
-    process.kill(pid, "SIGTERM");
-  } catch {
-    return;
-  }
-  setTimeout(() => {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // Already gone.
-    }
-  }, CODEX_TERMINATE_GRACE_MS).unref();
+interface StopStep {
+  send: (pid: number) => void | Promise<void>;
+  waitMs: number;
 }
 
-function terminate(pid: number): void {
-  const kill =
-    process.platform === WINDOWS_PLATFORM ? terminateWindows : terminatePosix;
-  kill(pid);
+type StoppedWithin = (waitMs: number) => Promise<boolean>;
+
+const POSIX_STOP_STEPS: readonly StopStep[] = [
+  {
+    send: (pid) => sendSignal(pid, "SIGTERM"),
+    waitMs: CODEX_TERMINATE_GRACE_MS,
+  },
+  { send: (pid) => sendSignal(pid, "SIGKILL"), waitMs: CODEX_KILL_GRACE_MS },
+];
+const WINDOWS_STOP_STEPS: readonly StopStep[] = [
+  { send: terminateWindows, waitMs: CODEX_KILL_GRACE_MS },
+];
+
+function platformStopSteps(): readonly StopStep[] {
+  return process.platform === WINDOWS_PLATFORM
+    ? WINDOWS_STOP_STEPS
+    : POSIX_STOP_STEPS;
+}
+
+async function runStopSteps(
+  pid: number,
+  stoppedWithin: StoppedWithin,
+): Promise<boolean> {
+  for (const step of platformStopSteps()) {
+    await step.send(pid);
+    if (await stoppedWithin(step.waitMs)) return true;
+  }
+  return false;
+}
+
+function waitUnref(waitMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, waitMs).unref());
+}
+
+function orphanGoneWithin(pid: number): StoppedWithin {
+  return async (waitMs) => {
+    await waitUnref(waitMs);
+    return !isCodexProcess(pid);
+  };
+}
+
+function hasExited(child: ChildProcess): boolean {
+  return child.exitCode !== null || child.signalCode !== null;
+}
+
+function exitsWithin(child: ChildProcess, waitMs: number): Promise<boolean> {
+  if (hasExited(child)) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const onExit = (): void => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    const timer = setTimeout(() => {
+      child.off("exit", onExit);
+      resolve(false);
+    }, waitMs);
+    child.once("exit", onExit);
+  });
+}
+
+async function stopChild(child: ChildProcess, pid: number): Promise<boolean> {
+  if (hasExited(child)) return true;
+  return runStopSteps(pid, (waitMs) => exitsWithin(child, waitMs));
 }
 
 /**
@@ -176,7 +245,7 @@ export async function reapOrphanCodexProcesses(
   const recorded = await readPidRegistry(stateDir);
   if (recorded.length === 0) return [];
   const killed = recorded.filter(isCodexProcess);
-  for (const pid of killed) terminate(pid);
+  for (const pid of killed) void runStopSteps(pid, orphanGoneWithin(pid));
   await updateRegistry(stateDir, () => []);
   if (killed.length > 0) {
     console.warn(
@@ -216,8 +285,20 @@ function forgetPid(stateDir: string, pid: number): Promise<void> {
   );
 }
 
+const releasingHomes = new Map<string, Promise<void>>();
+
+function trackRelease(codexHome: string, release: Promise<void>): void {
+  releasingHomes.set(codexHome, release);
+  void release.then(() => {
+    if (releasingHomes.get(codexHome) === release) {
+      releasingHomes.delete(codexHome);
+    }
+  });
+}
+
 async function prepareCodexHome(options: CodexProcessOptions): Promise<string> {
   const codexHome = codexHomeFor(options.stateDir, options.conversationId);
+  await releasingHomes.get(codexHome);
   await rm(codexHome, { recursive: true, force: true });
   mkdirSync(codexHome, { recursive: true });
   await writeFile(
@@ -323,6 +404,59 @@ function watchChild(child: ChildProcess, stderr: StderrTail): Watchdog {
   };
 }
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function retireChild(
+  stateDir: string,
+  child: ChildProcess,
+): Promise<boolean> {
+  const { pid } = child;
+  if (pid === undefined) return true;
+  if (!(await stopChild(child, pid))) {
+    console.warn(`${CODEX_LOG_PREFIX} ${CODEX_SURVIVED_STOP_MESSAGE} ${pid}`);
+    return false;
+  }
+  await forgetPid(stateDir, pid).catch((error: unknown) => {
+    console.warn(
+      `${CODEX_LOG_PREFIX} ${CODEX_PID_RELEASE_FAILED_MESSAGE} ${pid}: ${describeError(error)}`,
+    );
+  });
+  return true;
+}
+
+// The whole home goes, not just sessions/: a fresh home already carries state,
+// logs, memories, goals and queue databases, all of which end up holding the
+// client's code.
+async function removeHome(codexHome: string): Promise<void> {
+  await rm(codexHome, { recursive: true, force: true }).catch(
+    (error: unknown) => {
+      console.error(
+        `${CODEX_LOG_PREFIX} ${CODEX_HOME_REMOVAL_FAILED_MESSAGE} ${codexHome}: ${describeError(error)}`,
+      );
+    },
+  );
+}
+
+interface ProcessTeardown {
+  stateDir: string;
+  codexHome: string;
+  client: CodexClient;
+  watchdog: Watchdog;
+  child: ChildProcess;
+}
+
+async function disposeProcess(teardown: ProcessTeardown): Promise<void> {
+  teardown.watchdog.markDisposed();
+  teardown.client.abort(
+    new Error(`${CODEX_LOG_PREFIX} ${CODEX_CLIENT_ABORTED_MESSAGE}`),
+  );
+  if (await retireChild(teardown.stateDir, teardown.child)) {
+    await removeHome(teardown.codexHome);
+  }
+}
+
 export async function spawnCodexProcess(
   options: CodexProcessOptions,
 ): Promise<CodexProcess> {
@@ -339,26 +473,22 @@ export async function spawnCodexProcess(
   const pid = child.pid;
   if (pid !== undefined) await recordPid(options.stateDir, pid);
 
-  let disposed = false;
+  let disposal: Promise<void> | null = null;
   return {
     client,
     codexHome,
     pid,
-    dispose: async () => {
-      if (disposed) return;
-      disposed = true;
-      watchdog.markDisposed();
-      client.abort(
-        new Error(`${CODEX_LOG_PREFIX} ${CODEX_CLIENT_ABORTED_MESSAGE}`),
-      );
-      if (pid !== undefined) {
-        terminate(pid);
-        await forgetPid(options.stateDir, pid);
-      }
-      // The whole home goes, not just sessions/: a fresh home already carries
-      // state, logs, memories, goals and queue databases, all of which end up
-      // holding the client's code.
-      await rm(codexHome, { recursive: true, force: true });
+    dispose: () => {
+      if (disposal !== null) return disposal;
+      disposal = disposeProcess({
+        stateDir: options.stateDir,
+        codexHome,
+        client,
+        watchdog,
+        child,
+      });
+      trackRelease(codexHome, disposal);
+      return disposal;
     },
   };
 }

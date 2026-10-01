@@ -5,6 +5,7 @@ import {
   type EditTracker,
   extractEditedFilePath,
 } from "../agent/edit-tracker.js";
+import { effectiveChatboxMode } from "../agent/effective-mode.js";
 import type { PendingRequest, PermissionBus } from "../agent/permission-bus.js";
 import type { PendingQuestion, QuestionBus } from "../agent/question-bus.js";
 import type { AgentRunner, RunnerContext } from "../agent/runner.js";
@@ -291,6 +292,7 @@ const RUNNER_EVENT_MAPPERS: {
     type: EVENT_TYPES.RUN_ERROR,
     conversationId: cid,
     error: ev.message,
+    isRetryable: ev.isRetryable,
   }),
   activity: () => null,
 };
@@ -337,6 +339,7 @@ const RUNNER_EVENT_PERSISTERS: {
   error: (ev, nowMs) => ({
     role: "error",
     content: ev.message,
+    isRetryable: ev.isRetryable,
     timestampMs: nowMs,
   }),
   activity: () => null,
@@ -797,7 +800,7 @@ function handleDeleteConversation(
   ctx.permissionBus.forgetConversation(msg.conversationId);
   ctx.questionBus.cancelConversation(msg.conversationId);
   ctx.editTracker.clear(msg.conversationId);
-  ctx.runner.disposeSession(msg.conversationId);
+  void ctx.runner.disposeSession(msg.conversationId);
   ctx.liveTurns.end(msg.conversationId);
   ctx.pendingQueue.clear(msg.conversationId);
   sendConversationList(socket, ctx);
@@ -818,7 +821,7 @@ export function applySettings(
   next: AppSettings,
 ): void {
   deps.settingsStore.set(next);
-  deps.permissionBus.setAutoApprove(next.mode === "auto");
+  deps.permissionBus.setAutoApprove(effectiveChatboxMode(next) === "auto");
   deps.runner.applySettings(next);
   deps.iframeSocketRegistry.broadcast({
     type: EVENT_TYPES.SETTINGS_UPDATE,

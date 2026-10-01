@@ -6,6 +6,7 @@ import {
 	ROLE_LABELS,
 } from "../constants/conversation";
 import {
+	ACTIVITY_KINDS,
 	QUIET_LABEL,
 	RECONNECT_LABEL,
 	STALLED_LABEL,
@@ -42,13 +43,33 @@ interface Props {
 	stalledForMs: number;
 }
 
+interface Emits {
+	retry: [];
+	reconnect: [];
+	stop: [];
+}
+
+type TextMessage = UserMessage | AssistantMessage | ErrorMessage;
+
+interface MessageRenderItem {
+	kind: "message";
+	key: string;
+	message: TextMessage;
+}
+
+interface ToolsRenderItem {
+	kind: "tools";
+	key: string;
+	tools: ToolCallMessage[];
+}
+
+type RenderItem = MessageRenderItem | ToolsRenderItem;
+
 const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
 
 /** Named in this file so the renderer's icon scan bundles it. */
 const ATTACH_FILE_ICON = "i-ph-file";
-const emit = defineEmits<{ retry: []; reconnect: []; stop: [] }>();
-
-const RESPONDING_ACTIVITY = "responding";
 
 const ROLE_LABEL_BY_ROLE: Record<string, string> = {
 	[MESSAGE_ROLES.USER]: ROLE_LABELS.USER,
@@ -56,14 +77,6 @@ const ROLE_LABEL_BY_ROLE: Record<string, string> = {
 	[MESSAGE_ROLES.ASSISTANT]: ROLE_LABELS.ASSISTANT,
 	[MESSAGE_ROLES.TOOL]: ROLE_LABELS.TOOL,
 };
-
-type RenderItem =
-	| {
-			kind: "message";
-			key: string;
-			message: UserMessage | AssistantMessage | ErrorMessage;
-	  }
-	| { kind: "tools"; key: string; tools: ToolCallMessage[] };
 
 /**
  * Each run of adjacent tool calls folds into a single cluster, so a busy turn
@@ -112,7 +125,7 @@ const lastToolKey = computed<string | null>(() => {
 
 const showActivity = computed<boolean>(() => {
 	if (!props.isRunning) return false;
-	if (props.progress?.activity !== RESPONDING_ACTIVITY) return true;
+	if (props.progress?.activity !== ACTIVITY_KINDS.RESPONDING) return true;
 	const last = props.messages.at(-1);
 	return last === undefined || last.role !== MESSAGE_ROLES.ASSISTANT;
 });
@@ -144,9 +157,7 @@ function roleLabel(role: string): string {
 	return ROLE_LABEL_BY_ROLE[role] ?? role;
 }
 
-function userAttachments(
-	message: UserMessage | AssistantMessage | ErrorMessage,
-): MessageAttachment[] {
+function userAttachments(message: TextMessage): MessageAttachment[] {
 	if (message.role !== MESSAGE_ROLES.USER) return [];
 	return message.attachments ?? [];
 }
@@ -219,7 +230,11 @@ function formatTime(ms: number): string {
 				>
 					<p class="error-text">{{ item.message.content }}</p>
 					<button
-						v-if="!isRunning && item.message.id === lastErrorId"
+						v-if="
+							!isRunning &&
+							item.message.isRetryable &&
+							item.message.id === lastErrorId
+						"
 						type="button"
 						class="run-action"
 						@click="emit('retry')"

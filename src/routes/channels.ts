@@ -11,6 +11,7 @@ import {
 import { AuthOwnerOnly, AuthRawUser } from "@antelopejs/interface-dms/auth";
 import type { User } from "@antelopejs/interface-dms/auth/db";
 import { openChannel, postChannelMessage } from "../channels/channel-service";
+import { MessageBudget } from "../channels/message-budget";
 import {
   CHANNEL_EVENTS_ROUTE,
   CHANNEL_MESSAGE_MAX_BYTES,
@@ -38,6 +39,7 @@ export class AIChannelController extends Controller(CHANNEL_ROUTE_PREFIX) {
   @Post(CHANNEL_MESSAGES_ROUTE)
   messages(
     @Parameter(CONNECTION_ID_PARAM, "param") connectionId: string,
+    @MessageBudget() _budget: void,
     @RawBody(CHANNEL_MESSAGE_MAX_BYTES) body: Buffer,
     @AuthRawUser() user: User,
   ): Promise<HTTPResult> {

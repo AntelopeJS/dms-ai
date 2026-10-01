@@ -6,7 +6,7 @@ import type { CurrentPage } from "../state/host-state.js";
 import type { AppSettings } from "../state/settings-types.js";
 import type { TokenUsage } from "../state/types.js";
 import type { PermissionBus } from "./permission-bus.js";
-import type { RunnerEvent } from "./runner-events.js";
+import type { RunnerError, RunnerEvent } from "./runner-events.js";
 
 /**
  * A user turn before any provider-specific rendering. `text` is already grounded
@@ -41,8 +41,11 @@ export interface ProviderSessionContext {
    * Providers that do not report usage never call it.
    */
   onTokenUsage?: (usage: TokenUsage) => void;
-  /** Called when the session tears itself down, so the runner can drop it. */
-  onDisposed: () => void;
+  /**
+   * Called when the session tears itself down, so the runner can drop it, with
+   * the teardown so the runner can still wait for it.
+   */
+  onDisposed: (disposal: Promise<void>) => void;
 }
 
 /**
@@ -52,7 +55,11 @@ export interface ProviderSessionContext {
 export interface ProviderSession {
   runTurn(input: TurnInput, settings: AppSettings): AsyncIterable<RunnerEvent>;
   interrupt(): void;
-  dispose(): void;
+  /**
+   * Resolves once the backend has released everything and a turn still running
+   * has ended, with `reason` when given. Never rejects.
+   */
+  dispose(reason?: RunnerError): Promise<void>;
   /**
    * Optional in-place settings update. Takes effect at the latest on the next
    * turn; providers that only read settings per turn may omit it.

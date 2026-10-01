@@ -45,7 +45,6 @@ const SKILL_EVIDENCE: Record<ProviderName, (skillDir: string) => string> = {
   claude: () => SKILL_NAME,
   codex: (skillDir) => skillDir,
 };
-const PROCESS_EXIT_MS = 500;
 
 async function readPidRegistry(stateDir: string): Promise<number[]> {
   try {
@@ -351,7 +350,6 @@ describe("recipe — session on codex only", () => {
       client = undefined;
       await harness?.close();
       harness = undefined;
-      await new Promise((done) => setTimeout(done, PROCESS_EXIT_MS));
       expect(await readPidRegistry(stateDir)).toEqual([]);
       expect(existsSync(`/proc/${before[0]}`)).toBe(false);
     },

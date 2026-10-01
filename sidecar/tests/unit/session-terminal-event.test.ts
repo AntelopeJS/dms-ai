@@ -3,9 +3,11 @@ import type { RunnerEvent } from "../../src/agent/runner-events.js";
 import { createAgentSession } from "../../src/agent/session.js";
 import {
   idleTimeoutReason,
+  TURN_RESTARTED_REASON,
   toolCapReason,
 } from "../../src/agent/turn-end-reasons.js";
 import {
+  INTERRUPT_FALLBACK_MS,
   TURN_SESSION_CLOSED_MESSAGE,
   TURN_STREAM_ENDED_MESSAGE,
 } from "../../src/constants/agent.js";
@@ -91,20 +93,38 @@ function buildSession(events: ScriptedEvent[], endsAfterScript: boolean) {
   const abortController = new AbortController();
   const session = createAgentSession({
     events: scriptedEvents(events, abortController.signal, endsAfterScript),
-    controls: { submitTurn: () => {}, interrupt: () => {}, close: () => {} },
+    controls: {
+      submitTurn: () => {},
+      interrupt: () => {},
+      close: () => Promise.resolve(),
+    },
     abortController,
     onDisposed: () => {},
   });
   return { session, abortController };
 }
 
+function buildDeafSession() {
+  return createAgentSession({
+    events: { next: () => new Promise(() => {}) },
+    controls: {
+      submitTurn: () => {},
+      interrupt: () => {},
+      close: () => Promise.resolve(),
+    },
+    abortController: new AbortController(),
+    onDisposed: () => {},
+  });
+}
+
 async function drain(
   session: ReturnType<typeof buildSession>["session"],
   seen: RunnerEvent[],
+  idleTimeoutMs = IDLE_TIMEOUT_MS,
 ): Promise<void> {
   for await (const event of session.sendTurn(
     { text: "go", attachments: [] },
-    IDLE_TIMEOUT_MS,
+    idleTimeoutMs,
   )) {
     seen.push(event);
   }
@@ -132,11 +152,34 @@ describe("every turn ends with a terminal event", () => {
     const { session } = buildSession([], false);
     const seen: RunnerEvent[] = [];
     const running = drain(session, seen);
-    session.dispose();
+    await session.dispose();
     await running;
     expect(seen).toEqual([
       { type: "error", message: TURN_SESSION_CLOSED_MESSAGE },
     ]);
+  });
+
+  it("ends the turn with the reason it was disposed with, before the disposal resolves", async () => {
+    const session = buildDeafSession();
+    const seen: RunnerEvent[] = [];
+    const running = drain(session, seen);
+    await Promise.resolve();
+    await session.dispose(TURN_RESTARTED_REASON);
+    expect(seen).toEqual([TURN_RESTARTED_REASON]);
+    await running;
+  });
+
+  it("ends a stop the provider ignored as done, not as an error", async () => {
+    vi.useFakeTimers();
+    const { session, abortController } = buildSession([], false);
+    const seen: RunnerEvent[] = [];
+    const running = drain(session, seen, INTERRUPT_FALLBACK_MS * 2);
+    await vi.advanceTimersByTimeAsync(0);
+    session.interrupt();
+    await vi.advanceTimersByTimeAsync(INTERRUPT_FALLBACK_MS + 1);
+    await running;
+    expect(abortController.signal.aborted).toBe(true);
+    expect(seen).toEqual([{ type: "done" }]);
   });
 
   it("names the idle window it waited for", async () => {

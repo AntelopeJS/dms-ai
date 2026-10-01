@@ -20,6 +20,7 @@ export const CHANNEL_EVENT_FRAME = 'message'
  * gives back its one of the browser's six HTTP/1.1 connections to the dashboard.
  */
 export const CHANNEL_IDLE_STOP_MS = 2_000
+export const VISIBILITY_CHANGE_EVENT = 'visibilitychange'
 export const EVENT_STREAM_TYPE = 'text/event-stream'
 export const JSON_CONTENT_TYPE = 'application/json'
 export const CHANNEL_RECONNECT_DELAYS_MS = [
@@ -66,7 +67,7 @@ export const TOGGLE_SHORTCUT_KEY = 'k'
 export const MODAL_OPEN_SELECTOR = '[role="dialog"][aria-modal="true"]'
 
 // Generic header-action registry exposed by the DMS core (dms-back). Any module
-// can push a button by writing to this shared Nuxt state key; the core renders
+// can push a button by writing to this shared `useDmsState` key; the core renders
 // it with no knowledge of who registered it.
 export const HEADER_ACTIONS_STATE_KEY = 'dms:header-actions'
 /**

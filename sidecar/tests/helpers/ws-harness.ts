@@ -31,7 +31,7 @@ import type { ProviderName } from "../../src/state/types.js";
 export const CLIENT_TOKEN = "ws-harness-test-credential";
 
 const TMP_PREFIX = "dms-ai-harness-";
-const STATE_FILE = "state.json";
+export const STATE_FILE = "state.json";
 const ARBITRARY_PORT = 0;
 const WS_HOST = "127.0.0.1";
 const WS_PATH = "/ws";
@@ -51,6 +51,8 @@ export interface WsHarness {
   tmpDir: string;
   conversationStore: ConversationStore;
   settingsStore: SettingsStore;
+  /** Stops the stack the way the sidecar's graceful shutdown does, files kept. */
+  shutdown: () => Promise<void>;
   close: () => Promise<void>;
 }
 
@@ -174,6 +176,10 @@ export async function startWsHarness(
     tmpDir,
     conversationStore,
     settingsStore,
+    shutdown: async () => {
+      await ws.close();
+      await conversationStore.flush();
+    },
     close: async () => {
       await ws.close();
       await mcpHttpRegistry.dispose();

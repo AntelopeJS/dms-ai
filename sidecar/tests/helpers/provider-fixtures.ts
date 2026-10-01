@@ -96,6 +96,7 @@ const codexFixture: ProviderFixture = {
     delete process.env.MOCK_CODEX;
     delete process.env.MOCK_CODEX_SCRIPT;
     delete process.env.MOCK_CODEX_TRACE;
+    delete process.env.MOCK_CODEX_ON_SIGTERM;
     if (!injectedApiKey) return;
     delete process.env.OPENAI_API_KEY;
     injectedApiKey = false;
@@ -153,6 +154,18 @@ export function traceCodexInto(file: string): void {
   process.env.MOCK_CODEX_TRACE = file;
 }
 
+/**
+ * How the fake app-server takes its SIGTERM: `die` on the spot, as the real one
+ * does and the mock does by default; `linger`, writing into its home for a
+ * moment before exiting; or `ignore` it, writing until it is killed. Read when
+ * the process is spawned.
+ */
+export type CodexSigtermBehaviour = "die" | "linger" | "ignore";
+
+export function codexOnSigterm(behaviour: CodexSigtermBehaviour): void {
+  process.env.MOCK_CODEX_ON_SIGTERM = behaviour;
+}
+
 const TRACE_ARMERS: Record<ProviderName, (file: string) => void> = {
   claude: (file) => {
     process.env.MOCK_CLAUDE_TRACE = file;
@@ -175,19 +188,26 @@ export function readTrace(provider: ProviderName, file: string): string {
   return JSON.stringify(TRACE_READERS[provider](file));
 }
 
-export interface TracedClaudeSession {
+export interface TracedClaudeEntry {
   kind: string;
   plugins?: { path: string }[];
   skills?: string[];
+  permissionMode?: string;
+  name?: string;
+  decidedBy?: string;
+  isAllowed?: boolean;
 }
 
-/** What the SDK was asked to load, the Claude counterpart of the Codex trace. */
-export function readClaudeTrace(file: string): TracedClaudeSession[] {
+/**
+ * What the SDK was asked to load, the permission mode it was switched to and
+ * which layer decided each tool call: the Claude counterpart of the Codex trace.
+ */
+export function readClaudeTrace(file: string): TracedClaudeEntry[] {
   try {
     return readFileSync(file, "utf8")
       .split("\n")
       .filter((line) => line.trim() !== "")
-      .map((line) => JSON.parse(line) as TracedClaudeSession);
+      .map((line) => JSON.parse(line) as TracedClaudeEntry);
   } catch {
     return [];
   }

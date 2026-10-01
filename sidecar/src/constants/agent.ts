@@ -17,10 +17,11 @@ export const TURN_STREAM_ENDED_MESSAGE =
 
 /** Why a turn ended: its session was torn down while the turn was running. */
 export const TURN_SESSION_CLOSED_MESSAGE =
-  "The run was stopped because the assistant session was closed (sidecar restart, provider switch or deleted conversation).";
+  "The run was stopped because the assistant session was closed (provider switch or deleted conversation).";
 
-/** Why a turn ended: Stop was pressed and the provider ignored the interrupt. */
-export const TURN_STOPPED_MESSAGE = "The run was stopped.";
+/** Why a turn ended: the sidecar shut down, to be replaced, while it ran. */
+export const TURN_RESTARTED_MESSAGE =
+  "The assistant restarted before finishing.";
 
 /**
  * What a running turn is busy with, carried by `activity` runner events: the

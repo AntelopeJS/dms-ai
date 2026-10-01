@@ -336,13 +336,13 @@ async function createProviderSession(
       close: () => {
         stream.end();
         void options.mcpHttpRegistry.release(ctx.conversationId);
-        void codexProcess.dispose();
+        return codexProcess.dispose();
       },
     },
     abortController,
-    onDisposed: () => {
+    onDisposed: (disposal) => {
       live.delete(ctx.conversationId);
-      ctx.onDisposed();
+      ctx.onDisposed(disposal);
     },
   });
 
@@ -352,7 +352,7 @@ async function createProviderSession(
       return session.sendTurn(input, resolveTimeoutMs(options));
     },
     interrupt: () => session.interrupt(),
-    dispose: () => session.dispose(),
+    dispose: (reason) => session.dispose(reason),
     applySettings: (settings) => {
       backend.live.settings = settings;
     },
@@ -367,7 +367,7 @@ function evictOverflow(live: Map<string, ProviderSession>): void {
     if (oldest.done === true) return;
     const session = live.get(oldest.value);
     live.delete(oldest.value);
-    session?.dispose();
+    if (session !== undefined) void session.dispose();
   }
 }
 

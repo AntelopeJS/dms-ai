@@ -127,7 +127,6 @@ function scheduleRetry(state: ClientState): void {
 	}, delay)
 }
 
-/** The stream ended or failed: the sidecar sockets behind it are gone too. */
 function lose(state: ClientState): void {
 	state.connectionId = null
 	state.queue = []

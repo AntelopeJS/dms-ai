@@ -1,4 +1,7 @@
-import type { SettingSource } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  SettingSource,
+  TerminalReason,
+} from "@anthropic-ai/claude-agent-sdk";
 import type { ActivityKind } from "../agent/runner-events.js";
 
 // The agent SDK the provider drives. Resolved by specifier rather than imported
@@ -18,6 +21,9 @@ export const SYSTEM_PROMPT_PRESET_TYPE = "preset" as const;
 export const SYSTEM_PROMPT_PRESET_NAME = "claude_code" as const;
 export const SDK_SETTING_SOURCES_ISOLATED: SettingSource[] = [];
 export const SDK_INCLUDE_PARTIAL_MESSAGES = true;
+
+/** The hook event the CLI raises before any permission check of a tool call. */
+export const PRE_TOOL_USE_HOOK_EVENT = "PreToolUse" as const;
 
 // Generated skill plugin wrappers live under the sidecar state dir, never the
 // repo. The loader passes these as `plugins:[{type:'local'}]` alongside an
@@ -77,19 +83,27 @@ export const CLAUDE_RESULT_SUCCESS_SUBTYPE = "success";
  * Terminal reasons of a turn the user stopped. The SDK reports them as an
  * `error_during_execution` result, yet nothing failed: Stop was pressed.
  */
-export const CLAUDE_STOPPED_TERMINAL_REASONS = [
+export const CLAUDE_STOPPED_TERMINAL_REASONS: readonly TerminalReason[] = [
   "aborted_streaming",
   "aborted_tools",
 ];
 
+/** Terminal reasons that sending the same request again cannot get past. */
+export const CLAUDE_UNRETRYABLE_TERMINAL_REASONS: readonly TerminalReason[] = [
+  "prompt_too_long",
+];
+
+const CLAUDE_USAGE_LIMIT_MESSAGE =
+  "The model's usage limit has been reached. Try again once it resets.";
+
 /** Readable reasons for the terminal reasons a user can act on. */
-export const CLAUDE_TERMINAL_REASON_MESSAGES: Record<string, string> = {
+export const CLAUDE_TERMINAL_REASON_MESSAGES: Partial<
+  Record<TerminalReason, string>
+> = {
   prompt_too_long:
     "The conversation no longer fits in the model's context (a large attachment or a long history). Start a new conversation, or attach a smaller file or only the part that matters.",
-  blocking_limit:
-    "The model's usage limit has been reached. Try again once it resets.",
-  rapid_refill_breaker:
-    "The model's usage limit has been reached. Try again once it resets.",
+  blocking_limit: CLAUDE_USAGE_LIMIT_MESSAGE,
+  rapid_refill_breaker: CLAUDE_USAGE_LIMIT_MESSAGE,
   max_turns: "The agent reached its maximum number of steps for one request.",
 };
 

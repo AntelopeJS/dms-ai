@@ -83,7 +83,7 @@
           "type": "tool_use",
           "id": "toolu_mock_bash_1",
           "name": "Bash",
-          "input": { "command": "echo hello" }
+          "input": { "command": "node -e \"console.log('hello')\"" }
         }
       ]
     }

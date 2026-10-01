@@ -64,6 +64,7 @@ export const RunErrorEvent = z.object({
   type: z.literal(EVENT_TYPES.RUN_ERROR),
   conversationId: z.string(),
   error: z.string(),
+  isRetryable: z.boolean().optional(),
 });
 
 export const RunResumedEvent = z.object({
@@ -99,6 +100,7 @@ export const ConversationSnapshotMessage = z.object({
   callId: z.string().optional(),
   status: z.string().optional(),
   attachments: z.array(SnapshotAttachmentMeta).optional(),
+  isRetryable: z.boolean().optional(),
   timestampMs: z.number(),
 });
 

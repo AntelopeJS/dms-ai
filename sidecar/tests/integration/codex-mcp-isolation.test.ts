@@ -67,7 +67,7 @@ describe("two live Codex conversations stay isolated", () => {
   });
 
   afterEach(async () => {
-    for (const session of sessions.splice(0)) session.dispose();
+    await Promise.all(sessions.splice(0).map((session) => session.dispose()));
     await registry?.dispose();
     registry = undefined;
     await new Promise<void>((done) => {

@@ -1,3 +1,5 @@
+import { SIDECAR_UNAVAILABLE_STATUS } from "./sidecar";
+
 /** Base of the routes the browser reaches the sidecar through. */
 export const CHANNEL_ROUTE_PREFIX = "/ai/channel";
 export const CHANNEL_EVENTS_ROUTE = "/events";
@@ -36,10 +38,21 @@ export const SSE_HEADERS: Readonly<Record<string, string>> = {
  */
 export const CHANNEL_MESSAGE_MAX_BYTES = 384 * 1024 * 1024;
 
+/** Sidecar sockets one user may hold open at once: one per stream, eight tabs. */
+export const CHANNEL_MAX_SOCKETS_PER_USER = 8;
+
+/**
+ * Bytes of posted messages held in memory at once, across every request. A
+ * request is counted from its Content-Length, or as a full message without one,
+ * and is refused before its body is read once the budget is spent.
+ */
+export const CHANNEL_PENDING_MESSAGES_MAX_BYTES = 2 * CHANNEL_MESSAGE_MAX_BYTES;
+
 export const CHANNEL_STATUS = {
   ACCEPTED: 204,
   NOT_FOUND: 404,
-  SERVICE_UNAVAILABLE: 503,
+  TOO_MANY_REQUESTS: 429,
+  SERVICE_UNAVAILABLE: SIDECAR_UNAVAILABLE_STATUS,
 } as const;
 
 /** Close code sent to the sidecar when the browser side of a bridge goes away. */

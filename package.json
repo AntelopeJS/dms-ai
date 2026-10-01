@@ -1,6 +1,6 @@
 {
   "name": "@antelopejs/dms-ai",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -33,14 +33,15 @@
     "prepack": "pnpm run build && pnpm run build:sidecar",
     "frontend:dev": "cd playground && pnpm frontend:dev",
     "dev": "cd playground && pnpm dev",
-    "lint": "oxlint --disable-nested-config && oxfmt --disable-nested-config --check . && cd frontend-vue && pnpm lint && cd ../sidecar && pnpm lint",
+    "lint": "oxlint --disable-nested-config && oxfmt --disable-nested-config --check . && cd frontend-vue && pnpm lint && cd ../sidecar && pnpm lint && antelopejs-check-interface-ranges",
     "lint:fix": "oxlint --disable-nested-config --fix --max-warnings=1000000 && oxfmt --disable-nested-config . && cd frontend-vue && pnpm lint:fix && cd ../sidecar && pnpm lint:fix",
     "typecheck": "tsc --noEmit && cd frontend-vue && pnpm typecheck && cd ../sidecar && pnpm typecheck",
     "test": "cd sidecar && pnpm test && cd ../frontend-vue && pnpm test",
     "test:sidecar-smoke": "pnpm run build:sidecar && node --test tests/sidecar-build.test.cjs",
     "test:frontend-registration": "pnpm run build && node --test tests/frontend-registration.test.cjs",
-    "test:channels": "pnpm run build && node --test tests/channels.test.cjs",
+    "test:channels": "pnpm run build && node --test tests/channels.test.cjs tests/channel-limits.test.cjs",
     "test:spawn-args": "node --test tests/spawn-args.test.cjs",
+    "test:build-id": "node --test tests/build-id.test.cjs",
     "test:release-script": "node --test tests/release-script.test.cjs",
     "test:e2e": "cd sidecar && pnpm test:e2e",
     "release": "pnpm --dir frontend-vue install --frozen-lockfile && pnpm --dir sidecar install --frozen-lockfile && release-it",
@@ -59,7 +60,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@antelopejs/tooling-configs": ">=0.0.6 <1.0.0",
+    "@antelopejs/tooling-configs": ">=0.0.7 <1.0.0",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.5.12",
     "knip": "^6.34.0",

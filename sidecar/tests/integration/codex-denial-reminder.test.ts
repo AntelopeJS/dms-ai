@@ -21,7 +21,6 @@ import {
 } from "../helpers/provider-fixtures.js";
 
 const TEST_TIMEOUT_MS = 30_000;
-const SETTLE_MS = 400;
 const CONVERSATION = "conv-denial";
 const DENIED_DUMP = "recette-3-command-denied.jsonl";
 const TURN_START = "turn/start";
@@ -65,13 +64,12 @@ describe("codex denial reminder", () => {
   });
 
   afterEach(async () => {
-    session?.dispose();
+    await session?.dispose();
     session = undefined;
     await registry?.dispose();
     registry = undefined;
     CODEX_FIXTURE.reset();
     setBuilderAvailable(false);
-    await new Promise((done) => setTimeout(done, SETTLE_MS));
     await rm(dir, { recursive: true, force: true });
   });
 

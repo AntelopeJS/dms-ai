@@ -5,6 +5,9 @@
 	"type": "module",
 	"license": "Apache-2.0",
 	"packageManager": "pnpm@10.6.5",
+	"engines": {
+		"@antelopejs/dms-frontend": ">=0.2.8 <0.4.0"
+	},
 	"scripts": {
 		"build": "pnpm --dir \"${DMS_FRONTEND_WORKSPACE:?Set DMS_FRONTEND_WORKSPACE to the generated Inertia workspace}\" build",
 		"typecheck": "pnpm --dir \"${DMS_FRONTEND_WORKSPACE:?Set DMS_FRONTEND_WORKSPACE to the generated Inertia workspace}\" typecheck",
