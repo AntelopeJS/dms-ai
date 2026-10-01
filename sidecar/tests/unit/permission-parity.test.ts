@@ -30,7 +30,7 @@ interface Capture {
 
 function buildBus(capture: Capture): PermissionBus {
   return createPermissionBus({
-    onPromptIframe: (event) => capture.prompts.push(event),
+    onPromptChat: (event) => capture.prompts.push(event),
     timeoutMs: PROMPT_TIMEOUT_MS,
   });
 }

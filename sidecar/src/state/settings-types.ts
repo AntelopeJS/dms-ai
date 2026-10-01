@@ -1,7 +1,7 @@
 import type { ProviderName } from "./types.js";
 
-export const CHATBOX_MODES = ["normal", "acceptEdits", "plan", "auto"] as const;
-export type ChatboxMode = (typeof CHATBOX_MODES)[number];
+export const CHAT_MODES = ["normal", "acceptEdits", "plan", "auto"] as const;
+export type ChatMode = (typeof CHAT_MODES)[number];
 
 export const THINKING_LEVELS = ["off", "low", "medium", "high"] as const;
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
@@ -17,7 +17,7 @@ export interface AppSettings {
   // choice, not a safety net: a provider this install cannot drive fails the
   // turn with its reason rather than handing the conversation to another one.
   provider: ProviderName;
-  mode: ChatboxMode;
+  mode: ChatMode;
   thinking: ThinkingLevel;
   generationMode: GenerationMode;
   // Opt-in (default off): also load SKILL.md files from the machine-local

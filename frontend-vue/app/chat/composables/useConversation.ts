@@ -30,7 +30,7 @@ import { toActivityKind } from "../utils/run-status";
 
 export interface UseConversationOptions {
 	activeId: Ref<string>;
-	/** Returns false when the message could not leave the chatbox. */
+	/** Returns false when the message could not leave the chat. */
 	send: (msg: object) => boolean;
 	onMessage: (handler: (msg: unknown) => void) => () => void;
 	onPermissionRequest?: (req: PermissionRequestData) => void;

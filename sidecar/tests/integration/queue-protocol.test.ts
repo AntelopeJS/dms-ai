@@ -4,7 +4,7 @@ import { PERMISSION_DECISIONS } from "../../src/constants/permissions.js";
 import { PROVIDER_FIXTURES } from "../helpers/provider-fixtures.js";
 import {
   createCollector,
-  openIframe,
+  openChat,
   sendHello,
   sendUserMessage,
   sendWire,
@@ -72,7 +72,7 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         fixture.use("permission");
         harness = await startWsHarness({ provider: fixture.name });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         const { collector, permission } = await startPausedTurn(client);
 
         enqueue(client, "A", "first");
@@ -117,7 +117,7 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         fixture.use("permission");
         harness = await startWsHarness({ provider: fixture.name });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         const { collector, permission } = await startPausedTurn(client);
 
         sendUserMessage(client, CONVERSATION_ID, "stray immediate");
@@ -164,7 +164,7 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         fixture.use("failing");
         harness = await startWsHarness({ provider: fixture.name });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         const collector = createCollector(client, WAIT_TIMEOUT_MS);
         sendHello(client, CONVERSATION_ID);
         sendUserMessage(client, CONVERSATION_ID, "boom");

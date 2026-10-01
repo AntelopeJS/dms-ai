@@ -55,7 +55,7 @@ void test("posts the host's and the chat's messages to the same socket, in order
   const { connectionId } = await openOn(sidecar);
   const messages = [
     '{"type":"hello","role":"host"}',
-    '{"type":"hello","role":"iframe","conversationId":"c-1"}',
+    '{"type":"hello","role":"chat","conversationId":"c-1"}',
     '{"type":"host_state_update","currentPage":{"path":"/"}}',
   ];
   for (const message of messages) {

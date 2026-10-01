@@ -20,7 +20,7 @@ export interface ProviderHostRuntime {
 
 /**
  * The host runtime plus the per-conversation tool deps, which only the WS layer
- * can build (AskUser has to reach the right iframe).
+ * can build (AskUser has to reach the right chat).
  */
 export interface ProviderRuntime extends ProviderHostRuntime {
   createMcpDeps: (conversationId: string) => AiMcpServerDeps;
