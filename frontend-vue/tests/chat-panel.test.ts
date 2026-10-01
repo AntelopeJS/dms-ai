@@ -266,6 +266,21 @@ describe('a running turn shows what it is doing, and never spins forever', () =>
 		expect(sentOfType(harness, 'user_message')).toHaveLength(2)
 	})
 
+	it('offers no Retry for a run error that sending again cannot fix', async () => {
+		const harness = createHarness()
+		const panel = await openPanel(harness)
+		await sendMessage(panel, 'reproduce this page')
+		deliver(harness, {
+			type: 'run_error',
+			error: 'Prompt is too long',
+			isRetryable: false,
+		})
+		await nextTick()
+		const error = panel.find('.message-bubble-error')
+		expect(error.text()).toContain('Prompt is too long')
+		expect(error.find('button').exists()).toBe(false)
+	})
+
 	it('says a message was not sent when the stream dropped as it left', async () => {
 		const harness = createHarness()
 		const panel = await openPanel(harness)

