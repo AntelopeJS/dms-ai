@@ -10,8 +10,8 @@ import { openBridge } from "./bridge";
 import {
   findOwnedBridge,
   forgetBridge,
-  releaseSockets,
-  reserveSockets,
+  releaseSocket,
+  reserveSocket,
   trackBridge,
 } from "./registry";
 import { openSseStream } from "./sse-stream";
@@ -43,12 +43,10 @@ export async function openChannel(
   userId: string,
   connect: SidecarConnector = connectSidecarSocket,
 ): Promise<HTTPResult | undefined> {
-  if (!reserveSockets(userId, 1, CHANNEL_MAX_SOCKETS_PER_USER)) {
+  if (!reserveSocket(userId, CHANNEL_MAX_SOCKETS_PER_USER)) {
     return new HTTPResult(CHANNEL_STATUS.TOO_MANY_REQUESTS, TOO_MANY_STREAMS);
   }
-  const socket = await tryConnect(connect).finally(() =>
-    releaseSockets(userId, 1),
-  );
+  const socket = await tryConnect(connect).finally(() => releaseSocket(userId));
   if (socket === null) {
     return new HTTPResult(
       CHANNEL_STATUS.SERVICE_UNAVAILABLE,
