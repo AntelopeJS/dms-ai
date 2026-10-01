@@ -6,7 +6,7 @@ import {
   answerPermission,
   collectUntil,
   isTerminal,
-  openIframe,
+  openChat,
   sendHello,
   sendUserMessage,
   startWsHarness,
@@ -36,7 +36,7 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         fixture.use("plain");
         harness = await startWsHarness({ provider: fixture.name });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         const collected = collectUntil(client, {
           timeoutMs: RUN_TIMEOUT_MS,
           until: isTerminal,
@@ -63,7 +63,7 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         fixture.use("plain");
         harness = await startWsHarness({ provider: fixture.name });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         const collected = collectUntil(client, {
           timeoutMs: RUN_TIMEOUT_MS,
           until: isTerminal,
@@ -87,7 +87,7 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         fixture.use("plain");
         harness = await startWsHarness({ provider: fixture.name });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         const collected = collectUntil(client, {
           timeoutMs: RUN_TIMEOUT_MS,
           until: isTerminal,

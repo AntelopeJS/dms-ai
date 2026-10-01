@@ -11,11 +11,11 @@ import {
 } from "../../src/providers/codex/config.js";
 import {
   type AppSettings,
-  CHATBOX_MODES,
+  CHAT_MODES,
 } from "../../src/state/settings-types.js";
 
 const HOST_ROOT = "/srv/app";
-const MODULE_ROOT = "/srv/app/node_modules/cms-builder";
+const MODULE_ROOT = "/srv/app/node_modules/dms-builder";
 const WORKSPACE = { hostProjectRoot: HOST_ROOT, moduleRoots: [MODULE_ROOT] };
 
 function settings(overrides: Partial<AppSettings>): AppSettings {
@@ -83,7 +83,7 @@ describe("mode mapping", () => {
     }
   });
 
-  it.each(CHATBOX_MODES)(
+  it.each(CHAT_MODES)(
     "keeps safe mode read-only, offline and declining in %s mode",
     (mode) => {
       setBuilderAvailable(true);

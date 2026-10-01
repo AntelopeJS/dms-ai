@@ -1,15 +1,15 @@
 import type { PermissionMode } from "@anthropic-ai/claude-agent-sdk";
-import { effectiveChatboxMode } from "../../agent/effective-mode.js";
+import { effectiveChatMode } from "../../agent/effective-mode.js";
 import type {
   AppSettings,
-  ChatboxMode,
+  ChatMode,
   ThinkingLevel,
 } from "../../state/settings-types.js";
 
 // Neutral settings rendered in the SDK's own vocabulary, the mirror of what
 // providers/codex/config.ts does for the app-server. Both providers read the
 // same AppSettings; only the translation differs.
-export const PERMISSION_MODE_BY_MODE: Record<ChatboxMode, PermissionMode> = {
+export const PERMISSION_MODE_BY_MODE: Record<ChatMode, PermissionMode> = {
   normal: "default",
   acceptEdits: "acceptEdits",
   plan: "plan",
@@ -22,7 +22,7 @@ export const PERMISSION_MODE_BY_MODE: Record<ChatboxMode, PermissionMode> = {
  * CLI approves every tool call itself and never asks `canUseTool`.
  */
 export function resolvePermissionMode(settings: AppSettings): PermissionMode {
-  return PERMISSION_MODE_BY_MODE[effectiveChatboxMode(settings)];
+  return PERMISSION_MODE_BY_MODE[effectiveChatMode(settings)];
 }
 
 // Mapped to setMaxThinkingTokens. On adaptive-thinking models (Opus 4.6+) the

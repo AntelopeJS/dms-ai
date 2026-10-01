@@ -1,4 +1,4 @@
-export type ChatboxMode = "normal" | "acceptEdits" | "plan" | "auto";
+export type ChatMode = "normal" | "acceptEdits" | "plan" | "auto";
 export type ThinkingLevel = "off" | "low" | "medium" | "high";
 export type GenerationMode = "safe" | "vibe";
 export type ProviderName = "claude" | "codex";
@@ -11,7 +11,7 @@ export interface ProviderAvailability {
 
 export interface AppSettings {
 	provider: ProviderName;
-	mode: ChatboxMode;
+	mode: ChatMode;
 	thinking: ThinkingLevel;
 	generationMode: GenerationMode;
 	allowLocalSkills: boolean;

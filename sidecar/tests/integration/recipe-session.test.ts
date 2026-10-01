@@ -21,7 +21,7 @@ import {
 } from "../helpers/provider-fixtures.js";
 import {
   createCollector,
-  openIframe,
+  openChat,
   sendHello,
   sendUserMessage,
   sendUserMessageWithAttachment,
@@ -37,7 +37,7 @@ const CONVERSATION_B = "conv-recipe-b";
 const WAIT_TIMEOUT_MS = 20_000;
 const TEST_TIMEOUT_MS = 40_000;
 const ANSWER = "Yes";
-const SKILL_NAME = "cms-builder-safe";
+const SKILL_NAME = "dms-builder-safe";
 
 // Claude is handed an allowlist naming the skill; Codex an extra root naming
 // the directory it must scan. Same fact, two shapes.
@@ -80,8 +80,8 @@ describe.each(PROVIDER_FIXTURES)("recipe — session on $name", (fixture) => {
     async () => {
       fixture.use("simple");
       harness = await startWsHarness({ provider: fixture.name });
-      const first = await openIframe(harness.port);
-      const second = await openIframe(harness.port);
+      const first = await openChat(harness.port);
+      const second = await openChat(harness.port);
       client = first;
       const eventsA = createCollector(first, WAIT_TIMEOUT_MS);
       const eventsB = createCollector(second, WAIT_TIMEOUT_MS);
@@ -128,9 +128,9 @@ describe.each(PROVIDER_FIXTURES)("recipe — session on $name", (fixture) => {
       traceInto(fixture.name, trace);
       harness = await startWsHarness({
         provider: fixture.name,
-        skillDirs: [{ module: "cms-builder", dir: skillDir }],
+        skillDirs: [{ module: "dms-builder", dir: skillDir }],
       });
-      client = await openIframe(harness.port);
+      client = await openChat(harness.port);
       const collector = createCollector(client, WAIT_TIMEOUT_MS);
       sendHello(client, CONVERSATION_A);
       sendUserMessage(client, CONVERSATION_A, "use the builder");
@@ -167,7 +167,7 @@ describe.each(PROVIDER_FIXTURES)("recipe — session on $name", (fixture) => {
     async () => {
       fixture.use("simple");
       harness = await startWsHarness({ provider: fixture.name });
-      client = await openIframe(harness.port);
+      client = await openChat(harness.port);
       const collector = createCollector(client, WAIT_TIMEOUT_MS);
       sendHello(client, CONVERSATION_A);
       sendUserMessageWithAttachment(client, CONVERSATION_A, "read this", {
@@ -220,7 +220,7 @@ describe("recipe — session on codex only", () => {
       skillDirs: options.skillDirs,
       settings: { allowLocalSkills: options.allowLocalSkills ?? false },
     });
-    client = await openIframe(harness.port);
+    client = await openChat(harness.port);
     const collector = createCollector(client, WAIT_TIMEOUT_MS);
     if (options.onMessage !== undefined) {
       const socket = client;
@@ -247,7 +247,7 @@ describe("recipe — session on codex only", () => {
       const skillDir = join(dir, "skills");
       await runOneTurn({
         script: codexTurns("recette-1-simple-message.jsonl"),
-        skillDirs: [{ module: "cms-builder", dir: skillDir }],
+        skillDirs: [{ module: "dms-builder", dir: skillDir }],
       });
       const roots = readCodexTrace(join(dir, "trace.jsonl")).find(
         (entry) => entry.method === "skills/extraRoots/set",
@@ -258,7 +258,7 @@ describe("recipe — session on codex only", () => {
   );
 
   it(
-    "7 — AskUser reaches the chatbox and the answer returns to the agent",
+    "7 — AskUser reaches the chat and the answer returns to the agent",
     async () => {
       const events = await runOneTurn({
         script: codexScript("mcp-ask-user.jsonl"),
@@ -335,7 +335,7 @@ describe("recipe — session on codex only", () => {
       expect(before).toHaveLength(1);
       expect(existsSync(`/proc/${before[0]}`)).toBe(true);
 
-      // The chatbox goes first, as it does when the host shuts down: an open
+      // The chat goes first, as it does when the host shuts down: an open
       // upgraded socket would hold the HTTP server's close.
       client?.close();
       client = undefined;
@@ -353,7 +353,7 @@ describe("recipe — session on codex only", () => {
       CODEX_FIXTURE.use("simple");
       traceCodexInto(join(dir, "trace.jsonl"));
       harness = await startWsHarness({ provider: "codex" });
-      client = await openIframe(harness.port);
+      client = await openChat(harness.port);
       const collector = createCollector(client, WAIT_TIMEOUT_MS);
       sendHello(client, CONVERSATION_A);
       sendUserMessageWithAttachment(client, CONVERSATION_A, "read this", {

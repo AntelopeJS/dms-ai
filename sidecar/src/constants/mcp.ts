@@ -43,9 +43,9 @@ export const ASK_USER_RESULT_PREFIX = "User answered:";
 export const ASK_USER_RESULT_NO_ANSWER =
   "The user did not answer (the question timed out or was dismissed).";
 
-// The SDK's built-in AskUserQuestion tool cannot render in the chatbox host, so
+// The SDK's built-in AskUserQuestion tool cannot render in the chat, so
 // calls to it dead-end at the permission prompt. Redirect the agent to the
-// module's own AskUser MCP tool, which routes to the question bus the chatbox
+// module's own AskUser MCP tool, which routes to the question bus the chat
 // does render.
 export const ASK_USER_QUESTION_BUILTIN_TOOL_NAME = "AskUserQuestion";
 export const ASK_USER_QUESTION_REDIRECT_MESSAGE = `AskUserQuestion is not available here. Use the ${MCP_TOOL_NAME_PREFIX}${ASK_USER_TOOL_NAME} tool instead to ask the user multiple-choice questions.`;

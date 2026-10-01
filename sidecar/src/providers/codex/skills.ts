@@ -1,5 +1,8 @@
 import path from "node:path";
-import { CODEX_OWNED_SKILL_SCOPES } from "../../constants/codex.js";
+import {
+  CODEX_OWNED_SKILL_SCOPES,
+  SAFE_MODE_SKILL_NAME,
+} from "../../constants/codex.js";
 import type { SkillSource } from "../../skills/types.js";
 import type { v2 } from "./protocol/index.js";
 
@@ -76,4 +79,11 @@ export function findMissingSkills(
       .map((skill) => skill.name),
   );
   return requiredNames.filter((name) => !present.has(name));
+}
+
+/** Whether the skill the safe-mode prompt relies on is enabled in the index. */
+export function isSafeModeSkillIndexed(
+  entries: readonly v2.SkillsListEntry[],
+): boolean {
+  return findMissingSkills(entries, [SAFE_MODE_SKILL_NAME]).length === 0;
 }

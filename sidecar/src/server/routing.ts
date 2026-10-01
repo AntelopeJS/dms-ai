@@ -5,7 +5,7 @@ import {
   type EditTracker,
   extractEditedFilePath,
 } from "../agent/edit-tracker.js";
-import { effectiveChatboxMode } from "../agent/effective-mode.js";
+import { effectiveChatMode } from "../agent/effective-mode.js";
 import type { PendingRequest, PermissionBus } from "../agent/permission-bus.js";
 import type { PendingQuestion, QuestionBus } from "../agent/question-bus.js";
 import type { AgentRunner, RunnerContext } from "../agent/runner.js";
@@ -52,7 +52,7 @@ import type { AppSettings } from "../state/settings-types.js";
 import type { StoredMessage } from "../state/types.js";
 import type { HostSocketRegistry } from "./host-socket-registry.js";
 import type { IdleShutdownController } from "./idle-shutdown.js";
-import type { IframeSocketRegistry } from "./iframe-socket-registry.js";
+import type { ChatSocketRegistry } from "./chat-socket-registry.js";
 import type { LiveTurnStore } from "./live-turns.js";
 import type { NavigationCompleter } from "./navigation-completer.js";
 import type { PendingQueueStore } from "./pending-queue.js";
@@ -71,7 +71,7 @@ export interface ConnectionContext {
   moduleRoots: string[];
   hostState: HostState;
   hostSocketRegistry: HostSocketRegistry;
-  iframeSocketRegistry: IframeSocketRegistry;
+  chatSocketRegistry: ChatSocketRegistry;
   navigationCompleter: NavigationCompleter;
   liveTurns: LiveTurnStore;
   pendingQueue: PendingQueueStore;
@@ -84,7 +84,7 @@ export interface RoutingConfig {
   createMcpServer: (conversationId: string) => AiMcpServer;
   hostState: HostState;
   hostSocketRegistry: HostSocketRegistry;
-  iframeSocketRegistry: IframeSocketRegistry;
+  chatSocketRegistry: ChatSocketRegistry;
   permissionBus: PermissionBus;
   questionBus: QuestionBus;
   editTracker: EditTracker;
@@ -112,7 +112,7 @@ function buildSnapshotEvent(
     type: EVENT_TYPES.CONVERSATION_SNAPSHOT,
     conversationId,
     // "permission" records are audit-only (drive the activity metrics); they're
-    // not part of the visible transcript, so keep them out of the chatbox.
+    // not part of the visible transcript, so keep them out of the chat.
     messages: messages
       .filter((m) => m.role !== "permission")
       .map((m) => ({ ...m })),
@@ -124,7 +124,7 @@ function sendSnapshotIfKnown(
   ctx: ConnectionContext,
   msg: ClientHelloMsgType,
 ): void {
-  if (msg.role !== ROLE.IFRAME) return;
+  if (msg.role !== ROLE.CHAT) return;
   sendSettings(socket, ctx);
   if (msg.conversationId === undefined) return;
   sendConversationSnapshot(socket, ctx, msg.conversationId);
@@ -224,14 +224,14 @@ function registerHostSocketIfHost(
   ctx.hostSocketRegistry.set(socket);
 }
 
-function registerIframeSocketIfIframe(
+function registerChatSocketIfChat(
   socket: WebSocket,
   msg: ClientHelloMsgType,
   ctx: ConnectionContext,
 ): void {
-  if (msg.role !== ROLE.IFRAME) return;
+  if (msg.role !== ROLE.CHAT) return;
   if (msg.conversationId === undefined) return;
-  ctx.iframeSocketRegistry.set(msg.conversationId, socket);
+  ctx.chatSocketRegistry.set(msg.conversationId, socket);
 }
 
 function handleHello(
@@ -242,7 +242,7 @@ function handleHello(
   if (msg.type !== MESSAGE_TYPES.HELLO) return;
   console.log(`${WS_LOG_PREFIX} hello role=${msg.role}`);
   registerHostSocketIfHost(socket, msg, ctx);
-  registerIframeSocketIfIframe(socket, msg, ctx);
+  registerChatSocketIfChat(socket, msg, ctx);
   sendSnapshotIfKnown(socket, ctx, msg);
 }
 
@@ -374,7 +374,7 @@ function dispatchTurnEvent(
   } else {
     ctx.liveTurns.append(conversationId, wireEvent);
   }
-  ctx.iframeSocketRegistry.send(conversationId, wireEvent);
+  ctx.chatSocketRegistry.send(conversationId, wireEvent);
 }
 
 function persistUserMessageContent(
@@ -484,7 +484,7 @@ async function streamTurn(
   );
   const progress = startTurnProgress({
     conversationId,
-    send: (event) => ctx.iframeSocketRegistry.send(conversationId, event),
+    send: (event) => ctx.chatSocketRegistry.send(conversationId, event),
   });
   try {
     const stream = ctx.runner.start(
@@ -578,7 +578,7 @@ function sendUserEcho(
     attachments: toStoredAttachmentMeta(item.attachments ?? []),
     timestampMs: Date.now(),
   };
-  ctx.iframeSocketRegistry.send(conversationId, event);
+  ctx.chatSocketRegistry.send(conversationId, event);
 }
 
 function broadcastQueueState(
@@ -590,7 +590,7 @@ function broadcastQueueState(
     conversationId,
     items: ctx.pendingQueue.get(conversationId),
   };
-  ctx.iframeSocketRegistry.send(conversationId, event);
+  ctx.chatSocketRegistry.send(conversationId, event);
 }
 
 // Server-owned dequeue: run queued follow-ups one at a time until the queue is
@@ -810,20 +810,20 @@ export interface SettingsApplyDeps {
   settingsStore: SettingsStore;
   permissionBus: PermissionBus;
   runner: AgentRunner;
-  iframeSocketRegistry: IframeSocketRegistry;
+  chatSocketRegistry: ChatSocketRegistry;
 }
 
 // Single source of truth for applying a settings change, whether it arrives over
-// the iframe WS (chatbox mode bar) or the HTTP API (Settings admin page). Always
-// broadcasts the new settings to every connected iframe so both stay in sync.
+// the chat WS (mode bar) or the HTTP API (Settings admin page). Always
+// broadcasts the new settings to every connected chat so both stay in sync.
 export function applySettings(
   deps: SettingsApplyDeps,
   next: AppSettings,
 ): void {
   deps.settingsStore.set(next);
-  deps.permissionBus.setAutoApprove(effectiveChatboxMode(next) === "auto");
+  deps.permissionBus.setAutoApprove(effectiveChatMode(next) === "auto");
   deps.runner.applySettings(next);
-  deps.iframeSocketRegistry.broadcast({
+  deps.chatSocketRegistry.broadcast({
     type: EVENT_TYPES.SETTINGS_UPDATE,
     settings: next,
     builderAvailable: getBuilderAvailable(),
@@ -838,7 +838,7 @@ function handleSetSettings(
 ): void {
   if (msg.type !== MESSAGE_TYPES.SET_SETTINGS) return;
   applySettings(ctx, {
-    // Absent from an older chatbox: keep what is stored rather than reset it.
+    // Absent from an older chat: keep what is stored rather than reset it.
     provider: msg.provider ?? ctx.settingsStore.get().provider,
     mode: msg.mode,
     thinking: msg.thinking,
@@ -936,7 +936,7 @@ export function buildConnectionContext(
     moduleRoots: config.moduleRoots,
     hostState: config.hostState,
     hostSocketRegistry: config.hostSocketRegistry,
-    iframeSocketRegistry: config.iframeSocketRegistry,
+    chatSocketRegistry: config.chatSocketRegistry,
     navigationCompleter: config.navigationCompleter,
     liveTurns: config.liveTurns,
     pendingQueue: config.pendingQueue,

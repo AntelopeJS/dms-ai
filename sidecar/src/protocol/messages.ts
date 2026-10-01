@@ -4,15 +4,15 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
 } from "../constants/attachments.js";
 import {
-  CHATBOX_MODES,
+  CHAT_MODES,
   GENERATION_MODES,
   THINKING_LEVELS,
 } from "../state/settings-types.js";
 import { PROVIDER_NAMES } from "../state/types.js";
 
-export const ROLES = ["iframe", "host"] as const;
+export const ROLES = ["chat", "host"] as const;
 export type Role = (typeof ROLES)[number];
-export const ROLE = { IFRAME: "iframe", HOST: "host" } as const;
+export const ROLE = { CHAT: "chat", HOST: "host" } as const;
 
 export const MESSAGE_TYPES = {
   HELLO: "hello",
@@ -96,7 +96,7 @@ export const QueuedItemSchema = z.object({
     .optional(),
 });
 
-// Iframe -> server: append one follow-up to the conversation's server-owned
+// Chat -> server: append one follow-up to the conversation's server-owned
 // queue. The server is the sole owner: it stores, broadcasts QUEUE_STATE, and
 // drives the dequeue, so the queue survives reconnects exactly-once.
 export const QueueEnqueueMsg = z.object({
@@ -105,7 +105,7 @@ export const QueueEnqueueMsg = z.object({
   item: QueuedItemSchema,
 });
 
-// Iframe -> server: drop a not-yet-started follow-up from the server queue.
+// Chat -> server: drop a not-yet-started follow-up from the server queue.
 export const QueueCancelMsg = z.object({
   type: z.literal(MESSAGE_TYPES.QUEUE_CANCEL),
   conversationId: z.string(),
@@ -119,7 +119,7 @@ export const PermissionResponseMsg = z.object({
   decision: z.enum(PERMISSION_DECISION_VALUES),
 });
 
-// Iframe -> server: the user's selected answers for an ASK_QUESTION request,
+// Chat -> server: the user's selected answers for an ASK_QUESTION request,
 // aligned by index with the questions[] that were asked. Each entry is the
 // chosen option label or free-text ("Other") answer.
 export const QuestionResponseMsg = z.object({
@@ -153,16 +153,16 @@ export const DeleteConversationMsg = z.object({
 
 export const SetSettingsMsg = z.object({
   type: z.literal(MESSAGE_TYPES.SET_SETTINGS),
-  // Optional rather than defaulted: an older chatbox that omits the field must
+  // Optional rather than defaulted: an older chat that omits the field must
   // leave the stored provider alone, not silently reset it to the default.
   provider: z.enum(PROVIDER_NAMES).optional(),
-  mode: z.enum(CHATBOX_MODES),
+  mode: z.enum(CHAT_MODES),
   thinking: z.enum(THINKING_LEVELS),
   generationMode: z.enum(GENERATION_MODES).default("safe"),
   allowLocalSkills: z.boolean().default(false),
 });
 
-// Sent by the iframe when the user hits Stop: gracefully interrupt the running
+// Sent by the chat when the user hits Stop: gracefully interrupt the running
 // turn (the SDK query) while keeping the conversation session alive.
 export const InterruptTurnMsg = z.object({
   type: z.literal(MESSAGE_TYPES.INTERRUPT_TURN),

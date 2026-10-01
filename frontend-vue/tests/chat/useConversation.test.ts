@@ -18,7 +18,7 @@ import type { RunProgress } from "../../app/chat/types/conversation";
 import type { PendingAttachment } from "../../app/chat/utils/attachments";
 import { isAgentQuiet } from "../../app/chat/utils/run-status";
 
-const CONVERSATION_ID = "conv-chatbox-1";
+const CONVERSATION_ID = "conv-chat-1";
 const FILE_DATA = "PGh0bWw+PC9odG1sPg==";
 
 interface Harness {

@@ -15,6 +15,7 @@ import {
   CODEX_HANDSHAKE_TIMEOUT_MS,
   CODEX_INITIALIZE_METHOD,
   CODEX_INITIALIZED_METHOD,
+  CODEX_LOG_PREFIX,
   CODEX_MAX_LIVE_SESSIONS,
   CODEX_MISSING_API_KEY_MESSAGE,
   CODEX_MISSING_CLI_MESSAGE,
@@ -28,6 +29,8 @@ import {
   CODEX_TURN_START_METHOD,
   CODEX_TURN_STARTED_NOTIFICATION,
   CODEX_VERSION_MISMATCH_MESSAGE,
+  SAFE_MODE_SKILL_MISSING_MESSAGE,
+  SAFE_MODE_SKILL_MISSING_WARNING,
 } from "../../constants/codex.js";
 import type { McpHttpRegistry } from "../../mcp/http-binding.js";
 import type { AiMcpServerDeps } from "../../mcp/types.js";
@@ -44,6 +47,7 @@ import {
   buildDenialReminder,
   buildDeveloperInstructions,
   buildTurnOverrides,
+  isSafeMode,
   resolveModePolicy,
 } from "./config.js";
 import { createRunnerEventStream } from "./event-stream.js";
@@ -55,7 +59,12 @@ import {
   isCodexInstallationUsable,
   resolveCodexInstallation,
 } from "./resolve-binary.js";
-import { buildSkillExtraRoots, selectSkillsToDisable } from "./skills.js";
+import {
+  buildSkillExtraRoots,
+  isSafeModeSkillIndexed,
+  type SkillNeutralizationInput,
+  selectSkillsToDisable,
+} from "./skills.js";
 
 /** What the module hands down from the neutral ProviderRuntime, plus the key. */
 interface CodexRuntimeDeps {
@@ -81,6 +90,7 @@ interface CodexBackend {
   live: LiveSettings;
   conversationId: string;
   hostProjectRoot: string;
+  isSafeModeSkillIndexed: boolean;
   denials: () => number;
   resumeApprovals: () => void;
 }
@@ -101,14 +111,33 @@ function clientInfo(): Record<string, unknown> {
   };
 }
 
+async function disableForeignSkills(
+  process: CodexProcess,
+  listed: readonly v2.SkillsListEntry[],
+  input: SkillNeutralizationInput,
+): Promise<void> {
+  for (const params of selectSkillsToDisable(listed, input)) {
+    await process.client.request(
+      CODEX_SKILLS_CONFIG_WRITE_METHOD,
+      params,
+      HANDSHAKE,
+    );
+  }
+}
+
+function warnIfSafeModeSkillMissing(isIndexed: boolean): void {
+  if (isIndexed) return;
+  console.warn(`${CODEX_LOG_PREFIX} ${SAFE_MODE_SKILL_MISSING_WARNING}`);
+}
+
 // Two passes, as the protocol requires: extra roots go in, the resulting index
 // is read back, and everything that is not ours is switched off before the
-// first turn.
+// first turn. Resolves with whether the safe-mode skill made the index.
 async function configureSkills(
   process: CodexProcess,
   options: CodexProviderOptions,
   settings: AppSettings,
-): Promise<void> {
+): Promise<boolean> {
   const sources = resolveSkillSources(
     options.skillDirs ?? [],
     settings.allowLocalSkills,
@@ -127,17 +156,13 @@ async function configureSkills(
     {},
     HANDSHAKE,
   );
-  const disable = selectSkillsToDisable(listed.data, {
+  await disableForeignSkills(process, listed.data, {
     extraRoots,
     allowLocalSkills: settings.allowLocalSkills,
   });
-  for (const params of disable) {
-    await process.client.request(
-      CODEX_SKILLS_CONFIG_WRITE_METHOD,
-      params,
-      HANDSHAKE,
-    );
-  }
+  const isIndexed = isSafeModeSkillIndexed(listed.data);
+  warnIfSafeModeSkillMissing(isIndexed);
+  return isIndexed;
 }
 
 async function startThread(
@@ -170,11 +195,18 @@ function withDenialReminder(backend: CodexBackend, text: string): string {
   return reminder === undefined ? text : `${text}\n\n${reminder}`;
 }
 
+function assertSafeModeSkillAvailable(backend: CodexBackend): void {
+  if (backend.isSafeModeSkillIndexed) return;
+  if (!isSafeMode(backend.live.settings)) return;
+  throw new Error(SAFE_MODE_SKILL_MISSING_MESSAGE);
+}
+
 async function submitTurn(
   backend: CodexBackend,
   options: CodexProviderOptions,
   input: TurnInput,
 ): Promise<void> {
+  assertSafeModeSkillAvailable(backend);
   // An interrupted turn left the approval handler refusing everything; a new
   // turn is a new mandate.
   backend.resumeApprovals();
@@ -258,24 +290,33 @@ function assertUsableInstallation() {
   return installation;
 }
 
-interface OpenedCodexProcess {
-  codexProcess: CodexProcess;
+interface HandshakeOutcome {
   threadId: string;
+  isSafeModeSkillIndexed: boolean;
+}
+
+interface OpenedCodexProcess extends HandshakeOutcome {
+  codexProcess: CodexProcess;
 }
 
 async function handshake(
   codexProcess: CodexProcess,
   options: CodexProviderOptions,
   ctx: ProviderSessionContext,
-): Promise<string> {
+): Promise<HandshakeOutcome> {
   await codexProcess.client.request(
     CODEX_INITIALIZE_METHOD,
     clientInfo(),
     HANDSHAKE,
   );
   codexProcess.client.notify(CODEX_INITIALIZED_METHOD, {});
-  await configureSkills(codexProcess, options, ctx.settings);
-  return startThread(codexProcess, ctx);
+  const isSafeModeSkillIndexed = await configureSkills(
+    codexProcess,
+    options,
+    ctx.settings,
+  );
+  const threadId = await startThread(codexProcess, ctx);
+  return { threadId, isSafeModeSkillIndexed };
 }
 
 /**
@@ -306,8 +347,8 @@ async function openCodexProcess(
       apiKey,
       handlers,
     });
-    const threadId = await handshake(codexProcess, options, ctx);
-    return { codexProcess, threadId };
+    const outcome = await handshake(codexProcess, options, ctx);
+    return { codexProcess, ...outcome };
   } catch (error) {
     await codexProcess?.dispose();
     await options.mcpHttpRegistry
@@ -333,15 +374,16 @@ async function createProviderSession(
     onPermissionDecision: ctx.onPermissionDecision,
   });
 
-  const { codexProcess, threadId } = await openCodexProcess(options, ctx, {
-    onNotification: (notification) => {
-      trackTurnId(backendRef, notification);
-      reportTokenUsage(ctx, notification);
-      for (const event of adapter.handle(notification)) stream.push(event);
-    },
-    onServerRequest: (request) => permissions.handle(request),
-    onAbort: (reason) => stream.fail(reason),
-  });
+  const { codexProcess, threadId, isSafeModeSkillIndexed } =
+    await openCodexProcess(options, ctx, {
+      onNotification: (notification) => {
+        trackTurnId(backendRef, notification);
+        reportTokenUsage(ctx, notification);
+        for (const event of adapter.handle(notification)) stream.push(event);
+      },
+      onServerRequest: (request) => permissions.handle(request),
+      onAbort: (reason) => stream.fail(reason),
+    });
 
   const backend: CodexBackend = {
     process: codexProcess,
@@ -350,6 +392,7 @@ async function createProviderSession(
     live: { settings: ctx.settings },
     conversationId: ctx.conversationId,
     hostProjectRoot: ctx.hostProjectRoot,
+    isSafeModeSkillIndexed,
     denials: () => permissions.consecutiveDenials(),
     resumeApprovals: () => permissions.resume(),
   };

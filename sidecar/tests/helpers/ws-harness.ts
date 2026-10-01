@@ -14,7 +14,7 @@ import { isProviderAvailable } from "../../src/providers/registry.js";
 import type { ProviderHostRuntime } from "../../src/providers/types.js";
 import { createHostSocketRegistry } from "../../src/server/host-socket-registry.js";
 import { createHttpServer } from "../../src/server/http.js";
-import type { IframeSocketRegistry } from "../../src/server/iframe-socket-registry.js";
+import type { ChatSocketRegistry } from "../../src/server/chat-socket-registry.js";
 import { createNavigationCompleter } from "../../src/server/navigation-completer.js";
 import { attachWsServer } from "../../src/server/ws.js";
 import type { SkillSource } from "../../src/skills/types.js";
@@ -41,7 +41,7 @@ export interface HarnessOptions {
   provider: ProviderName;
   settings?: Partial<AppSettings>;
   permissionBus?: PermissionBus;
-  iframeSocketRegistry?: IframeSocketRegistry;
+  chatSocketRegistry?: ChatSocketRegistry;
   moduleRoots?: string[];
   skillDirs?: SkillSource[];
 }
@@ -163,7 +163,7 @@ export async function startWsHarness(
     hostSocketRegistry,
     navigationCompleter,
     permissionBus: options.permissionBus,
-    iframeSocketRegistry: options.iframeSocketRegistry,
+    chatSocketRegistry: options.chatSocketRegistry,
   });
   return {
     port,
@@ -202,7 +202,7 @@ export function waitForOpen(socket: WebSocket): Promise<void> {
   });
 }
 
-export async function openIframe(port: number): Promise<WebSocket> {
+export async function openChat(port: number): Promise<WebSocket> {
   const socket = connectClient(port);
   await waitForOpen(socket);
   return socket;
@@ -214,9 +214,7 @@ export interface WireMessage {
 }
 
 export function sendHello(socket: WebSocket, conversationId: string): void {
-  socket.send(
-    JSON.stringify({ type: "hello", role: "iframe", conversationId }),
-  );
+  socket.send(JSON.stringify({ type: "hello", role: "chat", conversationId }));
 }
 
 export function sendUserMessage(
@@ -338,7 +336,7 @@ export function sendWire(socket: WebSocket, msg: object): void {
   socket.send(JSON.stringify(msg));
 }
 
-// Deliberately without `provider`: that is how the chatbox changes a behaviour
+// Deliberately without `provider`: that is how the chat changes a behaviour
 // setting, and sending the default would switch the backend as a side effect.
 export function sendSettings(
   socket: WebSocket,

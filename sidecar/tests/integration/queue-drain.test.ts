@@ -5,7 +5,7 @@ import { PROVIDER_FIXTURES } from "../helpers/provider-fixtures.js";
 import {
   answerPermission,
   collectUntil,
-  openIframe,
+  openChat,
   sendHello,
   sendUserMessage,
   startWsHarness,
@@ -56,7 +56,7 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         fixture.use("plain");
         harness = await startWsHarness({ provider: fixture.name });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         // The server owns the queue: once the immediate turn completes it
         // dequeues the follow-up itself and echoes its user bubble. Each mock
         // replays one recorded turn, so the drained turn produces no model
@@ -91,7 +91,7 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         fixture.use("plain");
         harness = await startWsHarness({ provider: fixture.name });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         // The server queue is empty; re-attach must still send queue_state so a
         // client whose queue the server drained while away drops its phantoms.
         const collected = collectUntil(client, {

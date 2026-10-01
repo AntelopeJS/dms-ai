@@ -11,7 +11,7 @@ import {
   answerPermission,
   collectUntil,
   isTerminal,
-  openIframe,
+  openChat,
   sendHello,
   sendUserMessage,
   startWsHarness,
@@ -55,7 +55,7 @@ async function runTurn(
 
 async function reload(session: Session): Promise<WireMessage> {
   session.client.close();
-  session.client = await openIframe(session.harness.port);
+  session.client = await openChat(session.harness.port);
   const collected = collectUntil(session.client, {
     timeoutMs: RUN_TIMEOUT_MS,
     until: isSnapshot,
@@ -71,7 +71,7 @@ function snapshotErrors(snapshot: WireMessage): unknown[] {
 }
 
 describe.each(PROVIDER_FIXTURES)(
-  "a failed turn reaches the chatbox on $name",
+  "a failed turn reaches the chat on $name",
   (fixture) => {
     let session: Session | undefined;
 
@@ -87,7 +87,7 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         fixture.use("failing");
         const harness = await startWsHarness({ provider: fixture.name });
-        session = { harness, client: await openIframe(harness.port) };
+        session = { harness, client: await openChat(harness.port) };
         const events = await runTurn(session, isTerminal);
         const failure = events.find((event) => event.type === "run_error");
         expect(failure?.error).toEqual(expect.any(String));
@@ -101,7 +101,7 @@ describe.each(PROVIDER_FIXTURES)(
   },
 );
 
-describe("what the chatbox learns about a claude turn", () => {
+describe("what the chat learns about a claude turn", () => {
   let session: Session | undefined;
 
   afterEach(async () => {
@@ -115,7 +115,7 @@ describe("what the chatbox learns about a claude turn", () => {
     CLAUDE_FIXTURE.use("plain");
     process.env.MOCK_CLAUDE_SCRIPT = claudeScript(script);
     const harness = await startWsHarness({ provider: "claude" });
-    return { harness, client: await openIframe(harness.port) };
+    return { harness, client: await openChat(harness.port) };
   }
 
   it(
