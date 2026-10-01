@@ -55,6 +55,9 @@ jobs:
       # Pins the flags the launcher hands the sidecar, with the child process
       # and the lock file stubbed.
       - run: pnpm test:spawn-args
+      # Pins that the build id follows the sidecar's compiled code, not its
+      # mtimes, so a rebuild with the same output keeps the running sidecar.
+      - run: pnpm test:build-id
       - run: pnpm test:release-script
       - run: pnpm test
       - run: pnpm --dir sidecar typecheck

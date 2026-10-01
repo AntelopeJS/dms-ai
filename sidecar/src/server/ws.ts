@@ -20,6 +20,7 @@ import {
   type ProviderRunnerFactory,
 } from "../agent/switching-runner.js";
 import { buildToolSummary } from "../agent/tool-summary.js";
+import { TURN_RESTARTED_REASON } from "../agent/turn-end-reasons.js";
 import { WS_MAX_PAYLOAD_BYTES } from "../constants/attachments.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import { WS_LOG_PREFIX, WS_PATHS } from "../constants/ws.js";
@@ -348,7 +349,7 @@ export function attachWsServer(
   return {
     close: async () => {
       httpServer.removeListener("upgrade", onUpgrade);
-      const disposal = config.runner.dispose();
+      const disposal = config.runner.dispose(TURN_RESTARTED_REASON);
       await closeWss(wssIframe);
       await closeWss(wssHost);
       await disposal;

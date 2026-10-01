@@ -10,7 +10,7 @@ import { createDisposalTracker, type DisposalTracker } from "./disposals.js";
 import { prependHostContext } from "./host-context.js";
 import type { PermissionBus } from "./permission-bus.js";
 import type { AgentProvider, ProviderSession } from "./provider.js";
-import type { RunnerEvent } from "./runner-events.js";
+import type { RunnerError, RunnerEvent } from "./runner-events.js";
 
 export interface RunnerContext {
   conversationId: string;
@@ -49,10 +49,11 @@ export interface AgentRunner {
    */
   applySettings(settings: AppSettings): void;
   /**
-   * Disposes every session, and resolves once every backend has released
-   * everything: the sessions that already tore themselves down included.
+   * Disposes every session, ending a running turn with `reason` when given, and
+   * resolves once every backend has released everything and every running turn
+   * has ended: the sessions that already tore themselves down included.
    */
-  dispose(): Promise<void>;
+  dispose(reason?: RunnerError): Promise<void>;
 }
 
 export interface AgentRunnerOptions {
@@ -135,10 +136,15 @@ function disposeSession(
   return disposal;
 }
 
-async function disposeAll(manager: SessionManager): Promise<void> {
+async function disposeAll(
+  manager: SessionManager,
+  reason?: RunnerError,
+): Promise<void> {
   const sessions = [...manager.sessions.values()];
   manager.sessions.clear();
-  for (const session of sessions) manager.disposals.track(session.dispose());
+  for (const session of sessions) {
+    manager.disposals.track(session.dispose(reason));
+  }
   await manager.disposals.settle();
 }
 
@@ -165,6 +171,6 @@ export function createAgentRunner(
       interruptSession(manager, conversationId),
     disposeSession: (conversationId) => disposeSession(manager, conversationId),
     applySettings: (settings) => applySettings(manager, settings),
-    dispose: () => disposeAll(manager),
+    dispose: (reason) => disposeAll(manager, reason),
   };
 }

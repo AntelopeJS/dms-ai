@@ -1,8 +1,10 @@
 import {
   DURATION_TOKEN,
   TURN_IDLE_TIMEOUT_MESSAGE,
+  TURN_RESTARTED_MESSAGE,
   TURN_TOOL_CAP_MESSAGE,
 } from "../constants/agent.js";
+import type { RunnerError } from "./runner-events.js";
 
 const MS_PER_SECOND = 1_000;
 const SECONDS_PER_MINUTE = 60;
@@ -23,6 +25,16 @@ export function formatDuration(ms: number): string {
   const minutes = Math.round(seconds / SECONDS_PER_MINUTE);
   return countOf(minutes, DURATION_UNITS.MINUTE);
 }
+
+/**
+ * How a turn still running when the sidecar shuts down ends: the question was
+ * never answered, so the user can send it again to the next sidecar.
+ */
+export const TURN_RESTARTED_REASON: RunnerError = {
+  type: "error",
+  message: TURN_RESTARTED_MESSAGE,
+  isRetryable: true,
+};
 
 /** Why a turn stopped after `windowMs` without any activity from the agent. */
 export function idleTimeoutReason(windowMs: number): string {

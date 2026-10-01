@@ -490,7 +490,7 @@ async function createProviderSession(
   return {
     runTurn: (input, settings) => runTurn(state, input, settings),
     interrupt: () => state.session.interrupt(),
-    dispose: () => state.session.dispose(),
+    dispose: (reason) => state.session.dispose(reason),
     applySettings: (settings) => state.session.applySettings(settings),
   };
 }

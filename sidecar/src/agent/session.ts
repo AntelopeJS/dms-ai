@@ -30,10 +30,12 @@ export interface AgentSession {
   applySettings(settings: AppSettings): void;
   interrupt(): void;
   /**
-   * Resolves once the backend has released everything. Every caller gets the
-   * same teardown, so a second one never returns ahead of it.
+   * Ends a running turn with `reason`, or with the session-closed one, and
+   * resolves once the backend has released everything and that turn has ended.
+   * Every caller gets the same teardown, so a second one never returns ahead of
+   * it.
    */
-  dispose: () => Promise<void>;
+  dispose: (reason?: RunnerError) => Promise<void>;
 }
 
 export interface SessionDeps {
@@ -53,6 +55,8 @@ interface SessionState extends SessionDeps {
   activeTurns: number;
   interruptTimer: ReturnType<typeof setTimeout> | null;
   abortOutcome: RunnerEvent | null;
+  aborted: Promise<never>;
+  turnsSettledWaiters: Array<() => void>;
 }
 
 interface TurnTimeout {
@@ -68,8 +72,28 @@ function isDisposed(state: SessionState): boolean {
 
 const STOPPED_OUTCOME: RunnerEvent = { type: "done" };
 
+const SESSION_CLOSED_OUTCOME: RunnerError = {
+  type: "error",
+  message: TURN_SESSION_CLOSED_MESSAGE,
+};
+
 function errorOutcome(message: string): RunnerError {
   return { type: "error", message };
+}
+
+function rejectOnAbort(signal: AbortSignal): Promise<never> {
+  const aborted = new Promise<never>((_resolve, reject) => {
+    const rejectWithReason = (): void => reject(signal.reason);
+    if (signal.aborted) rejectWithReason();
+    signal.addEventListener("abort", rejectWithReason, { once: true });
+  });
+  aborted.catch(() => undefined);
+  return aborted;
+}
+
+function whenTurnsSettled(state: SessionState): Promise<void> {
+  if (state.activeTurns === 0) return Promise.resolve();
+  return new Promise((resolve) => state.turnsSettledWaiters.push(resolve));
 }
 
 function abortWith(state: SessionState, outcome: RunnerEvent): void {
@@ -77,12 +101,18 @@ function abortWith(state: SessionState, outcome: RunnerEvent): void {
   state.abortController.abort();
 }
 
-function disposeSession(state: SessionState): Promise<void> {
+function disposeSession(
+  state: SessionState,
+  reason: RunnerError = SESSION_CLOSED_OUTCOME,
+): Promise<void> {
   if (state.disposal !== null) return state.disposal;
   clearInterruptFallback(state);
-  const disposal = state.controls.close();
+  const released = state.controls.close();
+  const disposal = Promise.all([released, whenTurnsSettled(state)]).then(
+    () => undefined,
+  );
   state.disposal = disposal;
-  abortWith(state, errorOutcome(TURN_SESSION_CLOSED_MESSAGE));
+  abortWith(state, reason);
   state.onDisposed(disposal);
   return disposal;
 }
@@ -171,6 +201,14 @@ function rearmAfter(
   if (event.type !== "activity") timeout.suspend();
 }
 
+function nextUnlessAborted(
+  state: SessionState,
+): Promise<IteratorResult<RunnerEvent, void>> {
+  const next = state.events.next();
+  next.catch(() => undefined);
+  return Promise.race([next, state.aborted]);
+}
+
 async function* readTurn(
   state: SessionState,
   timeout: TurnTimeout,
@@ -179,7 +217,7 @@ async function* readTurn(
   while (true) {
     let result: IteratorResult<RunnerEvent, void>;
     try {
-      result = await state.events.next();
+      result = await nextUnlessAborted(state);
     } catch (err) {
       yield buildErrorEvent(state, err);
       void disposeSession(state);
@@ -198,20 +236,36 @@ async function* readTurn(
   }
 }
 
-async function* runTurn(
+function settleTurns(state: SessionState): void {
+  clearInterruptFallback(state);
+  const waiters = state.turnsSettledWaiters.splice(0);
+  for (const resolve of waiters) resolve();
+}
+
+async function* readArmedTurn(
   state: SessionState,
-  input: TurnInput,
   timeoutMs: number,
 ): AsyncIterable<RunnerEvent> {
-  await state.controls.submitTurn(input);
-  state.activeTurns += 1;
   const timeout = armTurnTimeout(state, timeoutMs);
   try {
     yield* readTurn(state, timeout);
   } finally {
     timeout.clear();
+  }
+}
+
+async function* runTurn(
+  state: SessionState,
+  input: TurnInput,
+  timeoutMs: number,
+): AsyncIterable<RunnerEvent> {
+  state.activeTurns += 1;
+  try {
+    await state.controls.submitTurn(input);
+    yield* readArmedTurn(state, timeoutMs);
+  } finally {
     state.activeTurns -= 1;
-    if (state.activeTurns === 0) clearInterruptFallback(state);
+    if (state.activeTurns === 0) settleTurns(state);
   }
 }
 
@@ -251,11 +305,13 @@ export function createAgentSession(deps: SessionDeps): AgentSession {
     activeTurns: 0,
     interruptTimer: null,
     abortOutcome: null,
+    aborted: rejectOnAbort(deps.abortController.signal),
+    turnsSettledWaiters: [],
   };
   return {
     sendTurn: (input, timeoutMs) => sendTurn(state, input, timeoutMs),
     applySettings: (settings) => applySettings(state, settings),
     interrupt: () => interrupt(state),
-    dispose: () => disposeSession(state),
+    dispose: (reason) => disposeSession(state, reason),
   };
 }
