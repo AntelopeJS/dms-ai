@@ -1,17 +1,9 @@
 import { HOST_COMMAND_TYPES } from './constants'
-
-export interface TypedMessage {
-	type: string
-}
+import { isTypedMessage, type TypedMessage } from './typed-message'
 
 export interface FrameRoutes {
 	host: (msg: TypedMessage) => void
 	chat: (msg: TypedMessage) => void
-}
-
-function isTypedMessage(value: unknown): value is TypedMessage {
-	if (value === null || typeof value !== 'object') return false
-	return typeof Reflect.get(value, 'type') === 'string'
 }
 
 function parseFrame(raw: string): TypedMessage | null {

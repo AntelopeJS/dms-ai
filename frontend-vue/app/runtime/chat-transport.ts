@@ -1,5 +1,5 @@
 import type { ChannelStatus } from './channel-client'
-import { LOG_PREFIX } from './constants'
+import { createListeners } from './listeners'
 
 /**
  * The chat's side of the tab's stream: the dashboard owns the stream and hands
@@ -28,34 +28,6 @@ export interface ChatTransportHub {
 	deliver: (msg: object) => void
 	announceReady: () => void
 	announceStatus: (status: ChannelStatus) => void
-}
-
-interface Listeners<T> {
-	add: (listener: (value: T) => void) => () => void
-	emit: (value: T) => void
-}
-
-/**
- * A listener belongs to a chat component that may already be failing: one
- * throwing must not stop the others, nor the dashboard's stream.
- */
-function createListeners<T>(): Listeners<T> {
-	const listeners = new Set<(value: T) => void>()
-	return {
-		add: (listener) => {
-			listeners.add(listener)
-			return () => listeners.delete(listener)
-		},
-		emit: (value) => {
-			for (const listener of listeners) {
-				try {
-					listener(value)
-				} catch (error: unknown) {
-					console.error(`${LOG_PREFIX} chat listener failed`, error)
-				}
-			}
-		},
-	}
 }
 
 export function createChatTransport(

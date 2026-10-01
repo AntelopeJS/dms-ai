@@ -1,5 +1,6 @@
 import { onBeforeUnmount, onMounted, type Ref, ref } from "vue";
 import type { ChatTransport } from "../../runtime/chat-transport";
+import { createListeners } from "../../runtime/listeners";
 import {
 	CHAT_ROLE,
 	CLIENT_MESSAGE_TYPES,
@@ -67,24 +68,6 @@ function detach(state: ChannelState): void {
 	state.detachers = [];
 }
 
-interface Subscribers {
-	register: (handler: ChannelMessageHandler) => () => void;
-	dispatch: ChannelMessageHandler;
-}
-
-function createSubscribers(): Subscribers {
-	const handlers = new Set<ChannelMessageHandler>();
-	return {
-		register: (handler) => {
-			handlers.add(handler);
-			return () => handlers.delete(handler);
-		},
-		dispatch: (msg) => {
-			for (const handler of handlers) handler(msg);
-		},
-	};
-}
-
 export interface ChatChannel {
 	result: UseChatChannelResult;
 	/** Listens to the dashboard's stream and says hello once it is connected. */
@@ -95,10 +78,10 @@ export interface ChatChannel {
 
 /** The chat's channel without the component lifecycle, which `useChatChannel` adds. */
 export function createChatChannel(options: UseChatChannelOptions): ChatChannel {
-	const subscribers = createSubscribers();
+	const subscribers = createListeners<unknown>();
 	const state: ChannelState = {
 		options,
-		dispatch: subscribers.dispatch,
+		dispatch: subscribers.emit,
 		isConnected: ref(false),
 		connectionStatus: ref<ConnectionStatus>(CONNECTION_STATUSES.CONNECTING),
 		isAttached: false,
@@ -107,7 +90,7 @@ export function createChatChannel(options: UseChatChannelOptions): ChatChannel {
 	return {
 		result: {
 			send: (msg) => state.isAttached && options.transport.send(msg),
-			onMessage: subscribers.register,
+			onMessage: subscribers.add,
 			reconnect: () => options.transport.reconnect(),
 			reidentify: () => sendHello(state),
 			isConnected: state.isConnected,

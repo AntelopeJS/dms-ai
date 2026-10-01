@@ -1,4 +1,5 @@
 import { HOST_COMMAND_NAVIGATE_TYPE, LOG_PREFIX } from './constants'
+import { isTypedMessage } from './typed-message'
 
 interface RouterLike {
 	push: (path: string) => unknown
@@ -111,11 +112,6 @@ const COMMAND_HANDLERS: Record<string, HostCommandHandler> = {
 	[HOST_COMMAND_NAVIGATE_TYPE]: handleNavigate,
 }
 
-function isHostCommand(value: unknown): value is HostCommandMessage {
-	if (value === null || typeof value !== 'object') return false
-	return typeof Reflect.get(value, 'type') === 'string'
-}
-
 export function createHostCommandDispatcher(
 	ctx: HostCommandContext,
 ): HostCommandDispatcher {
@@ -125,7 +121,7 @@ export function createHostCommandDispatcher(
 		nextPath: null,
 	}
 	return (msg: unknown): void => {
-		if (!isHostCommand(msg)) return
+		if (!isTypedMessage<HostCommandMessage>(msg)) return
 		const handler = COMMAND_HANDLERS[msg.type]
 		if (handler === undefined) {
 			console.warn(`${LOG_PREFIX} unknown host command type=${msg.type}`)
