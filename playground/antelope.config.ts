@@ -6,7 +6,6 @@ import { defineConfig } from "@antelopejs/interface-core/config";
 const FRONTEND_ORIGIN = "http://localhost:3001";
 const FRONTEND_LOOPBACK_ORIGIN = "http://127.0.0.1:3001";
 const dmsClientUrl = process.env.DMS_CLIENT_BASE_URL;
-const frontendOrigin = dmsClientUrl ?? FRONTEND_ORIGIN;
 // Port the api module *prefers*; it publishes the one it actually reserved as
 // API_LOCAL_BASE_URL, which is what every other module here consumes.
 const API_PREFERRED_PORT = "5010";
@@ -53,7 +52,6 @@ export default defineConfig({
       },
       config: {
         backendUrl: apiLocalBaseUrl,
-        hostOrigin: frontendOrigin,
       },
     },
     "dms-builder": {

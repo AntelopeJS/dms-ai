@@ -6,10 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createBuilderClient } from "./builder/builder-client.js";
 import { setBuilderAvailable } from "./builder/capability.js";
 import { SIDECAR_BUILDER_FLAG } from "./constants/builder.js";
-import {
-  STANDALONE_BACKEND_BASE_URL,
-  STANDALONE_HOST_ORIGIN,
-} from "./constants/cli.js";
+import { STANDALONE_BACKEND_BASE_URL } from "./constants/cli.js";
 import {
   GRACEFUL_EXIT_CODE,
   IDLE_SHUTDOWN_MS,
@@ -68,7 +65,6 @@ enforceProductionGuard();
 export interface ParsedArgs {
   port: number;
   root: string;
-  hostOrigin: string;
   backendUrl: string;
   buildId: string;
   moduleRoots: string[];
@@ -127,9 +123,6 @@ const ARG_PARSERS: Record<string, ArgParser> = {
   "--root": (v, a) => {
     a.root = v;
   },
-  "--host-origin": (v, a) => {
-    a.hostOrigin = v;
-  },
   "--backend-url": (v, a) => {
     a.backendUrl = v;
   },
@@ -145,7 +138,6 @@ function buildDefaults(): ParsedArgs {
   return {
     port: RANDOM_PORT,
     root: process.cwd(),
-    hostOrigin: STANDALONE_HOST_ORIGIN,
     backendUrl: STANDALONE_BACKEND_BASE_URL,
     buildId: "",
     moduleRoots: [],
@@ -245,7 +237,6 @@ async function buildSettingsStore(root: string): Promise<SettingsStore> {
 function logStartup(args: ParsedArgs, port: number): void {
   console.log(`DMS_AI_SIDECAR_PORT=${port}`);
   console.log(`DMS_AI_SIDECAR_ROOT=${args.root}`);
-  console.log(`DMS_AI_SIDECAR_HOST_ORIGIN=${args.hostOrigin}`);
   console.log(`DMS_AI_SIDECAR_BACKEND_URL=${args.backendUrl}`);
 }
 

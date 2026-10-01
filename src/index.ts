@@ -3,13 +3,21 @@ import { Logging } from "@antelopejs/interface-core/logging";
 import { AddFrontendModule } from "@antelopejs/interface-dms/page";
 import { isBuilderAvailable } from "./builder/presence";
 import { closeAllBridges } from "./channels/registry";
-import { getConfig, parseConfig, setConfig } from "./config";
+import {
+  getConfig,
+  hasDeprecatedHostOrigin,
+  parseConfig,
+  setConfig,
+} from "./config";
 import {
   FRONTEND_MODULE_DIR,
   FRONTEND_MODULE_NAME,
   FRONTEND_MODULE_PRIORITY,
 } from "./constants/frontend-module";
-import { SIDECAR_LOG_PREFIX } from "./constants/sidecar";
+import {
+  HOST_ORIGIN_DEPRECATION_WARNING,
+  SIDECAR_LOG_PREFIX,
+} from "./constants/sidecar";
 import { collectModuleRoots } from "./lifecycle/module-roots";
 import { collectSkillSources } from "./lifecycle/skill-sources";
 import { spawnSidecar } from "./lifecycle/spawn-sidecar";
@@ -17,7 +25,16 @@ import { startLogCapture } from "./logging/log-buffer";
 import "./pages";
 import "./routes";
 
+let hasWarnedHostOrigin = false;
+
+function warnDeprecatedHostOrigin(config: unknown): void {
+  if (hasWarnedHostOrigin || !hasDeprecatedHostOrigin(config)) return;
+  hasWarnedHostOrigin = true;
+  Logging.Warn(HOST_ORIGIN_DEPRECATION_WARNING);
+}
+
 export function construct(config: unknown): void {
+  warnDeprecatedHostOrigin(config);
   setConfig(parseConfig(config));
 }
 

@@ -15,7 +15,6 @@ import {
   SIDECAR_ENV_DISABLE_KEY,
   SIDECAR_HEALTH_PATH,
   SIDECAR_HEALTH_TIMEOUT_MS,
-  SIDECAR_HOST_ORIGIN_FLAG,
   SIDECAR_LOCK_FILE_NAME,
   SIDECAR_LOCK_POLL_INTERVAL_MS,
   SIDECAR_LOG_FILE_NAME,
@@ -33,10 +32,9 @@ import type { SkillSource } from "./skill-sources";
 
 interface SpawnOptions {
   hostProjectRoot: string;
-  // Origin the DMS frontend is served from, and origin the sidecar's registry,
-  // logs and builder clients call the backend on. Both come from the module
-  // config; left out, the sidecar keeps its own standalone defaults.
-  hostOrigin?: string;
+  // Origin the sidecar's registry, logs and builder clients call the backend
+  // on. It comes from the module config; left out, the sidecar keeps its own
+  // standalone default.
   backendUrl?: string;
   // Authoritative module roots (from interface-core) auto-allowed for read-only
   // tools. Captured in state so an idle-revive respawn reuses the same set.
@@ -80,13 +78,6 @@ interface SidecarState {
 }
 
 const WINDOWS_PLATFORM = "win32";
-
-type OriginOption = "backendUrl" | "hostOrigin";
-
-const ORIGIN_FLAGS: Record<string, OriginOption> = {
-  [SIDECAR_BACKEND_URL_FLAG]: "backendUrl",
-  [SIDECAR_HOST_ORIGIN_FLAG]: "hostOrigin",
-};
 
 const state: SidecarState = {
   child: null,
@@ -289,9 +280,9 @@ function buildSpawnArgs(binPath: string, buildId: string): string[] {
   if (state.options?.builderEnabled) {
     args.push(SIDECAR_BUILDER_FLAG, "1");
   }
-  for (const [flag, option] of Object.entries(ORIGIN_FLAGS)) {
-    const origin = state.options?.[option];
-    if (origin !== undefined) args.push(flag, origin);
+  const backendUrl = state.options?.backendUrl;
+  if (backendUrl !== undefined) {
+    args.push(SIDECAR_BACKEND_URL_FLAG, backendUrl);
   }
   return args;
 }
