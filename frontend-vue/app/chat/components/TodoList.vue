@@ -73,7 +73,9 @@ function toggle(): void {
 }
 
 function todoText(todo: TodoItem): string {
-	return todo.status === TODO_STATUS.IN_PROGRESS ? todo.activeForm : todo.content;
+	return todo.status === TODO_STATUS.IN_PROGRESS
+		? todo.activeForm
+		: todo.content;
 }
 </script>
 
@@ -87,10 +89,9 @@ function todoText(todo: TodoItem): string {
 		>
 			<span class="todo-toggle">{{ expanded ? "▾" : "▸" }}</span>
 			<span class="todo-title">{{ TODO_PANEL_TITLE }}</span>
-			<span
-				v-if="!expanded && activeLabel.length > 0"
-				class="todo-active"
-			>{{ activeLabel }}</span>
+			<span v-if="!expanded && activeLabel.length > 0" class="todo-active">
+				{{ activeLabel }}
+			</span>
 			<span class="todo-count">{{ completedCount }}/{{ todos.length }}</span>
 		</button>
 		<div class="todo-track" aria-hidden="true">
@@ -104,9 +105,43 @@ function todoText(todo: TodoItem): string {
 				:data-status="todo.status"
 			>
 				<span class="todo-glyph" :data-status="todo.status" aria-hidden="true">
-					<svg v-if="todo.status === 'completed'" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-					<svg v-else-if="todo.status === 'in_progress' && isRunning" class="todo-spin" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>
-					<svg v-else viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>
+					<svg
+						v-if="todo.status === 'completed'"
+						viewBox="0 0 24 24"
+						width="12"
+						height="12"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="3"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M20 6 9 17l-5-5" />
+					</svg>
+					<svg
+						v-else-if="todo.status === 'in_progress' && isRunning"
+						class="todo-spin"
+						viewBox="0 0 24 24"
+						width="12"
+						height="12"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.5"
+						stroke-linecap="round"
+					>
+						<path d="M21 12a9 9 0 1 1-6.2-8.6" />
+					</svg>
+					<svg
+						v-else
+						viewBox="0 0 24 24"
+						width="12"
+						height="12"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<circle cx="12" cy="12" r="8" />
+					</svg>
 				</span>
 				<span class="todo-text">{{ todoText(todo) }}</span>
 			</li>

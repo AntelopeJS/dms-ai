@@ -117,6 +117,8 @@ describe("the chat's side of the dashboard's stream", () => {
 		opened.stop();
 		stream.hub.deliver({ type: SERVER_EVENT_TYPES.RUN_DONE });
 		expect(received).toEqual([]);
-		expect(opened.result.send({ type: CLIENT_MESSAGE_TYPES.HELLO })).toBe(false);
+		expect(opened.result.send({ type: CLIENT_MESSAGE_TYPES.HELLO })).toBe(
+			false,
+		);
 	});
 });

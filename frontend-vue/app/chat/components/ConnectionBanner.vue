@@ -52,11 +52,7 @@ function onReconnect(): void {
 		aria-live="polite"
 	>
 		<span class="connection-banner-label">{{ label }}</span>
-		<button
-			type="button"
-			class="connection-banner-button"
-			@click="onReconnect"
-		>
+		<button type="button" class="connection-banner-button" @click="onReconnect">
 			{{ RECONNECT_BUTTON_LABEL }}
 		</button>
 	</div>

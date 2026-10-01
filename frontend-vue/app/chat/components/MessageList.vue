@@ -157,11 +157,7 @@ function formatTime(ms: number): string {
 <template>
 	<ol class="message-list">
 		<template v-for="item in renderItems" :key="item.key">
-			<li
-				v-if="item.kind === 'tools'"
-				class="message-item"
-				data-role="tool"
-			>
+			<li v-if="item.kind === 'tools'" class="message-item" data-role="tool">
 				<ToolCluster
 					v-if="item.tools.length > 1"
 					:tools="item.tools"
@@ -170,21 +166,21 @@ function formatTime(ms: number): string {
 				<ToolCallEntry v-else :message="item.tools[0]" />
 			</li>
 
-			<li
-				v-else
-				class="message-item"
-				:data-role="item.message.role"
-			>
+			<li v-else class="message-item" :data-role="item.message.role">
 				<header class="message-meta">
 					<span class="message-role">{{ roleLabel(item.message.role) }}</span>
-					<span class="message-time">{{ formatTime(item.message.timestampMs) }}</span>
+					<span class="message-time">
+						{{ formatTime(item.message.timestampMs) }}
+					</span>
 				</header>
 
 				<template v-if="item.message.role === MESSAGE_ROLES.USER">
 					<p
 						v-if="item.message.content"
 						class="message-bubble message-bubble-user"
-					>{{ item.message.content }}</p>
+					>
+						{{ item.message.content }}
+					</p>
 
 					<ul
 						v-if="userAttachments(item.message).length > 0"
@@ -253,7 +249,11 @@ function formatTime(ms: number): string {
 		<li v-else-if="showActivity" class="message-item" data-role="assistant">
 			<div class="thinking" aria-live="polite">
 				<span class="thinking-label">{{ activityLabel }}</span>
-				<span class="thinking-dots"><i></i><i></i><i></i></span>
+				<span class="thinking-dots">
+					<i></i>
+					<i></i>
+					<i></i>
+				</span>
 				<span class="thinking-clock">{{ elapsedLabel }}</span>
 				<span v-if="quietLabel" class="thinking-quiet">{{ quietLabel }}</span>
 			</div>

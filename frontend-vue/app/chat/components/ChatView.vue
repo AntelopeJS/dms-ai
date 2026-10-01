@@ -94,7 +94,10 @@ const conversationList = useConversationList({
 	send: channel.send,
 	onMessage: channel.onMessage,
 });
-const settings = useSettings({ send: channel.send, onMessage: channel.onMessage });
+const settings = useSettings({
+	send: channel.send,
+	onMessage: channel.onMessage,
+});
 
 const drawerOpen = ref(false);
 const nowMs = ref(Date.now());
@@ -126,14 +129,16 @@ const modeHint = computed(() => {
 const modeModel = computed<ChatMode>({
 	get: () => settings.settings.value.mode,
 	set: (value) => {
-		if (value !== settings.settings.value.mode) settings.update({ mode: value });
+		if (value !== settings.settings.value.mode)
+			settings.update({ mode: value });
 	},
 });
 
 const providerItems = computed(() =>
 	PROVIDER_OPTIONS.map((option) => ({
 		...option,
-		disabled: !isProviderAvailable(option.value) || conversation.isRunning.value,
+		disabled:
+			!isProviderAvailable(option.value) || conversation.isRunning.value,
 	})),
 );
 
@@ -281,7 +286,8 @@ function retryLastMessage(): void {
 					:data-connected="channel.isConnected.value"
 					aria-live="polite"
 				>
-					<i class="chat-view-status-dot" />{{ statusLabel }}
+					<i class="chat-view-status-dot" />
+					{{ statusLabel }}
 				</span>
 			</div>
 			<button
@@ -323,7 +329,7 @@ function retryLastMessage(): void {
 				variant="ghost"
 				size="sm"
 				:title="modeHint"
-				class="font-semibold text-primary"
+				class="text-primary font-semibold"
 			/>
 			<span class="modebar-label">{{ PROVIDER_SECTION_LABEL }}</span>
 			<USelect
@@ -334,7 +340,7 @@ function retryLastMessage(): void {
 				variant="ghost"
 				size="sm"
 				:title="providerHint"
-				class="font-semibold text-primary"
+				class="text-primary font-semibold"
 			/>
 		</div>
 
@@ -427,9 +433,17 @@ function retryLastMessage(): void {
 	--hair-strong: var(--ui-border-accented);
 	--success-400: var(--ui-color-success-400);
 	--success-500: var(--ui-color-success-500);
-	--success-bg: color-mix(in oklab, var(--ui-color-success-500) 10%, transparent);
+	--success-bg: color-mix(
+		in oklab,
+		var(--ui-color-success-500) 10%,
+		transparent
+	);
 	--warning-400: var(--ui-color-warning-400);
-	--warning-bg: color-mix(in oklab, var(--ui-color-warning-500) 10%, transparent);
+	--warning-bg: color-mix(
+		in oklab,
+		var(--ui-color-warning-500) 10%,
+		transparent
+	);
 	--danger-400: var(--ui-color-error-400);
 	--danger-bg: color-mix(in oklab, var(--ui-color-error-500) 12%, transparent);
 	--corner-sm: var(--ui-radius);

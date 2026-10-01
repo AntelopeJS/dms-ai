@@ -63,11 +63,7 @@ function pickOther(requestId: string, qIndex: number): void {
 	entryOf(requestId, qIndex).mode = "other";
 }
 
-function onOtherInput(
-	requestId: string,
-	qIndex: number,
-	event: Event,
-): void {
+function onOtherInput(requestId: string, qIndex: number, event: Event): void {
 	entryOf(requestId, qIndex).other = (event.target as HTMLInputElement).value;
 }
 
@@ -91,11 +87,7 @@ function submit(req: QuestionRequestData): void {
 <template>
 	<section class="q-tray" role="group" aria-label="Question from the assistant">
 		<article v-for="req in requests" :key="req.requestId" class="q-card">
-			<div
-				v-for="(question, qi) in req.questions"
-				:key="qi"
-				class="q-block"
-			>
+			<div v-for="(question, qi) in req.questions" :key="qi" class="q-block">
 				<span class="q-header">{{ question.header }}</span>
 				<p class="q-question">{{ question.question }}</p>
 
