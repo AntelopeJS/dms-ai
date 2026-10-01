@@ -62,11 +62,24 @@ md.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
 	return self.renderToken(tokens, idx, options);
 };
 
+function imageDestination(src: string): string {
+	try {
+		return new URL(src).host || src;
+	} catch {
+		return src;
+	}
+}
+
+function imageLinkLabel(alt: string, src: string): string {
+	const destination = imageDestination(src);
+	return alt ? `${alt} (${destination})` : destination;
+}
+
 md.renderer.rules.image = (tokens, idx, options, env, self) => {
 	const token = tokens[idx];
 	const src = token.attrGet("src") ?? "";
 	const alt = self.renderInlineAsText(token.children ?? [], options, env);
-	const label = md.utils.escapeHtml(alt || src);
+	const label = md.utils.escapeHtml(imageLinkLabel(alt, src));
 	return `<a href="${md.utils.escapeHtml(src)}" target="${LINK_TARGET}" rel="${LINK_REL}">${label}</a>`;
 };
 

