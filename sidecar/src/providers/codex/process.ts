@@ -1,13 +1,7 @@
-import {
-  type ChildProcess,
-  execFile,
-  execFileSync,
-  spawn,
-} from "node:child_process";
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
 import {
   CODEX_APP_SERVER_COMMAND,
   CODEX_AUTH_FILE_MODE,
@@ -19,9 +13,9 @@ import {
   CODEX_HOME_DIR_NAME,
   CODEX_HOME_ENV_VAR,
   CODEX_HOME_REMOVAL_FAILED_MESSAGE,
-  CODEX_KILL_GRACE_MS,
   CODEX_LOG_PREFIX,
   CODEX_MCP_TOKEN_ENV_VAR,
+  CODEX_ORPHAN_POLL_MS,
   CODEX_PID_REGISTRY_FILE,
   CODEX_PID_RELEASE_FAILED_MESSAGE,
   CODEX_PID_TOKEN,
@@ -30,16 +24,19 @@ import {
   CODEX_STDERR_TAIL_BYTES,
   CODEX_STRICT_CONFIG_FLAG,
   CODEX_SURVIVED_STOP_MESSAGE,
-  CODEX_TERMINATE_GRACE_MS,
   PROCESS_QUERY_BY_PLATFORM,
-  WINDOWS_PLATFORM,
-  WINDOWS_TREE_KILL,
 } from "../../constants/codex.js";
 import { safeDirSegment } from "../../state/safe-segment.js";
 import type { CodexClient, CodexClientHandlers } from "./client.js";
 import { createCodexClient } from "./client.js";
 import { buildAuthFile, buildConfigToml } from "./config.js";
 import type { CodexInstallation } from "./resolve-binary.js";
+import {
+  isWindowsHost,
+  runStopSteps,
+  type StoppedWithin,
+  sweepProcessTree,
+} from "./stop.js";
 
 export interface CodexProcessOptions {
   conversationId: string;
@@ -80,11 +77,33 @@ function pidRegistryPath(stateDir: string): string {
   return path.join(stateDir, CODEX_PID_REGISTRY_FILE);
 }
 
-async function readPidRegistry(stateDir: string): Promise<number[]> {
+/**
+ * One app-server a sidecar started, with the home it was given. The home is
+ * absent from registries written before it was recorded.
+ */
+interface PidRecord {
+  pid: number;
+  home?: string;
+}
+
+function toPidRecord(entry: unknown): PidRecord | undefined {
+  if (Number.isInteger(entry)) return { pid: entry as number };
+  if (entry === null || typeof entry !== "object") return undefined;
+  const { pid, home } = entry as Partial<PidRecord>;
+  if (pid === undefined || !Number.isInteger(pid)) return undefined;
+  return typeof home === "string" ? { pid, home } : { pid };
+}
+
+function isPidRecord(record: PidRecord | undefined): record is PidRecord {
+  return record !== undefined;
+}
+
+async function readPidRegistry(stateDir: string): Promise<PidRecord[]> {
   try {
     const raw = await readFile(pidRegistryPath(stateDir), "utf8");
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(Number.isInteger) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(toPidRecord).filter(isPidRecord);
   } catch {
     return [];
   }
@@ -92,10 +111,10 @@ async function readPidRegistry(stateDir: string): Promise<number[]> {
 
 async function writePidRegistry(
   stateDir: string,
-  pids: readonly number[],
+  records: readonly PidRecord[],
 ): Promise<void> {
   mkdirSync(stateDir, { recursive: true });
-  await writeFile(pidRegistryPath(stateDir), JSON.stringify([...pids]));
+  await writeFile(pidRegistryPath(stateDir), JSON.stringify([...records]));
 }
 
 function readProcCmdline(pid: number): string | undefined {
@@ -143,70 +162,18 @@ export function isCodexProcess(pid: number): boolean {
   return readProcessCommand(pid)?.includes(CODEX_BINARY_NAME) === true;
 }
 
-const execFileAsync = promisify(execFile);
-
-// Windows has no signals: `process.kill` terminates the app-server and leaves
-// whatever it spawned behind, so the tree is killed through taskkill instead.
-async function terminateWindows(pid: number): Promise<void> {
-  const [command, ...args] = WINDOWS_TREE_KILL;
-  await execFileAsync(
-    command,
-    args.map((arg) => arg.replace(CODEX_PID_TOKEN, String(pid))),
-    { windowsHide: true },
-  ).catch(() => undefined);
-}
-
-function sendSignal(pid: number, signal: NodeJS.Signals): void {
-  try {
-    process.kill(pid, signal);
-  } catch {
-    // Already gone.
-  }
-}
-
-interface StopStep {
-  send: (pid: number) => void | Promise<void>;
-  waitMs: number;
-}
-
-type StoppedWithin = (waitMs: number) => Promise<boolean>;
-
-const POSIX_STOP_STEPS: readonly StopStep[] = [
-  {
-    send: (pid) => sendSignal(pid, "SIGTERM"),
-    waitMs: CODEX_TERMINATE_GRACE_MS,
-  },
-  { send: (pid) => sendSignal(pid, "SIGKILL"), waitMs: CODEX_KILL_GRACE_MS },
-];
-const WINDOWS_STOP_STEPS: readonly StopStep[] = [
-  { send: terminateWindows, waitMs: CODEX_KILL_GRACE_MS },
-];
-
-function platformStopSteps(): readonly StopStep[] {
-  return process.platform === WINDOWS_PLATFORM
-    ? WINDOWS_STOP_STEPS
-    : POSIX_STOP_STEPS;
-}
-
-async function runStopSteps(
-  pid: number,
-  stoppedWithin: StoppedWithin,
-): Promise<boolean> {
-  for (const step of platformStopSteps()) {
-    await step.send(pid);
-    if (await stoppedWithin(step.waitMs)) return true;
-  }
-  return false;
-}
-
 function waitUnref(waitMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, waitMs).unref());
 }
 
 function orphanGoneWithin(pid: number): StoppedWithin {
   return async (waitMs) => {
-    await waitUnref(waitMs);
-    return !isCodexProcess(pid);
+    const deadline = Date.now() + waitMs;
+    while (isCodexProcess(pid)) {
+      if (Date.now() >= deadline) return false;
+      await waitUnref(CODEX_ORPHAN_POLL_MS);
+    }
+    return true;
   };
 }
 
@@ -234,19 +201,73 @@ async function stopChild(child: ChildProcess, pid: number): Promise<boolean> {
   return runStopSteps(pid, (waitMs) => exitsWithin(child, waitMs));
 }
 
+interface ReapOutcome {
+  record: PidRecord;
+  isStopped: boolean;
+}
+
+async function stopOrphan(record: PidRecord): Promise<ReapOutcome> {
+  const isStopped = await runStopSteps(
+    record.pid,
+    orphanGoneWithin(record.pid),
+  );
+  return { record, isStopped };
+}
+
+/**
+ * Removes every home under `<state>/codex-home/` but the survivors'. A survivor
+ * recorded without its home leaves them all in place: which one it still uses
+ * cannot be told apart.
+ */
+async function removeOrphanHomes(
+  stateDir: string,
+  survivors: readonly PidRecord[],
+): Promise<void> {
+  if (survivors.some((record) => record.home === undefined)) return;
+  const kept = new Set(survivors.map((record) => record.home));
+  const homesRoot = path.join(stateDir, CODEX_HOME_DIR_NAME);
+  const entries = await readdir(homesRoot).catch((): string[] => []);
+  const orphanHomes = entries
+    .map((entry) => path.join(homesRoot, entry))
+    .filter((home) => !kept.has(home));
+  await Promise.all(orphanHomes.map(removeHome));
+}
+
+async function forgetReaped(
+  stateDir: string,
+  recorded: readonly PidRecord[],
+  survivors: readonly PidRecord[],
+): Promise<void> {
+  if (recorded.length === 0) return;
+  const survivorPids = new Set(survivors.map((record) => record.pid));
+  const settled = new Set(
+    recorded
+      .map((record) => record.pid)
+      .filter((pid) => !survivorPids.has(pid)),
+  );
+  await updateRegistry(stateDir, (current) =>
+    current.filter((record) => !settled.has(record.pid)),
+  );
+}
+
 /**
  * Kills app-server processes left behind by a previous sidecar that did not exit
- * cleanly. Each holds a model connection and writes to disk, so orphans are not
- * harmless.
+ * cleanly, then removes the homes they left: each holds the API key and the
+ * client's code. Resolves once both are done. A process that outlives its
+ * termination stays recorded, and keeps its home, for the next start.
  */
 export async function reapOrphanCodexProcesses(
   stateDir: string,
 ): Promise<number[]> {
   const recorded = await readPidRegistry(stateDir);
-  if (recorded.length === 0) return [];
-  const killed = recorded.filter(isCodexProcess);
-  for (const pid of killed) void runStopSteps(pid, orphanGoneWithin(pid));
-  await updateRegistry(stateDir, () => []);
+  const orphans = recorded.filter((record) => isCodexProcess(record.pid));
+  const outcomes = await Promise.all(orphans.map(stopOrphan));
+  const survivors = outcomes
+    .filter((outcome) => !outcome.isStopped)
+    .map((outcome) => outcome.record);
+  await forgetReaped(stateDir, recorded, survivors);
+  await removeOrphanHomes(stateDir, survivors);
+  const killed = orphans.map((record) => record.pid);
   if (killed.length > 0) {
     console.warn(
       `${CODEX_LOG_PREFIX} reaped orphan processes: ${killed.join(", ")}`,
@@ -263,7 +284,7 @@ let registryQueue: Promise<unknown> = Promise.resolve();
 
 function updateRegistry(
   stateDir: string,
-  mutate: (recorded: readonly number[]) => number[],
+  mutate: (recorded: readonly PidRecord[]) => PidRecord[],
 ): Promise<void> {
   const next = registryQueue.then(async () => {
     const recorded = await readPidRegistry(stateDir);
@@ -273,15 +294,16 @@ function updateRegistry(
   return next;
 }
 
-function recordPid(stateDir: string, pid: number): Promise<void> {
+function recordPid(stateDir: string, pid: number, home: string): Promise<void> {
   return updateRegistry(stateDir, (recorded) => [
-    ...new Set([...recorded, pid]),
+    ...recorded.filter((record) => record.pid !== pid),
+    { pid, home },
   ]);
 }
 
 function forgetPid(stateDir: string, pid: number): Promise<void> {
   return updateRegistry(stateDir, (recorded) =>
-    recorded.filter((candidate) => candidate !== pid),
+    recorded.filter((record) => record.pid !== pid),
   );
 }
 
@@ -329,6 +351,7 @@ function spawnChild(
     ],
     {
       stdio: ["pipe", "pipe", "pipe"],
+      detached: !isWindowsHost(),
       env: {
         ...process.env,
         [CODEX_HOME_ENV_VAR]: codexHome,
@@ -457,6 +480,44 @@ async function disposeProcess(teardown: ProcessTeardown): Promise<void> {
   }
 }
 
+/**
+ * A crashed app-server leaves its group behind as surely as a stopped one: what
+ * it started is killed as soon as it exits, whatever the cause.
+ */
+function sweepOnExit(child: ChildProcess): void {
+  const { pid } = child;
+  if (pid === undefined) return;
+  child.once("exit", () => sweepProcessTree(pid));
+}
+
+function buildCodexProcess(teardown: ProcessTeardown): CodexProcess {
+  let disposal: Promise<void> | null = null;
+  return {
+    client: teardown.client,
+    codexHome: teardown.codexHome,
+    pid: teardown.child.pid,
+    dispose: () => {
+      if (disposal !== null) return disposal;
+      disposal = disposeProcess(teardown);
+      trackRelease(teardown.codexHome, disposal);
+      return disposal;
+    },
+  };
+}
+
+async function registerPid(
+  stateDir: string,
+  spawned: CodexProcess,
+): Promise<void> {
+  if (spawned.pid === undefined) return;
+  try {
+    await recordPid(stateDir, spawned.pid, spawned.codexHome);
+  } catch (error) {
+    await spawned.dispose();
+    throw error;
+  }
+}
+
 export async function spawnCodexProcess(
   options: CodexProcessOptions,
 ): Promise<CodexProcess> {
@@ -465,30 +526,19 @@ export async function spawnCodexProcess(
   // Both before any `await` and before the pipe check below: a spawn failure is
   // reported on the next tick, and an unhandled `error` event is fatal.
   const watchdog = watchChild(child, drainStderr(child));
+  sweepOnExit(child);
   if (child.stdin === null || child.stdout === null) {
     throw new Error(`${CODEX_LOG_PREFIX} failed to open app-server pipes`);
   }
   const client = createCodexClient(child.stdin, child.stdout, options.handlers);
   watchdog.arm(client);
-  const pid = child.pid;
-  if (pid !== undefined) await recordPid(options.stateDir, pid);
-
-  let disposal: Promise<void> | null = null;
-  return {
-    client,
+  const spawned = buildCodexProcess({
+    stateDir: options.stateDir,
     codexHome,
-    pid,
-    dispose: () => {
-      if (disposal !== null) return disposal;
-      disposal = disposeProcess({
-        stateDir: options.stateDir,
-        codexHome,
-        client,
-        watchdog,
-        child,
-      });
-      trackRelease(codexHome, disposal);
-      return disposal;
-    },
-  };
+    client,
+    watchdog,
+    child,
+  });
+  await registerPid(options.stateDir, spawned);
+  return spawned;
 }

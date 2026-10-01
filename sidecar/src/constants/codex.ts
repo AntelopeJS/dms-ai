@@ -97,6 +97,8 @@ export const CODEX_PID_REGISTRY_FILE = "codex-pids.json";
 // covers a wedged child.
 export const CODEX_TERMINATE_GRACE_MS = 2000;
 export const CODEX_KILL_GRACE_MS = 2000;
+/** How often a reaped orphan is checked for within those graces. */
+export const CODEX_ORPHAN_POLL_MS = 50;
 export const CODEX_SURVIVED_STOP_MESSAGE =
   "app-server outlived its termination, left for the next start to reap:";
 export const CODEX_PID_RELEASE_FAILED_MESSAGE = "could not unregister pid";

@@ -5,6 +5,7 @@ import type {
   ProviderSessionContext,
 } from "../../src/agent/provider.js";
 import { type AgentRunner, createAgentRunner } from "../../src/agent/runner.js";
+import { RUNNER_CLOSED_MESSAGE } from "../../src/constants/agent.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
 import {
   type Deferred,
@@ -104,5 +105,43 @@ describe("runner teardown", () => {
     opened[0]?.teardown.resolve();
     await flushCallbacks();
     expect(disposal.isSettled()).toBe(true);
+  });
+
+  it("refuses to open a session once disposed", async () => {
+    const opened: FakeSession[] = [];
+    const runner = createAgentRunner(fakeProvider(opened));
+    await runner.dispose();
+
+    await expect(openConversation(runner, "conv-a")).rejects.toThrow(
+      RUNNER_CLOSED_MESSAGE,
+    );
+    expect(opened).toEqual([]);
+  });
+
+  it("disposes of a session still opening when the runner is disposed, and waits for it", async () => {
+    const opened: FakeSession[] = [];
+    const opening = defer();
+    const provider: AgentProvider = {
+      createSession: async (ctx) => {
+        await opening.promise;
+        return openFakeSession(ctx, opened);
+      },
+    };
+    const runner = createAgentRunner(provider);
+    const turn = openConversation(runner, "conv-a").catch(
+      (error: unknown) => error,
+    );
+    await flushCallbacks();
+
+    const disposal = watchSettle(runner.dispose());
+    opening.resolve();
+    await flushCallbacks();
+    expect(opened).toHaveLength(1);
+    expect(disposal.isSettled()).toBe(false);
+
+    opened[0]?.teardown.resolve();
+    await flushCallbacks();
+    expect(disposal.isSettled()).toBe(true);
+    expect(String(await turn)).toContain(RUNNER_CLOSED_MESSAGE);
   });
 });

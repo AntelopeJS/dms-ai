@@ -1,17 +1,24 @@
-import { appendFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { appendFileSync, writeFileSync } from "node:fs";
 import {
   COMPLETED_ITEM_STATUS,
   DEFAULT_DELAY_MS,
   DELAY_ENV_VAR,
   EMPTY_RESULT,
   EXIT_DIRECTIVE_METHOD,
+  FAIL_METHOD_ENV_VAR,
   FAILED_ITEM_STATUS,
   FALLBACK_RESULTS,
+  GRANDCHILD_ARGS,
+  GRANDCHILD_COMMAND,
+  GRANDCHILD_PID_FILE_ENV_VAR,
   INTERRUPTED_TURN_STATUS,
   ITEM_COMPLETED_METHOD,
   JSONRPC_VERSION,
   LINE_SEPARATOR,
   MCP_TOOL_CALL_ITEM,
+  REFUSED_ERROR_CODE,
+  REFUSED_MESSAGE_PREFIX,
   TRACE_ENV_VAR,
   TURN_COMPLETED_METHOD,
   TURN_INTERRUPT_METHOD,
@@ -157,13 +164,37 @@ function resultFor(state, method) {
   );
 }
 
+function refuse(transport, frame) {
+  transport.write({
+    id: frame.id,
+    error: {
+      code: REFUSED_ERROR_CODE,
+      message: `${REFUSED_MESSAGE_PREFIX} ${frame.method} (pid ${process.pid})`,
+    },
+  });
+}
+
+function startGrandchild() {
+  const pidFile = process.env[GRANDCHILD_PID_FILE_ENV_VAR];
+  if (pidFile === undefined) return;
+  const grandchild = spawn(GRANDCHILD_COMMAND, GRANDCHILD_ARGS, {
+    stdio: "ignore",
+  });
+  writeFileSync(pidFile, String(grandchild.pid));
+}
+
 function handleClientRequest(state, transport, frame) {
+  if (frame.method === process.env[FAIL_METHOD_ENV_VAR]) {
+    refuse(transport, frame);
+    return;
+  }
   transport.write({ id: frame.id, result: resultFor(state, frame.method) });
   if (frame.method === TURN_INTERRUPT_METHOD) {
     state.interrupted = true;
     return;
   }
   if (frame.method !== TURN_START_METHOD) return;
+  startGrandchild();
   void replayTurn(state, transport);
 }
 

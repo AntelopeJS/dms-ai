@@ -1,5 +1,6 @@
 import { effectiveGenerationMode } from "../builder/capability.js";
 import type { PermissionDecision } from "../constants/permissions.js";
+import { RUNNER_CLOSED_MESSAGE } from "../constants/agent.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import type { AiMcpServer } from "../mcp/types.js";
 import type { AttachmentType } from "../protocol/messages.js";
@@ -51,7 +52,8 @@ export interface AgentRunner {
   /**
    * Disposes every session, ending a running turn with `reason` when given, and
    * resolves once every backend has released everything and every running turn
-   * has ended: the sessions that already tore themselves down included.
+   * has ended: the sessions that already tore themselves down, and those still
+   * opening, included. The runner opens no session afterwards.
    */
   dispose(reason?: RunnerError): Promise<void>;
 }
@@ -65,6 +67,7 @@ interface SessionManager {
   sessions: Map<string, ProviderSession>;
   settings: AppSettings;
   disposals: DisposalTracker;
+  isClosed: boolean;
 }
 
 function createSession(
@@ -87,15 +90,31 @@ function createSession(
   });
 }
 
-async function getOrCreateSession(
+function ignoreOutcome(): void {}
+
+async function openSession(
+  manager: SessionManager,
+  ctx: RunnerContext,
+): Promise<ProviderSession> {
+  const session = await createSession(manager, ctx);
+  if (manager.isClosed) {
+    await session.dispose();
+    throw new Error(RUNNER_CLOSED_MESSAGE);
+  }
+  manager.sessions.set(ctx.conversationId, session);
+  return session;
+}
+
+function getOrCreateSession(
   manager: SessionManager,
   ctx: RunnerContext,
 ): Promise<ProviderSession> {
   const existing = manager.sessions.get(ctx.conversationId);
-  if (existing !== undefined) return existing;
-  const session = await createSession(manager, ctx);
-  manager.sessions.set(ctx.conversationId, session);
-  return session;
+  if (existing !== undefined) return Promise.resolve(existing);
+  if (manager.isClosed) return Promise.reject(new Error(RUNNER_CLOSED_MESSAGE));
+  const opening = openSession(manager, ctx);
+  manager.disposals.track(opening.then(ignoreOutcome, ignoreOutcome));
+  return opening;
 }
 
 async function* startTurn(
@@ -140,6 +159,7 @@ async function disposeAll(
   manager: SessionManager,
   reason?: RunnerError,
 ): Promise<void> {
+  manager.isClosed = true;
   const sessions = [...manager.sessions.values()];
   manager.sessions.clear();
   for (const session of sessions) {
@@ -164,6 +184,7 @@ export function createAgentRunner(
     sessions: new Map(),
     settings: options?.settings ?? DEFAULT_SETTINGS,
     disposals: createDisposalTracker(),
+    isClosed: false,
   };
   return {
     start: (message, ctx) => startTurn(manager, message, ctx),

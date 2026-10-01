@@ -1,3 +1,4 @@
+import { RUNNER_CLOSED_MESSAGE } from "../constants/agent.js";
 import {
   PROVIDER_LABEL_TOKEN,
   PROVIDER_LABELS,
@@ -27,6 +28,7 @@ interface SwitchState {
   settings: AppSettings;
   active: ActiveRunner | null;
   retiring: DisposalTracker;
+  isClosed: boolean;
 }
 
 function unavailableError(name: ProviderName, reason: string): Error {
@@ -43,6 +45,7 @@ function unavailableError(name: ProviderName, reason: string): Error {
  * another one: the choice is the user's, and so is the model their code reaches.
  */
 function activate(state: SwitchState): AgentRunner {
+  if (state.isClosed) throw new Error(RUNNER_CLOSED_MESSAGE);
   if (state.active !== null) return state.active.runner;
   const name = state.settings.provider;
   const reason = state.unavailableReason(name);
@@ -70,6 +73,7 @@ function switchProvider(state: SwitchState, next: ProviderName): void {
 }
 
 function retireActive(state: SwitchState, reason?: RunnerError): Promise<void> {
+  state.isClosed = true;
   retire(state, reason);
   return state.retiring.settle();
 }
@@ -99,6 +103,7 @@ export function createSwitchingRunner(
     settings,
     active: null,
     retiring: createDisposalTracker(),
+    isClosed: false,
   };
   return {
     start: (message, ctx) => activate(state).start(message, ctx),
