@@ -23,6 +23,10 @@ export const TURN_SESSION_CLOSED_MESSAGE =
 export const TURN_RESTARTED_MESSAGE =
   "The assistant restarted before finishing.";
 
+/** Why a turn was refused: the sidecar is shutting down and opens no session. */
+export const RUNNER_CLOSED_MESSAGE =
+  "The assistant is shutting down: send the message again once it is back.";
+
 /**
  * What a running turn is busy with, carried by `activity` runner events: the
  * model thinking, streaming its answer, composing a tool call, a tool running,
