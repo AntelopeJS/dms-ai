@@ -10,6 +10,16 @@ function buildFakeSocket(): WebSocket {
   return { send: vi.fn() } as unknown as WebSocket;
 }
 
+interface FakeHost {
+  socket: WebSocket;
+  send: ReturnType<typeof vi.fn>;
+}
+
+function buildFakeHost(): FakeHost {
+  const send = vi.fn();
+  return { socket: { send } as unknown as WebSocket, send };
+}
+
 function buildEvent(): AnyServerEventType {
   return { type: EVENT_TYPES.HOST_COMMAND_NAVIGATE, path: "/x" };
 }
@@ -45,26 +55,26 @@ describe("createHostSocketRegistry", () => {
 
   it("sends to the preferred host, else to the latest one", () => {
     const registry = createHostSocketRegistry();
-    const first = buildFakeSocket();
-    const second = buildFakeSocket();
-    registry.set(first);
-    registry.set(second);
-    registry.send(buildEvent(), first);
+    const first = buildFakeHost();
+    const second = buildFakeHost();
+    registry.set(first.socket);
+    registry.set(second.socket);
+    registry.send(buildEvent(), first.socket);
     expect(first.send).toHaveBeenCalledTimes(1);
     expect(second.send).not.toHaveBeenCalled();
-    registry.clear(first);
-    registry.send(buildEvent(), first);
+    registry.clear(first.socket);
+    registry.send(buildEvent(), first.socket);
     expect(first.send).toHaveBeenCalledTimes(1);
     expect(second.send).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to an earlier host once the latest one leaves", () => {
     const registry = createHostSocketRegistry();
-    const first = buildFakeSocket();
-    const second = buildFakeSocket();
-    registry.set(first);
-    registry.set(second);
-    registry.clear(second);
+    const first = buildFakeHost();
+    const second = buildFakeHost();
+    registry.set(first.socket);
+    registry.set(second.socket);
+    registry.clear(second.socket);
     registry.send(buildEvent());
     expect(first.send).toHaveBeenCalledTimes(1);
   });
