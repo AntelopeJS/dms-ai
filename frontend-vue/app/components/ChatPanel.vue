@@ -3,7 +3,9 @@ import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ChatView from '../chat/components/ChatView.vue'
 import { ASSISTANT_SESSION_KEY } from '../runtime/assistant-session'
 import {
+	DMS_OVERLAYS_DOM_ID,
 	OVERLAY_DOM_ID,
+	PANEL_LABEL,
 	OVERLAY_Z_INDEX,
 	PLACEHOLDER_CONNECTING_TEXT,
 	PLACEHOLDER_REVIVING_TEXT,
@@ -26,7 +28,6 @@ interface ResizeStart {
 	width: number
 }
 
-/** Named in this file so the renderer's icon scan bundles it. */
 const CLOSE_ICON = 'i-ph-x-light'
 const CLOSE_LABEL = 'Close'
 
@@ -96,13 +97,20 @@ function startResize(event: PointerEvent): void {
 	globalThis.addEventListener('pointerup', onResizeEnd)
 }
 
-/**
- * A click anywhere else in the dashboard closes the panel. The chat's own
- * menus render inside the panel, so choosing from them is not a click outside.
- */
+function isInside(event: Event, element: HTMLElement | null): boolean {
+	return element !== null && event.composedPath().includes(element)
+}
+
+function isInsidePanelOrDmsOverlays(event: Event): boolean {
+	return (
+		isInside(event, panelEl.value) ||
+		isInside(event, document.getElementById(DMS_OVERLAYS_DOM_ID))
+	)
+}
+
 function onDocumentPointerDown(event: PointerEvent): void {
 	if (!isOpen.value || panelEl.value === null) return
-	if (event.composedPath().includes(panelEl.value)) return
+	if (isInsidePanelOrDmsOverlays(event)) return
 	session?.panel.closeFromOutside(event.timeStamp)
 }
 
@@ -138,7 +146,7 @@ onBeforeUnmount(() => {
 		:data-resizing="isResizing"
 		:style="panelStyle"
 		:inert="!isOpen"
-		aria-label="AI assistant"
+		:aria-label="PANEL_LABEL"
 	>
 		<div class="dms-ai-panel-resize" @pointerdown="startResize" />
 		<ChatView

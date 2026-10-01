@@ -162,6 +162,21 @@ describe('the chat as a component of the dashboard', () => {
 		expect(harness.session.panel.isOpen.value).toBe(false)
 	})
 
+	it('stays open on a click in what the dashboard portals out of the app', async () => {
+		const harness = createHarness()
+		await openPanel(harness)
+		const overlays = document.createElement('div')
+		overlays.id = 'dms-overlays'
+		const toast = document.createElement('button')
+		overlays.append(toast)
+		document.body.append(overlays)
+		toast.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, composed: true }),
+		)
+		expect(harness.session.panel.isOpen.value).toBe(true)
+		overlays.remove()
+	})
+
 	it('covers the chat with the sidecar status while it is not reachable, and can still be closed', async () => {
 		const harness = createHarness()
 		const panel = await openPanel(harness)

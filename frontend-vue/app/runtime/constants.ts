@@ -6,6 +6,7 @@ export const OVERLAY_DEFAULT_WIDTH_PX = 460
  */
 export const OVERLAY_Z_INDEX = 55
 export const OVERLAY_DOM_ID = 'dms-ai-overlay-root'
+export const DMS_OVERLAYS_DOM_ID = 'dms-overlays'
 export const SIDECAR_INFO_PATH = '/ai/sidecar-info'
 /** Event stream to receive, POST to send: HTTP the DMS frontend server relays. */
 export const CHANNEL_PATH = '/ai/channel'
@@ -84,6 +85,7 @@ export const LAUNCHER_ACTION_ID = 'dms-ai-launcher'
  */
 export const LAUNCHER_ICON = 'i-ph-robot'
 export const LAUNCHER_LABEL = 'AI assistant'
+export const PANEL_LABEL = LAUNCHER_LABEL
 export const LAUNCHER_ORDER = 50
 // Toggle shortcut, shown in the launcher tooltip. The combo is meta/ctrl + shift
 // + k, so render it the way each platform expects.
