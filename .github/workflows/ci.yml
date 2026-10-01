@@ -61,3 +61,6 @@ jobs:
       - run: pnpm test:release-script
       - run: pnpm test
       - run: pnpm --dir sidecar typecheck
+      # The chat needs nothing from the generated dashboard workspace, so it is
+      # typechecked on its own; the rest of frontend-vue needs that workspace.
+      - run: pnpm --dir frontend-vue typecheck:chat
