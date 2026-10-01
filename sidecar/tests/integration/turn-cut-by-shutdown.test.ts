@@ -9,7 +9,7 @@ import { PROVIDER_FIXTURES } from "../helpers/provider-fixtures.js";
 import {
   createCollector,
   STATE_FILE,
-  openIframe,
+  openChat,
   sendHello,
   sendUserMessage,
   startWsHarness,
@@ -52,7 +52,7 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         fixture.use("permission");
         harness = await startWsHarness({ provider: fixture.name });
-        client = await openIframe(harness.port);
+        client = await openChat(harness.port);
         const events = createCollector(client, WAIT_TIMEOUT_MS);
         sendHello(client, CONVERSATION_ID);
         sendUserMessage(client, CONVERSATION_ID, QUESTION);

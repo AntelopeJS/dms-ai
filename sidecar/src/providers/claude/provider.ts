@@ -268,7 +268,7 @@ function buildCanUseTool({
   onDecision,
 }: CanUseToolDeps): CanUseTool {
   return (toolName, input) => {
-    // The SDK's built-in AskUserQuestion cannot render in the chatbox host, so
+    // The SDK's built-in AskUserQuestion cannot render in the chat, so
     // bounce the agent to our own AskUser MCP tool instead of dead-ending at a
     // permission prompt the host can't show.
     if (toolName === ASK_USER_QUESTION_BUILTIN_TOOL_NAME) {

@@ -1,0 +1,2 @@
+{"dir": "out", "msg": {"jsonrpc": "2.0", "id": 2, "method": "skills/list", "params": {}}}
+{"dir": "in", "msg": {"id": 2, "result": {"data": [{"cwd": "/srv/app", "skills": [], "errors": []}]}}}

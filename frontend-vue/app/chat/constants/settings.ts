@@ -1,4 +1,4 @@
-import type { AppSettings, ChatboxMode, ProviderName } from "../types/settings";
+import type { AppSettings, ChatMode, ProviderName } from "../types/settings";
 
 export const DEFAULT_SETTINGS: AppSettings = {
 	provider: "claude",
@@ -40,14 +40,14 @@ export const PROVIDER_SWITCH_CONFIRM = `${PROVIDER_SWITCH_WARNING}\n\nSwitch now
 export const PROVIDER_BUSY_HINT =
 	"Stop the current turn before switching agent.";
 
-export const MODE_OPTIONS: { value: ChatboxMode; label: string }[] = [
+export const MODE_OPTIONS: { value: ChatMode; label: string }[] = [
 	{ value: "normal", label: "Normal" },
 	{ value: "acceptEdits", label: "Accept edits" },
 	{ value: "plan", label: "Plan" },
 	{ value: "auto", label: "Auto" },
 ];
 
-export const MODE_HINTS: Record<ChatboxMode, string> = {
+export const MODE_HINTS: Record<ChatMode, string> = {
 	normal: "Ask before each tool action",
 	acceptEdits: "Auto-accept file edits, ask for the rest",
 	plan: "Plan only — propose without making changes",

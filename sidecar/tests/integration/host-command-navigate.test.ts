@@ -193,7 +193,7 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
     client.send(
       JSON.stringify({
         type: "hello",
-        role: "iframe",
+        role: "chat",
         conversationId: "conv-dashboard-tab",
       }),
     );

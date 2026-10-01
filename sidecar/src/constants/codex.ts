@@ -4,7 +4,9 @@ import { MCP_SERVER_KEY } from "./mcp.js";
 // Skill the safe-mode prompt sends the agent to. Codex budgets its skill index
 // at 2% of the context, so this one has to survive the cut or safe mode loses
 // the workflow it tells the agent to follow.
-export const SAFE_MODE_SKILL_NAME = "cms-builder-safe";
+export const SAFE_MODE_SKILL_NAME = "dms-builder-safe";
+export const SAFE_MODE_SKILL_MISSING_WARNING = `the ${SAFE_MODE_SKILL_NAME} skill is missing from the Codex skill index; safe-mode turns will fail on this session`;
+export const SAFE_MODE_SKILL_MISSING_MESSAGE = `[dms-ai] safe mode needs the ${SAFE_MODE_SKILL_NAME} skill, which is missing from the Codex skill index. Switch to Vibe mode, or check that dms-builder ships its skills.`;
 
 // Scopes Codex populates on its own. A fresh CODEX_HOME already carries six
 // system skills; none of them are part of this product, and they compete for
@@ -43,7 +45,7 @@ export const CODEX_TRIPLE_BY_HOST: Record<string, string> = {
 export const CODEX_VERSION_ARGUMENT = "--version";
 export const CODEX_VERSION_PATTERN = /(\d+\.\d+\.\d+)\s*$/;
 
-// Same key the Claude path uses, so a tool reaches the chatbox under one name
+// Same key the Claude path uses, so a tool reaches the chat under one name
 // whichever provider ran it.
 export const CODEX_MCP_SERVER_ID = MCP_SERVER_KEY;
 export const CODEX_MCP_TOKEN_ENV_VAR = "DMS_AI_MCP_TOKEN";
@@ -61,7 +63,7 @@ export const OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY";
 
 // Identifies this client in the thread's originator and user agent, and in
 // OpenAI's compliance logs.
-export const CODEX_CLIENT_NAME = "antelopejs_cms_ai";
+export const CODEX_CLIENT_NAME = "antelopejs_dms_ai";
 
 // Fails the spawn on an unknown config key instead of silently ignoring it —
 // a version-drift guard on top of the --version check.

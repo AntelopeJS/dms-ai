@@ -32,7 +32,7 @@ import {
 	PROVIDER_UNAVAILABLE_PREFIX,
 	SAFE_MODE_MODE_NOTE,
 } from "../constants/settings";
-import type { ChatboxMode, ProviderName } from "../types/settings";
+import type { ChatMode, ProviderName } from "../types/settings";
 import type { PendingAttachment } from "../utils/attachments";
 import { isRunStalled } from "../utils/run-status";
 import { latestTodos } from "../utils/todos";
@@ -123,7 +123,7 @@ const modeHint = computed(() => {
 		: MODE_HINTS[mode];
 });
 
-const modeModel = computed<ChatboxMode>({
+const modeModel = computed<ChatMode>({
 	get: () => settings.settings.value.mode,
 	set: (value) => {
 		if (value !== settings.settings.value.mode) settings.update({ mode: value });
@@ -269,24 +269,24 @@ function retryLastMessage(): void {
 </script>
 
 <template>
-	<main class="chatbox">
-		<header class="chatbox-header">
-			<span class="chatbox-logo" aria-hidden="true">
+	<main class="chat-view">
+		<header class="chat-view-header">
+			<span class="chat-view-logo" aria-hidden="true">
 				<UIcon :name="ASSISTANT_ICON" class="size-[19px]" />
 			</span>
-			<div class="chatbox-titlewrap">
-				<b class="chatbox-title">AntelopeJS Assistant</b>
+			<div class="chat-view-titlewrap">
+				<b class="chat-view-title">AntelopeJS Assistant</b>
 				<span
-					class="chatbox-status"
+					class="chat-view-status"
 					:data-connected="channel.isConnected.value"
 					aria-live="polite"
 				>
-					<i class="chatbox-status-dot" />{{ statusLabel }}
+					<i class="chat-view-status-dot" />{{ statusLabel }}
 				</span>
 			</div>
 			<button
 				type="button"
-				class="chatbox-ibtn"
+				class="chat-view-ibtn"
 				:aria-label="TOGGLE_DRAWER_LABEL"
 				:title="TOGGLE_DRAWER_LABEL"
 				@click="openDrawer"
@@ -295,7 +295,7 @@ function retryLastMessage(): void {
 			</button>
 			<button
 				type="button"
-				class="chatbox-ibtn"
+				class="chat-view-ibtn"
 				:aria-label="OPEN_SETTINGS_LABEL"
 				:title="OPEN_SETTINGS_LABEL"
 				@click="openSettingsPage"
@@ -304,7 +304,7 @@ function retryLastMessage(): void {
 			</button>
 			<button
 				type="button"
-				class="chatbox-ibtn"
+				class="chat-view-ibtn"
 				aria-label="Close"
 				title="Close"
 				@click="dismissPanel"
@@ -313,7 +313,7 @@ function retryLastMessage(): void {
 			</button>
 		</header>
 
-		<div class="chatbox-modebar">
+		<div class="chat-view-modebar">
 			<span class="modebar-label">{{ MODE_SECTION_LABEL }}</span>
 			<USelect
 				v-model="modeModel"
@@ -343,7 +343,7 @@ function retryLastMessage(): void {
 			@reconnect="manualReconnect"
 		/>
 
-		<section ref="scrollContainer" class="chatbox-body">
+		<section ref="scrollContainer" class="chat-view-body">
 			<MessageList
 				:messages="conversation.messages.value"
 				:is-running="conversation.isRunning.value"
@@ -410,7 +410,7 @@ function retryLastMessage(): void {
  * The chat's design tokens, aliases of the dashboard's Nuxt UI tokens scoped to
  * the chat: it follows the dashboard's theme and light/dark mode as they are.
  */
-.chatbox {
+.chat-view {
 	--accent: var(--ui-primary);
 	--accent-strong: var(--ui-color-primary-700);
 	--accent-fg: var(--ui-bg);
@@ -457,13 +457,13 @@ function retryLastMessage(): void {
 	color: var(--fg);
 }
 
-.chatbox,
-.chatbox :deep(*) {
+.chat-view,
+.chat-view :deep(*) {
 	scrollbar-width: thin;
 	scrollbar-color: var(--hair) transparent;
 }
 
-.chatbox-header {
+.chat-view-header {
 	display: flex;
 	align-items: center;
 	gap: 11px;
@@ -471,7 +471,7 @@ function retryLastMessage(): void {
 	border-bottom: 1px solid var(--hair);
 }
 
-.chatbox-logo {
+.chat-view-logo {
 	width: 34px;
 	height: 34px;
 	flex: 0 0 auto;
@@ -483,19 +483,19 @@ function retryLastMessage(): void {
 	color: var(--accent);
 }
 
-.chatbox-titlewrap {
+.chat-view-titlewrap {
 	flex: 1;
 	min-width: 0;
 }
 
-.chatbox-title {
+.chat-view-title {
 	display: block;
 	font-size: 15px;
 	font-weight: 600;
 	color: var(--fg);
 }
 
-.chatbox-status {
+.chat-view-status {
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -504,30 +504,30 @@ function retryLastMessage(): void {
 	color: var(--fg-tertiary);
 }
 
-.chatbox-status-dot {
+.chat-view-status-dot {
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
 	background: var(--fg-tertiary);
 }
 
-.chatbox-status[data-connected="true"] {
+.chat-view-status[data-connected="true"] {
 	color: var(--success-400);
 }
 
-.chatbox-status[data-connected="true"] .chatbox-status-dot {
+.chat-view-status[data-connected="true"] .chat-view-status-dot {
 	background: var(--success-500);
 }
 
-.chatbox-status[data-connected="false"] {
+.chat-view-status[data-connected="false"] {
 	color: var(--danger-400);
 }
 
-.chatbox-status[data-connected="false"] .chatbox-status-dot {
+.chat-view-status[data-connected="false"] .chat-view-status-dot {
 	background: var(--danger-400);
 }
 
-.chatbox-ibtn {
+.chat-view-ibtn {
 	width: 30px;
 	height: 30px;
 	flex: 0 0 auto;
@@ -541,12 +541,12 @@ function retryLastMessage(): void {
 	cursor: pointer;
 }
 
-.chatbox-ibtn:hover {
+.chat-view-ibtn:hover {
 	background: var(--surface-inset);
 	color: var(--fg);
 }
 
-.chatbox-modebar {
+.chat-view-modebar {
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -560,7 +560,7 @@ function retryLastMessage(): void {
 	color: var(--fg-tertiary);
 }
 
-.chatbox-body {
+.chat-view-body {
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;

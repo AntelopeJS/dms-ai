@@ -2,7 +2,7 @@ import type { WebSocket } from "ws";
 import { WS_LOG_PREFIX } from "../constants/ws.js";
 import type { AnyServerEventType } from "../protocol/events.js";
 
-export interface IframeSocketRegistry {
+export interface ChatSocketRegistry {
   set: (conversationId: string, socket: WebSocket) => void;
   clear: (socket: WebSocket) => void;
   send: (conversationId: string, event: AnyServerEventType) => void;
@@ -20,7 +20,7 @@ function trySend(socket: WebSocket, event: AnyServerEventType): void {
     socket.send(JSON.stringify(event));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.warn(`${WS_LOG_PREFIX} sendToIframe failed: ${message}`);
+    console.warn(`${WS_LOG_PREFIX} sendToChat failed: ${message}`);
   }
 }
 
@@ -66,7 +66,7 @@ function buildBroadcast(state: RegistryState) {
   };
 }
 
-export function createIframeSocketRegistry(): IframeSocketRegistry {
+export function createChatSocketRegistry(): ChatSocketRegistry {
   const state: RegistryState = { byConversation: new Map() };
   return {
     set: buildSet(state),

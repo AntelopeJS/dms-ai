@@ -22,7 +22,7 @@ export interface PendingRequest {
 }
 
 export interface BusOptions {
-  onPromptIframe: (event: PendingRequest) => void;
+  onPromptChat: (event: PendingRequest) => void;
   timeoutMs?: number;
 }
 
@@ -50,7 +50,7 @@ interface BusState {
   sessionAllowed: Map<string, Set<string>>;
   timeoutMs: number;
   autoApprove: boolean;
-  onPromptIframe: (event: PendingRequest) => void;
+  onPromptChat: (event: PendingRequest) => void;
 }
 
 function ensureSessionSet(
@@ -165,7 +165,7 @@ function startRequest(
   }
   return new Promise<PermissionDecision>((resolve) => {
     const event = registerPending(state, req, resolve);
-    state.onPromptIframe(event);
+    state.onPromptChat(event);
   });
 }
 
@@ -211,7 +211,7 @@ function buildState(opts: BusOptions): BusState {
     sessionAllowed: new Map(),
     timeoutMs: opts.timeoutMs ?? PERMISSION_TIMEOUT_MS,
     autoApprove: false,
-    onPromptIframe: opts.onPromptIframe,
+    onPromptChat: opts.onPromptChat,
   };
 }
 

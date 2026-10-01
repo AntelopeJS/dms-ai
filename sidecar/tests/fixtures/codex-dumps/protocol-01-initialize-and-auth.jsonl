@@ -1,5 +1,5 @@
-{"dir":"out","msg":{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"antelopejs_cms_ai","title":"cms-ai spike","version":"0.0.1"},"capabilities":null}}}
-{"dir":"in","msg":{"id":1,"result":{"userAgent":"antelopejs_cms_ai/0.154.0 (Debian 13.0.0; x86_64) unknown (antelopejs_cms_ai; 0.0.1)","codexHome":"<CODEX_HOME>","platformFamily":"unix","platformOs":"linux"}}}
+{"dir":"out","msg":{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"antelopejs_dms_ai","title":"dms-ai","version":"0.0.1"},"capabilities":null}}}
+{"dir":"in","msg":{"id":1,"result":{"userAgent":"antelopejs_dms_ai/0.154.0 (Debian 13.0.0; x86_64) unknown (antelopejs_dms_ai; 0.0.1)","codexHome":"<CODEX_HOME>","platformFamily":"unix","platformOs":"linux"}}}
 {"dir":"out","msg":{"jsonrpc":"2.0","method":"initialized","params":{}}}
 {"dir":"in","msg":{"method":"remoteControl/status/changed","params":{"status":"disabled","serverName":"<REDACTED>","installationId":"<REDACTED>","environmentId":null},"emittedAtMs":1789132118256}}
 {"dir":"out","msg":{"jsonrpc":"2.0","id":2,"method":"getAuthStatus","params":{"includeToken":false}}}

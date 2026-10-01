@@ -6,7 +6,7 @@ import {
 } from "../../src/protocol/events.js";
 import { createHostCommandRouter } from "../../src/server/host-command-router.js";
 import { createHostSocketRegistry } from "../../src/server/host-socket-registry.js";
-import { createIframeSocketRegistry } from "../../src/server/iframe-socket-registry.js";
+import { createChatSocketRegistry } from "../../src/server/chat-socket-registry.js";
 
 const FIRST_TAB_CONVERSATION = "conv-first-tab";
 const SECOND_TAB_CONVERSATION = "conv-second-tab";
@@ -27,7 +27,7 @@ function buildTab(): Tab {
 
 function openTwoTabs() {
   const hosts = createHostSocketRegistry();
-  const chats = createIframeSocketRegistry();
+  const chats = createChatSocketRegistry();
   const first = buildTab();
   const second = buildTab();
   hosts.set(first.socket);
