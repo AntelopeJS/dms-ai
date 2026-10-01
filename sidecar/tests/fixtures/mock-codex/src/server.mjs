@@ -5,6 +5,7 @@ import {
   DELAY_ENV_VAR,
   EMPTY_RESULT,
   EXIT_DIRECTIVE_METHOD,
+  FAIL_METHOD_ENV_VAR,
   FAILED_ITEM_STATUS,
   FALLBACK_RESULTS,
   INTERRUPTED_TURN_STATUS,
@@ -12,6 +13,8 @@ import {
   JSONRPC_VERSION,
   LINE_SEPARATOR,
   MCP_TOOL_CALL_ITEM,
+  REFUSED_ERROR_CODE,
+  REFUSED_MESSAGE_PREFIX,
   TRACE_ENV_VAR,
   TURN_COMPLETED_METHOD,
   TURN_INTERRUPT_METHOD,
@@ -157,7 +160,21 @@ function resultFor(state, method) {
   );
 }
 
+function refuse(transport, frame) {
+  transport.write({
+    id: frame.id,
+    error: {
+      code: REFUSED_ERROR_CODE,
+      message: `${REFUSED_MESSAGE_PREFIX} ${frame.method} (pid ${process.pid})`,
+    },
+  });
+}
+
 function handleClientRequest(state, transport, frame) {
+  if (frame.method === process.env[FAIL_METHOD_ENV_VAR]) {
+    refuse(transport, frame);
+    return;
+  }
   transport.write({ id: frame.id, result: resultFor(state, frame.method) });
   if (frame.method === TURN_INTERRUPT_METHOD) {
     state.interrupted = true;

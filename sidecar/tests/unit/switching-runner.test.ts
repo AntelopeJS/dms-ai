@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AgentRunner } from "../../src/agent/runner.js";
 import { createSwitchingRunner } from "../../src/agent/switching-runner.js";
+import { RUNNER_CLOSED_MESSAGE } from "../../src/constants/agent.js";
 import { PROVIDER_LABELS } from "../../src/constants/providers.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
@@ -176,5 +177,17 @@ describe("switching runner", () => {
     expect(() => runner.interruptSession("c1")).not.toThrow();
     await expect(runner.disposeSession("c1")).resolves.toBeUndefined();
     await expect(runner.dispose()).resolves.toBeUndefined();
+  });
+
+  it("refuses a turn once disposed, without building a backend", async () => {
+    const trace: Trace = { built: [], disposed: [], applied: [] };
+    const runner = createSwitchingRunner(
+      build(trace),
+      settingsFor("codex"),
+      ALL_AVAILABLE,
+    );
+    await runner.dispose();
+    await expect(drain(runner)).rejects.toThrow(RUNNER_CLOSED_MESSAGE);
+    expect(trace.built).toEqual([]);
   });
 });

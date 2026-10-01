@@ -23,7 +23,12 @@ import { buildToolSummary } from "../agent/tool-summary.js";
 import { TURN_RESTARTED_REASON } from "../agent/turn-end-reasons.js";
 import { WS_MAX_PAYLOAD_BYTES } from "../constants/attachments.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
-import { WS_LOG_PREFIX, WS_PATHS } from "../constants/ws.js";
+import {
+  WS_CLIENT_CLOSE_GRACE_MS,
+  WS_GOING_AWAY_CODE,
+  WS_LOG_PREFIX,
+  WS_PATHS,
+} from "../constants/ws.js";
 import { createAiMcpServer } from "../mcp/sdk-binding.js";
 import type {
   AiMcpServer,
@@ -287,10 +292,19 @@ function makeUpgradeHandler(
   };
 }
 
+function closeClients(wss: WebSocketServer): void {
+  for (const client of wss.clients) {
+    client.close(WS_GOING_AWAY_CODE);
+    setTimeout(() => client.terminate(), WS_CLIENT_CLOSE_GRACE_MS).unref();
+  }
+}
+
 async function closeWss(wss: WebSocketServer): Promise<void> {
-  await new Promise<void>((resolveClose) => {
+  const closed = new Promise<void>((resolveClose) => {
     wss.close(() => resolveClose());
   });
+  closeClients(wss);
+  await closed;
 }
 
 export function attachWsServer(
@@ -349,10 +363,8 @@ export function attachWsServer(
   return {
     close: async () => {
       httpServer.removeListener("upgrade", onUpgrade);
-      const disposal = config.runner.dispose(TURN_RESTARTED_REASON);
-      await closeWss(wssIframe);
-      await closeWss(wssHost);
-      await disposal;
+      await config.runner.dispose(TURN_RESTARTED_REASON);
+      await Promise.all([closeWss(wssIframe), closeWss(wssHost)]);
     },
   };
 }

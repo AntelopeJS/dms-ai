@@ -35,7 +35,11 @@ import { resolveSkillSources } from "../../skills/resolve-sources.js";
 import type { AppSettings } from "../../state/settings-types.js";
 import { createCodexAdapter } from "./adapter.js";
 import { buildCodexTurnInput } from "./attachments.js";
-import type { CodexNotification, CodexRequestOptions } from "./client.js";
+import type {
+  CodexClientHandlers,
+  CodexNotification,
+  CodexRequestOptions,
+} from "./client.js";
 import {
   buildDenialReminder,
   buildDeveloperInstructions,
@@ -254,15 +258,70 @@ function assertUsableInstallation() {
   return installation;
 }
 
+interface OpenedCodexProcess {
+  codexProcess: CodexProcess;
+  threadId: string;
+}
+
+async function handshake(
+  codexProcess: CodexProcess,
+  options: CodexProviderOptions,
+  ctx: ProviderSessionContext,
+): Promise<string> {
+  await codexProcess.client.request(
+    CODEX_INITIALIZE_METHOD,
+    clientInfo(),
+    HANDSHAKE,
+  );
+  codexProcess.client.notify(CODEX_INITIALIZED_METHOD, {});
+  await configureSkills(codexProcess, options, ctx.settings);
+  return startThread(codexProcess, ctx);
+}
+
+/**
+ * Registers the conversation's MCP binding, spawns its app-server and opens its
+ * thread. Whatever was acquired is released before a failure is rethrown: the
+ * app-server, its home, its pid record and the MCP binding.
+ */
+async function openCodexProcess(
+  options: CodexProviderOptions,
+  ctx: ProviderSessionContext,
+  handlers: CodexClientHandlers,
+): Promise<OpenedCodexProcess> {
+  const installation = assertUsableInstallation();
+  const apiKey = options.getApiKey();
+  if (apiKey === undefined) throw new Error(CODEX_MISSING_API_KEY_MESSAGE);
+  const mcpToken = await options.mcpHttpRegistry.register(
+    options.createMcpDeps(ctx.conversationId),
+  );
+  let codexProcess: CodexProcess | undefined;
+  try {
+    codexProcess = await spawnCodexProcess({
+      conversationId: ctx.conversationId,
+      stateDir: options.stateDir,
+      installation,
+      mcpUrl: options.getMcpUrl(),
+      mcpToken,
+      hostProjectRoot: ctx.hostProjectRoot,
+      apiKey,
+      handlers,
+    });
+    const threadId = await handshake(codexProcess, options, ctx);
+    return { codexProcess, threadId };
+  } catch (error) {
+    await codexProcess?.dispose();
+    await options.mcpHttpRegistry
+      .release(ctx.conversationId)
+      .catch(() => undefined);
+    throw error;
+  }
+}
+
 async function createProviderSession(
   options: CodexProviderOptions,
   ctx: ProviderSessionContext,
   live: Map<string, ProviderSession>,
 ): Promise<ProviderSession> {
-  const installation = assertUsableInstallation();
-  const apiKey = options.getApiKey();
-  if (apiKey === undefined) throw new Error(CODEX_MISSING_API_KEY_MESSAGE);
-
   const stream = createRunnerEventStream();
   const adapter = createCodexAdapter();
   const backendRef: { current: CodexBackend | null } = { current: null };
@@ -274,36 +333,15 @@ async function createProviderSession(
     onPermissionDecision: ctx.onPermissionDecision,
   });
 
-  const mcpToken = await options.mcpHttpRegistry.register(
-    options.createMcpDeps(ctx.conversationId),
-  );
-  const codexProcess = await spawnCodexProcess({
-    conversationId: ctx.conversationId,
-    stateDir: options.stateDir,
-    installation,
-    mcpUrl: options.getMcpUrl(),
-    mcpToken,
-    hostProjectRoot: ctx.hostProjectRoot,
-    apiKey,
-    handlers: {
-      onNotification: (notification) => {
-        trackTurnId(backendRef, notification);
-        reportTokenUsage(ctx, notification);
-        for (const event of adapter.handle(notification)) stream.push(event);
-      },
-      onServerRequest: (request) => permissions.handle(request),
-      onAbort: (reason) => stream.fail(reason),
+  const { codexProcess, threadId } = await openCodexProcess(options, ctx, {
+    onNotification: (notification) => {
+      trackTurnId(backendRef, notification);
+      reportTokenUsage(ctx, notification);
+      for (const event of adapter.handle(notification)) stream.push(event);
     },
+    onServerRequest: (request) => permissions.handle(request),
+    onAbort: (reason) => stream.fail(reason),
   });
-
-  await codexProcess.client.request(
-    CODEX_INITIALIZE_METHOD,
-    clientInfo(),
-    HANDSHAKE,
-  );
-  codexProcess.client.notify(CODEX_INITIALIZED_METHOD, {});
-  await configureSkills(codexProcess, options, ctx.settings);
-  const threadId = await startThread(codexProcess, ctx);
 
   const backend: CodexBackend = {
     process: codexProcess,
