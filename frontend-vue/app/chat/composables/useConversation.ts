@@ -136,7 +136,6 @@ interface AskQuestionEvent {
 	questions: QuestionData[];
 }
 
-/** A file as it travels to the sidecar: its bytes base64-encoded. */
 interface WireAttachment {
 	name: string;
 	mimeType: string;
@@ -144,7 +143,6 @@ interface WireAttachment {
 	data: string;
 }
 
-/** A file as an echo describes it: no bytes. */
 interface AttachmentMeta {
 	name: string;
 	mimeType: string;
@@ -542,22 +540,10 @@ function endTurn(state: ConversationState): void {
 	state.isTurnInFlight.value = false;
 }
 
-/**
- * The follow-up queue is server-owned: the client only reflects QUEUE_STATE
- * and drives it via QUEUE_ENQUEUE / QUEUE_CANCEL. On a turn's terminal event
- * the run stays "running" while the server still has queued items to drain
- * (it starts the next turn itself); it settles only once the queue is empty.
- */
 function settleOrKeepRunning(state: ConversationState): void {
 	state.isRunning.value = state.queued.value.length > 0;
 }
 
-/**
- * A snapshot is sent only on (re)attach and always precedes RUN_RESUMED. It
- * clears the optimistic running flag so a turn that ended while the chat was
- * disconnected cannot strand it; a live turn re-asserts it via the RUN_RESUMED
- * that follows.
- */
 function applySnapshot(state: ConversationState, event: SnapshotEvent): void {
 	state.messages.value = snapshotToMessages(event.messages);
 	state.isRunning.value = false;
@@ -590,11 +576,6 @@ function withAttachments(
 	return attachments.length > 0 ? attachments : undefined;
 }
 
-/**
- * The server dequeued a follow-up and is about to run it: its user bubble shows
- * now, since the client did not echo it locally (the server owns the queue).
- * Its attachments are metadata only.
- */
 function applyUserEcho(
 	state: ConversationState,
 	event: UserMessageEchoEvent,
@@ -657,10 +638,6 @@ const EVENT_HANDLERS: EventHandlers = {
 	[SERVER_EVENT_TYPES.USER_MESSAGE_ECHO]: applyUserEcho,
 };
 
-/**
- * Events of a conversation the user switched away from are dropped: its run
- * keeps streaming server-side, and the chat catches up when it comes back.
- */
 function isForActiveConversation(state: ConversationState, msg: unknown): boolean {
 	const eventId = getConversationId(msg);
 	return eventId === null || eventId === state.options.activeId.value;
@@ -750,12 +727,6 @@ function startTurn(
 	expectTurn(state);
 }
 
-/**
- * While a turn is running, a follow-up is handed to the server-owned queue
- * (QUEUE_ENQUEUE); the server drains it into its own turn and echoes the user
- * bubble (USER_MESSAGE_ECHO) at that point, so it appears exactly once when
- * it runs. An idle send starts a turn immediately and echoes locally.
- */
 function sendUserMessage(
 	state: ConversationState,
 	content: string,
@@ -794,11 +765,6 @@ function cancelQueued(state: ConversationState, id: string): void {
 	});
 }
 
-/**
- * Asks the sidecar to interrupt the live turn, leaving `isRunning` for the
- * resulting RUN_DONE to flip, so the UI tracks the real turn lifecycle. When
- * the request cannot even leave, nothing ever will: the run is let go here.
- */
 function interrupt(state: ConversationState): void {
 	if (!state.isRunning.value) return;
 	const isSent = state.options.send({

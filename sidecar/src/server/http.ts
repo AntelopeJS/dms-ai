@@ -281,10 +281,6 @@ function handleKpiRoute(
   sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, payload);
 }
 
-/**
- * API routes, consumed by the DMS backend proxy. Returns false when the request
- * matches none of them.
- */
 async function handleApiRoute(
   req: IncomingMessage,
   res: ServerResponse,

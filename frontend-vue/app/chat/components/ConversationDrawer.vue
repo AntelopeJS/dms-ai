@@ -22,12 +22,14 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits<{
+interface Emits {
 	select: [id: string];
 	delete: [id: string];
 	new: [];
 	close: [];
-}>();
+}
+
+const emit = defineEmits<Emits>();
 
 const MS_PER_SECOND = 1000;
 const SECONDS_PER_HOUR = SECONDS_PER_MINUTE * MINUTES_PER_HOUR;

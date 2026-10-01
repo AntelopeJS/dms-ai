@@ -24,15 +24,16 @@ interface Props {
 
 const props = defineProps<Props>();
 
-/** Phosphor icons, named in this file so the renderer's icon scan bundles them. */
 const ATTACH_ICON = "i-ph-paperclip";
 const ATTACH_REMOVE_ICON = "i-ph-x";
 const ATTACH_FILE_ICON = "i-ph-file";
-const emit = defineEmits<{
+interface Emits {
 	submit: [content: string, attachments: PendingAttachment[]];
 	stop: [];
 	"update:generationMode": [mode: GenerationMode];
-}>();
+}
+
+const emit = defineEmits<Emits>();
 
 const activeMode = computed<GenerationMode>(() =>
 	props.generationMode === "safe" && props.builderAvailable ? "safe" : "vibe",
@@ -48,21 +49,11 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const attachments = ref<PendingAttachment[]>([]);
 const errorMsg = ref("");
-/**
- * dragenter/dragleave fire per child element; a depth counter keeps the
- * overlay stable while the pointer moves across the composer's inner nodes.
- */
 const dragDepth = ref(0);
 const isDragging = ref(false);
 
-/**
- * Only a dropped connection blocks the input. During a run the field stays
- * live so follow-ups can be typed and queued (they send as the current turn
- * ends).
- */
 const isInputDisabled = computed<boolean>(() => props.isDisabled);
 
-/** Grow the textarea with its content up to a cap, then scroll within it. */
 const MAX_HEIGHT_PX = 160;
 
 function autoGrow(): void {
@@ -115,7 +106,6 @@ function openFilePicker(): void {
 	fileInputRef.value?.click();
 }
 
-/** Resets the input, so picking the same file again fires `change` again. */
 function onFileChange(event: Event): void {
 	const input = event.target as HTMLInputElement;
 	if (input.files !== null) void addFiles(input.files);

@@ -50,19 +50,19 @@ interface Props {
 	transport: ChatTransport;
 }
 
-const props = defineProps<Props>();
-const emit = defineEmits<{ close: []; navigate: [path: string] }>();
+interface Emits {
+	close: [];
+	navigate: [path: string];
+}
 
-/**
- * Phosphor icons, the host DMS icon set, named in this file so the renderer's
- * icon scan bundles them. The assistant's icon is the header launcher's too.
- */
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
+
 const ASSISTANT_ICON = "i-ph-robot";
 const TOGGLE_DRAWER_ICON = "i-ph-list-light";
 const OPEN_SETTINGS_ICON = "i-ph-gear-six-light";
 const CLOSE_PANEL_ICON = "i-ph-x-light";
 
-/** The menus of the mode bar are as wide as their longest option, not their trigger. */
 const MODE_BAR_SELECT_UI = { content: "min-w-fit" };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -111,7 +111,6 @@ const stalledForMs = computed<number>(
 	() => runClockMs.value - conversation.lastEventAtMs.value,
 );
 
-/** The cogwheel opens the AI settings page of the dashboard. */
 function openSettingsPage(): void {
 	emit("navigate", SETTINGS_PAGE_PATH);
 }
@@ -131,10 +130,6 @@ const modeModel = computed<ChatboxMode>({
 	},
 });
 
-/**
- * A provider the sidecar cannot drive stays listed but disabled, with the
- * reason on the option: a silently missing choice is harder to act on.
- */
 const providerItems = computed(() =>
 	PROVIDER_OPTIONS.map((option) => ({
 		...option,
@@ -154,10 +149,6 @@ const providerHint = computed(() => {
 	return PROVIDER_SWITCH_WARNING;
 });
 
-/**
- * The switch is confirmed rather than merely announced once a conversation has
- * something to lose: the session it tears down is the one on screen.
- */
 function mayLeaveCurrentSession(): boolean {
 	if (conversation.messages.value.length === 0) return true;
 	return window.confirm(PROVIDER_SWITCH_CONFIRM);
@@ -174,7 +165,6 @@ const providerModel = computed<ProviderName>({
 	},
 });
 
-/** The header launcher and Ctrl+Shift+K bring the panel back. */
 function dismissPanel(): void {
 	emit("close");
 }
@@ -214,10 +204,6 @@ function deleteConversation(id: string): void {
 	if (wasActive) newConversation();
 }
 
-/**
- * Refreshes the open drawer once a turn completes, so new conversations and
- * updated titles surface in it.
- */
 function refreshListAfterTurn(msg: unknown): void {
 	if (!drawerOpen.value) return;
 	if (!isObject(msg) || msg.type !== SERVER_EVENT_TYPES.RUN_DONE) return;
@@ -267,10 +253,6 @@ function onComposerSubmit(
 	conversation.sendUserMessage(content, attachments);
 }
 
-/**
- * Stop interrupts the live turn server-side and clears the local trays, so no
- * card the run was paused on lingers: the sidecar denies them too.
- */
 function onComposerStop(): void {
 	conversation.interrupt();
 	permissionQueue.clear();

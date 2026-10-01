@@ -14,7 +14,11 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits<{ reconnect: [] }>();
+interface Emits {
+	reconnect: [];
+}
+
+const emit = defineEmits<Emits>();
 
 const LABEL_BY_STATUS: Record<
 	Exclude<ConnectionStatus, typeof CONNECTION_STATUSES.CONNECTED>,

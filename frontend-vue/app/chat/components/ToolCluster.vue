@@ -18,20 +18,9 @@ interface Props {
 
 const props = defineProps<Props>();
 
-/**
- * null = follow the run automatically; once the user clicks, their choice is
- * pinned (true = forced open with full detail, false = forced collapsed).
- */
 const override = ref<boolean | null>(null);
-/**
- * Reveal of the rows hidden behind the last-N cap, independent of open state.
- */
 const showAll = ref(false);
 
-/**
- * When a cluster stops being live it lingers open briefly so a fast hand-off
- * to the next cluster doesn't read as a flash.
- */
 const lingering = ref(false);
 let lingerTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -68,7 +57,6 @@ const rollupStatus = computed<ToolStatus>(() => {
 	return TOOL_STATUS.SUCCESS;
 });
 
-/** Errors stay open even once settled so failures are never hidden. */
 const hasError = computed<boolean>(() =>
 	props.tools.some((t) => t.status === TOOL_STATUS.ERROR),
 );
@@ -79,7 +67,6 @@ const autoOpen = computed<boolean>(
 const isOpen = computed<boolean>(() =>
 	override.value !== null ? override.value : autoOpen.value,
 );
-/** A deliberate expand shows every row; the live peek caps to the last N. */
 const isFull = computed<boolean>(() => override.value === true || showAll.value);
 
 const visibleTools = computed<ToolCallMessage[]>(() =>
@@ -89,10 +76,6 @@ const hiddenCount = computed<number>(
 	() => props.tools.length - visibleTools.value.length,
 );
 
-/**
- * Spinner while the agent is actively working here, even between two quick
- * tools where nothing is momentarily pending.
- */
 const glyphStatus = computed<ToolStatus>(() =>
 	props.live ? TOOL_STATUS.PENDING : rollupStatus.value,
 );

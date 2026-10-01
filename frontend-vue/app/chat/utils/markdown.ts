@@ -1,10 +1,6 @@
 import DOMPurify, { type Config, type DOMPurify as Purifier } from "dompurify";
 import MarkdownIt, { type Token } from "markdown-it";
 
-/**
- * What markdown-it produces with raw HTML off, and nothing else: no image, no
- * form, no frame, no style or class a page could be dressed up with.
- */
 const ALLOWED_TAGS = [
 	"a",
 	"blockquote",
@@ -36,7 +32,6 @@ const ALLOWED_TAGS = [
 
 const ALLOWED_ATTR = ["href", "title", "target", "rel", "start"];
 
-/** http, https, mailto, or a link relative to the dashboard: never `javascript:` or `data:`. */
 const SAFE_URL = /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i;
 
 const SANITIZE_CONFIG: Config = {
@@ -67,10 +62,6 @@ md.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
 	return self.renderToken(tokens, idx, options);
 };
 
-/**
- * An image the model writes would load on its own, and its address can carry
- * whatever the agent read: it is shown as a link to follow, never fetched.
- */
 md.renderer.rules.image = (tokens, idx, options, env, self) => {
 	const token = tokens[idx];
 	const src = token.attrGet("src") ?? "";
@@ -81,10 +72,6 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
 
 let purifier: Purifier | null = null;
 
-/**
- * The chat's own sanitizer: hooks are per instance, and the dashboard's other
- * modules use the shared one.
- */
 function getPurifier(): Purifier {
 	if (purifier !== null) return purifier;
 	purifier = DOMPurify(globalThis.window);

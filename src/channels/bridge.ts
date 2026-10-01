@@ -37,7 +37,6 @@ function forwardTo(socket: WebSocket, message: Buffer): Promise<boolean> {
   });
 }
 
-/** Sidecar frames out as stream events, pausing the socket on a full sink. */
 function relayFrames(socket: WebSocket, stream: SseStream): void {
   let isPaused = false;
   socket.on("message", (data) => {

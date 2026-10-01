@@ -45,7 +45,6 @@ type HostCommandHandler = (
 	state: DispatcherState,
 ) => void
 
-/** A path of this dashboard: rooted, and never a protocol-relative `//host`. */
 const IN_APP_PATH = /^\/(?![/\\])/
 
 function enqueue(state: DispatcherState, job: () => Promise<void>): void {

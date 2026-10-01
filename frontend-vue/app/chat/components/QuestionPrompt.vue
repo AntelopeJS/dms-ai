@@ -7,9 +7,11 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits<{
+interface Emits {
 	answer: [requestId: string, answers: string[]];
-}>();
+}
+
+const emit = defineEmits<Emits>();
 
 interface Selection {
 	mode: "option" | "other";
@@ -17,10 +19,6 @@ interface Selection {
 	other: string;
 }
 
-/**
- * Per-(request, question) selection, keyed so multiple queued requests stay
- * independent. New keys are added reactively on first interaction.
- */
 const state = reactive<Record<string, Selection>>({});
 
 function keyOf(requestId: string, qIndex: number): string {

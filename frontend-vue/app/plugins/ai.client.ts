@@ -62,13 +62,6 @@ interface AssistantChannel {
 	chat: ChatTransportHub
 }
 
-/**
- * The tab's one stream to the sidecar, for the dashboard and its chat alike.
- * Every connection is a new sidecar socket, so each one says hello as the host
- * and resends the current page, which the agent would otherwise only learn at
- * the next navigation; the chat then says hello with its conversation. A drop
- * re-probes the sidecar, which revives one that idle-exited.
- */
 function createAssistantChannel(deps: ChannelDeps): AssistantChannel {
 	const chat = createChatTransport({
 		send: (msg) => client.send(msg),
@@ -99,12 +92,6 @@ function createAssistantChannel(deps: ChannelDeps): AssistantChannel {
 	return { client, chat }
 }
 
-/**
- * The stream lives while the panel is open in a visible tab, and a little
- * after. A tab in the background holds no stream of its own: the browser's six
- * HTTP/1.1 connections to the dashboard are shared by every tab, and the DMS
- * already keeps two of them per tab.
- */
 function followPanel(panel: ChatPanelState, client: ChannelClient): () => void {
 	let stopTimer: ReturnType<typeof setTimeout> | null = null
 	const clearStopTimer = (): void => {
@@ -127,10 +114,6 @@ function followPanel(panel: ChatPanelState, client: ChannelClient): () => void {
 	}
 }
 
-/**
- * The sidecar's reachability, for the panel's status screen. Coming back after
- * a drop, the stream skips its backoff and reconnects at once.
- */
 function followSidecarStatus(
 	controller: SidecarStatusController,
 	client: ChannelClient,
@@ -160,20 +143,12 @@ function installHostState(client: ChannelClient): () => void {
 	}
 }
 
-/** Renders the chat panel in the dashboard's persistent overlays, on every page. */
 function registerChatPanel(): void {
 	const overlays = useDmsState<string[]>(APP_OVERLAYS_STATE_KEY, () => [])
 	if (overlays.value.includes(CHAT_PANEL_COMPONENT_NAME)) return
 	overlays.value = [...overlays.value, CHAT_PANEL_COMPONENT_NAME]
 }
 
-/**
- * Starts the tab's assistant once the first probe finds a sidecar: its stream,
- * the chat panel among the dashboard's persistent overlays, the launcher and
- * the shortcut. A navigation the agent asks for waits for the dev reload to
- * serve the page it just wrote, one at a time so a burst cannot land out of
- * order.
- */
 async function startAssistant({ vueApp }: DmsAppContext): Promise<void> {
 	const { $authFetch } = useAuthFetch()
 	const controller = createSidecarStatusController(() =>

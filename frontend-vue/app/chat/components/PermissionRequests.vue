@@ -15,10 +15,12 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits<{
+interface Emits {
 	decide: [requestId: string, decision: PermissionDecision];
 	decideAll: [decision: PermissionDecision];
-}>();
+}
+
+const emit = defineEmits<Emits>();
 
 const expanded = ref<Set<string>>(new Set());
 
@@ -29,10 +31,6 @@ const heading = computed<string>(() =>
 );
 const showBulk = computed<boolean>(() => props.requests.length > 1);
 
-/**
- * Pretty-print each request's args once per render, keyed by id, so the
- * template can both gate on and display it without recomputing per use.
- */
 const argsTextById = computed<Record<string, string>>(() => {
 	const out: Record<string, string> = {};
 	for (const req of props.requests) {

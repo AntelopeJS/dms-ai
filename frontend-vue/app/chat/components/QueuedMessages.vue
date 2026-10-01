@@ -7,9 +7,12 @@ interface Props {
 
 defineProps<Props>();
 
-/** Named in this file so the renderer's icon scan bundles it. */
 const CANCEL_ICON = "i-ph-x";
-defineEmits<{ cancel: [id: string] }>();
+interface Emits {
+	cancel: [id: string];
+}
+
+defineEmits<Emits>();
 
 function attachmentLabel(message: QueuedMessage): string {
 	const count = message.attachments.length;

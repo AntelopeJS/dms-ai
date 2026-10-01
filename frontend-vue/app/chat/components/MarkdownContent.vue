@@ -10,7 +10,6 @@ interface Props {
 
 const props = defineProps<Props>();
 
-/** How often a streaming answer is rendered at most: the chunks in between are batched. */
 const STREAMED_RENDER_DELAY_MS = 50;
 
 const settled = ref<readonly string[]>([]);

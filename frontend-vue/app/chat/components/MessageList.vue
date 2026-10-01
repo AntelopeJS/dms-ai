@@ -68,7 +68,6 @@ type RenderItem = MessageRenderItem | ToolsRenderItem;
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-/** Named in this file so the renderer's icon scan bundles it. */
 const ATTACH_FILE_ICON = "i-ph-file";
 
 const ROLE_LABEL_BY_ROLE: Record<string, string> = {
@@ -78,12 +77,6 @@ const ROLE_LABEL_BY_ROLE: Record<string, string> = {
 	[MESSAGE_ROLES.TOOL]: ROLE_LABELS.TOOL,
 };
 
-/**
- * Each run of adjacent tool calls folds into a single cluster, so a busy turn
- * reads as one collapsible line instead of a wall of cards. A lone tool call
- * renders bare: a "Used 1 tools" wrapper would be noise. TodoWrite calls are
- * dropped here; the plan renders in the docked panel above the scroll area.
- */
 const renderItems = computed<RenderItem[]>(() => {
 	const out: RenderItem[] = [];
 	let run: ToolCallMessage[] = [];
@@ -110,11 +103,6 @@ const renderItems = computed<RenderItem[]>(() => {
 	return out;
 });
 
-/**
- * The trailing tool cluster of a running turn is the agent's "active workspace":
- * it stays expanded through any text that follows and only settles once a newer
- * cluster supersedes it or the run ends. That key drives ToolCluster's `live`.
- */
 const lastToolKey = computed<string | null>(() => {
 	for (let i = renderItems.value.length - 1; i >= 0; i--) {
 		const item = renderItems.value[i];
@@ -141,7 +129,6 @@ const quietLabel = computed<string>(() => {
 	return `${QUIET_LABEL} ${formatClock(agentQuietMs(props.progress, props.nowMs))}`;
 });
 
-/** The answer still arriving, rendered incrementally until the run ends. */
 const streamingMessageId = computed<string | null>(() => {
 	if (!props.isRunning) return null;
 	const last = props.messages.at(-1);
