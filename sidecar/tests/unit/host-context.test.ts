@@ -9,11 +9,11 @@ import {
 } from "../../src/constants/agent.js";
 
 describe("host context block", () => {
-  it("states path, file, title and mode when all are known", () => {
+  it("states path, title, file and mode when all are known", () => {
     const block = formatHostContext(
       {
         path: "/form/form-simple",
-        filepath: "modules/demo/form-simple/page.ts",
+        filepath: "/project/modules/demo/form-simple/page.ts",
         title: "Simple form",
       },
       "vibe",
@@ -21,17 +21,22 @@ describe("host context block", () => {
     expect(block).toBe(
       `${HOST_CONTEXT_OPEN}\n` +
         "page: /form/form-simple\n" +
-        "file: modules/demo/form-simple/page.ts\n" +
         "title: Simple form\n" +
+        "file: /project/modules/demo/form-simple/page.ts\n" +
         "mode: vibe\n" +
         HOST_CONTEXT_CLOSE,
     );
   });
 
-  it("omits the file and title lines when absent but always states the mode", () => {
+  it("reads unknown for a title or file that could not be determined", () => {
     const block = formatHostContext({ path: "/dashboard" }, "safe");
     expect(block).toBe(
-      `${HOST_CONTEXT_OPEN}\npage: /dashboard\nmode: safe\n${HOST_CONTEXT_CLOSE}`,
+      `${HOST_CONTEXT_OPEN}\n` +
+        "page: /dashboard\n" +
+        "title: unknown\n" +
+        "file: unknown\n" +
+        "mode: safe\n" +
+        HOST_CONTEXT_CLOSE,
     );
   });
 

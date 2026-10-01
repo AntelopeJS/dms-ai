@@ -750,13 +750,13 @@ function handleInterruptTurn(
   ctx.runner.interruptSession(msg.conversationId);
 }
 
-function handleHostStateUpdate(
+async function handleHostStateUpdate(
   _socket: WebSocket,
   msg: AnyClientMessageType,
   ctx: ConnectionContext,
-): void {
+): Promise<void> {
   if (msg.type !== MESSAGE_TYPES.HOST_STATE_UPDATE) return;
-  ctx.hostState.setCurrentPage(msg.currentPage);
+  await ctx.hostState.setCurrentPage(msg.currentPage);
 }
 
 function handleHostNavigationComplete(

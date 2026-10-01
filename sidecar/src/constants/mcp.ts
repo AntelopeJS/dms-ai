@@ -13,7 +13,7 @@ export const MCP_TOOL_NAME_PREFIX = `mcp__${MCP_SERVER_KEY}__`;
 
 export const GET_CURRENT_PAGE_TOOL_NAME = "GetCurrentPage";
 export const GET_CURRENT_PAGE_TOOL_DESCRIPTION =
-  "Returns the path/filepath of the page currently displayed in the host browser.";
+  "Returns the route and, when known, the title and source file of the page currently displayed in the host browser.";
 
 export const NAVIGATE_TOOL_NAME = "NavigateToPage";
 export const NAVIGATE_TOOL_DESCRIPTION =

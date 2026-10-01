@@ -10,6 +10,10 @@ function navigate(url: string): void {
 	)
 }
 
+async function flushMutations(): Promise<void> {
+	await new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 describe('Inertia host navigation', () => {
 	it('reports the initial pathname and completed visits, then unsubscribes', () => {
 		window.history.replaceState({}, '', '/initial?tab=one#section')
@@ -27,6 +31,33 @@ describe('Inertia host navigation', () => {
 		stop()
 		navigate('/ignored')
 		expect(send).toHaveBeenCalledTimes(2)
+	})
+
+	it('carries the document title and reports a title rendered after navigation', async () => {
+		window.history.replaceState({}, '', '/orders')
+		document.title = 'Orders'
+		const send = vi.fn()
+		const stop = installCurrentPageTracker({ send })
+		expect(send).toHaveBeenLastCalledWith({
+			type: 'host_state_update',
+			currentPage: { path: '/orders', title: 'Orders' },
+		})
+		navigate('/customers')
+		document.title = 'Customers'
+		await flushMutations()
+		expect(send).toHaveBeenLastCalledWith({
+			type: 'host_state_update',
+			currentPage: { path: '/customers', title: 'Customers' },
+		})
+		const sentCount = send.mock.calls.length
+		document.title = 'Customers'
+		await flushMutations()
+		expect(send).toHaveBeenCalledTimes(sentCount)
+		stop()
+		document.title = 'Ignored'
+		await flushMutations()
+		expect(send).toHaveBeenCalledTimes(sentCount)
+		document.title = ''
 	})
 
 	it('emits completion only after navigation and removes its event listener', () => {

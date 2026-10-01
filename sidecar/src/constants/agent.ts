@@ -63,3 +63,4 @@ export const HOST_CONTEXT_PAGE_LABEL = "page: ";
 export const HOST_CONTEXT_FILE_LABEL = "file: ";
 export const HOST_CONTEXT_TITLE_LABEL = "title: ";
 export const HOST_CONTEXT_MODE_LABEL = "mode: ";
+export const HOST_CONTEXT_UNKNOWN_VALUE = "unknown";

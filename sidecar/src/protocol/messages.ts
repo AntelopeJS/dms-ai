@@ -133,7 +133,6 @@ export const HostStateUpdateMsg = z.object({
   type: z.literal(MESSAGE_TYPES.HOST_STATE_UPDATE),
   currentPage: z.object({
     path: z.string(),
-    filepath: z.string().optional(),
     title: z.string().optional(),
   }),
 });
