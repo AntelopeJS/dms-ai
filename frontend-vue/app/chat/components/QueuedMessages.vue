@@ -60,13 +60,13 @@ function attachmentLabel(message: QueuedMessage): string {
 	padding: 5px 8px;
 	background: var(--surface-inset);
 	border: 1px dashed var(--hair-strong);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	font-size: 12.5px;
 }
 
 .queued-tag {
 	flex: 0 0 auto;
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 9px;
 	font-weight: 700;
 	letter-spacing: 0.04em;

@@ -296,7 +296,7 @@ function formatTime(ms: number): string {
 .message-meta {
 	display: flex;
 	gap: 8px;
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 10px;
 	color: var(--fg-tertiary);
 }
@@ -349,7 +349,7 @@ function formatTime(ms: number): string {
 	padding: 5px 9px;
 	background: var(--surface-inset);
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	color: var(--fg-secondary);
 	font-size: 12px;
 }
@@ -358,7 +358,7 @@ function formatTime(ms: number): string {
 	max-width: 180px;
 	max-height: 180px;
 	padding: 0;
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	object-fit: contain;
 }
 
@@ -396,7 +396,7 @@ function formatTime(ms: number): string {
 
 .thinking-clock,
 .thinking-quiet {
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 11px;
 }
 
@@ -417,7 +417,7 @@ function formatTime(ms: number): string {
 	gap: 8px;
 	padding: 9px 12px;
 	border: 1px solid var(--danger-400);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	background: var(--danger-bg);
 	color: var(--fg);
 	white-space: normal;
@@ -431,7 +431,7 @@ function formatTime(ms: number): string {
 .run-action {
 	padding: 4px 10px;
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	background: var(--surface-card);
 	color: var(--fg);
 	font-size: 12px;

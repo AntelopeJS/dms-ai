@@ -141,7 +141,7 @@ function revealEarlier(): void {
 <style scoped>
 .tool-cluster {
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	background: var(--surface-card);
 	overflow: hidden;
 }
@@ -208,7 +208,7 @@ function revealEarlier(): void {
 }
 
 .cluster-headline {
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 11px;
 	color: var(--fg-tertiary);
 	white-space: nowrap;

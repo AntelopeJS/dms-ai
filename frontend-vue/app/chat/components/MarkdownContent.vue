@@ -137,11 +137,11 @@ onBeforeUnmount(cancelStreamed);
 }
 
 .chat-markdown :deep(code) {
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 0.9em;
 	background: var(--surface-inset);
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-sm);
+	border-radius: var(--corner-sm);
 	padding: 1px 4px;
 }
 
@@ -151,7 +151,7 @@ onBeforeUnmount(cancelStreamed);
 	overflow-x: auto;
 	background: var(--surface-inset);
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 }
 
 .chat-markdown :deep(pre code) {

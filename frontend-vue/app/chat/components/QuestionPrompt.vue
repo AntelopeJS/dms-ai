@@ -166,7 +166,7 @@ function submit(req: QuestionRequestData): void {
 	gap: 12px;
 	padding: 12px;
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	background: var(--surface-card);
 }
 
@@ -204,7 +204,7 @@ function submit(req: QuestionRequestData): void {
 	gap: 2px;
 	text-align: left;
 	padding: 8px 10px;
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	border: 1px solid var(--hair);
 	background: var(--surface-inset);
 	color: var(--fg);
@@ -242,7 +242,7 @@ function submit(req: QuestionRequestData): void {
 
 .q-other-input {
 	padding: 7px 10px;
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	border: 1px solid var(--hair);
 	background: var(--surface-inset);
 	color: var(--fg);
@@ -262,7 +262,7 @@ function submit(req: QuestionRequestData): void {
 
 .q-send {
 	padding: 6px 14px;
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	border: 1px solid transparent;
 	background: var(--accent);
 	color: var(--accent-fg);

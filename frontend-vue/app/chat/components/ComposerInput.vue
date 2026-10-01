@@ -340,7 +340,7 @@ function onKeydown(event: KeyboardEvent): void {
 	align-items: center;
 	justify-content: center;
 	gap: 8px;
-	border-radius: var(--radius-lg);
+	border-radius: var(--corner-lg);
 	background: color-mix(in oklab, var(--surface-side) 88%, transparent);
 	color: var(--accent);
 	font-size: 13px;
@@ -369,7 +369,7 @@ function onKeydown(event: KeyboardEvent): void {
 	padding: 4px 6px 4px 5px;
 	background: var(--surface-inset);
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 }
 
 .chip-thumb {
@@ -441,7 +441,7 @@ function onKeydown(event: KeyboardEvent): void {
 	place-items: center;
 	border: none;
 	background: transparent;
-	border-radius: var(--radius-sm);
+	border-radius: var(--corner-sm);
 	color: var(--fg-tertiary);
 	cursor: pointer;
 	transition:
@@ -465,7 +465,7 @@ function onKeydown(event: KeyboardEvent): void {
 	gap: 6px;
 	background: var(--surface-inset);
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-lg);
+	border-radius: var(--corner-lg);
 	padding: 8px 10px;
 }
 
@@ -509,7 +509,7 @@ function onKeydown(event: KeyboardEvent): void {
 	padding: 3px;
 	background: var(--surface-inset);
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 }
 
 .mode-opt {
@@ -524,7 +524,7 @@ function onKeydown(event: KeyboardEvent): void {
 	padding: 0 12px;
 	border: none;
 	background: transparent;
-	border-radius: var(--radius-sm);
+	border-radius: var(--corner-sm);
 	font: inherit;
 	font-size: 12px;
 	font-weight: 600;
@@ -557,7 +557,7 @@ function onKeydown(event: KeyboardEvent): void {
 	padding: 13px 14px;
 	background: var(--surface-card);
 	border: 1px solid var(--hair-strong);
-	border-radius: var(--radius-lg);
+	border-radius: var(--corner-lg);
 	box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.35);
 	opacity: 0;
 	visibility: hidden;
@@ -618,7 +618,7 @@ function onKeydown(event: KeyboardEvent): void {
 	display: grid;
 	place-items: center;
 	border: none;
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	background: var(--accent);
 	color: var(--accent-fg);
 	cursor: pointer;
@@ -640,7 +640,7 @@ function onKeydown(event: KeyboardEvent): void {
 	display: grid;
 	place-items: center;
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	background: var(--surface-card-2);
 	color: var(--fg);
 	cursor: pointer;

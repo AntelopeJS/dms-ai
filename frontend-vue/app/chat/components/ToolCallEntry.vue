@@ -73,7 +73,7 @@ function toggle(): void {
 <style scoped>
 .tool-entry {
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	background: var(--surface-card);
 	overflow: hidden;
 }
@@ -123,7 +123,7 @@ function toggle(): void {
 }
 
 .tool-summary {
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 11px;
 	color: var(--fg-tertiary);
 	white-space: nowrap;
@@ -133,13 +133,13 @@ function toggle(): void {
 }
 
 .tool-status {
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 9px;
 	font-weight: 700;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
 	padding: 2px 6px;
-	border-radius: var(--radius-sm);
+	border-radius: var(--corner-sm);
 	background: var(--surface-inset);
 	color: var(--fg-tertiary);
 	flex: 0 0 auto;
@@ -177,7 +177,7 @@ function toggle(): void {
 
 .tool-section-title {
 	margin: 0 0 4px;
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 10px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
@@ -189,8 +189,8 @@ function toggle(): void {
 	padding: 8px;
 	background: var(--surface-inset);
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-sm);
-	font-family: var(--font-mono);
+	border-radius: var(--corner-sm);
+	font-family: var(--font-code);
 	font-size: 11px;
 	color: var(--fg-secondary);
 	white-space: pre-wrap;

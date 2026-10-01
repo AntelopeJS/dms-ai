@@ -158,7 +158,7 @@ function denyAll(): void {
 
 .perm-bulk-btn {
 	padding: 5px 11px;
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	border: 1px solid transparent;
 	font: inherit;
 	font-size: 12px;
@@ -191,7 +191,7 @@ function denyAll(): void {
 	gap: 8px;
 	padding: 11px 12px;
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	background: var(--surface-card);
 }
 
@@ -222,7 +222,7 @@ function denyAll(): void {
 }
 
 .perm-tool {
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 12.5px;
 	font-weight: 600;
 	color: var(--accent);
@@ -255,8 +255,8 @@ function denyAll(): void {
 	padding: 8px;
 	background: var(--surface-inset);
 	border: 1px solid var(--hair);
-	border-radius: var(--radius-sm);
-	font-family: var(--font-mono);
+	border-radius: var(--corner-sm);
+	font-family: var(--font-code);
 	font-size: 11px;
 	color: var(--fg-secondary);
 	white-space: pre-wrap;
@@ -273,7 +273,7 @@ function denyAll(): void {
 
 .perm-button {
 	padding: 6px 12px;
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	border: 1px solid transparent;
 	font: inherit;
 	font-size: 12px;

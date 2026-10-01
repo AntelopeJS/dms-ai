@@ -95,7 +95,7 @@ function onReconnect(): void {
 	background: transparent;
 	border: 1px solid currentColor;
 	color: inherit;
-	border-radius: var(--radius-sm);
+	border-radius: var(--corner-sm);
 	padding: 2px 8px;
 	font: inherit;
 	font-size: 11px;

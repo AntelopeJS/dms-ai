@@ -163,7 +163,7 @@ function todoText(todo: TodoItem): string {
 
 .todo-count {
 	margin-left: auto;
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 10px;
 	font-weight: 700;
 	letter-spacing: 0.04em;

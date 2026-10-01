@@ -432,6 +432,20 @@ function retryLastMessage(): void {
 	--warning-bg: color-mix(in oklab, var(--ui-color-warning-500) 10%, transparent);
 	--danger-400: var(--ui-color-error-400);
 	--danger-bg: color-mix(in oklab, var(--ui-color-error-500) 12%, transparent);
+	--corner-sm: var(--ui-radius);
+	--corner-md: calc(var(--ui-radius) * 1.5);
+	--corner-lg: calc(var(--ui-radius) * 2);
+	--font-code: var(
+		--font-mono,
+		ui-monospace,
+		SFMono-Regular,
+		Menlo,
+		Monaco,
+		Consolas,
+		"Liberation Mono",
+		"Courier New",
+		monospace
+	);
 	--dur-fast: 150ms;
 
 	position: relative;
@@ -463,7 +477,7 @@ function retryLastMessage(): void {
 	flex: 0 0 auto;
 	display: grid;
 	place-items: center;
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	background: var(--accent-bg);
 	border: 1px solid var(--accent-bg-strong);
 	color: var(--accent);

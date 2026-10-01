@@ -167,7 +167,7 @@ function onClose(): void {
 	background: var(--accent);
 	border: none;
 	color: var(--accent-fg);
-	border-radius: var(--radius-md);
+	border-radius: var(--corner-md);
 	padding: 3px 9px;
 	font: inherit;
 	font-size: 11px;
@@ -240,7 +240,7 @@ function onClose(): void {
 }
 
 .drawer-item-time {
-	font-family: var(--font-mono);
+	font-family: var(--font-code);
 	font-size: 10px;
 	color: var(--fg-tertiary);
 }
