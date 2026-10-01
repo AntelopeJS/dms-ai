@@ -3,8 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
+import { formatHostContext } from "../../src/agent/host-context.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
 import { buildGetCurrentPageTool } from "../../src/mcp/tools/get-current-page.js";
+import { createPageFilepathResolver } from "../../src/pages/page-filepath.js";
+import type { RegistryClient } from "../../src/pages/registry-client.js";
+import type { PagesRegistryEntry } from "../../src/pages/types.js";
 import { createHostSocketRegistry } from "../../src/server/host-socket-registry.js";
 import { createHttpServer } from "../../src/server/http.js";
 import { createNavigationCompleter } from "../../src/server/navigation-completer.js";
@@ -22,6 +26,10 @@ const WS_HOST = "127.0.0.1";
 const TMP_PREFIX = "dms-ai-host-state-";
 const STATE_FILE_NAME_TEST = "state.json";
 const SETTLE_DELAY_MS = 50;
+const ABOUT_FILE = "pages/about.vue";
+const REGISTERED_PAGES: PagesRegistryEntry[] = [
+  { id: "about", path: "/about", filepath: ABOUT_FILE, moduleId: "app" },
+];
 
 interface ServerHandle {
   port: number;
@@ -39,16 +47,19 @@ async function startTestServer(): Promise<ServerHandle> {
     clientToken: CLIENT_TOKEN,
     port: ARBITRARY_PORT,
   });
-  const hostState = createHostState();
+  const registry: RegistryClient = {
+    getRegistry: async () => REGISTERED_PAGES,
+    getStaleSinceMs: () => null,
+    invalidate: () => {},
+  };
+  const hostState = createHostState({
+    resolveFilepath: createPageFilepathResolver(registry, TEST_HOST_ROOT),
+  });
   const hostSocketRegistry = createHostSocketRegistry();
   const navigationCompleter = createNavigationCompleter();
   const mcpDeps = {
     getCurrentPage: () => hostState.getCurrentPage(),
-    registry: {
-      getRegistry: async () => [],
-      getStaleSinceMs: () => null,
-      invalidate: () => {},
-    },
+    registry,
     scanner: {
       scan: async () => ({ importersByFile: new Map() }),
       invalidate: () => {},
@@ -127,7 +138,7 @@ describe("host_state_update WS message", () => {
     await handle.close();
   });
 
-  it("updates the sidecar host state when host pushes host_state_update", async () => {
+  it("records the reported title and the source file resolved from the route", async () => {
     const client = new WebSocket(buildHostUrl(handle.port), {
       headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
     });
@@ -137,18 +148,23 @@ describe("host_state_update WS message", () => {
         type: "host_state_update",
         currentPage: {
           path: "/about",
-          filepath: "pages/about.vue",
+          filepath: "pages/spoofed.vue",
           title: "About",
         },
       }),
     );
     await settle();
     client.close();
+    const resolvedFile = join(TEST_HOST_ROOT, ABOUT_FILE);
     expect(handle.hostState.getCurrentPage()).toEqual({
       path: "/about",
-      filepath: "pages/about.vue",
       title: "About",
+      filepath: resolvedFile,
     });
+    const block = formatHostContext(handle.hostState.getCurrentPage(), "vibe");
+    expect(block).toContain("page: /about");
+    expect(block).toContain("title: About");
+    expect(block).toContain(`file: ${resolvedFile}`);
   });
 
   it("get_current_page tool reports the latest pushed state", async () => {

@@ -31,6 +31,7 @@ import { createLogsClient } from "./logs/logs-client.js";
 import type { McpHttpRegistry } from "./mcp/http-binding.js";
 import { createMcpHttpRegistry } from "./mcp/http-binding.js";
 import { createImportsScanner } from "./pages/imports-scanner.js";
+import { createPageFilepathResolver } from "./pages/page-filepath.js";
 import { createRegistryClient } from "./pages/registry-client.js";
 import { reapOrphanProviders } from "./providers/registry.js";
 import { createHostSocketRegistry } from "./server/host-socket-registry.js";
@@ -275,10 +276,12 @@ function buildWsStack({
   mcpHttpRegistry,
   port,
 }: WsStackDeps): { close: () => Promise<void> } {
-  const hostState = createHostState();
   const registry = createRegistryClient({
     backendBaseUrl: args.backendUrl,
     token: backendToken,
+  });
+  const hostState = createHostState({
+    resolveFilepath: createPageFilepathResolver(registry, args.root),
   });
   const logsClient = createLogsClient({
     backendBaseUrl: args.backendUrl,

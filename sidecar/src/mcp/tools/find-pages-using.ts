@@ -1,4 +1,3 @@
-import path from "node:path";
 import { z } from "zod";
 import {
   FIND_PAGES_TOOL_DESCRIPTION,
@@ -9,6 +8,7 @@ import type {
   ImportsScanner,
   ScanResult,
 } from "../../pages/imports-scanner.js";
+import { toAbsolutePath } from "../../pages/page-filepath.js";
 import type { RegistryClient } from "../../pages/registry-client.js";
 import type { PageCandidate, PagesRegistryEntry } from "../../pages/types.js";
 import type { CurrentPage } from "../../state/host-state.js";
@@ -23,11 +23,6 @@ export interface FindPagesUsingDeps {
 
 const INPUT_SCHEMA = { filepath: z.string() } as const;
 
-function toAbsolute(rootDir: string, filepath: string): string {
-  if (path.isAbsolute(filepath)) return filepath;
-  return path.resolve(rootDir, filepath);
-}
-
 function buildPageFilepathSet(
   rootDir: string,
   pages: readonly PagesRegistryEntry[],
@@ -35,7 +30,7 @@ function buildPageFilepathSet(
   const map = new Map<string, PagesRegistryEntry>();
   for (const page of pages) {
     if (page.filepath === undefined) continue;
-    const absolute = toAbsolute(rootDir, page.filepath);
+    const absolute = toAbsolutePath(rootDir, page.filepath);
     map.set(absolute, page);
   }
   return map;
@@ -47,7 +42,7 @@ function buildDirectCandidate(
 ): PageCandidate {
   return {
     pagePath: page.path,
-    pageFilepath: toAbsolute(rootDir, page.filepath ?? ""),
+    pageFilepath: toAbsolutePath(rootDir, page.filepath ?? ""),
     distance: 0,
   };
 }
@@ -91,7 +86,7 @@ function recordHitIfPage(
   if (page === undefined) return;
   state.hits.push({
     pagePath: page.path,
-    pageFilepath: toAbsolute(rootDir, page.filepath ?? ""),
+    pageFilepath: toAbsolutePath(rootDir, page.filepath ?? ""),
     distance: depth,
   });
 }
@@ -146,7 +141,7 @@ export function computeCandidates(
   rootDir: string,
   currentPage: CurrentPage,
 ): PageCandidate[] {
-  const absolute = toAbsolute(rootDir, filepath);
+  const absolute = toAbsolutePath(rootDir, filepath);
   const pageMap = buildPageFilepathSet(rootDir, pages);
   const direct = findDirectPage(absolute, pageMap, rootDir);
   if (direct !== null) return sortCandidates([direct], currentPage.path);
