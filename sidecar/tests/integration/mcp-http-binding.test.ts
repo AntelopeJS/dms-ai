@@ -85,7 +85,6 @@ async function startHarness(): Promise<Harness> {
   const tokenB = await registry.register(buildDeps(CONVERSATION_B, asked));
   const { server, port } = await createHttpServer({
     clientToken: "integration-test-credential",
-    chatboxDistDir: TEST_HOST_ROOT,
     port: ARBITRARY_PORT,
     mcpHttpRegistry: registry,
   });

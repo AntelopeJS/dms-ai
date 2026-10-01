@@ -12,6 +12,8 @@ const { closeAllBridges } = require(dist("channels/registry.js"));
 
 const OWNER = "owner-1";
 const INTRUDER = "owner-2";
+/** Pinned here rather than read from the build: it is the sidecar's contract too. */
+const SIDECAR_SOCKET_PATH = "/ws";
 const WAIT_TIMEOUT_MS = 2_000;
 const WAIT_STEP_MS = 10;
 const byText = (a, b) => a.localeCompare(b);
@@ -36,9 +38,11 @@ async function waitFor(check, label) {
   assert.fail(`timed out waiting for ${label}`);
 }
 
-function connectTo(port, socketPath) {
+function connectTo(port) {
   return new Promise((resolve, reject) => {
-    const socket = new WebSocket(`ws://127.0.0.1:${port}${socketPath}`);
+    const socket = new WebSocket(
+      `ws://127.0.0.1:${port}${SIDECAR_SOCKET_PATH}`,
+    );
     socket.once("open", () => {
       socket.pause();
       resolve(socket);
@@ -52,11 +56,10 @@ async function startSidecar(onConnection = () => undefined) {
   await new Promise((resolve) => server.once("listening", resolve));
   const sidecar = {
     received: [],
-    byPath: {},
     paths: [],
     sockets: [],
     closed: 0,
-    connect: (socketPath) => connectTo(server.address().port, socketPath),
+    connect: () => connectTo(server.address().port),
     close: () => {
       for (const client of server.clients) client.terminate();
       return new Promise((resolve) => server.close(resolve));
@@ -65,17 +68,13 @@ async function startSidecar(onConnection = () => undefined) {
   server.on("connection", (socket, request) => {
     sidecar.sockets.push(socket);
     sidecar.paths.push(request.url);
-    sidecar.byPath[request.url] = socket;
     socket.on("message", (data) =>
-      sidecar.received.push({
-        path: request.url,
-        text: Buffer.concat([data].flat()).toString("utf8"),
-      }),
+      sidecar.received.push(Buffer.concat([data].flat()).toString("utf8")),
     );
     socket.on("close", () => {
       sidecar.closed += 1;
     });
-    onConnection(socket, request.url);
+    onConnection(socket);
   });
   sidecars.push(sidecar);
   return sidecar;
@@ -125,21 +124,16 @@ function parseEvents(text) {
     });
 }
 
-async function openOn(sidecar, channels = "chat", userId = OWNER) {
+async function openOn(sidecar, userId = OWNER) {
   const context = fakeContext();
-  const result = await openChannel(
-    context.ctx,
-    channels,
-    userId,
-    sidecar.connect,
-  );
+  const result = await openChannel(context.ctx, userId, sidecar.connect);
   assert.equal(result, undefined);
   context.capture();
   await waitFor(() => parseEvents(context.output.text).length > 0, "ready");
   const ready = parseEvents(context.output.text)[0];
   assert.equal(ready.name, "ready");
-  const { connections } = JSON.parse(ready.data);
-  return { ...context, connections };
+  const { connectionId } = JSON.parse(ready.data);
+  return { ...context, connectionId };
 }
 
 function post(connectionId, body, userId = OWNER) {
@@ -149,6 +143,7 @@ function post(connectionId, body, userId = OWNER) {
 module.exports = {
   OWNER,
   INTRUDER,
+  SIDECAR_SOCKET_PATH,
   byText,
   closeEverything,
   delay,

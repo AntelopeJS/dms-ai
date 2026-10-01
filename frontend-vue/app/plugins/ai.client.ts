@@ -2,41 +2,45 @@ import {
 	type DmsAppContext,
 	defineDmsPlugin,
 	useDmsRouter,
+	useDmsState,
 } from '#dms/frontend-module'
+import { type Ref, readonly, ref, watch } from 'vue'
+import {
+	ASSISTANT_SESSION_KEY,
+	type AssistantSession,
+} from '../runtime/assistant-session'
 import {
 	type ChannelClient,
 	createChannelClient,
 } from '../runtime/channel-client'
 import {
+	type ChatTransportHub,
 	createChatTransport,
-	exposeChatTransport,
 } from '../runtime/chat-transport'
 import {
+	APP_OVERLAYS_STATE_KEY,
 	CHANNEL_IDLE_STOP_MS,
 	CHANNEL_STATUS_RECONNECTING,
-	CHAT_CHANNEL,
-	CHATBOX_PATH,
+	CHAT_PANEL_COMPONENT_NAME,
 	HELLO_MESSAGE_TYPE,
-	HOST_CHANNEL,
 	HOST_ROLE,
 	JSON_CONTENT_TYPE,
 	SIDECAR_INFO_PATH,
 	SIDECAR_STATUS_CONNECTED,
-	SIDECAR_STATUS_REVIVING,
-	SIDECAR_STATUS_UNAVAILABLE,
 	VISIBILITY_CHANGE_EVENT,
 } from '../runtime/constants'
 import {
 	buildCurrentPageUpdate,
 	installCurrentPageTracker,
 } from '../runtime/current-page'
+import { createFrameRouter } from '../runtime/frame-router'
 import { registerLauncherAction } from '../runtime/header-action'
 import {
 	createHostCommandDispatcher,
 	type HostCommandDispatcher,
 } from '../runtime/host-commands'
 import { installNavigationCompleteEmitter } from '../runtime/navigation-complete'
-import { injectOverlay, type OverlayHandle } from '../runtime/overlay'
+import { type ChatPanelState, createChatPanelState } from '../runtime/panel-state'
 import { runWhenLoggedIn } from '../runtime/session-gate'
 import { installToggleShortcut } from '../runtime/shortcuts'
 import {
@@ -53,27 +57,18 @@ interface ChannelDeps {
 	dispatchHostCommand: HostCommandDispatcher
 }
 
-function buildIframeUrl(): string {
-	// Seed the chatbox with the host's current light/dark mode so its very first
-	// paint matches; the theme bridge keeps it in sync from there on.
-	const mode = document.documentElement.classList.contains('dark')
-		? 'dark'
-		: 'light'
-	return `${CHATBOX_PATH}?theme=${mode}`
+interface AssistantChannel {
+	client: ChannelClient
+	chat: ChatTransportHub
 }
 
-function createAssistantChannel(deps: ChannelDeps): ChannelClient {
+function createAssistantChannel(deps: ChannelDeps): AssistantChannel {
 	const chat = createChatTransport({
-		send: (msg) => channel.send(CHAT_CHANNEL, msg),
-		reconnect: () => channel.reconnectNow(),
-		getStatus: () => channel.getStatus(),
+		send: (msg) => client.send(msg),
+		reconnect: () => client.reconnectNow(),
+		getStatus: () => client.getStatus(),
 	})
-	const frameRoutes: Record<string, (raw: string) => void> = {
-		[HOST_CHANNEL]: deps.dispatchHostCommand,
-		[CHAT_CHANNEL]: chat.deliverFrame,
-	}
-	const channel = createChannelClient({
-		channels: [HOST_CHANNEL, CHAT_CHANNEL],
+	const client = createChannelClient({
 		post: (path, body) =>
 			deps.$authFetch(path, {
 				method: 'POST',
@@ -81,23 +76,23 @@ function createAssistantChannel(deps: ChannelDeps): ChannelClient {
 				headers: { 'content-type': JSON_CONTENT_TYPE },
 			}),
 		onReady: () => {
-			channel.send(HOST_CHANNEL, { type: HELLO_MESSAGE_TYPE, role: HOST_ROLE })
-			channel.send(HOST_CHANNEL, buildCurrentPageUpdate(window.location.href))
+			client.send({ type: HELLO_MESSAGE_TYPE, role: HOST_ROLE })
+			client.send(buildCurrentPageUpdate(window.location.href))
 			chat.announceReady()
 		},
-		onFrame: (name, raw) => frameRoutes[name]?.(raw),
+		onFrame: createFrameRouter({
+			host: deps.dispatchHostCommand,
+			chat: chat.deliver,
+		}),
 		onStatusChange: (status) => {
 			chat.announceStatus(status)
-			// The sidecar went away, or dms-ai reloaded: re-probe, which revives
-			// an idle-exited sidecar, rather than only waiting on the retries.
 			if (status === CHANNEL_STATUS_RECONNECTING) deps.controller.reportChannelDown()
 		},
 	})
-	exposeChatTransport(chat.transport)
-	return channel
+	return { client, chat }
 }
 
-function followPanel(overlay: OverlayHandle, channel: ChannelClient): () => void {
+function followPanel(panel: ChatPanelState, client: ChannelClient): () => void {
 	let stopTimer: ReturnType<typeof setTimeout> | null = null
 	const clearStopTimer = (): void => {
 		if (stopTimer !== null) clearTimeout(stopTimer)
@@ -105,45 +100,43 @@ function followPanel(overlay: OverlayHandle, channel: ChannelClient): () => void
 	}
 	const follow = (): void => {
 		clearStopTimer()
-		const isNeeded = overlay.isOpen() && document.visibilityState === 'visible'
-		if (isNeeded) channel.start()
-		else stopTimer = setTimeout(() => channel.stop(), CHANNEL_IDLE_STOP_MS)
+		const isNeeded = panel.isOpen.value && document.visibilityState === 'visible'
+		if (isNeeded) client.start()
+		else stopTimer = setTimeout(() => client.stop(), CHANNEL_IDLE_STOP_MS)
 	}
-	const stopOpenChange = overlay.onOpenChange(follow)
+	const stopWatchingPanel = watch(panel.isOpen, follow)
 	document.addEventListener(VISIBILITY_CHANGE_EVENT, follow)
 	follow()
 	return () => {
 		clearStopTimer()
-		stopOpenChange()
+		stopWatchingPanel()
 		document.removeEventListener(VISIBILITY_CHANGE_EVENT, follow)
 	}
 }
 
-function statusApplier(
-	overlay: OverlayHandle,
-	channel: ChannelClient,
-): (status: SidecarStatus) => void {
-	let firstApply = true
-	return (status) => {
-		if (status === SIDECAR_STATUS_CONNECTED) {
-			overlay.repoint(buildIframeUrl())
-			// Only a connect after a drop needs to skip the channel's backoff.
-			if (!firstApply) channel.reconnectNow()
-		} else if (status === SIDECAR_STATUS_REVIVING) {
-			overlay.showPlaceholder('reviving')
-		} else if (status === SIDECAR_STATUS_UNAVAILABLE) {
-			overlay.showPlaceholder('unavailable')
-		} else {
-			overlay.showPlaceholder('connecting')
-		}
-		firstApply = false
-	}
+interface FollowedSidecarStatus {
+	status: Readonly<Ref<SidecarStatus>>
+	stop: () => void
 }
 
-function installHostState(channel: ChannelClient): () => void {
+function followSidecarStatus(
+	controller: SidecarStatusController,
+	client: ChannelClient,
+): FollowedSidecarStatus {
+	const status = ref<SidecarStatus>(controller.getStatus())
+	let isFirstReport = true
+	const stop = controller.subscribe((next) => {
+		if (next === SIDECAR_STATUS_CONNECTED && !isFirstReport) client.reconnectNow()
+		status.value = next
+		isFirstReport = false
+	})
+	return { status: readonly(status), stop }
+}
+
+function installHostState(client: ChannelClient): () => void {
 	const sendWhenConnected = (msg: unknown): void => {
-		if (!channel.isConnected()) return
-		channel.send(HOST_CHANNEL, msg)
+		if (!client.isConnected()) return
+		client.send(msg)
 	}
 	const stopTracking = installCurrentPageTracker({ send: sendWhenConnected })
 	const stopNavigation = installNavigationCompleteEmitter({
@@ -155,40 +148,53 @@ function installHostState(channel: ChannelClient): () => void {
 	}
 }
 
+function registerChatPanel(): void {
+	const overlays = useDmsState<string[]>(APP_OVERLAYS_STATE_KEY, () => [])
+	if (overlays.value.includes(CHAT_PANEL_COMPONENT_NAME)) return
+	overlays.value = [...overlays.value, CHAT_PANEL_COMPONENT_NAME]
+}
+
 async function startAssistant({ vueApp }: DmsAppContext): Promise<void> {
 	const { $authFetch } = useAuthFetch()
 	const controller = createSidecarStatusController(() =>
 		$authFetch(SIDECAR_INFO_PATH),
 	)
-	// A null/disabled first probe means the assistant shouldn't appear at all —
-	// preserve the previous "no icon, no overlay" behavior in that case.
 	if (!(await controller.init())) return
-	const overlay = injectOverlay()
-	if (overlay === null) return
-	installToggleShortcut({ onToggle: () => overlay.toggleOpen() })
-	// Registered unconditionally (even while reviving) so the launcher is present
-	// through an outage; opening it surfaces the panel's own status placeholder.
-	registerLauncherAction(() => overlay.toggleFromLauncher())
-	// Host-side dev hot reload: a page the agent just wrote is re-registered
-	// asynchronously, so each navigation waits for the layout to serve it, one at
-	// a time so a burst of commands cannot land out of order.
+	const router = useDmsRouter()
 	const dispatchHostCommand = createHostCommandDispatcher({
-		router: useDmsRouter(),
+		router,
 		devReload: useDmsDevReload(),
 	})
-	const channel = createAssistantChannel({ $authFetch, controller, dispatchHostCommand })
-	controller.subscribe(statusApplier(overlay, channel))
-	const stopFollowing = followPanel(overlay, channel)
-	const stopHostState = installHostState(channel)
+	const { client, chat } = createAssistantChannel({ $authFetch, controller, dispatchHostCommand })
+	const panel = createChatPanelState()
+	const sidecarStatus = followSidecarStatus(controller, client)
+	const session: AssistantSession = {
+		status: sidecarStatus.status,
+		chat: chat.transport,
+		panel,
+		navigate: (path) => void router.push(path),
+	}
+	vueApp.provide(ASSISTANT_SESSION_KEY, session)
+	registerChatPanel()
+	installToggleShortcut({ onToggle: panel.toggle })
+	registerLauncherAction(panel.toggleFromLauncher)
+	const stopFollowing = followPanel(panel, client)
+	const stopHostState = installHostState(client)
 	const teardown = (): void => {
 		stopFollowing()
 		stopHostState()
-		channel.stop()
+		sidecarStatus.stop()
+		controller.dispose()
+		client.stop()
 	}
 	vueApp.onUnmount(teardown)
 	import.meta.hot?.dispose(teardown)
 }
 
+/**
+ * The assistant appears for a signed-in owner in development only: a first
+ * probe that finds no dms-ai backend, or a disabled sidecar, leaves no trace.
+ */
 export default defineDmsPlugin((context) => {
 	if (!import.meta.env.DEV) return
 	const { loggedIn } = useUserSession()

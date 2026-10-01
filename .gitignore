@@ -4,6 +4,5 @@ dist/
 .amp/portals/*
 .ai/
 sidecar/.state/
-sidecar/chatbox/dist/
 .nuxt/
 .idea/

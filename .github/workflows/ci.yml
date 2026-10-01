@@ -38,7 +38,7 @@ jobs:
       # runs its suite.
       - run:
           pnpm install --frozen-lockfile && cd frontend-vue && pnpm install --frozen-lockfile && cd ../sidecar &&
-          pnpm install && cd chatbox && pnpm install --frozen-lockfile
+          pnpm install
       - run: pnpm lint
       # oxlint's type-aware pass degrades to `any` on a broken tsconfig
       # without failing, so the typecheck is what catches it.
@@ -49,8 +49,8 @@ jobs:
       - run: cd sidecar && pnpm knip
       - run: pnpm build
       - run: pnpm test:frontend-registration
-      # The browser's way to the sidecar: event streams, posted messages, the
-      # chatbox passthrough and their teardown, against a stand-in sidecar.
+      # The browser's way to the sidecar: the tab's event stream, posted
+      # messages and their teardown, against a stand-in sidecar.
       - run: pnpm test:channels
       # Pins the flags the launcher hands the sidecar, with the child process
       # and the lock file stubbed.
@@ -61,3 +61,6 @@ jobs:
       - run: pnpm test:release-script
       - run: pnpm test
       - run: pnpm --dir sidecar typecheck
+      # The chat needs nothing from the generated dashboard workspace, so it is
+      # typechecked on its own; the rest of frontend-vue needs that workspace.
+      - run: pnpm --dir frontend-vue typecheck:chat

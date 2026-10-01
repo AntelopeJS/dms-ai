@@ -17,7 +17,6 @@ interface Handle {
 async function startServer(sources: SkillSource[]): Promise<Handle> {
   const { server, port } = await createHttpServer({
     clientToken: CLIENT_TOKEN,
-    chatboxDistDir: process.cwd(),
     port: ARBITRARY_PORT,
     getSkillSources: () => sources,
   });

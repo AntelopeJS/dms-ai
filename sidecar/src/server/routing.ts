@@ -60,7 +60,6 @@ import { collectBuildIssues } from "./safety-net.js";
 import { startTurnProgress } from "./turn-progress.js";
 
 export interface ConnectionContext {
-  path: string;
   hostProjectRoot: string;
   runner: AgentRunner;
   conversationStore: ConversationStore;
@@ -241,7 +240,7 @@ function handleHello(
   ctx: ConnectionContext,
 ): void {
   if (msg.type !== MESSAGE_TYPES.HELLO) return;
-  console.log(`${WS_LOG_PREFIX} hello role=${msg.role} path=${ctx.path}`);
+  console.log(`${WS_LOG_PREFIX} hello role=${msg.role}`);
   registerHostSocketIfHost(socket, msg, ctx);
   registerIframeSocketIfIframe(socket, msg, ctx);
   sendSnapshotIfKnown(socket, ctx, msg);
@@ -848,18 +847,6 @@ function handleSetSettings(
   });
 }
 
-function handleRequestHostNavigate(
-  _socket: WebSocket,
-  msg: AnyClientMessageType,
-  ctx: ConnectionContext,
-): void {
-  if (msg.type !== MESSAGE_TYPES.REQUEST_HOST_NAVIGATE) return;
-  ctx.hostSocketRegistry.send({
-    type: EVENT_TYPES.HOST_COMMAND_NAVIGATE,
-    path: msg.path,
-  });
-}
-
 const MESSAGE_HANDLERS: Record<string, ClientMessageHandler> = {
   [MESSAGE_TYPES.HELLO]: handleHello,
   [MESSAGE_TYPES.ECHO]: handleEcho,
@@ -872,7 +859,6 @@ const MESSAGE_HANDLERS: Record<string, ClientMessageHandler> = {
   [MESSAGE_TYPES.LIST_CONVERSATIONS]: handleListConversations,
   [MESSAGE_TYPES.DELETE_CONVERSATION]: handleDeleteConversation,
   [MESSAGE_TYPES.SET_SETTINGS]: handleSetSettings,
-  [MESSAGE_TYPES.REQUEST_HOST_NAVIGATE]: handleRequestHostNavigate,
   [MESSAGE_TYPES.QUEUE_ENQUEUE]: handleQueueEnqueue,
   [MESSAGE_TYPES.QUEUE_CANCEL]: handleQueueCancel,
 };
@@ -895,7 +881,7 @@ export function dispatchMessage(
 ): void {
   const msg = parseMessage(raw);
   if (msg === null) {
-    console.warn(`${WS_LOG_PREFIX} invalid message on ${ctx.path}`);
+    console.warn(`${WS_LOG_PREFIX} invalid message`);
     return;
   }
   const handler = MESSAGE_HANDLERS[msg.type];
@@ -936,12 +922,9 @@ function sendQuestionRequest(socket: WebSocket, event: PendingQuestion): void {
 }
 
 export function buildConnectionContext(
-  _socket: WebSocket,
-  path: string,
   config: RoutingConfig,
 ): ConnectionContext {
   return {
-    path,
     hostProjectRoot: config.hostProjectRoot,
     runner: config.runner,
     conversationStore: config.conversationStore,

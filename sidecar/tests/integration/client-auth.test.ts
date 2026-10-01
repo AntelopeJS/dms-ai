@@ -17,6 +17,9 @@ import { createStore } from "../../src/state/store.js";
 const CLIENT_TOKEN = "client-auth-regression-credential";
 const FOREIGN_ORIGIN = "https://attacker.invalid";
 const TIMEOUT_MS = 2000;
+const WS_PATH = "/ws";
+const RETIRED_WS_PATHS = ["/ws/host", "/ws/iframe"];
+const CHAT_DOCUMENT_PATHS = ["/", "/index.html", "/assets/index.js"];
 const NEXT_SETTINGS = {
   mode: "auto",
   thinking: "medium",
@@ -54,7 +57,6 @@ function buildContext(directory: string) {
       },
     },
     builderEnabled: false,
-    sendToHost: hostSocketRegistry.send,
     navigationCompleter,
   };
   return {
@@ -80,7 +82,6 @@ async function startServer() {
   const context = buildContext(directory);
   const { server, port } = await createHttpServer({
     ...context,
-    chatboxDistDir: directory,
     port: 0,
     getSkillSources: () => [],
   });
@@ -154,34 +155,51 @@ describe("sidecar client authentication", () => {
     expect(server.settingsStore.get().mode).toBe("auto");
   });
 
-  it("rejects both WS roles without a valid explicit credential, even with cookies or query tokens", async () => {
-    for (const role of ["host", "iframe"]) {
-      for (const protocol of [undefined, "dms-ai.wrong"]) {
-        const client = new WebSocket(
-          `ws://127.0.0.1:${server.port}/ws/${role}?token=${CLIENT_TOKEN}`,
-          protocol,
-          {
-            origin: FOREIGN_ORIGIN,
-            headers: { Cookie: `token=${CLIENT_TOKEN}` },
-            handshakeTimeout: TIMEOUT_MS,
-          },
-        );
-        clients.push(client);
-        await expect(once(client, "open")).rejects.toThrow("401");
-      }
+  it("rejects the socket without the Bearer credential, even with cookies, query tokens or the retired subprotocol", async () => {
+    const attempts = [
+      { protocol: undefined, headers: { Cookie: `token=${CLIENT_TOKEN}` } },
+      { protocol: `dms-ai.${CLIENT_TOKEN}`, headers: {} },
+      { protocol: undefined, headers: { Authorization: "Bearer wrong" } },
+    ];
+    for (const { protocol, headers } of attempts) {
+      const client = new WebSocket(
+        `ws://127.0.0.1:${server.port}${WS_PATH}?token=${CLIENT_TOKEN}`,
+        protocol,
+        { origin: FOREIGN_ORIGIN, headers, handshakeTimeout: TIMEOUT_MS },
+      );
+      clients.push(client);
+      await expect(once(client, "open")).rejects.toThrow("401");
     }
   });
 
-  it("accepts browser subprotocol credentials on both roles", async () => {
-    for (const role of ["host", "iframe"]) {
-      const client = new WebSocket(
-        `ws://127.0.0.1:${server.port}/ws/${role}`,
-        `dms-ai.${CLIENT_TOKEN}`,
-        { handshakeTimeout: TIMEOUT_MS },
-      );
+  it("accepts the DMS backend's Bearer credential on its one endpoint", async () => {
+    const client = new WebSocket(`ws://127.0.0.1:${server.port}${WS_PATH}`, {
+      headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
+      handshakeTimeout: TIMEOUT_MS,
+    });
+    clients.push(client);
+    await once(client, "open");
+    expect(client.readyState).toBe(WebSocket.OPEN);
+  });
+
+  it("no longer opens the separate host and chat endpoints", async () => {
+    for (const path of RETIRED_WS_PATHS) {
+      const client = new WebSocket(`ws://127.0.0.1:${server.port}${path}`, {
+        headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
+        handshakeTimeout: TIMEOUT_MS,
+      });
       clients.push(client);
-      await once(client, "open");
-      expect(client.readyState).toBe(WebSocket.OPEN);
+      await expect(once(client, "open")).rejects.toThrow();
+    }
+  });
+
+  it("serves no chat document or asset: the chat lives in the dashboard", async () => {
+    for (const path of CHAT_DOCUMENT_PATHS) {
+      const response = await fetch(`http://127.0.0.1:${server.port}${path}`, {
+        headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
+      });
+      expect(response.status).toBe(404);
+      expect(response.headers.get("content-type")).not.toMatch(/html/);
     }
   });
 });

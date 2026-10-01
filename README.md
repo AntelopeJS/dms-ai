@@ -8,8 +8,10 @@
 
 An AntelopeJS DMS development assistant. It adds an owner-only AI workspace to the dashboard and
 runs a coding agent in a local sidecar that can inspect the loaded modules and their declared skills,
-edit the host project, and stream activity back to the dashboard. Claude Code drives it by default;
-OpenAI's Codex is selectable once its CLI is installed.
+edit the host project, and stream activity back to the dashboard. The chat is a panel of the
+dashboard itself: it stays open across page navigations, follows the dashboard's theme, and is toggled
+from the header or with Ctrl+Shift+K (⌘⇧K on macOS). Claude Code drives it by default; OpenAI's Codex
+is selectable once its CLI is installed.
 
 ## Installation
 
@@ -35,23 +37,41 @@ therefore works wherever the dashboard does — another machine on the LAN, Tail
 the frontend port, a reverse proxy or a gateway — and the sidecar's port and client credential stay on
 the server.
 
-| Route (owner only)                         | Purpose                                                                  |
-| ------------------------------------------ | ------------------------------------------------------------------------ |
-| `GET /ai/channels/host,chat/events`        | One event stream per tab: the dashboard's and the chat's sidecar frames. |
-| `POST /ai/channels/:connectionId/messages` | One client message, relayed to that channel's sidecar socket.            |
-| `GET /api/ai/chatbox/*`                    | The chat document and its assets, from the sidecar's static server.      |
+| Route (owner only)                        | Purpose                                                                     |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| `GET /ai/channel/events`                  | The tab's one event stream: the sidecar frames for the dashboard and chat. |
+| `POST /ai/channel/:connectionId/messages` | One client message, relayed to that stream's sidecar socket.                |
 
-Browsers keep at most six HTTP/1.1 connections per origin, and every dashboard tab already holds two
-long-lived ones for the DMS. The assistant adds its stream only in the visible tab whose panel is
-open, which leaves two dashboard tabs usable side by side; over HTTPS with HTTP/2 the limit goes away.
-Over plain HTTP on an address other than `localhost`, start the frontend server with
-`DMS_COOKIE_SECURE=false`, or the browser drops the `Secure` session cookie.
+Each stream is bridged to a single sidecar socket, which the dashboard identifies as the host (the
+current page, the agent's navigation requests) and as the chat. Browsers keep at most six HTTP/1.1
+connections per origin, and every dashboard tab already holds two long-lived ones for the DMS. The
+assistant adds its stream only in the visible tab whose panel is open, which leaves two dashboard tabs
+usable side by side; over HTTPS with HTTP/2 the limit goes away. Over plain HTTP on an address other
+than `localhost`, start the frontend server with `DMS_COOKIE_SECURE=false`, or the browser drops the
+`Secure` session cookie.
 
-The chat document is served from the dashboard's own origin and renders model output, so it runs
-under a strict Content-Security-Policy: scripts from the bundle only, and no image, font or request
-outside the origin (bar the Iconify API its icons come from). The frame is not sandboxed: without
-`allow-same-origin` its own module scripts are refused, and with it a same-origin frame can lift the
-sandbox anyway.
+## Model output in the dashboard
+
+The chat renders model output inside the dashboard, next to the owner's session, and that output can
+carry a prompt injection read from a file or a page. So nothing the agent writes is trusted as markup:
+
+- Markdown is rendered with raw HTML off, then sanitized by a DOMPurify instance of the chat's own
+  (hooks do not leak to the dashboard's), against an allowlist: text formatting, lists, quotes, code,
+  tables and links, and no attribute but `href`, `title`, `target`, `rel` and `start` — no `style`,
+  `class`, `id` or event handler.
+- Links only go to `http`, `https`, `mailto` or a page of the dashboard, never `javascript:` or
+  `data:`, and open in a new tab with `rel="noopener noreferrer"`.
+- An image the model writes is shown as a link: loading it on its own could send what the agent read
+  to its address.
+- The agent can only navigate the dashboard to one of its own pages.
+
+## Sidecar
+
+The sidecar is an agent server only: `/health`, the settings, metrics and skills routes the backend
+proxies, the MCP endpoint of its agents, and one WebSocket endpoint, `/ws`, which only accepts the
+client credential as a `Bearer` header. It serves no page or asset. Run by hand (`node
+sidecar/dist/index.js --port 0 --root <dir>`), it keeps its standalone defaults for the backend and
+frontend origins, which is how its tests drive it.
 
 ## Configuration
 
@@ -154,14 +174,19 @@ of the app-server with it.
 
 ## Vue frontend
 
-The module registers `frontend-vue` through `AddFrontendModule` with the Vue 3 renderer. The host DMS supplies authentication and shared state.
+The module registers `frontend-vue` through `AddFrontendModule` with the Vue 3 renderer. The host DMS
+supplies authentication, shared state, Nuxt UI and the icons. The chat panel, `DmsAiChatPanel`, is
+rendered among the dashboard's persistent overlays (`dms-app-overlays`), so it lives through Inertia
+navigations; its code is under `frontend-vue/app/chat`. The renderer bundles the icons it finds in
+`.vue` files, so an icon name belongs in the component that shows it.
 
 ## Development
 
-Install dependencies and run the backend and sidecar checks from the repository root:
+Install dependencies and run the backend, sidecar and dashboard checks from the repository root:
 
 ```bash
 pnpm install
+pnpm --dir frontend-vue install
 pnpm build
 pnpm build:sidecar
 pnpm test

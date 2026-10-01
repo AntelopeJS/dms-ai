@@ -1,32 +1,23 @@
 import { SIDECAR_UNAVAILABLE_STATUS } from "./sidecar";
 
 /** Base of the routes the browser reaches the sidecar through. */
-export const CHANNELS_ROUTE_PREFIX = "/ai/channels";
-export const CHANNEL_EVENTS_ROUTE = "/:channels/events";
+export const CHANNEL_ROUTE_PREFIX = "/ai/channel";
+export const CHANNEL_EVENTS_ROUTE = "/events";
 export const CHANNEL_MESSAGES_ROUTE = "/:connectionId/messages";
-export const CHANNELS_PARAM = "channels";
 export const CONNECTION_ID_PARAM = "connectionId";
 
 /**
- * Several channels share one stream, `host,chat`: browsers keep at most six
- * HTTP/1.1 connections per origin, and every dashboard tab already holds two
- * long-lived ones for the DMS itself.
+ * The sidecar's one WebSocket endpoint. Each tab's stream is bridged to a
+ * single socket there, which the dashboard identifies as the host and as the
+ * chat: browsers keep at most six HTTP/1.1 connections per origin, and every
+ * dashboard tab already holds two long-lived ones for the DMS itself.
  */
-export const CHANNEL_LIST_SEPARATOR = ",";
-
-/**
- * Sidecar WebSocket path behind each channel the browser may open. A frame
- * reaches the browser as an event named after its channel.
- */
-export const CHANNEL_SIDECAR_PATHS = {
-  host: "/ws/host",
-  chat: "/ws/iframe",
-} as const;
-
-export type ChannelName = keyof typeof CHANNEL_SIDECAR_PATHS;
+export const SIDECAR_SOCKET_PATH = "/ws";
 
 export const CHANNEL_EVENTS = {
   READY: "ready",
+  /** A sidecar frame, relayed unparsed under the stream's default event name. */
+  FRAME: "message",
   SIDECAR_DOWN: "sidecar_down",
 } as const;
 
@@ -47,8 +38,8 @@ export const SSE_HEADERS: Readonly<Record<string, string>> = {
  */
 export const CHANNEL_MESSAGE_MAX_BYTES = 384 * 1024 * 1024;
 
-/** Sidecar sockets one user may hold open at once: both channels of eight tabs. */
-export const CHANNEL_MAX_SOCKETS_PER_USER = 16;
+/** Sidecar sockets one user may hold open at once: one per stream, eight tabs. */
+export const CHANNEL_MAX_SOCKETS_PER_USER = 8;
 
 /**
  * Bytes of posted messages held in memory at once, across every request. A

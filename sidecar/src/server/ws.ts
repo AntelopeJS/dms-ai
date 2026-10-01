@@ -27,7 +27,7 @@ import {
   WS_CLIENT_CLOSE_GRACE_MS,
   WS_GOING_AWAY_CODE,
   WS_LOG_PREFIX,
-  WS_PATHS,
+  WS_PATH,
 } from "../constants/ws.js";
 import { createAiMcpServer } from "../mcp/sdk-binding.js";
 import type {
@@ -52,6 +52,10 @@ import type { SettingsStore } from "../state/settings-store.js";
 import type { AppSettings } from "../state/settings-types.js";
 import { PROVIDER_NAMES, type ProviderName } from "../state/types.js";
 import { isClientAuthorized } from "./client-auth.js";
+import {
+  createHostCommandRouter,
+  type HostCommandSender,
+} from "./host-command-router.js";
 import type { HostSocketRegistry } from "./host-socket-registry.js";
 import type { SettingsApplier } from "./http.js";
 import type { IdleShutdownController } from "./idle-shutdown.js";
@@ -155,25 +159,21 @@ function buildRunner(
   );
 }
 
-function bindConnection(
-  socket: WebSocket,
-  path: string,
-  config: RoutingConfig,
-): void {
-  const ctx = buildConnectionContext(socket, path, config);
+function bindConnection(socket: WebSocket, config: RoutingConfig): void {
+  const ctx = buildConnectionContext(config);
   config.idleController.increment();
   socket.on("message", (data) => {
     const raw = rawDataToText(data);
     dispatchMessage(socket, raw, ctx);
   });
   socket.on("error", (err) => {
-    console.warn(`${WS_LOG_PREFIX} socket error on ${path}: ${err.message}`);
+    console.warn(`${WS_LOG_PREFIX} socket error: ${err.message}`);
   });
   socket.on("close", (code) => {
     config.hostSocketRegistry.clear(socket);
     config.iframeSocketRegistry.clear(socket);
     config.idleController.decrement();
-    console.log(`${WS_LOG_PREFIX} close path=${path} code=${code}`);
+    console.log(`${WS_LOG_PREFIX} close code=${code}`);
   });
 }
 
@@ -232,10 +232,12 @@ function buildMcpDepsFactory(
   staticDeps: AiMcpServerStaticDeps,
   questionBus: QuestionBus,
   editTracker: EditTracker,
+  hostCommandsOf: (conversationId: string) => HostCommandSender,
 ): (conversationId: string) => AiMcpServerDeps {
   return (conversationId) => ({
     ...staticDeps,
     conversationId,
+    sendToHost: hostCommandsOf(conversationId),
     requestQuestion: questionBus.requestQuestion,
     getLastEditedFile: () => editTracker.getLastEditedFile(conversationId),
   });
@@ -255,13 +257,13 @@ function buildMcpServerFactory(
   };
 }
 
-function buildWss(path: string, config: RoutingConfig): WebSocketServer {
+function buildWss(config: RoutingConfig): WebSocketServer {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: WS_MAX_PAYLOAD_BYTES,
   });
   wss.on("connection", (socket) => {
-    bindConnection(socket, path, config);
+    bindConnection(socket, config);
   });
   return wss;
 }
@@ -272,7 +274,7 @@ function extractPath(req: IncomingMessage): string {
 }
 
 function makeUpgradeHandler(
-  wssByPath: Record<string, WebSocketServer>,
+  wss: WebSocketServer,
   clientToken: string,
 ): (req: IncomingMessage, socket: Duplex, head: Buffer) => void {
   return (req, socket, head) => {
@@ -280,9 +282,7 @@ function makeUpgradeHandler(
       socket.end("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
       return;
     }
-    const path = extractPath(req);
-    const wss = wssByPath[path];
-    if (wss === undefined) {
+    if (extractPath(req) !== WS_PATH) {
       socket.destroy();
       return;
     }
@@ -321,6 +321,7 @@ export function attachWsServer(
     options.mcpDeps,
     questionBus,
     editTracker,
+    createHostCommandRouter(options.hostSocketRegistry, iframeSocketRegistry),
   );
   const createMcpServer = buildMcpServerFactory(createMcpDeps);
   const settingsStore = options.settingsStore ?? NOOP_SETTINGS_STORE;
@@ -347,24 +348,19 @@ export function attachWsServer(
     liveTurns: createLiveTurnStore(),
     pendingQueue: createPendingQueueStore(),
   };
-  // Let the HTTP Settings page apply changes through the same path as the WS
-  // chatbox by pointing the shared applier at this connection's services.
+  // Let the HTTP Settings page apply changes through the same path as the
+  // chat's socket by pointing the shared applier at this connection's services.
   if (options.settingsApplier) {
     options.settingsApplier.apply = (next) => applySettings(config, next);
   }
-  const wssIframe = buildWss(WS_PATHS.IFRAME, config);
-  const wssHost = buildWss(WS_PATHS.HOST, config);
-  const wssByPath: Record<string, WebSocketServer> = {
-    [WS_PATHS.IFRAME]: wssIframe,
-    [WS_PATHS.HOST]: wssHost,
-  };
-  const onUpgrade = makeUpgradeHandler(wssByPath, options.clientToken);
+  const wss = buildWss(config);
+  const onUpgrade = makeUpgradeHandler(wss, options.clientToken);
   httpServer.on("upgrade", onUpgrade);
   return {
     close: async () => {
       httpServer.removeListener("upgrade", onUpgrade);
       await config.runner.dispose(TURN_RESTARTED_REASON);
-      await Promise.all([closeWss(wssIframe), closeWss(wssHost)]);
+      await closeWss(wss);
     },
   };
 }

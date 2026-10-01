@@ -82,7 +82,6 @@ async function startHarness(answer: PermissionDecision): Promise<Harness> {
   const registry = createMcpHttpRegistry();
   const { server, port } = await createHttpServer({
     clientToken: "integration-test-credential",
-    chatboxDistDir: root,
     port: 0,
     mcpHttpRegistry: registry,
   });

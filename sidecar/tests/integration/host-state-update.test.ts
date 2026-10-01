@@ -17,7 +17,7 @@ import { createStore } from "../../src/state/store.js";
 const ARBITRARY_PORT = 0;
 const CLIENT_TOKEN = "host-state-test-credential";
 const TEST_HOST_ROOT = "/tmp";
-const WS_PATH_HOST = "/ws/host";
+const WS_PATH = "/ws";
 const WS_HOST = "127.0.0.1";
 const TMP_PREFIX = "dms-ai-host-state-";
 const STATE_FILE_NAME_TEST = "state.json";
@@ -37,7 +37,6 @@ async function startTestServer(): Promise<ServerHandle> {
   await conversationStore.loadFromDisk();
   const { server, port } = await createHttpServer({
     clientToken: CLIENT_TOKEN,
-    chatboxDistDir: process.cwd(),
     port: ARBITRARY_PORT,
   });
   const hostState = createHostState();
@@ -92,7 +91,7 @@ async function startTestServer(): Promise<ServerHandle> {
 }
 
 function buildHostUrl(port: number): string {
-  return `ws://${WS_HOST}:${port}${WS_PATH_HOST}`;
+  return `ws://${WS_HOST}:${port}${WS_PATH}`;
 }
 
 function waitForOpen(socket: WebSocket): Promise<void> {
@@ -129,10 +128,9 @@ describe("host_state_update WS message", () => {
   });
 
   it("updates the sidecar host state when host pushes host_state_update", async () => {
-    const client = new WebSocket(
-      buildHostUrl(handle.port),
-      `dms-ai.${CLIENT_TOKEN}`,
-    );
+    const client = new WebSocket(buildHostUrl(handle.port), {
+      headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
+    });
     await waitForOpen(client);
     client.send(
       JSON.stringify({
@@ -154,10 +152,9 @@ describe("host_state_update WS message", () => {
   });
 
   it("get_current_page tool reports the latest pushed state", async () => {
-    const client = new WebSocket(
-      buildHostUrl(handle.port),
-      `dms-ai.${CLIENT_TOKEN}`,
-    );
+    const client = new WebSocket(buildHostUrl(handle.port), {
+      headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
+    });
     await waitForOpen(client);
     client.send(
       JSON.stringify({

@@ -11,7 +11,6 @@
     "frontend-vue",
     "skills",
     "sidecar/dist",
-    "sidecar/chatbox/dist",
     "sidecar/package.json"
   ],
   "main": "dist/index.js",
@@ -30,13 +29,13 @@
   },
   "scripts": {
     "build": "rimraf dist && tsc",
-    "build:sidecar": "cd sidecar && pnpm install && pnpm run build:all",
+    "build:sidecar": "cd sidecar && pnpm install && pnpm run build",
     "prepack": "pnpm run build && pnpm run build:sidecar",
     "frontend:dev": "cd playground && pnpm frontend:dev",
     "dev": "cd playground && pnpm dev",
     "lint": "oxlint --disable-nested-config && oxfmt --disable-nested-config --check . && cd frontend-vue && pnpm lint && cd ../sidecar && pnpm lint && antelopejs-check-interface-ranges",
     "lint:fix": "oxlint --disable-nested-config --fix --max-warnings=1000000 && oxfmt --disable-nested-config . && cd frontend-vue && pnpm lint:fix && cd ../sidecar && pnpm lint:fix",
-    "typecheck": "tsc --noEmit && cd frontend-vue && pnpm typecheck && cd ../sidecar && pnpm typecheck",
+    "typecheck": "tsc --noEmit && cd frontend-vue && pnpm typecheck:chat && pnpm typecheck && cd ../sidecar && pnpm typecheck",
     "test": "cd sidecar && pnpm test && cd ../frontend-vue && pnpm test",
     "test:sidecar-smoke": "pnpm run build:sidecar && node --test tests/sidecar-build.test.cjs",
     "test:frontend-registration": "pnpm run build && node --test tests/frontend-registration.test.cjs",
@@ -45,7 +44,7 @@
     "test:build-id": "node --test tests/build-id.test.cjs",
     "test:release-script": "node --test tests/release-script.test.cjs",
     "test:e2e": "cd sidecar && pnpm test:e2e",
-    "release": "pnpm --dir frontend-vue install --frozen-lockfile && pnpm --dir sidecar install --frozen-lockfile && pnpm --dir sidecar/chatbox install --frozen-lockfile && release-it",
+    "release": "pnpm --dir frontend-vue install --frozen-lockfile && pnpm --dir sidecar install --frozen-lockfile && release-it",
     "format": "oxfmt --disable-nested-config . && cd frontend-vue && pnpm format",
     "knip": "knip --dependencies",
     "knip:all": "knip"

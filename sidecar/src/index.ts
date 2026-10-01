@@ -22,7 +22,7 @@ import {
   PRODUCTION_NODE_ENV,
 } from "./constants/env.js";
 import { MCP_HTTP_PORT_TOKEN, MCP_HTTP_URL_TEMPLATE } from "./constants/mcp.js";
-import { CHATBOX_DIST_DIR, STATE_DIR_SEGMENTS } from "./constants/paths.js";
+import { STATE_DIR_SEGMENTS } from "./constants/paths.js";
 import { RANDOM_PORT } from "./constants/ports.js";
 import { SETTINGS_FILE_NAME } from "./constants/settings.js";
 import { SKILL_NAME_COLLISION_WARNING } from "./constants/skills.js";
@@ -309,7 +309,6 @@ function buildWsStack({
       logsClient,
       builderClient,
       builderEnabled: args.builderEnabled,
-      sendToHost: hostSocketRegistry.send,
       navigationCompleter,
     },
     hostState,
@@ -340,7 +339,7 @@ async function main(): Promise<void> {
   const conversationStore = await buildConversationStore(args.root);
   const settingsStore = await buildSettingsStore(args.root);
   // Default applier just persists; buildWsStack rebinds it to also apply the
-  // change to the live runner/permission bus and broadcast to open chatboxes.
+  // change to the live runner/permission bus and broadcast to open chats.
   const settingsApplier: SettingsApplier = {
     apply: (next) => settingsStore.set(next),
   };
@@ -366,7 +365,6 @@ async function main(): Promise<void> {
   const { server, port } = await createHttpServer({
     clientToken,
     mcpHttpRegistry,
-    chatboxDistDir: CHATBOX_DIST_DIR,
     port: args.port,
     buildId: args.buildId,
     onHealthCheck: idleController.touch,

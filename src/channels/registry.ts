@@ -11,20 +11,16 @@ function openSocketsOf(userId: string): number {
   return count;
 }
 
-/** Holds `count` sockets for a user while they connect; false past `limit`. */
-export function reserveSockets(
-  userId: string,
-  count: number,
-  limit: number,
-): boolean {
-  if (openSocketsOf(userId) + count > limit) return false;
-  pendingSockets.set(userId, (pendingSockets.get(userId) ?? 0) + count);
+/** Holds one socket for a user while it connects; false past `limit`. */
+export function reserveSocket(userId: string, limit: number): boolean {
+  if (openSocketsOf(userId) >= limit) return false;
+  pendingSockets.set(userId, (pendingSockets.get(userId) ?? 0) + 1);
   return true;
 }
 
-/** Returns sockets held by `reserveSockets`, once connected or failed. */
-export function releaseSockets(userId: string, count: number): void {
-  const left = (pendingSockets.get(userId) ?? 0) - count;
+/** Returns the socket held by `reserveSocket`, once connected or failed. */
+export function releaseSocket(userId: string): void {
+  const left = (pendingSockets.get(userId) ?? 0) - 1;
   if (left > 0) pendingSockets.set(userId, left);
   else pendingSockets.delete(userId);
 }

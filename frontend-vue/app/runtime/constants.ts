@@ -1,18 +1,20 @@
 export const OVERLAY_DEFAULT_WIDTH_PX = 460
-export const OVERLAY_Z_INDEX = 999_999
+/**
+ * Above the dashboard's header and the builder's overlay (z-50), below what the
+ * dashboard portals out of the app: the DMS paints its popovers, modals and
+ * toasts in an isolated layer after the app, whatever this value is.
+ */
+export const OVERLAY_Z_INDEX = 55
 export const OVERLAY_DOM_ID = 'dms-ai-overlay-root'
-export const OVERLAY_IFRAME_ID = 'dms-ai-overlay-iframe'
+export const DMS_OVERLAYS_DOM_ID = 'dms-overlays'
 export const SIDECAR_INFO_PATH = '/ai/sidecar-info'
-/** The chat document, served through the DMS from the dashboard's own origin. */
-export const CHATBOX_PATH = '/api/ai/chatbox/'
 /** Event stream to receive, POST to send: HTTP the DMS frontend server relays. */
-export const CHANNELS_PATH = '/ai/channels'
-export const CHANNEL_EVENTS_SEGMENT = 'events'
+export const CHANNEL_PATH = '/ai/channel'
+export const CHANNEL_EVENTS_PATH = `${CHANNEL_PATH}/events`
 export const CHANNEL_MESSAGES_SEGMENT = 'messages'
-export const CHANNEL_LIST_SEPARATOR = ','
-export const HOST_CHANNEL = 'host'
-export const CHAT_CHANNEL = 'chat'
 export const CHANNEL_EVENT_READY = 'ready'
+/** A sidecar frame: the stream's default event name. */
+export const CHANNEL_EVENT_FRAME = 'message'
 /**
  * How long the stream outlives a closed panel or a hidden tab, so a quick
  * close and reopen does not reconnect, while a tab left in the background soon
@@ -20,12 +22,8 @@ export const CHANNEL_EVENT_READY = 'ready'
  */
 export const CHANNEL_IDLE_STOP_MS = 2_000
 export const VISIBILITY_CHANGE_EVENT = 'visibilitychange'
-/** Where the chat document, same-origin, finds the dashboard's chat transport. */
-export const CHAT_TRANSPORT_KEY = 'dmsAiChatTransport'
-export const OVERLAY_OPEN_CHANGE_EVENT = 'dms-ai:open-change'
 export const EVENT_STREAM_TYPE = 'text/event-stream'
 export const JSON_CONTENT_TYPE = 'application/json'
-export const OVERLAY_BOX_SHADOW = '0 8px 24px rgba(0, 0, 0, 0.18)'
 export const CHANNEL_RECONNECT_DELAYS_MS = [
 	1000, 2000, 4000, 8000, 15000, 30000,
 ] as const
@@ -43,7 +41,6 @@ export const SIDECAR_STATUS_UNAVAILABLE = 'unavailable'
 export const SIDECAR_POLL_DELAYS_MS = [
 	500, 1000, 2000, 4000, 8000,
 ] as const
-export const OVERLAY_PLACEHOLDER_ID = 'dms-ai-overlay-placeholder'
 export const PLACEHOLDER_CONNECTING_TEXT = 'Connecting the assistant…'
 export const PLACEHOLDER_REVIVING_TEXT = 'Reconnecting the assistant…'
 export const PLACEHOLDER_UNAVAILABLE_TITLE = 'Assistant unavailable'
@@ -59,7 +56,10 @@ export const LOG_PREFIX = '[dms-ai]'
 export const HOST_STATE_UPDATE_TYPE = 'host_state_update'
 export const HOST_NAVIGATION_COMPLETE_TYPE = 'host_navigation_complete'
 export const HOST_COMMAND_NAVIGATE_TYPE = 'host_command_navigate'
-export const OVERLAY_RESIZE_HANDLE_SIZE_PX = 6
+/** Frames of the tab's stream meant for the dashboard; every other one is the chat's. */
+export const HOST_COMMAND_TYPES: ReadonlySet<string> = new Set([
+	HOST_COMMAND_NAVIGATE_TYPE,
+])
 export const OVERLAY_MIN_WIDTH_PX = 320
 export const OVERLAY_PREFS_STORAGE_KEY = 'dms-ai:overlay-prefs'
 export const OVERLAY_OUTSIDE_TOGGLE_SUPPRESS_MS = 300
@@ -71,9 +71,21 @@ export const MODAL_OPEN_SELECTOR = '[role="dialog"][aria-modal="true"]'
 // can push a button by writing to this shared `useDmsState` key; the core renders
 // it with no knowledge of who registered it.
 export const HEADER_ACTIONS_STATE_KEY = 'dms:header-actions'
+/**
+ * The DMS's persistent overlays: components rendered on every page, inside the
+ * app but outside the routed page, so they live through Inertia navigations.
+ * The state key and the component name are the whole contract.
+ */
+export const APP_OVERLAYS_STATE_KEY = 'dms-app-overlays'
+export const CHAT_PANEL_COMPONENT_NAME = 'DmsAiChatPanel'
 export const LAUNCHER_ACTION_ID = 'dms-ai-launcher'
+/**
+ * The chat panel's header shows the same icon, which is what gets it into the
+ * renderer's icon bundle: it only scans `.vue` files for icon names.
+ */
 export const LAUNCHER_ICON = 'i-ph-robot'
 export const LAUNCHER_LABEL = 'AI assistant'
+export const PANEL_LABEL = LAUNCHER_LABEL
 export const LAUNCHER_ORDER = 50
 // Toggle shortcut, shown in the launcher tooltip. The combo is meta/ctrl + shift
 // + k, so render it the way each platform expects.

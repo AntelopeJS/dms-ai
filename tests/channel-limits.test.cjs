@@ -13,7 +13,7 @@ const {
   startSidecar,
 } = require("./helpers/channels.cjs");
 
-const { openBridges } = require(dist("channels/bridge.js"));
+const { openBridge } = require(dist("channels/bridge.js"));
 const { openChannel } = require(dist("channels/channel-service.js"));
 const { reserveMessageBytes } = require(dist("channels/message-budget.js"));
 const {
@@ -21,24 +21,46 @@ const {
   CHANNEL_MESSAGE_MAX_BYTES,
   CHANNEL_PENDING_MESSAGES_MAX_BYTES,
 } = require(dist("constants/channels.js"));
+const { SIDECAR_UNAVAILABLE_BODY } = require(dist("constants/sidecar.js"));
 
 afterEach(closeEverything);
 
 void test("refuses a user more sidecar sockets than the cap, not another user", async () => {
   const sidecar = await startSidecar();
-  const streamsAllowed = CHANNEL_MAX_SOCKETS_PER_USER / 2;
-  for (let i = 0; i < streamsAllowed; i += 1)
-    await openOn(sidecar, "host,chat");
-  const refused = await openChannel(
-    fakeContext().ctx,
-    "host,chat",
-    OWNER,
-    sidecar.connect,
-  );
+  for (let i = 0; i < CHANNEL_MAX_SOCKETS_PER_USER; i += 1)
+    await openOn(sidecar);
+  const refused = await openChannel(fakeContext().ctx, OWNER, sidecar.connect);
   assert.ok(refused instanceof HTTPResult);
   assert.equal(refused.getStatus(), 429);
   assert.equal(sidecar.paths.length, CHANNEL_MAX_SOCKETS_PER_USER);
-  await openOn(sidecar, "chat", INTRUDER);
+  await openOn(sidecar, INTRUDER);
+});
+
+void test("counts a stream still connecting against the cap", async () => {
+  const sidecar = await startSidecar();
+  for (let i = 0; i < CHANNEL_MAX_SOCKETS_PER_USER - 1; i += 1)
+    await openOn(sidecar);
+  let release = () => undefined;
+  const held = new Promise((resolve) => {
+    release = resolve;
+  });
+  const slowConnect = async () => {
+    await held;
+    return sidecar.connect();
+  };
+  const pending = openChannel(fakeContext().ctx, OWNER, slowConnect);
+  const refused = await openChannel(fakeContext().ctx, OWNER, sidecar.connect);
+  assert.equal(refused.getStatus(), 429);
+  release();
+  assert.equal(await pending, undefined);
+});
+
+void test("answers 503 with the shared sidecar_unavailable body", async () => {
+  const result = await openChannel(fakeContext().ctx, OWNER, async () => {
+    throw new Error("down");
+  });
+  assert.equal(result.getStatus(), 503);
+  assert.deepEqual(result.getBody(), JSON.stringify(SIDECAR_UNAVAILABLE_BODY));
 });
 
 function messageContext(contentLength) {
@@ -68,7 +90,7 @@ void test("refuses a posted message once the memory budget is spent, until one e
 
 void test("pauses a sidecar socket once per full sink, however many frames arrive", async () => {
   const sidecar = await startSidecar();
-  const socket = await sidecar.connect("/ws/iframe");
+  const socket = await sidecar.connect();
   const drains = [];
   const stream = {
     send: (name) => name === "ready",
@@ -77,9 +99,9 @@ void test("pauses a sidecar socket once per full sink, however many frames arriv
     close: () => undefined,
     isClosed: () => false,
   };
-  openBridges({
+  openBridge({
     userId: OWNER,
-    sockets: [{ channel: "chat", socket }],
+    socket,
     stream,
     onOpened: () => undefined,
     onClosed: () => undefined,

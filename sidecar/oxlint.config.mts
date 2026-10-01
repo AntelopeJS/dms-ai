@@ -11,11 +11,9 @@ export default defineConfig({
       importSorting: false,
     }),
   ],
-  // The chatbox is a Vue app with its own toolchain, as it was under Biome.
   // The Codex protocol types are generated; see scripts/generate-codex-types.mjs.
   ignorePatterns: [
     ...ANTELOPE_IGNORE_PATTERNS,
-    "chatbox/**",
     "src/providers/codex/protocol/**",
   ],
   options: {

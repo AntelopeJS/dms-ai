@@ -1,5 +1,8 @@
 import WebSocket from "ws";
-import { CHANNEL_MESSAGE_MAX_BYTES } from "../constants/channels";
+import {
+  CHANNEL_MESSAGE_MAX_BYTES,
+  SIDECAR_SOCKET_PATH,
+} from "../constants/channels";
 import { SIDECAR_LOOPBACK_HOST } from "../constants/sidecar";
 import {
   ensureSidecarRunning,
@@ -34,10 +37,13 @@ function openSocket(url: string, token: string): Promise<WebSocket> {
  * idle-exited, as the status probe does. The socket comes back paused, so no
  * frame is emitted before its consumer is listening.
  */
-export async function connectSidecarSocket(path: string): Promise<WebSocket> {
+export async function connectSidecarSocket(): Promise<WebSocket> {
   await ensureSidecarRunning();
   const port = getSidecarPort();
   const token = getSidecarClientToken();
   if (port === null || !token) throw new SidecarUnavailableError();
-  return openSocket(`ws://${SIDECAR_LOOPBACK_HOST}:${port}${path}`, token);
+  return openSocket(
+    `ws://${SIDECAR_LOOPBACK_HOST}:${port}${SIDECAR_SOCKET_PATH}`,
+    token,
+  );
 }

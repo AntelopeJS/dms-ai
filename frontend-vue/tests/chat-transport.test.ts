@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-	createChatTransport,
-	exposeChatTransport,
-} from '../app/runtime/chat-transport'
-import { CHAT_TRANSPORT_KEY } from '../app/runtime/constants'
+import { createChatTransport } from '../app/runtime/chat-transport'
+import { createFrameRouter } from '../app/runtime/frame-router'
 
 function hub() {
 	const actions = {
@@ -15,20 +12,20 @@ function hub() {
 }
 
 describe('chat transport', () => {
-	it('lends the chat its channel: frames, readiness and status in, messages out', () => {
+	it('gives the chat its messages, readiness and status, and sends through the stream', () => {
 		const { actions, chat } = hub()
-		const frames: string[] = []
+		const messages: object[] = []
 		const statuses: string[] = []
 		const ready = vi.fn()
-		chat.transport.onFrame((raw) => frames.push(raw))
+		chat.transport.onMessage((msg) => messages.push(msg))
 		chat.transport.onStatus((status) => statuses.push(status))
 		chat.transport.onReady(ready)
-		chat.deliverFrame('{"type":"run_done"}')
+		chat.deliver({ type: 'run_done' })
 		chat.announceStatus('reconnecting')
 		chat.announceReady()
 		expect(chat.transport.send({ type: 'hello' })).toBe(true)
 		chat.transport.reconnect()
-		expect(frames).toEqual(['{"type":"run_done"}'])
+		expect(messages).toEqual([{ type: 'run_done' }])
 		expect(statuses).toEqual(['reconnecting'])
 		expect(ready).toHaveBeenCalledTimes(1)
 		expect(actions.send).toHaveBeenCalledWith({ type: 'hello' })
@@ -38,30 +35,55 @@ describe('chat transport', () => {
 
 	it('stops delivering to a listener once it unsubscribed', () => {
 		const { chat } = hub()
-		const frames: string[] = []
-		const unsubscribe = chat.transport.onFrame((raw) => frames.push(raw))
+		const messages: object[] = []
+		const unsubscribe = chat.transport.onMessage((msg) => messages.push(msg))
 		unsubscribe()
-		chat.deliverFrame('{}')
-		expect(frames).toEqual([])
+		chat.deliver({})
+		expect(messages).toEqual([])
 	})
 
-	it('keeps delivering when one listener throws, as a gone chat document would', () => {
+	it('keeps delivering when one listener throws', () => {
 		const { chat } = hub()
-		const frames: string[] = []
+		const messages: object[] = []
 		const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-		chat.transport.onFrame(() => {
-			throw new Error('dead document')
+		chat.transport.onMessage(() => {
+			throw new Error('broken listener')
 		})
-		chat.transport.onFrame((raw) => frames.push(raw))
-		chat.deliverFrame('{}')
-		expect(frames).toEqual(['{}'])
+		chat.transport.onMessage((msg) => messages.push(msg))
+		chat.deliver({ type: 'run_done' })
+		expect(messages).toEqual([{ type: 'run_done' }])
 		error.mockRestore()
 	})
 
-	it('publishes itself where the same-origin chat document looks', () => {
-		const { chat } = hub()
-		exposeChatTransport(chat.transport)
-		expect(Reflect.get(globalThis, CHAT_TRANSPORT_KEY)).toBe(chat.transport)
-		Reflect.deleteProperty(globalThis, CHAT_TRANSPORT_KEY)
+	it('publishes nothing on the window: no other document borrows it any more', () => {
+		hub()
+		expect(Reflect.has(globalThis, 'dmsAiChatTransport')).toBe(false)
+	})
+})
+
+describe('frame routing on the tab\'s one stream', () => {
+	it('hands host commands to the dashboard and everything else to the chat, parsed once', () => {
+		const host = vi.fn()
+		const chat = vi.fn()
+		const route = createFrameRouter({ host, chat })
+		route('{"type":"host_command_navigate","path":"/x"}')
+		route('{"type":"assistant_message_chunk","conversationId":"c","text":"hi"}')
+		route('{"type":"settings_update","settings":{}}')
+		expect(host.mock.calls).toEqual([
+			[{ type: 'host_command_navigate', path: '/x' }],
+		])
+		expect(chat.mock.calls.map(([msg]) => msg.type)).toEqual([
+			'assistant_message_chunk',
+			'settings_update',
+		])
+	})
+
+	it('drops what is not a typed message', () => {
+		const host = vi.fn()
+		const chat = vi.fn()
+		const route = createFrameRouter({ host, chat })
+		for (const raw of ['not json', '42', 'null', '{"type":7}', '[]']) route(raw)
+		expect(host).not.toHaveBeenCalled()
+		expect(chat).not.toHaveBeenCalled()
 	})
 })
