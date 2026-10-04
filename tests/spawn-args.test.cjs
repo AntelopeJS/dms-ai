@@ -6,6 +6,8 @@ const { test } = require("node:test");
 const CHILD_PID = 4242;
 const SIDECAR_PORT = 39001;
 const BACKEND_URL = "http://127.0.0.1:41234";
+const SIDECAR_OWNER_KEY = Symbol.for("@antelopejs/dms-ai/sidecar-owner");
+const dist = (file) => path.resolve(__dirname, "../dist", file);
 
 function buildLock() {
   return JSON.stringify({
@@ -18,13 +20,12 @@ function buildLock() {
 }
 
 // Drives the real spawnSidecar with the process and filesystem stubbed: the
-// lock file is only claimed by the child we pretend to spawn, so the reuse path
-// is skipped and a fresh spawn is forced.
+// lock file is only claimed by the child we pretend to spawn, so no leftover
+// sidecar is found and a fresh spawn is forced. The process-wide owner is
+// dropped first so each test starts without a running sidecar.
 function loadLauncher(spawns) {
-  const filename = path.resolve(
-    __dirname,
-    "../dist/lifecycle/spawn-sidecar.js",
-  );
+  delete globalThis[SIDECAR_OWNER_KEY];
+  const filename = dist("lifecycle/spawn-sidecar.js");
   let spawned = false;
   const mocks = {
     "node:child_process": {
@@ -49,16 +50,10 @@ function loadLauncher(spawns) {
       Logging: { Info() {}, Error() {} },
     },
     "../constants/module": { PRODUCTION_NODE_ENV: "production" },
-    "../constants/sidecar": require(
-      path.resolve(__dirname, "../dist/constants/sidecar.js"),
-    ),
+    "../constants/sidecar": require(dist("constants/sidecar.js")),
     "./build-id": { computeBuildId: () => "" },
-    "./respawn-tracker": {
-      createRespawnTracker: () => ({
-        hasBudget: () => true,
-        recordAttempt() {},
-      }),
-    },
+    "./sidecar-owner": require(dist("lifecycle/sidecar-owner.js")),
+    "./terminate-process": { terminateProcess: async () => undefined },
   };
   const originalLoad = Module._load;
   Module._load = (request) => mocks[request] ?? {};
