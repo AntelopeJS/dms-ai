@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.6
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.5...v0.1.6)
+
+### 🩹 Fixes
+
+- Stop the sidecar with the project instead of adopting it across runs ([#60](https://github.com/AntelopeJS/dms-ai/pull/60))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.1.5
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.4...v0.1.5)
