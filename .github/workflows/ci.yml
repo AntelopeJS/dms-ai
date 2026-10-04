@@ -55,6 +55,9 @@ jobs:
       # Pins the flags the launcher hands the sidecar, with the child process
       # and the lock file stubbed.
       - run: pnpm test:spawn-args
+      # Starts a stand-in sidecar for real: a hot reload keeps it, a leftover
+      # from an earlier run is stopped, and Ctrl+C on the backend stops it.
+      - run: pnpm test:sidecar-lifecycle
       # Pins that the build id follows the sidecar's compiled code, not its
       # mtimes, so a rebuild with the same output keeps the running sidecar.
       - run: pnpm test:build-id

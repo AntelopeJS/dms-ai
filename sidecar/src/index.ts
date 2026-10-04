@@ -168,7 +168,17 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   return acc;
 }
 
-const SHUTDOWN_SIGNALS: readonly NodeJS.Signals[] = ["SIGTERM", "SIGINT"];
+// SIGHUP too: the sidecar runs in the backend's process group, so closing the
+// backend's terminal reaches it.
+const SHUTDOWN_SIGNALS: readonly NodeJS.Signals[] = [
+  "SIGTERM",
+  "SIGINT",
+  "SIGHUP",
+];
+
+export interface ShutdownSignalSource {
+  on(signal: NodeJS.Signals, listener: () => void): unknown;
+}
 
 interface ShutdownDeps {
   server: import("node:http").Server;
@@ -199,9 +209,12 @@ async function gracefulShutdown(
   deps.server.close(() => process.exit(GRACEFUL_EXIT_CODE));
 }
 
-function installSignalShutdown(run: () => void): void {
+export function installSignalShutdown(
+  run: () => void,
+  source: ShutdownSignalSource = process,
+): void {
   for (const sig of SHUTDOWN_SIGNALS) {
-    process.on(sig, run);
+    source.on(sig, run);
   }
 }
 

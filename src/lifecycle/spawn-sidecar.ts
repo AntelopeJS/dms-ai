@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { closeSync, mkdirSync, openSync, readFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { Logging } from "@antelopejs/interface-core/logging";
@@ -21,14 +21,14 @@ import {
   SIDECAR_LOG_PREFIX,
   SIDECAR_LOOPBACK_HOST,
   SIDECAR_MODULE_ROOTS_FLAG,
-  SIDECAR_RESPAWN_DELAY_MS,
   SIDECAR_SKILL_DIRS_FLAG,
   SIDECAR_SPAWN_TIMEOUT_MS,
-  SIDECAR_SUCCESS_EXIT_CODE,
+  SIDECAR_STOP_TIMEOUT_MS,
 } from "../constants/sidecar";
 import { computeBuildId } from "./build-id";
-import { createRespawnTracker, type RespawnTracker } from "./respawn-tracker";
+import { getSidecarOwner, type SidecarLaunch } from "./sidecar-owner";
 import type { SkillSource } from "./skill-sources";
+import { terminateProcess } from "./terminate-process";
 
 interface SpawnOptions {
   hostProjectRoot: string;
@@ -37,13 +37,14 @@ interface SpawnOptions {
   // standalone default.
   backendUrl?: string;
   // Authoritative module roots (from interface-core) auto-allowed for read-only
-  // tools. Captured in state so an idle-revive respawn reuses the same set.
+  // tools. Captured in the launch so an idle-revive respawn reuses the same set.
   moduleRoots?: string[];
   // Skill sources contributed by loaded modules (`antelopeJs.skills`). Captured
-  // in state so an idle-revive respawn reuses the same set.
+  // in the launch so an idle-revive respawn reuses the same set.
   skillDirs?: SkillSource[];
   // Whether the dms-builder interface is provided, unlocking the sidecar's
-  // safe-mode builder tools. Captured in state so a respawn keeps the same mode.
+  // safe-mode builder tools. Captured in the launch so a respawn keeps the same
+  // mode.
   builderEnabled?: boolean;
 }
 
@@ -57,39 +58,20 @@ interface SidecarLock {
   clientToken?: string;
 }
 
-interface HealthInfo {
-  version: string;
-  buildId: string;
-}
-
 interface HealthResponse {
   ok?: boolean;
-  version?: string;
-  buildId?: string;
 }
 
-interface SidecarState {
-  child: ChildProcess | null;
-  port: number | null;
-  respawnTracker: RespawnTracker;
-  hasGivenUp: boolean;
+interface LauncherState {
   options: SpawnOptions | null;
-  inFlight: Promise<void> | null;
 }
 
-const WINDOWS_PLATFORM = "win32";
-
-const state: SidecarState = {
-  child: null,
-  port: null,
-  respawnTracker: createRespawnTracker(),
-  hasGivenUp: false,
+const state: LauncherState = {
   options: null,
-  inFlight: null,
 };
 
 export function getSidecarPort(): number | null {
-  return state.port;
+  return getSidecarOwner().getPort();
 }
 
 export function getSidecarToken(): string | null {
@@ -104,13 +86,13 @@ export function getSidecarClientToken(): string | null {
 }
 
 export function isSidecarRunning(): boolean {
-  return state.port !== null;
+  return getSidecarPort() !== null;
 }
 
 // True once the crash budget is spent: the sidecar is deliberately down and a
 // probe can no longer revive it, so the client should stop waiting and warn.
 export function hasSidecarGivenUp(): boolean {
-  return state.hasGivenUp;
+  return getSidecarOwner().hasGivenUp();
 }
 
 // True when spawning is turned off for this process (production or the disable
@@ -120,38 +102,24 @@ export function isSidecarDisabled(): boolean {
   return mustSkipSpawn();
 }
 
+// The sidecar is a child of this process, owned process-wide so a hot reload of
+// the module keeps it running; the core stops it with the project's other child
+// processes on shutdown.
 export async function spawnSidecar(opts: SpawnOptions): Promise<void> {
   state.options = opts;
-  await ensureSidecarRunning();
+  if (mustSkipSpawn()) return;
+  await getSidecarOwner().attach(createLaunch(opts));
 }
 
 // Idempotent revive: brings the sidecar back if it has idle-exited (or never
 // started), and is a no-op while one is already running or being spawned.
-// Called both at boot and on every /ai/sidecar-info probe so navigation
-// transparently respawns the daemon after its idle shutdown. Stays a no-op
-// once the crash budget is exhausted (hasGivenUp), so probe traffic can't
-// re-arm a sidecar that has deliberately given up — recovery then requires a
-// restart/reload.
+// Called on every /ai/sidecar-info probe so navigation transparently respawns
+// the daemon after its idle shutdown. Stays a no-op once the crash budget is
+// exhausted, so probe traffic can't re-arm a sidecar that has deliberately
+// given up — recovery then requires a restart/reload.
 export async function ensureSidecarRunning(): Promise<void> {
   if (mustSkipSpawn()) return;
-  if (state.hasGivenUp) return;
-  if (state.options === null) return;
-  if (state.inFlight !== null) return state.inFlight;
-  if (state.port !== null) {
-    // An owned child clears state.port from its exit handler when it dies, so a
-    // non-null port can be trusted. An *adopted* sidecar (reused via the lock
-    // file, state.child === null) gives us no exit signal, so verify it is
-    // actually alive — otherwise a dead reused daemon leaves a stale port
-    // reported as running and the client would point its frame at a dead port.
-    if (state.child !== null) return;
-    if ((await probeHealth(state.port)) !== null) return;
-    state.port = null;
-  }
-  if (state.child !== null) return;
-  state.inFlight = ensureSidecar(state.options.hostProjectRoot).finally(() => {
-    state.inFlight = null;
-  });
-  return state.inFlight;
+  await getSidecarOwner().revive();
 }
 
 function mustSkipSpawn(): boolean {
@@ -190,17 +158,20 @@ function readLock(root: string): SidecarLock | null {
   }
 }
 
-function parseHealth(body: string): HealthInfo | null {
+function removeLockOf(root: string, pid: number): void {
+  if (readLock(root)?.pid !== pid) return;
+  rmSync(buildCachePath(root, SIDECAR_LOCK_FILE_NAME), { force: true });
+}
+
+function isHealthyBody(body: string): boolean {
   try {
-    const parsed = JSON.parse(body) as HealthResponse;
-    if (parsed.ok !== true) return null;
-    return { version: parsed.version ?? "", buildId: parsed.buildId ?? "" };
+    return (JSON.parse(body) as HealthResponse).ok === true;
   } catch {
-    return null;
+    return false;
   }
 }
 
-function probeHealth(port: number): Promise<HealthInfo | null> {
+function probeHealth(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const req = http.get(
       {
@@ -215,13 +186,13 @@ function probeHealth(port: number): Promise<HealthInfo | null> {
         res.on("data", (chunk) => {
           body += chunk;
         });
-        res.on("end", () => resolve(parseHealth(body)));
+        res.on("end", () => resolve(isHealthyBody(body)));
       },
     );
-    req.on("error", () => resolve(null));
+    req.on("error", () => resolve(false));
     req.on("timeout", () => {
       req.destroy();
-      resolve(null);
+      resolve(false);
     });
   });
 }
@@ -230,82 +201,56 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function adoptSidecar(port: number): void {
-  state.child = null;
-  state.port = port;
-  Logging.Info(`${SIDECAR_LOG_PREFIX} reusing sidecar on port ${port}`);
-}
-
-function killPid(pid: number): void {
-  try {
-    process.kill(pid, "SIGTERM");
-  } catch {
-    return;
-  }
-}
-
-async function retireStaleSidecar(lock: SidecarLock): Promise<void> {
-  killPid(lock.pid);
-  const deadline = Date.now() + SIDECAR_SPAWN_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const health = await probeHealth(lock.port);
-    if (health === null) return;
-    await delay(SIDECAR_LOCK_POLL_INTERVAL_MS);
-  }
-}
-
-async function tryReuse(root: string, buildId: string): Promise<boolean> {
+// A run that crashed or was killed outright leaves its sidecar running: stop
+// it, so two sidecars never share the project's state files. Only a sidecar
+// that answers its health check is signalled, never a recycled pid.
+async function retireLeftoverSidecar(root: string): Promise<void> {
   const lock = readLock(root);
-  if (lock === null) return false;
-  const health = await probeHealth(lock.port);
-  if (health === null) return false;
-  if (health.buildId === buildId) {
-    adoptSidecar(lock.port);
-    return true;
-  }
-  await retireStaleSidecar(lock);
-  return false;
+  if (lock === null) return;
+  if (!(await probeHealth(lock.port))) return;
+  Logging.Info(
+    `${SIDECAR_LOG_PREFIX} stopping the sidecar left running on port ${lock.port}`,
+  );
+  await terminateProcess(lock.pid, SIDECAR_STOP_TIMEOUT_MS);
+  removeLockOf(root, lock.pid);
 }
 
-function buildSpawnArgs(binPath: string, buildId: string): string[] {
+function buildSpawnArgs(
+  opts: SpawnOptions,
+  binPath: string,
+  buildId: string,
+): string[] {
   const args = [binPath, SIDECAR_BUILD_ID_FLAG, buildId];
-  const moduleRoots = state.options?.moduleRoots ?? [];
+  const moduleRoots = opts.moduleRoots ?? [];
   if (moduleRoots.length > 0) {
     args.push(SIDECAR_MODULE_ROOTS_FLAG, JSON.stringify(moduleRoots));
   }
-  const skillDirs = state.options?.skillDirs ?? [];
+  const skillDirs = opts.skillDirs ?? [];
   if (skillDirs.length > 0) {
     args.push(SIDECAR_SKILL_DIRS_FLAG, JSON.stringify(skillDirs));
   }
-  if (state.options?.builderEnabled) {
+  if (opts.builderEnabled) {
     args.push(SIDECAR_BUILDER_FLAG, "1");
   }
-  const backendUrl = state.options?.backendUrl;
-  if (backendUrl !== undefined) {
-    args.push(SIDECAR_BACKEND_URL_FLAG, backendUrl);
+  if (opts.backendUrl !== undefined) {
+    args.push(SIDECAR_BACKEND_URL_FLAG, opts.backendUrl);
   }
   return args;
 }
 
-function trySpawnChild(
-  binPath: string,
-  buildId: string,
-  logPath: string,
-): ChildProcess | null {
+function trySpawnChild(args: string[], logPath: string): ChildProcess | null {
   try {
     mkdirSync(path.dirname(logPath), { recursive: true });
     const fd = openSync(logPath, "a");
-    const detached = process.platform !== WINDOWS_PLATFORM;
-    const child = spawn(process.execPath, buildSpawnArgs(binPath, buildId), {
-      detached,
+    const child = spawn(process.execPath, args, {
       stdio: ["ignore", fd, fd],
       env: { ...process.env },
     });
     closeSync(fd);
-    if (detached) child.unref();
+    child.unref();
     return child;
   } catch (err) {
-    logError("failed to spawn sidecar", err);
+    Logging.Error(`${SIDECAR_LOG_PREFIX} failed to spawn sidecar:`, err);
     return null;
   }
 }
@@ -313,80 +258,33 @@ function trySpawnChild(
 async function learnPortFromLock(
   root: string,
   childPid: number,
-): Promise<void> {
+): Promise<number | null> {
   const deadline = Date.now() + SIDECAR_SPAWN_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const lock = readLock(root);
     if (lock !== null && lock.pid === childPid) {
-      state.port = lock.port;
       Logging.Info(
         `${SIDECAR_LOG_PREFIX} sidecar listening on port ${lock.port}`,
       );
-      return;
+      return lock.port;
     }
     await delay(SIDECAR_LOCK_POLL_INTERVAL_MS);
   }
   Logging.Error(`${SIDECAR_LOG_PREFIX} sidecar did not report a port in time`);
+  return null;
 }
 
-async function freshSpawn(
-  root: string,
-  binPath: string,
-  buildId: string,
-): Promise<void> {
-  const logPath = buildCachePath(root, SIDECAR_LOG_FILE_NAME);
-  const child = trySpawnChild(binPath, buildId, logPath);
-  if (child === null) return;
-  state.child = child;
-  state.port = null;
-  wireChildExit(child);
-  await learnPortFromLock(root, child.pid ?? -1);
-}
-
-async function ensureSidecar(root: string): Promise<void> {
+function createLaunch(opts: SpawnOptions): SidecarLaunch {
+  const root = opts.hostProjectRoot;
   const binPath = resolveSidecarBin();
   const buildId = computeBuildId(path.dirname(binPath));
-  const reused = await tryReuse(root, buildId);
-  if (reused) return;
-  await freshSpawn(root, binPath, buildId);
-}
-
-function wireChildExit(child: ChildProcess): void {
-  child.on("exit", (code) => handleChildExit(code));
-  child.on("error", (err) => logError("sidecar process error", err));
-}
-
-function handleChildExit(code: number | null): void {
-  state.child = null;
-  state.port = null;
-  if (code === SIDECAR_SUCCESS_EXIT_CODE) {
-    Logging.Info(`${SIDECAR_LOG_PREFIX} sidecar exited gracefully`);
-    return;
-  }
-  scheduleRespawnIfBudget();
-}
-
-function scheduleRespawnIfBudget(): void {
-  const now = Date.now();
-  if (!state.respawnTracker.hasBudget(now)) {
-    state.hasGivenUp = true;
-    Logging.Error(
-      `${SIDECAR_LOG_PREFIX} sidecar crash budget exhausted, giving up`,
-    );
-    return;
-  }
-  state.respawnTracker.recordAttempt(now);
-  Logging.Error(
-    `${SIDECAR_LOG_PREFIX} sidecar crashed, respawning in ${SIDECAR_RESPAWN_DELAY_MS}ms`,
-  );
-  setTimeout(performScheduledRespawn, SIDECAR_RESPAWN_DELAY_MS);
-}
-
-function performScheduledRespawn(): void {
-  if (state.hasGivenUp) return;
-  void ensureSidecarRunning();
-}
-
-function logError(message: string, err: unknown): void {
-  Logging.Error(`${SIDECAR_LOG_PREFIX} ${message}:`, err);
+  const args = buildSpawnArgs(opts, binPath, buildId);
+  return {
+    buildId,
+    spawn: async () => {
+      await retireLeftoverSidecar(root);
+      return trySpawnChild(args, buildCachePath(root, SIDECAR_LOG_FILE_NAME));
+    },
+    waitForPort: (pid) => learnPortFromLock(root, pid),
+  };
 }

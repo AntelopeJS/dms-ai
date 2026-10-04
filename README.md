@@ -25,6 +25,12 @@ The module starts its bundled sidecar with the project as its working directory.
 set `DMS_AI=0` before starting the backend to disable the sidecar. If
 `@antelopejs/dms-builder` is installed, the assistant also exposes its builder integration.
 
+The sidecar is a child process of the backend. A hot reload of the module keeps it running, unless
+its build changed. Stopping the project stops it: Ctrl+C reaches it through the terminal's process
+group, and `@antelopejs/core` 1.13.2 or later terminates it on shutdown (Linux only). A sidecar left
+running by a backend that crashed or was killed is stopped when the next run starts; otherwise it
+exits on its own after 15 idle minutes.
+
 The assistant is a development tool, on purpose: the backend and the sidecar refuse to run with
 `NODE_ENV=production`, and the chat is reserved to owners. Remote *development* is supported (see
 below); a hosted use would be a separate product with its own design.
@@ -194,3 +200,4 @@ pnpm --dir frontend-vue typecheck
 ```
 
 `pnpm test:frontend-registration` checks backend registration and sidecar inputs with the sidecar launcher mocked.
+`pnpm test:sidecar-lifecycle` starts a stand-in sidecar to check that a hot reload keeps it, a sidecar left by an earlier run is stopped, and Ctrl+C on the backend stops it.
