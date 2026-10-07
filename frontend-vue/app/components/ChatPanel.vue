@@ -1,66 +1,45 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import ChatView from "../chat/components/ChatView.vue";
+import { useChatI18n } from "../chat/composables/useChatI18n";
+import { SETTINGS_PAGE_PATH } from "../chat/constants/protocol";
 import { ASSISTANT_SESSION_KEY } from "../runtime/assistant-session";
 import {
 	DMS_OVERLAYS_DOM_ID,
 	OVERLAY_DOM_ID,
-	PANEL_LABEL,
 	OVERLAY_Z_INDEX,
-	PLACEHOLDER_CONNECTING_TEXT,
-	PLACEHOLDER_REVIVING_TEXT,
-	PLACEHOLDER_UNAVAILABLE_TEXT,
-	PLACEHOLDER_UNAVAILABLE_TITLE,
-	SIDECAR_STATUS_CONNECTED,
 	SIDECAR_STATUS_CONNECTING,
 	SIDECAR_STATUS_REVIVING,
 	SIDECAR_STATUS_UNAVAILABLE,
 } from "../runtime/constants";
-
-interface StatusScreen {
-	title: string;
-	text: string;
-	isBusy: boolean;
-}
 
 interface ResizeStart {
 	x: number;
 	width: number;
 }
 
-const CLOSE_ICON = "i-ph-x-light";
-const CLOSE_LABEL = "Close";
-
-const STATUS_SCREENS: Record<string, StatusScreen> = {
-	[SIDECAR_STATUS_CONNECTING]: {
-		title: "",
-		text: PLACEHOLDER_CONNECTING_TEXT,
-		isBusy: true,
-	},
-	[SIDECAR_STATUS_REVIVING]: {
-		title: "",
-		text: PLACEHOLDER_REVIVING_TEXT,
-		isBusy: true,
-	},
-	[SIDECAR_STATUS_UNAVAILABLE]: {
-		title: PLACEHOLDER_UNAVAILABLE_TITLE,
-		text: PLACEHOLDER_UNAVAILABLE_TEXT,
-		isBusy: false,
-	},
-};
-
 const session = inject(ASSISTANT_SESSION_KEY, null);
+const { t } = useChatI18n();
 const panelEl = ref<HTMLElement | null>(null);
 const isOpen = computed(() => session?.panel.isOpen.value === true);
 const hasOpened = ref(isOpen.value);
 const isResizing = ref(false);
+const isRestarting = ref(false);
+// Drawn once mounted: the server renders no assistant, so hydration must not
+// expect one.
+const isMounted = ref(false);
 let resizeStart: ResizeStart | null = null;
 
-const statusScreen = computed<StatusScreen | null>(() => {
-	const status = session?.status.value ?? SIDECAR_STATUS_CONNECTING;
-	if (status === SIDECAR_STATUS_CONNECTED) return null;
-	return STATUS_SCREENS[status] ?? null;
-});
+const status = computed(
+	() => session?.status.value ?? SIDECAR_STATUS_CONNECTING,
+);
+const isUnavailable = computed(
+	() => status.value === SIDECAR_STATUS_UNAVAILABLE,
+);
+const isFirstConnect = computed(
+	() => status.value === SIDECAR_STATUS_CONNECTING,
+);
+const lastError = computed(() => session?.lastError.value ?? null);
 
 const panelStyle = computed(() => ({
 	width: `${session?.panel.width.value ?? 0}px`,
@@ -122,7 +101,18 @@ function navigate(path: string): void {
 	session?.navigate(path);
 }
 
+async function restart(): Promise<void> {
+	if (session === null || isRestarting.value) return;
+	isRestarting.value = true;
+	try {
+		await session.restart();
+	} finally {
+		isRestarting.value = false;
+	}
+}
+
 onMounted(() => {
+	isMounted.value = true;
 	document.addEventListener("pointerdown", onDocumentPointerDown, {
 		capture: true,
 	});
@@ -138,7 +128,7 @@ onBeforeUnmount(() => {
 
 <template>
 	<aside
-		v-if="session"
+		v-if="session && isMounted"
 		:id="OVERLAY_DOM_ID"
 		ref="panelEl"
 		class="dms-ai-panel"
@@ -146,31 +136,77 @@ onBeforeUnmount(() => {
 		:data-resizing="isResizing"
 		:style="panelStyle"
 		:inert="!isOpen"
-		:aria-label="PANEL_LABEL"
+		:aria-label="t('dms_ai.panel.launcher')"
 	>
 		<div class="dms-ai-panel-resize" @pointerdown="startResize" />
 		<ChatView
 			v-if="hasOpened"
 			class="dms-ai-panel-chat"
 			:transport="session.chat"
+			:intents="session.intents"
+			:is-open="isOpen"
+			:page="session.currentPage.value"
+			:is-reviving="status === SIDECAR_STATUS_REVIVING"
+			:api="session.api"
 			@close="close"
 			@navigate="navigate"
 		/>
-		<div v-if="statusScreen" class="dms-ai-panel-status" role="status">
-			<button
-				type="button"
+		<div
+			v-if="isUnavailable || isFirstConnect"
+			class="dms-ai-panel-status"
+			role="status"
+		>
+			<UButton
+				size="sm"
+				color="neutral"
+				variant="ghost"
+				square
+				icon="i-ph-x"
 				class="dms-ai-panel-close"
-				:aria-label="CLOSE_LABEL"
-				:title="CLOSE_LABEL"
+				:aria-label="t('dms_ai.panel.header.close')"
 				@click="close"
-			>
-				<UIcon :name="CLOSE_ICON" class="size-[18px]" />
-			</button>
-			<span v-if="statusScreen.isBusy" class="dms-ai-panel-spinner" />
-			<b v-if="statusScreen.title" class="dms-ai-panel-status-title">
-				{{ statusScreen.title }}
-			</b>
-			<span class="dms-ai-panel-status-text">{{ statusScreen.text }}</span>
+			/>
+			<template v-if="isUnavailable">
+				<DmsIconWell icon="i-ph-plugs" tone="error" size="lg" />
+				<b class="dms-ai-panel-status-title">
+					{{ t("dms_ai.panel.unavailable.title") }}
+				</b>
+				<span class="dms-ai-panel-status-text">
+					{{
+						lastError
+							? t("dms_ai.panel.unavailable.text_error")
+							: t("dms_ai.panel.unavailable.text")
+					}}
+				</span>
+				<code v-if="lastError" class="dms-ai-panel-error">{{ lastError }}</code>
+				<div class="dms-ai-panel-actions">
+					<UButton
+						size="sm"
+						color="secondary"
+						icon="i-ph-arrows-clockwise"
+						:loading="isRestarting"
+						:label="t('dms_ai.panel.unavailable.restart')"
+						@click="restart"
+					/>
+					<UButton
+						size="sm"
+						color="neutral"
+						variant="outline"
+						icon="i-ph-gear-six"
+						:label="t('dms_ai.panel.header.settings')"
+						@click="navigate(SETTINGS_PAGE_PATH)"
+					/>
+				</div>
+				<span class="dms-ai-panel-note">
+					{{ t("dms_ai.panel.unavailable.kept") }}
+				</span>
+			</template>
+			<template v-else>
+				<span class="dms-ai-panel-spinner" />
+				<b class="dms-ai-panel-status-title">
+					{{ t("dms_ai.panel.connection.first_connect") }}
+				</b>
+			</template>
 		</div>
 	</aside>
 </template>
@@ -183,10 +219,10 @@ onBeforeUnmount(() => {
 	bottom: 0;
 	display: flex;
 	overflow: hidden;
-	background: var(--ui-bg);
+	background: var(--dms-bg-sidebar, var(--ui-bg));
 	color: var(--ui-text);
-	border-left: 1px solid var(--ui-border);
-	box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+	border-left: 1px solid var(--ui-border-accented);
+	box-shadow: var(--dms-shadow-pop, 0 8px 24px rgb(0 0 0 / 0.18));
 	transform: translateX(100%);
 	transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -229,7 +265,7 @@ onBeforeUnmount(() => {
 	font-size: 13px;
 	font-weight: 500;
 	line-height: 1.5;
-	background: var(--ui-bg);
+	background: var(--dms-bg-sidebar, var(--ui-bg));
 }
 
 .dms-ai-panel-status-title {
@@ -243,27 +279,40 @@ onBeforeUnmount(() => {
 
 .dms-ai-panel-close {
 	position: absolute;
-	top: 14px;
-	right: 14px;
-	display: grid;
-	place-items: center;
-	width: 30px;
-	height: 30px;
-	border-radius: 7px;
-	color: var(--ui-text-dimmed);
-	cursor: pointer;
+	top: 11px;
+	right: 8px;
 }
 
-.dms-ai-panel-close:hover {
-	background: var(--ui-bg-muted);
-	color: var(--ui-text);
+.dms-ai-panel-error {
+	display: block;
+	max-width: 320px;
+	padding: 8px 10px;
+	border-radius: 8px;
+	background: var(--ui-bg-accented);
+	color: var(--ui-text-highlighted);
+	font: 500 12px var(--font-mono, ui-monospace, monospace);
+	text-align: left;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.dms-ai-panel-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 6px;
+}
+
+.dms-ai-panel-note {
+	font-size: 12px;
+	color: var(--ui-text-muted);
 }
 
 .dms-ai-panel-spinner {
 	width: 22px;
 	height: 22px;
-	border: 2.5px solid color-mix(in oklab, currentColor 20%, transparent);
-	border-top-color: currentColor;
+	border: 2px solid color-mix(in oklab, var(--ui-secondary) 25%, transparent);
+	border-top-color: var(--ui-secondary);
 	border-radius: 50%;
 	animation: dms-ai-spin 0.7s linear infinite;
 }

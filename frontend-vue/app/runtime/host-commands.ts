@@ -6,7 +6,7 @@ interface RouterLike {
 }
 
 /**
- * The slice of the host's `useDmsDevReload()` composable this module needs:
+ * The slice of the host's `useDevReload()` composable this module needs:
  * resolve `true` once the committed site layout serves `path`, `false` on
  * timeout.
  */

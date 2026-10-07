@@ -2,281 +2,289 @@
 import { computed, onUnmounted, ref, watch } from "vue";
 import {
 	TOOL_CLUSTER_COLLAPSE_LINGER_MS,
-	TOOL_CLUSTER_LABEL,
 	TOOL_CLUSTER_VISIBLE_LIMIT,
-	TOOL_STATUS,
 } from "../constants/conversation";
-import type { ToolCallMessage, ToolStatus } from "../types/conversation";
-import { toolSummary } from "../utils/tool-summary";
-import ToolCallEntry from "./ToolCallEntry.vue";
+import { useChatI18n } from "../composables/useChatI18n";
+import type { ToolCallMessage, ToolRowState } from "../types/conversation";
+import type { PermissionRequestData } from "../types/permission";
+import { formatClock, formatDuration } from "../utils/format";
+import { describeTool, toolVerb } from "../utils/tool-lexicon";
+import {
+	findWaitingRequest,
+	toolRowState,
+	type WaitingPosition,
+} from "../utils/tool-state";
+import ToolRow from "./ToolRow.vue";
 
 interface Props {
 	tools: ToolCallMessage[];
 	/** True while this is the trailing tool activity of a running turn. */
 	live: boolean;
+	isRunning: boolean;
+	requests: PermissionRequestData[];
+	nowMs: number;
 }
 
+interface Emits {
+	focusRequest: [requestId: string];
+}
+
+interface ToolView {
+	tool: ToolCallMessage;
+	state: ToolRowState;
+	waiting: WaitingPosition | null;
+}
+
+type ClusterTone = "ok" | "run" | "wait" | "err";
+
 const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
+const { t } = useChatI18n();
+
+const HEADLINE_SEPARATOR = " · ";
+const TONE_ICONS: Record<ClusterTone, string> = {
+	ok: "i-ph-check-circle",
+	run: "",
+	wait: "i-ph-hand-palm",
+	err: "i-ph-warning-circle",
+};
+const FAILING_STATES: readonly ToolRowState[] = ["failed", "denied", "blocked"];
 
 const override = ref<boolean | null>(null);
 const showAll = ref(false);
-
 const lingering = ref(false);
 let lingerTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearLinger(): void {
+	if (lingerTimer !== null) clearTimeout(lingerTimer);
+	lingerTimer = null;
+}
 
 watch(
 	() => props.live,
 	(isLive, wasLive) => {
-		if (isLive) {
-			lingering.value = false;
-			if (lingerTimer !== null) clearTimeout(lingerTimer);
-			lingerTimer = null;
-			return;
-		}
-		if (!wasLive) return;
-		lingering.value = true;
-		if (lingerTimer !== null) clearTimeout(lingerTimer);
+		clearLinger();
+		lingering.value = !isLive && wasLive;
+		if (!lingering.value) return;
 		lingerTimer = setTimeout(() => {
 			lingering.value = false;
-			lingerTimer = null;
 		}, TOOL_CLUSTER_COLLAPSE_LINGER_MS);
 	},
 );
 
-onUnmounted(() => {
-	if (lingerTimer !== null) clearTimeout(lingerTimer);
+onUnmounted(clearLinger);
+
+const views = computed<ToolView[]>(() =>
+	props.tools.map((tool) => {
+		const waiting = findWaitingRequest(tool, props.requests);
+		return {
+			tool,
+			waiting,
+			state: toolRowState(tool, props.isRunning, waiting),
+		};
+	}),
+);
+
+const tone = computed<ClusterTone>(() => {
+	const states = views.value.map((view) => view.state);
+	if (states.includes("waiting")) return "wait";
+	if (states.includes("running")) return "run";
+	if (states.some((state) => FAILING_STATES.includes(state))) return "err";
+	return "ok";
 });
 
-const rollupStatus = computed<ToolStatus>(() => {
-	if (props.tools.some((t) => t.status === TOOL_STATUS.PENDING)) {
-		return TOOL_STATUS.PENDING;
-	}
-	if (props.tools.some((t) => t.status === TOOL_STATUS.ERROR)) {
-		return TOOL_STATUS.ERROR;
-	}
-	return TOOL_STATUS.SUCCESS;
-});
+const isSingle = computed(() => props.tools.length === 1);
+const hasAttention = computed(
+	() => tone.value === "wait" || tone.value === "err",
+);
+const isOpen = computed<boolean>(
+	() =>
+		isSingle.value ||
+		(override.value ?? (props.live || lingering.value || hasAttention.value)),
+);
+const visible = computed<ToolView[]>(() =>
+	showAll.value || override.value === true
+		? views.value
+		: views.value.slice(-TOOL_CLUSTER_VISIBLE_LIMIT),
+);
+const hiddenCount = computed(() => views.value.length - visible.value.length);
 
-const hasError = computed<boolean>(() =>
-	props.tools.some((t) => t.status === TOOL_STATUS.ERROR),
-);
+function phrase(tool: ToolCallMessage): string {
+	const description = describeTool(tool.toolName, tool.args);
+	const verb = toolVerb(description, t);
+	return description.target === ""
+		? verb
+		: `${verb}${HEADLINE_SEPARATOR}${description.target}`;
+}
 
-const autoOpen = computed<boolean>(
-	() => props.live || lingering.value || hasError.value,
-);
-const isOpen = computed<boolean>(() =>
-	override.value !== null ? override.value : autoOpen.value,
-);
-const isFull = computed<boolean>(
-	() => override.value === true || showAll.value,
-);
-
-const visibleTools = computed<ToolCallMessage[]>(() =>
-	isFull.value ? props.tools : props.tools.slice(-TOOL_CLUSTER_VISIBLE_LIMIT),
-);
-const hiddenCount = computed<number>(
-	() => props.tools.length - visibleTools.value.length,
-);
-
-const glyphStatus = computed<ToolStatus>(() =>
-	props.live ? TOOL_STATUS.PENDING : rollupStatus.value,
+const title = computed(() =>
+	tone.value === "run"
+		? t("dms_ai.panel.tool.using")
+		: t(
+				"dms_ai.panel.tool.used",
+				{ count: props.tools.length },
+				props.tools.length,
+			),
 );
 
 const headline = computed<string>(() => {
-	const active =
-		props.tools.find((t) => t.status === TOOL_STATUS.PENDING) ??
-		props.tools.at(-1);
-	if (active === undefined) return "";
-	return toolSummary(active.toolName, active.args);
+	const current = views.value.find((view) => view.state === "running");
+	if (current !== undefined) return phrase(current.tool);
+	const verbs = props.tools.map((tool) =>
+		toolVerb(describeTool(tool.toolName, tool.args), t).toLocaleLowerCase(),
+	);
+	return [...new Set(verbs)].join(HEADLINE_SEPARATOR);
 });
 
-const countLabel = computed<string>(
-	() => `${TOOL_CLUSTER_LABEL} ${props.tools.length} tools`,
-);
+const clock = computed<string>(() => {
+	const first = props.tools[0];
+	const last = props.tools.at(-1);
+	if (first === undefined || last === undefined) return "";
+	if (tone.value === "run") return formatClock(props.nowMs - first.timestampMs);
+	if (last.endedAtMs === undefined) return "";
+	return formatDuration(last.endedAtMs - first.timestampMs);
+});
 
 function toggle(): void {
 	override.value = !isOpen.value;
 }
-
-function revealEarlier(): void {
-	showAll.value = true;
-}
 </script>
 
 <template>
-	<section class="tool-cluster" :data-status="rollupStatus">
+	<section class="cb-tools" :data-tone="tone">
 		<button
+			v-if="!isSingle"
 			type="button"
-			class="cluster-header"
+			class="cb-tools__head"
 			:aria-expanded="isOpen"
 			@click="toggle"
 		>
-			<span class="cluster-toggle">{{ isOpen ? "▾" : "▸" }}</span>
-			<span class="cluster-glyph" :data-status="glyphStatus" aria-hidden="true">
-				<svg
-					v-if="glyphStatus === 'pending'"
-					class="cluster-spin"
-					viewBox="0 0 24 24"
-					width="13"
-					height="13"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2.5"
-					stroke-linecap="round"
-				>
-					<path d="M21 12a9 9 0 1 1-6.2-8.6" />
-				</svg>
-				<svg
-					v-else-if="glyphStatus === 'error'"
-					viewBox="0 0 24 24"
-					width="13"
-					height="13"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2.5"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<path d="M18 6 6 18M6 6l12 12" />
-				</svg>
-				<svg
-					v-else
-					viewBox="0 0 24 24"
-					width="13"
-					height="13"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2.5"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<path d="M20 6 9 17l-5-5" />
-				</svg>
-			</span>
-			<span class="cluster-count">{{ countLabel }}</span>
-			<span v-if="!isOpen && headline.length > 0" class="cluster-headline">
-				{{ headline }}
-			</span>
+			<span v-if="tone === 'run'" class="spin-ai" aria-hidden="true" />
+			<UIcon v-else :name="TONE_ICONS[tone]" class="cb-tools__tone" />
+			<b>{{ title }}</b>
+			<span class="cb-tools__headline">{{ headline }}</span>
+			<span class="cb-tools__num">{{ clock }}</span>
+			<UIcon
+				:name="isOpen ? 'i-ph-caret-down' : 'i-ph-caret-right'"
+				class="cb-tools__caret"
+			/>
 		</button>
-		<div v-if="isOpen" class="cluster-body">
+		<div v-if="isOpen" class="cb-tools__list" :class="{ 'is-bare': isSingle }">
 			<button
 				v-if="hiddenCount > 0"
 				type="button"
-				class="cluster-earlier"
-				@click="revealEarlier"
+				class="cb-tools__more"
+				@click="showAll = true"
 			>
-				▴ {{ hiddenCount }} earlier
+				{{ t("dms_ai.panel.tool.earlier", { count: hiddenCount }) }}
 			</button>
-			<ToolCallEntry
-				v-for="tool in visibleTools"
-				:key="tool.id"
-				:message="tool"
+			<ToolRow
+				v-for="view in visible"
+				:key="view.tool.id"
+				:tool="view.tool"
+				:state="view.state"
+				:waiting="view.waiting"
+				@focus-request="(id) => emit('focusRequest', id)"
 			/>
 		</div>
 	</section>
 </template>
 
 <style scoped>
-.tool-cluster {
-	border: 1px solid var(--hair);
-	border-radius: var(--corner-md);
-	background: var(--surface-card);
+.cb-tools {
+	border: 1px solid var(--ui-border);
+	border-radius: var(--ai-radius-md);
+	background: var(--dms-surface-card);
 	overflow: hidden;
 }
 
-.cluster-header {
+.cb-tools__head {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	width: 100%;
-	padding: 8px 10px;
+	height: 34px;
+	padding: 0 10px;
+	border: 0;
 	background: transparent;
-	border: none;
-	cursor: pointer;
-	font: inherit;
-	text-align: left;
-	color: var(--fg);
-}
-
-.cluster-header:hover {
-	background: var(--surface-card-2);
-}
-
-.cluster-toggle {
-	color: var(--fg-tertiary);
-	font-size: 11px;
-	flex: 0 0 auto;
-}
-
-.cluster-glyph {
-	width: 20px;
-	height: 20px;
-	flex: 0 0 auto;
-	display: grid;
-	place-items: center;
-	border-radius: 6px;
-}
-
-.cluster-glyph[data-status="pending"] {
-	color: var(--warning-400);
-}
-
-.cluster-glyph[data-status="success"] {
-	color: var(--success-400);
-}
-
-.cluster-glyph[data-status="error"] {
-	color: var(--danger-400);
-}
-
-.cluster-spin {
-	animation: cluster-spin 0.9s linear infinite;
-}
-
-@keyframes cluster-spin {
-	to {
-		transform: rotate(360deg);
-	}
-}
-
-.cluster-count {
-	font-weight: 600;
+	color: var(--ui-text-toned);
 	font-size: 12.5px;
-	flex: 0 0 auto;
+	text-align: left;
+	cursor: pointer;
 }
 
-.cluster-headline {
-	font-family: var(--font-code);
-	font-size: 11px;
-	color: var(--fg-tertiary);
+.cb-tools__head:hover {
+	background: var(--ai-bg-hover);
+}
+
+.cb-tools__head b {
+	font-weight: 600;
+	color: var(--ui-text-highlighted);
 	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
+}
+
+.cb-tools__tone {
+	width: 15px;
+	height: 15px;
+	flex: none;
+}
+
+.cb-tools[data-tone="ok"] .cb-tools__tone {
+	color: var(--ui-success);
+}
+
+.cb-tools[data-tone="wait"] .cb-tools__tone {
+	color: var(--ui-warning);
+}
+
+.cb-tools[data-tone="err"] .cb-tools__tone {
+	color: var(--ui-error);
+}
+
+.cb-tools__headline {
 	min-width: 0;
 	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--ui-text-muted);
+	font: 450 11.5px var(--ai-font-mono);
 }
 
-.cluster-body {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	padding: 6px;
-	border-top: 1px solid var(--hair);
-	background: var(--surface-inset);
+.cb-tools__num {
+	color: var(--ui-text-dimmed);
+	font: 500 11px var(--ai-font-mono);
 }
 
-.cluster-earlier {
-	align-self: flex-start;
-	background: none;
-	border: none;
-	padding: 2px 2px 0;
-	font: inherit;
-	font-size: 11px;
-	color: var(--fg-tertiary);
+.cb-tools__caret {
+	width: 13px;
+	height: 13px;
+	color: var(--ui-text-dimmed);
+}
+
+.cb-tools__list {
+	padding: 3px 0;
+	border-top: 1px solid var(--ui-border-muted);
+}
+
+.cb-tools__list.is-bare {
+	border-top: 0;
+}
+
+.cb-tools__more {
+	display: block;
+	width: 100%;
+	height: 24px;
+	padding: 0 10px 0 34px;
+	border: 0;
+	background: transparent;
+	color: var(--ui-text-dimmed);
+	font: 500 11px var(--ai-font-mono);
+	text-align: left;
 	cursor: pointer;
 }
 
-.cluster-earlier:hover {
-	color: var(--accent);
+.cb-tools__more:hover {
+	color: var(--ui-text-highlighted);
 }
 </style>

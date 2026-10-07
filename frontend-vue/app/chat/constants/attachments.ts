@@ -13,4 +13,5 @@ export const INLINE_IMAGE_MIME_TYPES = [
 	"image/webp",
 ] as const;
 
-export const ATTACH_LABEL = "Attach files";
+/** The size limit as the composer states it. */
+export const MAX_ATTACHMENT_MEGABYTES = 25;

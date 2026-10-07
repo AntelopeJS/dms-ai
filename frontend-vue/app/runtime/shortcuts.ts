@@ -15,9 +15,10 @@ function isToggleCombo(event: KeyboardEvent): boolean {
 	return isModifierPressed && event.shiftKey && isTargetKey;
 }
 
+/** Toggles the panel on ⌘⇧K / Ctrl+Shift+K, from the page or the panel itself. */
 export function installToggleShortcut(
 	options: InstallToggleShortcutOptions,
-): void {
+): () => void {
 	const handler = (event: KeyboardEvent): void => {
 		if (!isToggleCombo(event)) return;
 		if (isModalOpen()) return;
@@ -25,4 +26,5 @@ export function installToggleShortcut(
 		options.onToggle();
 	};
 	document.addEventListener("keydown", handler);
+	return () => document.removeEventListener("keydown", handler);
 }

@@ -1,9 +1,38 @@
 import type { ACTIVITY_KINDS } from "../constants/run-status";
 import type { PendingAttachment } from "../utils/attachments";
+import type {
+	AllowedBy,
+	Notice,
+	ProviderName,
+	QuestionAnswerRecord,
+	Scope,
+	ToolOutcome,
+} from "./protocol";
 
-export type MessageRole = "user" | "assistant" | "tool" | "error";
+export type MessageRole =
+	| "user"
+	| "assistant"
+	| "tool"
+	| "error"
+	| "notice"
+	| "change_set"
+	| "question_answer";
 export type ToolStatus = "pending" | "success" | "error";
 export type ActivityKind = (typeof ACTIVITY_KINDS)[keyof typeof ACTIVITY_KINDS];
+
+/**
+ * What a tool row shows. `waiting` and `running` are derived by the chat (an
+ * open call, with or without a pending request); the rest come from the
+ * sidecar's `outcome`, or from the legacy `status` when it sends none.
+ */
+export type ToolRowState =
+	| "done"
+	| "running"
+	| "waiting"
+	| "denied"
+	| "blocked"
+	| "failed"
+	| "stopped";
 
 /**
  * A file attached to a user message. `dataUrl` is only present for messages
@@ -23,6 +52,8 @@ export interface UserMessage {
 	content: string;
 	attachments?: MessageAttachment[];
 	isUnsent?: boolean;
+	/** The page the message was sent from, known for messages of this session. */
+	pagePath?: string;
 	timestampMs: number;
 }
 
@@ -38,7 +69,33 @@ export interface ErrorMessage {
 	id: string;
 	role: "error";
 	content: string;
+	/** Set for the chat's own errors: translated at render time. */
+	contentKey?: string;
 	isRetryable: boolean;
+	/** True when only this tab knows of it: a retry resends locally. */
+	isLocal?: boolean;
+	timestampMs: number;
+}
+
+export interface NoticeMessage {
+	id: string;
+	role: "notice";
+	notice: Notice;
+	timestampMs: number;
+}
+
+/** Where a turn's change set is drawn: its summary lives in the change set map. */
+export interface ChangeSetMessage {
+	id: string;
+	role: "change_set";
+	changeSetId: string;
+	timestampMs: number;
+}
+
+export interface QuestionAnswerMessage {
+	id: string;
+	role: "question_answer";
+	answers: QuestionAnswerRecord[];
 	timestampMs: number;
 }
 
@@ -63,14 +120,21 @@ export interface ToolCallMessage {
 	args: unknown;
 	result?: unknown;
 	status: ToolStatus;
+	outcome?: ToolOutcome;
+	allowedBy?: AllowedBy;
+	changeSetId?: string;
 	timestampMs: number;
+	endedAtMs?: number;
 }
 
 export type ConversationMessage =
 	| UserMessage
 	| AssistantMessage
 	| ToolCallMessage
-	| ErrorMessage;
+	| ErrorMessage
+	| NoticeMessage
+	| ChangeSetMessage
+	| QuestionAnswerMessage;
 
 export interface QueuedMessage {
 	id: string;
@@ -84,4 +148,17 @@ export interface ConversationSummary {
 	createdAtMs: number;
 	updatedAtMs: number;
 	messageCount: number;
+	provider?: ProviderName;
+	totalTokens?: number;
+	filesChanged?: number;
+	isRunning?: boolean;
+	pendingApprovals?: number;
+	pendingQuestions?: number;
+	generationMode?: Scope;
+}
+
+/** The page the dashboard shows, which the composer's chip names. */
+export interface CurrentPage {
+	path: string;
+	title?: string;
 }

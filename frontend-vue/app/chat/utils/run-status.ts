@@ -1,22 +1,20 @@
 import {
 	ACTIVITY_ELLIPSIS,
 	ACTIVITY_KINDS,
-	ACTIVITY_LABELS,
-	DEFAULT_ACTIVITY_LABEL,
+	ACTIVITY_LABEL_KEYS,
 	QUIET_NOTICE_AFTER_MS,
 	SILENT_ACTIVITIES,
 	STALL_AFTER_MS,
 	TOOL_DETAIL_ACTIVITIES,
 } from "../constants/run-status";
 import type { ActivityKind, RunProgress } from "../types/conversation";
-import { toolLabel } from "./tool-summary";
+import { describeTool, toolVerb } from "./tool-lexicon";
 
-const MS_PER_SECOND = 1_000;
-const SECONDS_PER_MINUTE = 60;
-const SECONDS_WIDTH = 2;
 const DETAIL_SEPARATOR = " · ";
 
 const KNOWN_ACTIVITIES: readonly string[] = Object.values(ACTIVITY_KINDS);
+
+export { formatClock } from "./format";
 
 /** A reported activity, read as thinking when this chat does not know it. */
 export function toActivityKind(reported: string): ActivityKind {
@@ -24,29 +22,27 @@ export function toActivityKind(reported: string): ActivityKind {
 	return reported as ActivityKind;
 }
 
-/** A duration as m:ss. */
-export function formatClock(ms: number): string {
-	const totalSeconds = Math.max(0, Math.floor(ms / MS_PER_SECOND));
-	const minutes = Math.floor(totalSeconds / SECONDS_PER_MINUTE);
-	const seconds = String(totalSeconds % SECONDS_PER_MINUTE).padStart(
-		SECONDS_WIDTH,
-		"0",
-	);
-	return `${minutes}:${seconds}`;
-}
-
-function describeDetail(progress: RunProgress): string {
+function describeDetail(
+	progress: RunProgress,
+	translate: (key: string) => string,
+): string {
 	if (progress.detail === undefined || progress.detail === "") return "";
 	const namesTool = TOOL_DETAIL_ACTIVITIES.includes(progress.activity);
-	const detail = namesTool ? toolLabel(progress.detail) : progress.detail;
+	const detail = namesTool
+		? toolVerb(describeTool(progress.detail, null), translate)
+		: progress.detail;
 	return `${DETAIL_SEPARATOR}${detail}`;
 }
 
 /** The line a running turn shows: what the agent is doing, and on what. */
-export function describeActivity(progress: RunProgress | null): string {
-	if (progress === null) return `${DEFAULT_ACTIVITY_LABEL}${ACTIVITY_ELLIPSIS}`;
-	const label = ACTIVITY_LABELS[progress.activity];
-	return `${label}${describeDetail(progress)}${ACTIVITY_ELLIPSIS}`;
+export function describeActivity(
+	progress: RunProgress | null,
+	translate: (key: string) => string,
+): string {
+	const kind = progress?.activity ?? ACTIVITY_KINDS.THINKING;
+	const label = translate(ACTIVITY_LABEL_KEYS[kind]);
+	const detail = progress === null ? "" : describeDetail(progress, translate);
+	return `${label}${detail}${ACTIVITY_ELLIPSIS}`;
 }
 
 function sinceReport(progress: RunProgress, nowMs: number): number {

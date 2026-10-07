@@ -33,6 +33,8 @@ export interface SidecarStatusController {
 	 * sidecar, and report `connected` again once it answers.
 	 */
 	reportChannelDown: () => void;
+	/** Probes again from scratch, even after giving up: a restart was asked. */
+	retry: () => void;
 	dispose: () => void;
 }
 
@@ -132,6 +134,12 @@ export function createSidecarStatusController(
 			// the re-probe: that probe awaits a respawn and can take a second or two,
 			// during which the icon would otherwise look healthy. poll() flips back
 			// to connected once the sidecar answers again.
+			resetBackoff(backoff);
+			setStatus(SIDECAR_STATUS_REVIVING);
+			void poll();
+		},
+		retry: () => {
+			if (disposed) return;
 			resetBackoff(backoff);
 			setStatus(SIDECAR_STATUS_REVIVING);
 			void poll();

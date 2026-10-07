@@ -39,10 +39,6 @@ export const SIDECAR_STATUS_UNAVAILABLE = "unavailable";
 // side, so this doubles as the respawn heartbeat; capped so a genuinely stuck
 // sidecar is polled sparingly rather than hammered.
 export const SIDECAR_POLL_DELAYS_MS = [500, 1000, 2000, 4000, 8000] as const;
-export const PLACEHOLDER_CONNECTING_TEXT = "Connecting the assistant…";
-export const PLACEHOLDER_REVIVING_TEXT = "Reconnecting the assistant…";
-export const PLACEHOLDER_UNAVAILABLE_TITLE = "Assistant unavailable";
-export const PLACEHOLDER_UNAVAILABLE_TEXT = "Reload the page to try again.";
 
 export const CHANNEL_STATUS_CONNECTING = "connecting";
 export const CHANNEL_STATUS_CONNECTED = "connected";
@@ -65,27 +61,25 @@ export const OVERLAY_PREFS_DEBOUNCE_MS = 300;
 export const TOGGLE_SHORTCUT_KEY = "k";
 export const MODAL_OPEN_SELECTOR = '[role="dialog"][aria-modal="true"]';
 
-// Generic header-action registry exposed by the DMS core (dms-back). Any module
-// can push a button by writing to this shared `useDmsState` key; the core renders
-// it with no knowledge of who registered it.
-export const HEADER_ACTIONS_STATE_KEY = "dms:header-actions";
-/**
- * The DMS's persistent overlays: components rendered on every page, inside the
- * app but outside the routed page, so they live through Inertia navigations.
- * The state key and the component name are the whole contract.
- */
-export const APP_OVERLAYS_STATE_KEY = "dms-app-overlays";
 export const CHAT_PANEL_COMPONENT_NAME = "DmsAiChatPanel";
 export const LAUNCHER_ACTION_ID = "dms-ai-launcher";
 /**
  * The chat panel's header shows the same icon, which is what gets it into the
- * renderer's icon bundle: it only scans `.vue` files for icon names.
+ * renderer's icon bundle.
  */
-export const LAUNCHER_ICON = "i-ph-robot";
-export const LAUNCHER_LABEL = "AI assistant";
-export const PANEL_LABEL = LAUNCHER_LABEL;
+export const LAUNCHER_ICON = "i-ph-sparkle";
 export const LAUNCHER_ORDER = 50;
-// Toggle shortcut, shown in the launcher tooltip. The combo is meta/ctrl + shift
-// + k, so render it the way each platform expects.
-export const TOGGLE_SHORTCUT_LABEL_MAC = "⌘⇧K";
-export const TOGGLE_SHORTCUT_LABEL_OTHER = "Ctrl+Shift+K";
+export const LAUNCHER_LABEL_KEY = "dms_ai.panel.launcher";
+export const COMMAND_PALETTE_SOURCE_ID = "dms-ai";
+export const COMMAND_PALETTE_ORDER = 60;
+/** The backend's view of the sidecar: pending approvals, last start error. */
+export const STATUS_PATH = "/ai/status";
+export const RESTART_PATH = "/ai/sidecar/restart";
+export const CHANGES_PATH = "/modules/ai/changes";
+/**
+ * How often a closed panel re-reads the pending approvals, so a request that
+ * arrives while no stream is open still gets its toast.
+ */
+export const STATUS_POLL_MS = 15_000;
+/** How long the panel's toasts stay up. */
+export const TOAST_DURATION_MS = 8_000;

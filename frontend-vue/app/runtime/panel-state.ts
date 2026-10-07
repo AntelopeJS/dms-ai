@@ -24,6 +24,7 @@ export interface ChatPanelState {
 	 * `pointerdown` that closed it, and would open it again at once.
 	 */
 	toggleFromLauncher: () => void;
+	open: () => void;
 	close: () => void;
 	/** An outside click closed the panel; `timeStamp` is the event's. */
 	closeFromOutside: (timeStamp: number) => void;
@@ -75,6 +76,7 @@ export function createChatPanelState(): ChatPanelState {
 			if (!isOpen.value && isRightAfter(outsideCloseAt)) return;
 			setOpen(!isOpen.value);
 		},
+		open: () => setOpen(true),
 		close: () => setOpen(false),
 		closeFromOutside: (timeStamp) => {
 			outsideCloseAt = timeStamp;

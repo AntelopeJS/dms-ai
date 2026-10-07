@@ -38,7 +38,10 @@ function loadPlugin(loggedIn: Ref<boolean>): PluginHarness {
 	const useAuthFetch = vi.fn(() => ({ $authFetch: vi.fn() }));
 	const requireModule = (name: string) => {
 		if (name === "#dms/frontend-module") {
-			return { defineDmsPlugin: (plugin: unknown) => plugin };
+			return {
+				defineDmsPlugin: (plugin: unknown) => plugin,
+				useDmsRouter: () => ({ push: vi.fn() }),
+			};
 		}
 		if (name === SESSION_GATE_MODULE) return { runWhenLoggedIn };
 		if (name === SIDECAR_STATUS_MODULE) return silentController;
@@ -49,8 +52,17 @@ function loadPlugin(loggedIn: Ref<boolean>): PluginHarness {
 		"exports",
 		"useUserSession",
 		"useAuthFetch",
+		"useToast",
+		"useDevReload",
 		compiled.outputText,
-	)(requireModule, exports, () => ({ loggedIn }), useAuthFetch);
+	)(
+		requireModule,
+		exports,
+		() => ({ loggedIn }),
+		useAuthFetch,
+		() => ({ add: vi.fn() }),
+		() => ({ awaitRoute: vi.fn() }),
+	);
 	return {
 		useAuthFetch,
 		run: () =>
