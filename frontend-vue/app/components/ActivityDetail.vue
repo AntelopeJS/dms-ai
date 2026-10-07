@@ -1,0 +1,231 @@
+<script setup lang="ts">
+import { computed, ref, watch } from "vue";
+import DecisionLabel from "../views/DecisionLabel.vue";
+import DiffView from "../views/DiffView.vue";
+import FactStrip from "../views/FactStrip.vue";
+import RowStepper from "../views/RowStepper.vue";
+import ResultPill from "../views/ResultPill.vue";
+import UnavailableState from "../views/UnavailableState.vue";
+import { useAiRequest } from "../views/composables/useAiRequest";
+import { useAssistant } from "../views/composables/useAssistant";
+import { useViewFormat } from "../views/composables/useViewFormat";
+import { AI_PAGES, AI_ROUTES, CHANGE_SET_QUERY_KEY } from "../views/constants";
+import type {
+	ActivityDetailPayload,
+	ActivityRow,
+	Fact,
+	RowNavigation,
+} from "../views/types";
+import {
+	activityOutput,
+	argumentItems,
+	rawActivityJson,
+} from "../views/utils/activity";
+import { toDiffFiles } from "../views/utils/diff";
+import { toolIcon, toolSource } from "../views/utils/tools";
+
+interface Props {
+	rowData?: ActivityRow;
+	navigation?: RowNavigation;
+}
+
+const props = defineProps<Props>();
+
+const { t } = useI18n();
+const { $authFetch } = useAuthFetch();
+const { moment, toolLabel, clock } = useViewFormat();
+const assistant = useAssistant();
+const detail = useAiRequest<ActivityDetailPayload>();
+const isRawShown = ref(false);
+
+const rowId = computed(() => props.rowData?.id ?? props.rowData?._id);
+
+function load(): void {
+	const id = rowId.value;
+	if (!id) return;
+	void detail.run(() =>
+		$authFetch<ActivityDetailPayload>(
+			`${AI_ROUTES.activity}/${encodeURIComponent(id)}`,
+		),
+	);
+}
+
+watch(rowId, load, { immediate: true });
+
+const row = computed(() => props.rowData);
+const eyebrow = computed(() => {
+	const current = row.value;
+	if (!current) return "";
+	const source = t(`dms_ai.views.source.${toolSource(current.tool)}`);
+	return `${source} · ${moment(current.timestampMs, true)}`;
+});
+const heading = computed(() => {
+	const current = row.value;
+	if (!current) return "";
+	const label = toolLabel(current.tool);
+	return current.target ? `${label} · ${current.target}` : label;
+});
+
+const facts = computed<Fact[]>(() => [
+	{ id: "allowed", label: t("dms_ai.views.activity.allowed"), value: "" },
+	{ id: "result", label: t("dms_ai.views.activity.result"), value: "" },
+]);
+
+const args = computed(() => argumentItems(detail.data.value?.args));
+const diffFiles = computed(() => toDiffFiles(detail.data.value?.diff ?? []));
+const trail = computed(() => detail.data.value?.decisionTrail ?? []);
+const output = computed(() => activityOutput(detail.data.value));
+const rawJson = computed(() => rawActivityJson(row.value, detail.data.value));
+
+function viewChangeSet(): void {
+	const id = row.value?.changeSetId;
+	if (!id) return;
+	const query = new URLSearchParams({ [CHANGE_SET_QUERY_KEY]: id });
+	assistant.goTo(`${AI_PAGES.changes}?${query.toString()}`);
+}
+
+function openConversation(): void {
+	if (row.value) assistant.openConversation(row.value.conversationId);
+}
+</script>
+
+<template>
+	<div v-if="row" class="flex min-h-full flex-col gap-5">
+		<RowStepper v-if="props.navigation" :navigation="props.navigation" />
+
+		<header class="flex items-start gap-3">
+			<DmsIconWell :icon="toolIcon(row.tool)" tone="neutral" size="lg" />
+			<div class="min-w-0 flex-1">
+				<p
+					class="text-dimmed font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em]"
+				>
+					{{ eyebrow }}
+				</p>
+				<h3 class="text-highlighted mt-1 text-[17px] font-[650] leading-snug">
+					{{ heading }}
+				</h3>
+			</div>
+		</header>
+
+		<FactStrip :facts="facts" :columns="2" framed>
+			<template #value="{ fact }">
+				<DecisionLabel
+					v-if="fact.id === 'allowed'"
+					:allowed-by="row.allowedBy"
+				/>
+				<ResultPill
+					v-else
+					:result="row.result"
+					:detail="row.resultDetail"
+					:change-set-number="row.changeSetNumber"
+				/>
+			</template>
+		</FactStrip>
+
+		<UnavailableState
+			v-if="detail.failure.value"
+			:failure="detail.failure.value"
+			:message="detail.message.value"
+			size="sm"
+			@retry="load"
+		/>
+		<div
+			v-else-if="!detail.data.value"
+			class="flex flex-col gap-3"
+			:aria-busy="true"
+			:aria-label="t('dms_ai.views.common.loading')"
+		>
+			<USkeleton class="h-3 w-24" />
+			<USkeleton class="h-24 w-full" />
+			<USkeleton class="h-32 w-full" />
+		</div>
+		<template v-else>
+			<section v-if="args.length > 0" class="flex flex-col gap-2">
+				<DmsEyebrow :label="t('dms_ai.views.activity.arguments')" />
+				<div class="border-default bg-(--dms-bg-field) rounded-md border px-3">
+					<DmsKeyValueList :items="args" dense />
+				</div>
+			</section>
+
+			<section v-if="trail.length > 0" class="flex flex-col gap-2">
+				<DmsEyebrow :label="t('dms_ai.views.activity.decision_trail')" />
+				<ol class="flex flex-col">
+					<li
+						v-for="(step, index) in trail"
+						:key="index"
+						class="border-muted flex items-baseline gap-3 border-s-2 py-1 ps-3 text-[13px]"
+					>
+						<span class="text-dimmed font-mono text-[11.5px] tabular-nums">
+							{{ clock(step.atMs) }}
+						</span>
+						<span class="text-toned">{{ step.label }}</span>
+					</li>
+				</ol>
+			</section>
+
+			<section v-if="diffFiles.length > 0" class="flex flex-col gap-2">
+				<DmsEyebrow :label="t('dms_ai.views.activity.diff')" />
+				<DiffView :files="diffFiles" />
+			</section>
+
+			<section v-if="output" class="flex flex-col gap-2">
+				<DmsEyebrow :label="t('dms_ai.views.activity.output')" />
+				<pre
+					class="border-default text-toned bg-(--dms-bg-field) max-h-72 overflow-auto whitespace-pre-wrap rounded-md border p-3 font-mono text-[11.5px]"
+					v-text="output"
+				/>
+			</section>
+
+			<div class="flex flex-col gap-2">
+				<UButton
+					class="self-start"
+					icon="i-ph-brackets-curly"
+					color="neutral"
+					variant="ghost"
+					size="xs"
+					:aria-expanded="isRawShown"
+					:label="
+						t(
+							isRawShown
+								? 'dms_ai.views.activity.hide_raw'
+								: 'dms_ai.views.activity.show_raw',
+						)
+					"
+					@click="isRawShown = !isRawShown"
+				/>
+				<pre
+					v-if="isRawShown"
+					class="border-default text-toned bg-(--dms-bg-field) max-h-96 overflow-auto rounded-md border p-3 font-mono text-[11.5px]"
+					v-text="rawJson"
+				/>
+			</div>
+		</template>
+
+		<footer
+			v-if="assistant.isAvailable || row.changeSetId"
+			class="border-default bg-default sticky bottom-0 mt-auto flex flex-wrap justify-end gap-2 border-t pt-4"
+		>
+			<UButton
+				v-if="assistant.isAvailable"
+				icon="i-ph-chats-circle"
+				color="neutral"
+				variant="outline"
+				:label="t('dms_ai.views.activity.open_conversation')"
+				@click="openConversation"
+			/>
+			<UButton
+				v-if="row.changeSetId"
+				icon="i-ph-git-diff"
+				color="secondary"
+				:label="
+					row.changeSetNumber !== undefined
+						? t('dms_ai.views.activity.view_change_set_number', {
+								number: row.changeSetNumber,
+							})
+						: t('dms_ai.views.activity.view_change_set')
+				"
+				@click="viewChangeSet"
+			/>
+		</footer>
+	</div>
+</template>
