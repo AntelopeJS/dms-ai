@@ -2,10 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { PendingRequest } from "../../src/agent/permission-bus.js";
 import {
-  createPermissionBus,
-  type PendingRequest,
-} from "../../src/agent/permission-bus.js";
+  conversationSettings,
+  isFullAutoInForce,
+} from "../../src/agent/effective-mode.js";
 import { type AgentRunner, createAgentRunner } from "../../src/agent/runner.js";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
@@ -13,14 +14,12 @@ import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import { resolvePermissionMode } from "../../src/providers/claude/config.js";
 import { createClaudeProvider } from "../../src/providers/claude/provider.js";
-import { createChatSocketRegistry } from "../../src/server/chat-socket-registry.js";
-import { applySettings } from "../../src/server/routing.js";
-import type { SettingsStore } from "../../src/state/settings-store.js";
 import {
   type AppSettings,
   CHAT_MODES,
   type ChatMode,
 } from "../../src/state/settings-types.js";
+import { createTestBus } from "../helpers/permission-bus.js";
 import {
   readClaudeTrace,
   type TracedClaudeEntry,
@@ -70,70 +69,64 @@ describe("resolvePermissionMode", () => {
     },
   );
 
-  it("maps auto to acceptEdits in safe mode and to bypassPermissions in vibe mode", () => {
-    setBuilderAvailable(true);
-    expect(resolvePermissionMode(settingsFor("auto", "safe"))).toBe(
-      "acceptEdits",
-    );
-    expect(resolvePermissionMode(settingsFor("auto", "vibe"))).toBe(
-      BYPASS_MODE,
-    );
-  });
-
-  it("follows vibe mode when safe mode degrades for want of the Builder", () => {
-    expect(resolvePermissionMode(settingsFor("auto", "safe"))).toBe(
-      BYPASS_MODE,
-    );
+  it("never hands the SDK bypassPermissions, Full auto included", () => {
+    for (const generationMode of ["safe", "vibe"] as const) {
+      const settings = conversationSettings(DEFAULT_SETTINGS, {
+        mode: "acceptEdits",
+        generationMode,
+        fullAuto: { duration: "turn" },
+      });
+      expect(resolvePermissionMode(settings)).not.toBe(BYPASS_MODE);
+    }
   });
 });
 
-describe("auto-approval by the permission bus", () => {
+describe("Full auto per conversation", () => {
   afterEach(() => setBuilderAvailable(false));
 
-  function storeOf(settings: AppSettings): SettingsStore {
-    let current = settings;
-    return {
-      get: () => current,
-      set: (next) => {
-        current = next;
-      },
-      load: () => Promise.resolve(),
-      flush: () => Promise.resolve(),
-    };
-  }
+  const FULL_AUTO = { duration: "30m" as const };
 
-  async function promptsUnder(settings: AppSettings): Promise<number> {
-    const prompts: PendingRequest[] = [];
-    const permissionBus = createPermissionBus({
-      onPromptChat: (event) => prompts.push(event),
-      timeoutMs: PROMPT_TIMEOUT_MS,
-    });
-    const runner = { applySettings: () => undefined } as unknown as AgentRunner;
-    applySettings(
-      {
-        settingsStore: storeOf(settings),
-        permissionBus,
-        runner,
-        chatSocketRegistry: createChatSocketRegistry(),
-      },
-      settings,
-    );
-    await permissionBus.requestPermission({
-      conversationId: CONVERSATION_ID,
-      toolName: "WebFetch",
-      args: {},
-    });
-    return prompts.length;
-  }
-
-  it("approves every prompt in vibe + auto", async () => {
+  it("runs a Code mode chat in default mode, the bus answering for the user", () => {
     setBuilderAvailable(true);
-    expect(await promptsUnder(settingsFor("auto", "vibe"))).toBe(0);
+    const state = {
+      mode: "plan" as const,
+      generationMode: "vibe" as const,
+      fullAuto: FULL_AUTO,
+    };
+    expect(conversationSettings(DEFAULT_SETTINGS, state).mode).toBe("normal");
+    expect(isFullAutoInForce(state)).toBe(true);
   });
 
-  it("still asks in safe + auto, as in acceptEdits", async () => {
+  it("caps Full auto at acceptEdits in safe mode, prompts still reaching the user", () => {
     setBuilderAvailable(true);
-    expect(await promptsUnder(settingsFor("auto", "safe"))).toBe(1);
+    const state = {
+      mode: "normal" as const,
+      generationMode: "safe" as const,
+      fullAuto: FULL_AUTO,
+    };
+    expect(conversationSettings(DEFAULT_SETTINGS, state).mode).toBe(
+      "acceptEdits",
+    );
+    expect(isFullAutoInForce(state)).toBe(false);
+  });
+
+  it("follows Code mode when safe mode degrades for want of the Builder", () => {
+    const state = {
+      mode: "normal" as const,
+      generationMode: "safe" as const,
+      fullAuto: FULL_AUTO,
+    };
+    expect(isFullAutoInForce(state)).toBe(true);
+  });
+
+  it("keeps the chat's own mode when Full auto is off", () => {
+    const state = {
+      mode: "plan" as const,
+      generationMode: "vibe" as const,
+      fullAuto: null,
+    };
+    expect(conversationSettings(DEFAULT_SETTINGS, state).mode).toBe("plan");
+    expect(isFullAutoInForce(state)).toBe(false);
   });
 });
 
@@ -170,9 +163,9 @@ describe("safe mode on the Claude provider, whatever the permission mode", () =>
   }
 
   async function runTurn(active: AgentRunner): Promise<RunnerEvent[]> {
-    const permissionBus = createPermissionBus({
-      onPromptChat: (event) => prompts.push(event),
+    const { bus: permissionBus } = createTestBus({
       timeoutMs: PROMPT_TIMEOUT_MS,
+      extra: { onPromptChat: (event) => prompts.push(event) },
     });
     const events: RunnerEvent[] = [];
     for await (const event of active.start("go", {
@@ -204,9 +197,11 @@ describe("safe mode on the Claude provider, whatever the permission mode", () =>
   );
 
   it(
-    "shows why canUseTool cannot carry safe mode: vibe + auto runs the edit unasked",
+    "shows why canUseTool cannot carry safe mode: vibe + acceptEdits runs the edit unasked",
     async () => {
-      await runTurn(openRunner(settingsFor("auto", "vibe"), "edit-file.json"));
+      await runTurn(
+        openRunner(settingsFor("acceptEdits", "vibe"), "edit-file.json"),
+      );
       expect(traced("tool")).toEqual([
         { kind: "tool", name: "Edit", decidedBy: "mode", isAllowed: true },
       ]);
@@ -229,9 +224,12 @@ describe("safe mode on the Claude provider, whatever the permission mode", () =>
   );
 
   it(
-    "still refuses after a live flip from vibe + auto to safe + plan",
+    "still refuses after a live flip from vibe + acceptEdits to safe + plan",
     async () => {
-      const active = openRunner(settingsFor("auto", "vibe"), "edit-file.json");
+      const active = openRunner(
+        settingsFor("acceptEdits", "vibe"),
+        "edit-file.json",
+      );
       await runTurn(active);
       active.applySettings(settingsFor("plan", "safe"));
       await runTurn(active);

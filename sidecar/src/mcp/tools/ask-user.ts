@@ -1,8 +1,12 @@
 import { z } from "zod";
-import type { QuestionRequest } from "../../agent/question-bus.js";
+import type {
+  QuestionAnswers,
+  QuestionRequest,
+} from "../../agent/question-bus.js";
 import {
   ASK_USER_RESULT_NO_ANSWER,
   ASK_USER_RESULT_PREFIX,
+  ASK_USER_RESULT_SKIPPED,
   ASK_USER_TOOL_DESCRIPTION,
   ASK_USER_TOOL_NAME,
 } from "../../constants/mcp.js";
@@ -11,20 +15,24 @@ import { defineTool } from "../define-tool.js";
 
 export interface AskUserDeps {
   conversationId: string;
-  requestQuestion: (req: QuestionRequest) => Promise<string[] | null>;
+  requestQuestion: (req: QuestionRequest) => Promise<QuestionAnswers>;
 }
 
 const INPUT_SCHEMA = {
   questions: z.array(QuestionSchema).min(1).max(4),
 } as const;
 
+const NO_ANSWER_PLACEHOLDER = "(no answer)";
+
 function buildResultText(
   questions: QuestionType[],
-  answers: string[] | null,
+  reply: QuestionAnswers,
 ): string {
-  if (answers === null) return ASK_USER_RESULT_NO_ANSWER;
+  if (reply === null) return ASK_USER_RESULT_NO_ANSWER;
   const lines = questions.map((q, i) => {
-    const answer = answers[i] ?? "(no answer)";
+    if (reply.skipped[i] === true)
+      return `- ${q.header}: ${ASK_USER_RESULT_SKIPPED}`;
+    const answer = reply.answers[i] ?? NO_ANSWER_PLACEHOLDER;
     return `- ${q.header}: ${answer}`;
   });
   return `${ASK_USER_RESULT_PREFIX}\n${lines.join("\n")}`;

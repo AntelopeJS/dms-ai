@@ -22,6 +22,7 @@ function fakeRunner(name: ProviderName, trace: Trace): AgentRunner {
     interruptSession: () => {},
     disposeSession: () => Promise.resolve(),
     applySettings: () => trace.applied.push(name),
+    refreshSession: () => {},
     dispose: () => {
       trace.disposed.push(name);
       return trace.teardown ?? Promise.resolve();

@@ -10,7 +10,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
   thinking: "medium",
   generationMode: "safe",
   allowLocalSkills: false,
+  alwaysAskDependencies: true,
+  alwaysAskBlockRemoval: true,
+  requestTimeoutMinutes: 5,
+  notifyRequests: true,
+  checkpointRetentionDays: 30,
 };
+
+export const MS_PER_MINUTE = 60_000;
 
 /**
  * In safe mode the agent may act ONLY through the Builder (MCP) tools and

@@ -40,6 +40,8 @@ export const ASK_USER_TOOL_NAME = "AskUser";
 export const ASK_USER_TOOL_DESCRIPTION =
   "Ask the user one or more multiple-choice questions and wait for their answer. Use this whenever you need a decision or clarification instead of asking in prose. Provide 1-4 questions, each with 2-4 distinct options ({label, description}); the user may also type a custom answer. Returns the user's chosen answer for each question.";
 export const ASK_USER_RESULT_PREFIX = "User answered:";
+export const ASK_USER_RESULT_SKIPPED =
+  "The user skipped this question and lets you decide.";
 export const ASK_USER_RESULT_NO_ANSWER =
   "The user did not answer (the question timed out or was dismissed).";
 

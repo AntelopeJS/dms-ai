@@ -17,6 +17,11 @@ import {
 } from "../constants/safety-net.js";
 import type { LogsClient } from "../logs/logs-client.js";
 import type { BufferedLog } from "../logs/types.js";
+import type { TypecheckOutcome } from "../constants/audit.js";
+
+// A line worth listing in the auto-fix notice: a compiler error, or a reload
+// log line (which the summary prefixes with its channel).
+const ERROR_LINE = /error|^\[/i;
 
 export function uniqueEditedRoots(
   editedFiles: readonly string[],
@@ -79,19 +84,56 @@ function defaultDelay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function collectBuildIssues(
-  deps: CollectIssuesDeps,
-): Promise<string | null> {
+/** What the safety net found after a turn that edited files. */
+export interface BuildReport {
+  // The auto-fix prompt, or null when the build is healthy.
+  healPrompt: string | null;
+  // `skipped` when no typecheck could run on the edited roots.
+  typecheck: TypecheckOutcome;
+  // One line per problem, for the auto-fix notice.
+  errors: string[];
+}
+
+interface TypecheckPass {
+  summaries: string[];
+  typecheck: TypecheckOutcome;
+}
+
+async function typecheckRoots(deps: CollectIssuesDeps): Promise<TypecheckPass> {
   const runTs =
     deps.runTypecheckFn ?? ((root) => runTypecheck({ targetRoot: root }));
   const roots = uniqueEditedRoots(deps.editedFiles, deps.knownRoots);
-  const tsSummaries: string[] = [];
+  const summaries: string[] = [];
+  let hasRun = false;
   for (const root of roots) {
     const result = await runTs(root);
+    hasRun ||= result.ran;
     if (result.ran && !result.ok) {
-      tsSummaries.push(`${path.basename(root)}:\n${result.summary}`);
+      summaries.push(`${path.basename(root)}:\n${result.summary}`);
     }
   }
+  const typecheck: TypecheckOutcome = !hasRun
+    ? "skipped"
+    : summaries.length > 0
+      ? "failed"
+      : "passed";
+  return { summaries, typecheck };
+}
+
+function errorLines(summaries: string[], logSummary: string | null): string[] {
+  const text = [...summaries, logSummary ?? ""].join("\n");
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => ERROR_LINE.test(line))
+    .slice(0, HEAL_MAX_LOG_LINES);
+}
+
+/** Typechecks the edited roots and reads the host's reload errors. */
+export async function inspectBuild(
+  deps: CollectIssuesDeps,
+): Promise<BuildReport> {
+  const { summaries, typecheck } = await typecheckRoots(deps);
   const delay = deps.delay ?? defaultDelay;
   await delay(deps.settleMs ?? HOST_LOG_SETTLE_MS);
   const logs = await deps.logsClient.getLogs({
@@ -99,8 +141,20 @@ export async function collectBuildIssues(
     level: LOG_LEVEL_ERROR,
   });
   const logSummary = summarizeReloadErrors(logs);
-  if (tsSummaries.length === 0 && logSummary === null) return null;
-  return buildHealPrompt(tsSummaries, logSummary);
+  if (summaries.length === 0 && logSummary === null) {
+    return { healPrompt: null, typecheck, errors: [] };
+  }
+  return {
+    healPrompt: buildHealPrompt(summaries, logSummary),
+    typecheck,
+    errors: errorLines(summaries, logSummary),
+  };
+}
+
+export async function collectBuildIssues(
+  deps: CollectIssuesDeps,
+): Promise<string | null> {
+  return (await inspectBuild(deps)).healPrompt;
 }
 
 function buildHealPrompt(

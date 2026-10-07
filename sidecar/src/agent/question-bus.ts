@@ -7,10 +7,19 @@ import {
 } from "../constants/questions.js";
 import type { QuestionType } from "../protocol/events.js";
 
-// The user's selected answers, aligned by index with the questions that were
-// asked. `null` means the question was never answered (timeout or cancellation),
+/**
+ * The user's selected answers, aligned by index with the questions that were
+ * asked; `skipped[i]` marks a question left to the agent ("Skip, you decide"),
+ * whose answer is then ignored.
+ */
+export interface QuestionReply {
+  answers: string[];
+  skipped: boolean[];
+}
+
+// `null` means the question was never answered (timeout or cancellation),
 // letting the caller surface a "no answer" result instead of hanging forever.
-export type QuestionAnswers = string[] | null;
+export type QuestionAnswers = QuestionReply | null;
 
 export interface QuestionRequest {
   conversationId: string;
@@ -23,34 +32,38 @@ export interface PendingQuestion {
   requestId: string;
   conversationId: string;
   questions: QuestionType[];
+  createdAtMs: number;
+  expiresAtMs: number;
 }
 
 export interface QuestionBusOptions {
   onPromptChat: (event: PendingQuestion) => void;
+  // A question answered (or skipped): the reply, for the transcript.
+  onAnswered?: (event: PendingQuestion, reply: QuestionReply) => void;
+  onExpired?: (event: PendingQuestion) => void;
+  // Any question settled, whatever the way: pending counts changed.
+  onSettled?: (event: PendingQuestion) => void;
   timeoutMs?: number;
 }
 
 export interface QuestionBus {
   requestQuestion: (req: QuestionRequest) => Promise<QuestionAnswers>;
-  resolveQuestion: (requestId: string, answers: string[]) => void;
+  resolveQuestion: (requestId: string, reply: QuestionReply) => void;
+  countPending: (conversationId?: string) => number;
   getPendingForConversation: (conversationId: string) => PendingQuestion[];
   // Resolve every pending question for a conversation as unanswered (turn
   // interrupted or conversation deleted) so the awaiting tools settle.
   cancelConversation: (conversationId: string) => void;
 }
 
-interface PendingState {
-  requestId: string;
-  conversationId: string;
-  questions: QuestionType[];
+interface PendingState extends PendingQuestion {
   resolve: (answers: QuestionAnswers) => void;
   timer: ReturnType<typeof setTimeout>;
 }
 
-interface BusState {
+interface BusState extends QuestionBusOptions {
   pending: Map<string, PendingState>;
   timeoutMs: number;
-  onPromptChat: (event: PendingQuestion) => void;
 }
 
 function pendingToQuestion(pending: PendingState): PendingQuestion {
@@ -58,6 +71,8 @@ function pendingToQuestion(pending: PendingState): PendingQuestion {
     requestId: pending.requestId,
     conversationId: pending.conversationId,
     questions: pending.questions,
+    createdAtMs: pending.createdAtMs,
+    expiresAtMs: pending.expiresAtMs,
   };
 }
 
@@ -68,6 +83,7 @@ function settlePending(
 ): void {
   clearTimeout(pending.timer);
   state.pending.delete(pending.requestId);
+  state.onSettled?.(pendingToQuestion(pending));
   pending.resolve(answers);
 }
 
@@ -81,6 +97,7 @@ function scheduleTimeout(
     console.warn(
       `${QUESTION_LOG_PREFIX} ${QUESTION_TIMEOUT_REASON} (requestId=${requestId})`,
     );
+    state.onExpired?.(pendingToQuestion(pending));
     settlePending(state, pending, null);
   }, state.timeoutMs);
 }
@@ -92,10 +109,13 @@ function registerPending(
 ): PendingQuestion {
   const requestId = randomUUID();
   const timer = scheduleTimeout(state, requestId);
+  const createdAtMs = Date.now();
   const pending: PendingState = {
     requestId,
     conversationId: req.conversationId,
     questions: req.questions,
+    createdAtMs,
+    expiresAtMs: createdAtMs + state.timeoutMs,
     resolve,
     timer,
   };
@@ -116,7 +136,7 @@ function startRequest(
 function handleResolve(
   state: BusState,
   requestId: string,
-  answers: string[],
+  reply: QuestionReply,
 ): void {
   const pending = state.pending.get(requestId);
   if (!pending) {
@@ -125,7 +145,8 @@ function handleResolve(
     );
     return;
   }
-  settlePending(state, pending, answers);
+  state.onAnswered?.(pendingToQuestion(pending), reply);
+  settlePending(state, pending, reply);
 }
 
 function collectPendingForConversation(
@@ -151,9 +172,9 @@ function cancelConversation(state: BusState, conversationId: string): void {
 
 function buildState(opts: QuestionBusOptions): BusState {
   return {
+    ...opts,
     pending: new Map(),
     timeoutMs: opts.timeoutMs ?? QUESTION_TIMEOUT_MS,
-    onPromptChat: opts.onPromptChat,
   };
 }
 
@@ -163,8 +184,12 @@ export function createQuestionBus(opts: QuestionBusOptions): QuestionBus {
     requestQuestion(req) {
       return startRequest(state, req);
     },
-    resolveQuestion(requestId, answers) {
-      handleResolve(state, requestId, answers);
+    resolveQuestion(requestId, reply) {
+      handleResolve(state, requestId, reply);
+    },
+    countPending(conversationId) {
+      if (conversationId === undefined) return state.pending.size;
+      return collectPendingForConversation(state, conversationId).length;
     },
     getPendingForConversation(conversationId) {
       return collectPendingForConversation(state, conversationId);

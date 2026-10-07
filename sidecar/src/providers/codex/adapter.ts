@@ -54,6 +54,13 @@ interface AgentMessageItem {
   text: string;
 }
 
+/** One file of a pending Codex patch, as its approval card shows it. */
+export interface CodexFileChange {
+  path: string;
+  kind: string;
+  diff: string;
+}
+
 export interface CodexAdapter {
   /** Runner events produced by one app-server notification. */
   handle(notification: CodexNotification): RunnerEvent[];
@@ -63,6 +70,16 @@ export interface CodexAdapter {
    * so the permission prompt reads them from here.
    */
   getChangedPaths(itemId: string): string[];
+  /** The files of a pending patch with their diffs, for the approval card. */
+  getChanges(itemId: string): CodexFileChange[];
+}
+
+const UPDATE_CHANGE_KIND = "update";
+
+// Older dumps carry no kind; a plain update is what they describe.
+function changeKindOf(change: v2.FileUpdateChange): string {
+  const kind = change.kind as Partial<v2.PatchChangeKind> | null | undefined;
+  return kind?.type ?? UPDATE_CHANGE_KIND;
 }
 
 function toolUse(callId: string, toolName: string, args: unknown): RunnerEvent {
@@ -155,7 +172,7 @@ function createCallTracker() {
 
 export function createCodexAdapter(): CodexAdapter {
   const { openCallIds, open, close, closeMatching } = createCallTracker();
-  const changedPathsByItemId = new Map<string, string[]>();
+  const changesByItemId = new Map<string, CodexFileChange[]>();
 
   function startCommand(item: CommandExecutionItem): RunnerEvent[] {
     return [
@@ -168,9 +185,13 @@ export function createCodexAdapter(): CodexAdapter {
   // One tool_use per changed file: that is what the edit tracker reads to drive
   // the change animation, and a patch commonly touches several files.
   function startFileChange(item: FileChangeItem): RunnerEvent[] {
-    changedPathsByItemId.set(
+    changesByItemId.set(
       item.id,
-      item.changes.map((change) => change.path),
+      item.changes.map((change) => ({
+        path: change.path,
+        kind: changeKindOf(change),
+        diff: change.diff,
+      })),
     );
     return item.changes.map((change, index) =>
       open(changeCallId(item.id, index), TOOL_LEXICON.EDIT, {
@@ -248,9 +269,9 @@ export function createCodexAdapter(): CodexAdapter {
     const status = turn?.status ?? "completed";
     // Interruption leaves items in flight with no item/completed of their own,
     // so the adapter closes them itself.
-    const orphans = [...openCallIds].flatMap((callId) =>
-      close(callId, INTERRUPTED_RESULT, true),
-    );
+    const orphans = [...openCallIds]
+      .flatMap((callId) => close(callId, INTERRUPTED_RESULT, true))
+      .map((event) => ({ ...event, isStopped: true }));
     if (status === "failed") {
       const message = turn?.error?.message ?? CODEX_TURN_FAILED_MESSAGE;
       // `done` still follows the error: the neutral session ends a turn on
@@ -270,7 +291,9 @@ export function createCodexAdapter(): CodexAdapter {
   };
 
   return {
-    getChangedPaths: (itemId) => changedPathsByItemId.get(itemId) ?? [],
+    getChangedPaths: (itemId) =>
+      (changesByItemId.get(itemId) ?? []).map((change) => change.path),
+    getChanges: (itemId) => changesByItemId.get(itemId) ?? [],
     handle(notification) {
       const handler = HANDLERS[notification.method];
       if (handler === undefined) return activityEvents(notification.method);

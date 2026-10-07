@@ -1,4 +1,4 @@
-import type { PermissionDecision } from "../constants/permissions.js";
+import type { AllowedBy } from "../constants/audit.js";
 import type { AiMcpServer } from "../mcp/types.js";
 import type { AttachmentType } from "../protocol/messages.js";
 import type { SkillSource } from "../skills/types.js";
@@ -18,8 +18,28 @@ export interface TurnInput {
   attachments: readonly AttachmentType[];
 }
 
+/** How a call was let through (or refused) without the permission bus. */
+export interface ToolDecision {
+  callId?: string;
+  toolName: string;
+  allowedBy: AllowedBy;
+}
+
+/** The hooks a provider reports its tool calls through. */
+export interface ToolCallHooks {
+  /**
+   * A call decided without the permission bus: auto-allowed reads, safe-mode
+   * refusals. The bus reports its own decisions.
+   */
+  onToolDecision?: (decision: ToolDecision) => void;
+  /** A call the provider is about to run, with its id (see CallLedger). */
+  onToolAnnounced?: (callId: string, toolName: string, args: unknown) => void;
+  /** Awaited before a mutating tool runs: the turn's checkpoint is taken. */
+  beforeMutation?: () => Promise<void>;
+}
+
 /** Everything a provider needs to open a session for one conversation. */
-export interface ProviderSessionContext {
+export interface ProviderSessionContext extends ToolCallHooks {
   conversationId: string;
   hostProjectRoot: string;
   /** Reads the host's displayed page live, for the session's initial prompt. */
@@ -28,14 +48,6 @@ export interface ProviderSessionContext {
   settings: AppSettings;
   permissionBus?: PermissionBus;
   mcpServer?: AiMcpServer;
-  /**
-   * Invoked for every tool that actually went through a permission decision
-   * (auto-allowed reads and first-party MCP tools never reach here).
-   */
-  onPermissionDecision?: (
-    toolName: string,
-    decision: PermissionDecision,
-  ) => void;
   /**
    * Tokens one model call cost, as a delta the connection layer accumulates.
    * Providers that do not report usage never call it.

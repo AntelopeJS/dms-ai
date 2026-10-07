@@ -9,35 +9,31 @@ import { CONTENT_TYPE, HTTP_STATUS } from "../constants/http.js";
 import { MCP_HTTP_PATH } from "../constants/mcp.js";
 import { LOOPBACK_HOST } from "../constants/ports.js";
 import type { McpHttpRegistry } from "../mcp/http-binding.js";
-import {
-  buildActivity,
-  buildKpi,
-  buildSeries,
-  buildTopSkills,
-} from "../metrics/aggregate.js";
-import {
-  KPI_METRICS,
-  type KpiMetric,
-  type MetricWindow,
-} from "../metrics/types.js";
-import { AppSettingsSchema } from "../protocol/events.js";
+import { SettingsPatchSchema } from "../protocol/messages.js";
 import { getProviderAvailability } from "../providers/registry.js";
 import type { ProviderAvailabilityMap } from "../providers/types.js";
-import { buildSkillCatalog } from "../skills/build-catalog.js";
 import { isClientAuthorized } from "./client-auth.js";
 import type { SkillSource } from "../skills/types.js";
 import type { ConversationStore } from "../state/conversations.js";
-import type { SettingsStore } from "../state/settings-store.js";
+import { mergeSettings, type SettingsStore } from "../state/settings-store.js";
 import type { AppSettings } from "../state/settings-types.js";
 import { readSidecarVersion } from "../state/sidecar-version.js";
+import { API_ROUTES, type ApiDeps, type ApiRoute } from "./http-routes.js";
+import { readBody, sendJson, sendResponse } from "./http-io.js";
+import type { SidecarServices } from "./services.js";
 
 export interface SettingsApplier {
   apply: (next: AppSettings) => void;
 }
 
+/** Filled by the WebSocket stack with the live services the routes read. */
+export interface SidecarBridge {
+  services?: SidecarServices;
+}
+
 // What both frontends read: the stored settings plus the read-only capabilities
 // that gate them.
-interface SettingsPayload extends AppSettings {
+export interface SettingsPayload extends AppSettings {
   builderAvailable: boolean;
   providers: ProviderAvailabilityMap;
 }
@@ -53,24 +49,20 @@ interface CreateHttpServerOptions {
   // Recomputed per request so the `allowLocalSkills` toggle takes effect live.
   getSkillSources?: () => SkillSource[];
   mcpHttpRegistry?: McpHttpRegistry;
+  bridge?: SidecarBridge;
 }
 
 const DEFAULT_BUILD_ID = "";
+const PUBLIC_PATHS: readonly string[] = ["/health"];
 
 interface CreateHttpServerResult {
   server: Server;
   port: number;
 }
 
-interface RouteContext {
-  clientToken: string;
+interface RouteContext extends CreateHttpServerOptions {
   buildId: string;
-  onHealthCheck?: () => void;
-  conversationStore?: ConversationStore;
-  settingsStore?: SettingsStore;
-  settingsApplier?: SettingsApplier;
-  getSkillSources?: () => SkillSource[];
-  mcpHttpRegistry?: McpHttpRegistry;
+  listeningPort: number;
 }
 
 interface HealthBody {
@@ -79,134 +71,14 @@ interface HealthBody {
   buildId: string;
 }
 
-type RouteHandler = (
-  req: IncomingMessage,
-  res: ServerResponse,
-  ctx: RouteContext,
-) => Promise<void> | void;
-
-function sendResponse(
-  res: ServerResponse,
-  status: number,
-  contentType: string,
-  payload: unknown,
-): void {
-  const body = typeof payload === "string" ? payload : JSON.stringify(payload);
-  res.writeHead(status, {
-    "Content-Type": contentType,
-    "Content-Length": Buffer.byteLength(body),
-  });
-  res.end(body);
-}
-
-const healthHandler: RouteHandler = async (_req, res, ctx) => {
+async function healthHandler(res: ServerResponse, ctx: RouteContext) {
   ctx.onHealthCheck?.();
   const version = await readSidecarVersion();
   const body: HealthBody = { ok: true, version, buildId: ctx.buildId };
-  sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, body);
-};
-
-const ROUTES: Record<string, RouteHandler> = {
-  "GET /health": healthHandler,
-};
-
-const MS_PER_DAY = 86_400_000;
-const DEFAULT_RANGE_DAYS = 30;
-const DEFAULT_TOP_LIMIT = 5;
-const DEFAULT_ACTIVITY_LIMIT = 50;
-const MAX_METRIC_LIMIT = 200;
-const MAX_REQUEST_BODY_BYTES = 64 * 1024;
-
-function parseTimestamp(value: string | null): number | undefined {
-  if (!value) return undefined;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? undefined : parsed;
+  sendJson(res, HTTP_STATUS.OK, body);
 }
 
-function parseWindow(params: URLSearchParams): MetricWindow {
-  const now = Date.now();
-  const toMs = parseTimestamp(params.get("to")) ?? now;
-  const fromMs =
-    parseTimestamp(params.get("from")) ??
-    toMs - DEFAULT_RANGE_DAYS * MS_PER_DAY;
-  return {
-    fromMs,
-    toMs,
-    compareFromMs: parseTimestamp(params.get("compareFrom")),
-    compareToMs: parseTimestamp(params.get("compareTo")),
-  };
-}
-
-function parseLimit(params: URLSearchParams, fallback: number): number {
-  const raw = params.get("limit");
-  if (!raw) return fallback;
-  const n = Number.parseInt(raw, 10);
-  if (Number.isNaN(n) || n <= 0) return fallback;
-  return Math.min(n, MAX_METRIC_LIMIT);
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolveBody, rejectBody) => {
-    let size = 0;
-    const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > MAX_REQUEST_BODY_BYTES) {
-        rejectBody(new Error("Request body too large"));
-        req.destroy();
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on("end", () => resolveBody(Buffer.concat(chunks).toString("utf8")));
-    req.on("error", rejectBody);
-  });
-}
-
-function isKpiMetric(value: string): value is KpiMetric {
-  return (KPI_METRICS as readonly string[]).includes(value);
-}
-
-interface MetricRouteDeps {
-  conversationStore: ConversationStore;
-  settingsStore: SettingsStore;
-  settingsApplier: SettingsApplier;
-}
-
-type MetricRoute = (
-  req: IncomingMessage,
-  res: ServerResponse,
-  deps: MetricRouteDeps,
-  params: URLSearchParams,
-) => Promise<void> | void;
-
-const seriesRoute: MetricRoute = (_req, res, deps, params) => {
-  const payload = buildSeries(
-    deps.conversationStore.entries(),
-    parseWindow(params),
-  );
-  sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, payload);
-};
-
-const topSkillsRoute: MetricRoute = (_req, res, deps, params) => {
-  const payload = buildTopSkills(
-    deps.conversationStore.entries(),
-    parseWindow(params),
-    parseLimit(params, DEFAULT_TOP_LIMIT),
-  );
-  sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, payload);
-};
-
-const activityRoute: MetricRoute = (_req, res, deps, params) => {
-  const payload = buildActivity(
-    deps.conversationStore.entries(),
-    parseWindow(params),
-    parseLimit(params, DEFAULT_ACTIVITY_LIMIT),
-  );
-  sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, payload);
-};
-
-function buildSettingsPayload(settings: AppSettings): SettingsPayload {
+export function buildSettingsPayload(settings: AppSettings): SettingsPayload {
   return {
     ...settings,
     builderAvailable: getBuilderAvailable(),
@@ -214,118 +86,96 @@ function buildSettingsPayload(settings: AppSettings): SettingsPayload {
   };
 }
 
-const getSettingsRoute: MetricRoute = (_req, res, deps) => {
-  sendResponse(
-    res,
-    HTTP_STATUS.OK,
-    CONTENT_TYPE.JSON,
-    buildSettingsPayload(deps.settingsStore.get()),
-  );
-};
-
-const putSettingsRoute: MetricRoute = async (req, res, deps) => {
-  const body = await readBody(req);
-  let parsed: unknown;
+function parseJson(body: string): unknown {
   try {
-    parsed = JSON.parse(body);
+    return JSON.parse(body) as unknown;
   } catch {
-    parsed = null;
+    return null;
   }
-  const result = AppSettingsSchema.safeParse(parsed);
-  if (!result.success) {
-    sendResponse(res, HTTP_STATUS.BAD_REQUEST, CONTENT_TYPE.JSON, {
-      error: "invalid settings",
-    });
-    return;
-  }
-  const next: AppSettings = {
-    ...result.data,
-    // Absent from an older client: keep what is stored rather than reset it.
-    provider: result.data.provider ?? deps.settingsStore.get().provider,
-  };
-  deps.settingsApplier.apply(next);
-  sendResponse(
-    res,
-    HTTP_STATUS.OK,
-    CONTENT_TYPE.JSON,
-    buildSettingsPayload(next),
-  );
-};
+}
 
-const METRIC_ROUTES: Record<string, MetricRoute> = {
-  "GET /metrics/series": seriesRoute,
-  "GET /metrics/top-skills": topSkillsRoute,
-  "GET /activity": activityRoute,
-  "GET /settings": getSettingsRoute,
-  "PUT /settings": putSettingsRoute,
-};
-
-function handleKpiRoute(
+/** PUT /settings: a partial body merged over the stored settings. */
+async function putSettings(
+  req: IncomingMessage,
   res: ServerResponse,
-  path: string,
-  params: URLSearchParams,
-  deps: MetricRouteDeps,
-): void {
-  const metric = path.slice("/metrics/kpi/".length);
-  if (!isKpiMetric(metric)) {
-    sendResponse(res, HTTP_STATUS.NOT_FOUND, CONTENT_TYPE.JSON, {
-      error: "unknown metric",
+  deps: ApiDeps,
+): Promise<void> {
+  const result = SettingsPatchSchema.safeParse(parseJson(await readBody(req)));
+  if (!result.success) {
+    sendJson(res, HTTP_STATUS.BAD_REQUEST, {
+      message: result.error.issues[0]?.message ?? "Invalid settings.",
     });
     return;
   }
-  const payload = buildKpi(
-    deps.conversationStore.entries(),
-    metric,
-    parseWindow(params),
-  );
-  sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, payload);
+  const next = mergeSettings(deps.settingsStore.get(), result.data);
+  deps.settingsApplier.apply(next);
+  sendJson(res, HTTP_STATUS.OK, buildSettingsPayload(next));
+}
+
+const SETTINGS_ROUTES: readonly ApiRoute[] = [
+  {
+    method: "GET",
+    pattern: /^\/settings$/,
+    handle: (_req, res, deps) =>
+      sendJson(
+        res,
+        HTTP_STATUS.OK,
+        buildSettingsPayload(deps.settingsStore.get()),
+      ),
+  },
+  { method: "PUT", pattern: /^\/settings$/, handle: putSettings },
+];
+
+function buildDeps(ctx: RouteContext): ApiDeps | null {
+  const { conversationStore, settingsStore, settingsApplier } = ctx;
+  if (!conversationStore || !settingsStore || !settingsApplier) return null;
+  return {
+    conversationStore,
+    settingsStore,
+    settingsApplier,
+    getSkillSources: ctx.getSkillSources ?? (() => []),
+    services: () => ctx.bridge?.services,
+    port: ctx.listeningPort,
+  };
+}
+
+interface MatchedRoute {
+  route: ApiRoute;
+  params: string[];
+}
+
+function matchRoute(method: string, path: string): MatchedRoute | null {
+  for (const route of [...SETTINGS_ROUTES, ...API_ROUTES]) {
+    if (route.method !== method) continue;
+    const match = route.pattern.exec(path);
+    if (match !== null)
+      return { route, params: match.slice(1).map(decodeURIComponent) };
+  }
+  return null;
 }
 
 async function handleApiRoute(
   req: IncomingMessage,
   res: ServerResponse,
   ctx: RouteContext,
-): Promise<boolean> {
-  const method = req.method ?? "GET";
-  const url = new URL(req.url ?? "/", "http://localhost");
-  const path = url.pathname;
-  const params = url.searchParams;
-
-  const isApiPath =
-    path === "/skills" ||
-    path.startsWith("/metrics/kpi/") ||
-    Object.hasOwn(METRIC_ROUTES, `${method} ${path}`);
-  if (isApiPath && !isClientAuthorized(req, ctx.clientToken)) {
+): Promise<void> {
+  if (!isClientAuthorized(req, ctx.clientToken)) {
     res.writeHead(HTTP_STATUS.UNAUTHORIZED, { "Cache-Control": "no-store" });
     res.end();
-    return true;
+    return;
   }
-
-  // Skill catalog: served independently of the conversation/settings stores so
-  // the route works even in minimal boots. Sources recomputed per request.
-  if (method === "GET" && path === "/skills" && ctx.getSkillSources) {
-    const payload = await buildSkillCatalog(ctx.getSkillSources());
-    sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, payload);
-    return true;
+  const url = new URL(req.url ?? "/", "http://localhost");
+  const matched = matchRoute(req.method ?? "GET", url.pathname);
+  const deps = buildDeps(ctx);
+  if (matched === null || (deps === null && !matched.route.isStandalone)) {
+    sendResponse(res, HTTP_STATUS.NOT_FOUND, CONTENT_TYPE.TEXT, "Not Found");
+    return;
   }
-
-  const { conversationStore, settingsStore, settingsApplier } = ctx;
-  if (!conversationStore || !settingsStore || !settingsApplier) return false;
-  const deps: MetricRouteDeps = {
-    conversationStore,
-    settingsStore,
-    settingsApplier,
-  };
-
-  if (method === "GET" && path.startsWith("/metrics/kpi/")) {
-    handleKpiRoute(res, path, params, deps);
-    return true;
-  }
-
-  const route = METRIC_ROUTES[`${method} ${path}`];
-  if (route === undefined) return false;
-  await route(req, res, deps, params);
-  return true;
+  await matched.route.handle(req, res, deps as ApiDeps, {
+    params: matched.params,
+    query: url.searchParams,
+    getSkillSources: ctx.getSkillSources,
+  });
 }
 
 function buildRoutePath(req: IncomingMessage): string {
@@ -333,44 +183,30 @@ function buildRoutePath(req: IncomingMessage): string {
   return url.split("?")[0] ?? "/";
 }
 
-function buildRouteKey(req: IncomingMessage): string {
-  const method = req.method ?? "GET";
-  return `${method} ${buildRoutePath(req)}`;
-}
-
 async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
   ctx: RouteContext,
 ): Promise<void> {
-  if (ctx.mcpHttpRegistry && buildRoutePath(req) === MCP_HTTP_PATH) {
+  const path = buildRoutePath(req);
+  if (ctx.mcpHttpRegistry && path === MCP_HTTP_PATH) {
     await ctx.mcpHttpRegistry.handleRequest(req, res);
     return;
   }
-  const key = buildRouteKey(req);
-  const handler = ROUTES[key];
-  if (handler !== undefined) {
-    await handler(req, res, ctx);
+  if (req.method === "GET" && PUBLIC_PATHS.includes(path)) {
+    await healthHandler(res, ctx);
     return;
   }
-  if (await handleApiRoute(req, res, ctx)) {
-    return;
-  }
-  sendResponse(res, HTTP_STATUS.NOT_FOUND, CONTENT_TYPE.TEXT, "Not Found");
+  await handleApiRoute(req, res, ctx);
 }
 
 export function createHttpServer(
   options: CreateHttpServerOptions,
 ): Promise<CreateHttpServerResult> {
   const ctx: RouteContext = {
-    clientToken: options.clientToken,
+    ...options,
     buildId: options.buildId ?? DEFAULT_BUILD_ID,
-    onHealthCheck: options.onHealthCheck,
-    conversationStore: options.conversationStore,
-    settingsStore: options.settingsStore,
-    settingsApplier: options.settingsApplier,
-    getSkillSources: options.getSkillSources,
-    mcpHttpRegistry: options.mcpHttpRegistry,
+    listeningPort: options.port,
   };
   const server = createServer((req, res) => {
     handleRequest(req, res, ctx).catch(() =>
@@ -391,6 +227,7 @@ export function createHttpServer(
         rejectListen(new Error("Failed to determine listening port"));
         return;
       }
+      ctx.listeningPort = address.port;
       resolveListen({ server, port: address.port });
     });
   });

@@ -1,5 +1,4 @@
 import type { PermissionMode } from "@anthropic-ai/claude-agent-sdk";
-import { effectiveChatMode } from "../../agent/effective-mode.js";
 import type {
   AppSettings,
   ChatMode,
@@ -13,16 +12,16 @@ export const PERMISSION_MODE_BY_MODE: Record<ChatMode, PermissionMode> = {
   normal: "default",
   acceptEdits: "acceptEdits",
   plan: "plan",
-  auto: "bypassPermissions",
 };
 
 /**
- * The SDK permission mode these settings put a session in. Through the mode in
- * force, so safe mode never hands the SDK `bypassPermissions`: in that mode the
- * CLI approves every tool call itself and never asks `canUseTool`.
+ * The SDK permission mode these settings put a session in. Never
+ * `bypassPermissions`: in that mode the CLI approves every tool call itself and
+ * never asks `canUseTool`, so Full auto runs in `default` and lets the
+ * permission bus answer (see agent/effective-mode.ts).
  */
 export function resolvePermissionMode(settings: AppSettings): PermissionMode {
-  return PERMISSION_MODE_BY_MODE[effectiveChatMode(settings)];
+  return PERMISSION_MODE_BY_MODE[settings.mode];
 }
 
 // Mapped to setMaxThinkingTokens. On adaptive-thinking models (Opus 4.6+) the

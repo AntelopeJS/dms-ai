@@ -8,13 +8,12 @@ import { STATE_FILE_ENCODING, STATE_JSON_INDENT } from "../constants/state.js";
 import {
   type AppSettings,
   CHAT_MODES,
-  type ChatMode,
+  CHECKPOINT_RETENTION_DAYS,
   GENERATION_MODES,
-  type GenerationMode,
+  REQUEST_TIMEOUT_MINUTES,
   THINKING_LEVELS,
-  type ThinkingLevel,
 } from "./settings-types.js";
-import { PROVIDER_NAMES, type ProviderName } from "./types.js";
+import { PROVIDER_NAMES } from "./types.js";
 
 export interface CreateSettingsStoreOptions {
   filePath: string;
@@ -33,43 +32,59 @@ interface SettingsState {
   inflight: Promise<void> | null;
 }
 
-function isMode(value: unknown): value is ChatMode {
-  return CHAT_MODES.includes(value as ChatMode);
+type FieldValidator = (value: unknown) => boolean;
+
+function isOneOf(values: readonly unknown[]): FieldValidator {
+  return (value) => values.includes(value);
 }
 
-function isThinking(value: unknown): value is ThinkingLevel {
-  return THINKING_LEVELS.includes(value as ThinkingLevel);
+function isBoolean(value: unknown): boolean {
+  return typeof value === "boolean";
 }
 
-function isGenerationMode(value: unknown): value is GenerationMode {
-  return GENERATION_MODES.includes(value as GenerationMode);
-}
+// One validator per stored field: anything else in the file (an unknown key, a
+// value from an older or newer version) falls back to the default. A legacy
+// `mode: "auto"` therefore reads as the default `normal` (Full auto is per
+// conversation now, never a stored default).
+const FIELD_VALIDATORS: Record<keyof AppSettings, FieldValidator> = {
+  provider: isOneOf(PROVIDER_NAMES),
+  mode: isOneOf(CHAT_MODES),
+  thinking: isOneOf(THINKING_LEVELS),
+  generationMode: isOneOf(GENERATION_MODES),
+  allowLocalSkills: isBoolean,
+  alwaysAskDependencies: isBoolean,
+  alwaysAskBlockRemoval: isBoolean,
+  requestTimeoutMinutes: isOneOf(REQUEST_TIMEOUT_MINUTES),
+  notifyRequests: isBoolean,
+  checkpointRetentionDays: isOneOf(CHECKPOINT_RETENTION_DAYS),
+};
 
-function isProvider(value: unknown): value is ProviderName {
-  return PROVIDER_NAMES.includes(value as ProviderName);
+const SETTINGS_KEYS = Object.keys(FIELD_VALIDATORS) as Array<keyof AppSettings>;
+
+/**
+ * Merges a partial update over `current`, keeping a field from `current`
+ * whenever the update leaves it out or carries a value it does not accept.
+ */
+export function mergeSettings(
+  current: AppSettings,
+  patch: Partial<Record<keyof AppSettings, unknown>>,
+): AppSettings {
+  const merged: AppSettings = { ...current };
+  for (const key of SETTINGS_KEYS) {
+    const value = patch[key];
+    if (FIELD_VALIDATORS[key](value)) Object.assign(merged, { [key]: value });
+  }
+  return merged;
 }
 
 export function parseSettings(raw: string): AppSettings {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (parsed === null || typeof parsed !== "object") return DEFAULT_SETTINGS;
-    const candidate = parsed as Partial<AppSettings>;
-    return {
-      provider: isProvider(candidate.provider)
-        ? candidate.provider
-        : DEFAULT_SETTINGS.provider,
-      mode: isMode(candidate.mode) ? candidate.mode : DEFAULT_SETTINGS.mode,
-      thinking: isThinking(candidate.thinking)
-        ? candidate.thinking
-        : DEFAULT_SETTINGS.thinking,
-      generationMode: isGenerationMode(candidate.generationMode)
-        ? candidate.generationMode
-        : DEFAULT_SETTINGS.generationMode,
-      allowLocalSkills:
-        typeof candidate.allowLocalSkills === "boolean"
-          ? candidate.allowLocalSkills
-          : DEFAULT_SETTINGS.allowLocalSkills,
-    };
+    return mergeSettings(
+      DEFAULT_SETTINGS,
+      parsed as Partial<Record<keyof AppSettings, unknown>>,
+    );
   } catch {
     return DEFAULT_SETTINGS;
   }

@@ -1,5 +1,4 @@
 import { effectiveGenerationMode } from "../builder/capability.js";
-import type { PermissionDecision } from "../constants/permissions.js";
 import { RUNNER_CLOSED_MESSAGE } from "../constants/agent.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import type { AiMcpServer } from "../mcp/types.js";
@@ -10,10 +9,14 @@ import type { TokenUsage } from "../state/types.js";
 import { createDisposalTracker, type DisposalTracker } from "./disposals.js";
 import { prependHostContext } from "./host-context.js";
 import type { PermissionBus } from "./permission-bus.js";
-import type { AgentProvider, ProviderSession } from "./provider.js";
+import type {
+  AgentProvider,
+  ProviderSession,
+  ToolCallHooks,
+} from "./provider.js";
 import type { RunnerError, RunnerEvent } from "./runner-events.js";
 
-export interface RunnerContext {
+export interface RunnerContext extends ToolCallHooks {
   conversationId: string;
   hostProjectRoot: string;
   // Reads the host's displayed page live. Called at turn start to build the
@@ -27,13 +30,6 @@ export interface RunnerContext {
   // per turn. A provider that registers an HTTP endpoint would otherwise mint a
   // fresh binding on every turn.
   createMcpServer?: () => AiMcpServer;
-  // Invoked for every tool that actually went through a permission decision
-  // (auto-allowed reads/first-party MCP never reach here). Lets the connection
-  // layer persist the approve/deny outcome for the activity metrics.
-  onPermissionDecision?: (
-    toolName: string,
-    decision: PermissionDecision,
-  ) => void;
   // Tokens one model call cost, so the connection layer can keep a running
   // total per conversation.
   onTokenUsage?: (usage: TokenUsage) => void;
@@ -50,6 +46,11 @@ export interface AgentRunner {
    */
   applySettings(settings: AppSettings): void;
   /**
+   * Re-reads one conversation's settings (its mode or scope changed) and hands
+   * them to its live session, if any.
+   */
+  refreshSession(conversationId: string): void;
+  /**
    * Disposes every session, ending a running turn with `reason` when given, and
    * resolves once every backend has released everything and every running turn
    * has ended: the sessions that already tore themselves down, and those still
@@ -58,16 +59,35 @@ export interface AgentRunner {
   dispose(reason?: RunnerError): Promise<void>;
 }
 
+/** A conversation's settings: the global ones with its own mode and scope. */
+export type ConversationSettingsResolver = (
+  conversationId: string,
+  settings: AppSettings,
+) => AppSettings;
+
 export interface AgentRunnerOptions {
   settings?: AppSettings;
+  resolveSettings?: ConversationSettingsResolver;
 }
 
 interface SessionManager {
   provider: AgentProvider;
   sessions: Map<string, ProviderSession>;
   settings: AppSettings;
+  resolveSettings: ConversationSettingsResolver;
   disposals: DisposalTracker;
   isClosed: boolean;
+}
+
+function settingsOf(manager: SessionManager, conversationId: string) {
+  return manager.resolveSettings(conversationId, manager.settings);
+}
+
+function keepGlobalSettings(
+  _conversationId: string,
+  settings: AppSettings,
+): AppSettings {
+  return settings;
 }
 
 function createSession(
@@ -78,10 +98,12 @@ function createSession(
     conversationId: ctx.conversationId,
     hostProjectRoot: ctx.hostProjectRoot,
     getCurrentPage: ctx.getCurrentPage,
-    settings: manager.settings,
+    settings: settingsOf(manager, ctx.conversationId),
     permissionBus: ctx.permissionBus,
     mcpServer: ctx.createMcpServer?.(),
-    onPermissionDecision: ctx.onPermissionDecision,
+    onToolDecision: ctx.onToolDecision,
+    onToolAnnounced: ctx.onToolAnnounced,
+    beforeMutation: ctx.beforeMutation,
     onTokenUsage: ctx.onTokenUsage,
     onDisposed: (disposal) => {
       manager.sessions.delete(ctx.conversationId);
@@ -123,14 +145,15 @@ async function* startTurn(
   ctx: RunnerContext,
 ): AsyncIterable<RunnerEvent> {
   const session = await getOrCreateSession(manager, ctx);
+  const settings = settingsOf(manager, ctx.conversationId);
   const grounded = prependHostContext(
     message,
     ctx.getCurrentPage(),
-    effectiveGenerationMode(manager.settings.generationMode),
+    effectiveGenerationMode(settings.generationMode),
   );
   yield* session.runTurn(
     { text: grounded, attachments: ctx.attachments ?? [] },
-    manager.settings,
+    settings,
   );
 }
 
@@ -170,9 +193,15 @@ async function disposeAll(
 
 function applySettings(manager: SessionManager, settings: AppSettings): void {
   manager.settings = settings;
-  for (const session of manager.sessions.values()) {
-    session.applySettings?.(settings);
+  for (const [conversationId, session] of manager.sessions) {
+    session.applySettings?.(settingsOf(manager, conversationId));
   }
+}
+
+function refreshSession(manager: SessionManager, conversationId: string) {
+  manager.sessions
+    .get(conversationId)
+    ?.applySettings?.(settingsOf(manager, conversationId));
 }
 
 export function createAgentRunner(
@@ -183,6 +212,7 @@ export function createAgentRunner(
     provider,
     sessions: new Map(),
     settings: options?.settings ?? DEFAULT_SETTINGS,
+    resolveSettings: options?.resolveSettings ?? keepGlobalSettings,
     disposals: createDisposalTracker(),
     isClosed: false,
   };
@@ -192,6 +222,7 @@ export function createAgentRunner(
       interruptSession(manager, conversationId),
     disposeSession: (conversationId) => disposeSession(manager, conversationId),
     applySettings: (settings) => applySettings(manager, settings),
+    refreshSession: (conversationId) => refreshSession(manager, conversationId),
     dispose: (reason) => disposeAll(manager, reason),
   };
 }

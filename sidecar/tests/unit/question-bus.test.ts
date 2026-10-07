@@ -54,8 +54,8 @@ describe("question bus", () => {
     expect(capture.prompts).toHaveLength(1);
     expect(capture.prompts[0]?.questions).toEqual(QUESTIONS);
     const requestId = capture.prompts[0]?.requestId as string;
-    bus.resolveQuestion(requestId, ["A"]);
-    await expect(promise).resolves.toEqual(["A"]);
+    bus.resolveQuestion(requestId, { answers: ["A"], skipped: [] });
+    await expect(promise).resolves.toEqual({ answers: ["A"], skipped: [] });
   });
 
   it("resolves to null when no answer arrives before the timeout", async () => {
@@ -93,8 +93,49 @@ describe("question bus", () => {
     const capture = makeCapture();
     const bus = makeBus(capture);
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    bus.resolveQuestion("nope", ["A"]);
+    bus.resolveQuestion("nope", { answers: ["A"], skipped: [] });
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+
+  it("stamps each question with its creation and expiry times", async () => {
+    const capture = makeCapture();
+    const bus = makeBus(capture, 10_000);
+    void bus.requestQuestion(buildRequest());
+    await settleNextTick();
+    const [prompt] = capture.prompts;
+    expect((prompt?.expiresAtMs ?? 0) - (prompt?.createdAtMs ?? 0)).toBe(
+      10_000,
+    );
+    expect(bus.countPending(CONVERSATION_ID)).toBe(1);
+    bus.cancelConversation(CONVERSATION_ID);
+    expect(bus.countPending()).toBe(0);
+  });
+
+  it("hands skipped answers and the expiry to its listeners", async () => {
+    const answered: unknown[] = [];
+    const expired: string[] = [];
+    const bus = createQuestionBus({
+      onPromptChat: () => {},
+      onAnswered: (_q, reply) => answered.push(reply),
+      onExpired: (q) => expired.push(q.requestId),
+      timeoutMs: FAST_TIMEOUT_MS,
+    });
+    const prompts: string[] = [];
+    const tracked = createQuestionBus({
+      onPromptChat: (event) => prompts.push(event.requestId),
+      onAnswered: (_q, reply) => answered.push(reply),
+      timeoutMs: 10_000,
+    });
+    const pending = tracked.requestQuestion(buildRequest());
+    await settleNextTick();
+    const reply = { answers: [""], skipped: [true] };
+    tracked.resolveQuestion(prompts[0] as string, reply);
+    await expect(pending).resolves.toEqual(reply);
+    expect(answered).toEqual([reply]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(bus.requestQuestion(buildRequest())).resolves.toBeNull();
+    warn.mockRestore();
+    expect(expired).toHaveLength(1);
   });
 });

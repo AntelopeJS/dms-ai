@@ -5,10 +5,12 @@ import {
   BUILDER_EXPR_REFUSAL,
   BUILDER_REF_NOTE,
 } from "../../prompts/builder.js";
-import { defineTool } from "../define-tool.js";
+import { defineTool, type McpToolResult } from "../define-tool.js";
+import { type BuilderGate, gateBuilderTools } from "./builder-gate.js";
 
 export interface BuilderToolsDeps {
   builderClient: BuilderClient;
+  gate?: BuilderGate;
 }
 
 function content(text: string): {
@@ -154,9 +156,24 @@ const FIELD_ASPECTS_PATCH = z.object({
 });
 
 export function buildBuilderTools(deps: BuilderToolsDeps) {
-  const run = async (op: string, args: unknown[]) =>
-    content(JSON.stringify(await deps.builderClient.call(op, args)));
+  const tools = buildUngatedBuilderTools(deps);
+  return deps.gate === undefined ? tools : gateBuilderTools(tools, deps.gate);
+}
 
+type BuilderRun = (op: string, args: unknown[]) => Promise<McpToolResult>;
+
+export function buildUngatedBuilderTools(deps: BuilderToolsDeps) {
+  const run: BuilderRun = async (op, args) =>
+    content(JSON.stringify(await deps.builderClient.call(op, args)));
+  return [
+    ...buildPageTools(run),
+    ...buildBlockTools(run),
+    ...buildResourceTools(run),
+    ...buildQueryTools(run),
+  ];
+}
+
+function buildPageTools(run: BuilderRun) {
   return [
     defineTool(
       "BuilderCatalog",
@@ -212,6 +229,11 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       { pageRef: z.string() },
       ({ pageRef }: { pageRef: string }) => run("DeletePage", [pageRef]),
     ),
+  ];
+}
+
+function buildBlockTools(run: BuilderRun) {
+  return [
     defineTool(
       "BuilderAddBlock",
       note(
@@ -323,6 +345,11 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       ({ pageRef }: { pageRef?: string }) =>
         run("RefreshSourceIndex", pageRef ? [{ page: pageRef }] : []),
     ),
+  ];
+}
+
+function buildResourceTools(run: BuilderRun) {
+  return [
     defineTool(
       "BuilderListResources",
       note(
@@ -396,6 +423,11 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
       { path: FIELD_PATH },
       ({ path }: { path: string }) => run("RemoveField", [path]),
     ),
+  ];
+}
+
+function buildQueryTools(run: BuilderRun) {
+  return [
     defineTool(
       "BuilderQueryTemplates",
       note(
