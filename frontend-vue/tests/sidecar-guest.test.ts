@@ -68,6 +68,7 @@ function loadPlugin(loggedIn: Ref<boolean>): PluginHarness {
 		run: () =>
 			exports.default({
 				vueApp: { onUnmount: vi.fn() },
+				hook: vi.fn(),
 				runWithContext: (callback: () => unknown) => callback(),
 			}),
 	};

@@ -226,7 +226,16 @@
 				"expired_title": "{tool} request expired",
 				"expired_text": "No answer within {minutes} minutes, so it was denied and the assistant was told why.",
 				"ask_again": "Ask again",
-				"ask_again_message": "Your last request expired before I answered: “{summary}”. Please try it again."
+				"ask_again_message": "Your last request expired before I answered: “{summary}”. Please try it again.",
+				"destructive": {
+					"delete_page": "Delete the page {target}",
+					"delete_table": "Delete the table {target}",
+					"remove_field": "Remove the field {target}",
+					"delete_category": "Delete the category {target}",
+					"remove_query": "Remove the query {target}"
+				},
+				"consequence_deletes_data": "Removes the code and its data",
+				"consequence_removes_code": "Removes the code · undoable"
 			},
 			"rules": {
 				"title": "Allowed in this chat",
@@ -398,7 +407,8 @@
 			"browse_queries": "Browse query templates",
 			"add_query": "Add query",
 			"configure_query": "Configure query",
-			"remove_query": "Remove query"
+			"remove_query": "Remove query",
+			"search_tools": "Load tools"
 		}
 	}
 }

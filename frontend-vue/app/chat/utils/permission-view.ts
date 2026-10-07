@@ -9,7 +9,7 @@ import type {
 	RuleKind,
 	WebPreview,
 } from "../types/protocol";
-import { describeTool, toolVerb } from "./tool-lexicon";
+import { bareToolName, describeTool, toolVerb } from "./tool-lexicon";
 
 /** How a card names its request, in the user's language. */
 export interface PermissionCardText {
@@ -61,8 +61,8 @@ const TEXT_BY_PREVIEW: Record<PermissionPreview["type"], TextBuilder> = {
 		why: "",
 	}),
 	destructive: (req, preview: DestructivePreview, t) => ({
-		title: req.summary || verbAndTarget(req, t),
-		sub: preview.operation,
+		title: destructiveTitle(req, preview, t),
+		sub: t(`dms_ai.panel.approvals.consequence_${preview.consequence}`),
 		onceLabel: t("dms_ai.panel.approvals.once_time"),
 		allowLabel: t("dms_ai.panel.approvals.confirm_delete"),
 		why: t(`dms_ai.panel.approvals.why_${preview.consequence}`),
@@ -76,12 +76,33 @@ const TEXT_BY_PREVIEW: Record<PermissionPreview["type"], TextBuilder> = {
 	}),
 	generic: (req, _preview, t) => ({
 		title: verbAndTarget(req, t),
-		sub: req.summary,
+		sub: "",
 		onceLabel: t("dms_ai.panel.approvals.once_time"),
 		allowLabel: t("dms_ai.panel.approvals.allow"),
 		why: req.kind === "builder" ? t("dms_ai.panel.approvals.why_builder") : "",
 	}),
 };
+
+/** "Delete the page {target}": the Builder's destructive operations by name. */
+const DESTRUCTIVE_TITLE_KEYS: Record<string, string> = {
+	BuilderDeletePage: "dms_ai.panel.approvals.destructive.delete_page",
+	BuilderDeleteResource: "dms_ai.panel.approvals.destructive.delete_table",
+	BuilderRemoveField: "dms_ai.panel.approvals.destructive.remove_field",
+	BuilderDeleteCategory: "dms_ai.panel.approvals.destructive.delete_category",
+	BuilderRemoveQuery: "dms_ai.panel.approvals.destructive.remove_query",
+};
+
+function destructiveTitle(
+	req: PermissionRequestData,
+	preview: DestructivePreview,
+	t: Translate,
+): string {
+	const operation = bareToolName(preview.operation || req.toolName);
+	const key = DESTRUCTIVE_TITLE_KEYS[operation];
+	if (key !== undefined) return t(key, { target: preview.target });
+	const verb = toolVerb(describeTool(operation, req.args), t);
+	return preview.target === "" ? verb : `${verb} ${preview.target}`;
+}
 
 function commandSub(preview: CommandPreview, t: Translate): string {
 	const touches = (preview.touches ?? []).join(", ");

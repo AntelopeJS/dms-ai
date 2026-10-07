@@ -104,6 +104,17 @@ function nested(key: string, inner: string): TargetReader {
 
 const none: TargetReader = () => "";
 
+const TOOL_QUERY_PREFIX = /^select:/;
+const TOOL_LIST_SEPARATOR = ",";
+
+/** "select:mcp__dms-ai__ListPages,…" → "ListPages, …". */
+const toolQuery: TargetReader = (args) =>
+	readString(args, "query")
+		.replace(TOOL_QUERY_PREFIX, "")
+		.split(TOOL_LIST_SEPARATOR)
+		.map((name) => name.trim().replace(MCP_PREFIX, ""))
+		.join(", ");
+
 const ICONS = {
 	READ: "i-ph-file-text",
 	EDIT: "i-ph-pencil-simple-line",
@@ -234,6 +245,12 @@ const CLAUDE_TOOLS: Record<string, ToolLexiconEntry> = {
 		verb: "run_slash_command",
 		icon: ICONS.SKILL,
 		target: firstOf("command"),
+	},
+	ToolSearch: {
+		verb: "search_tools",
+		icon: ICONS.SEARCH,
+		target: toolQuery,
+		isReadOnly: true,
 	},
 };
 

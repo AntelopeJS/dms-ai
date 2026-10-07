@@ -110,7 +110,7 @@ defineExpose({ allow, deny });
 			</span>
 			<div class="perm__titles">
 				<div class="perm__title">{{ text.title }}</div>
-				<div class="perm__sub">
+				<div v-if="text.sub || preview.type === 'diff'" class="perm__sub">
 					{{ text.sub }}
 					<template v-if="preview.type === 'diff'">
 						·

@@ -226,7 +226,16 @@
 				"expired_title": "Demande « {tool} » expirée",
 				"expired_text": "Sans réponse sous {minutes} minutes, elle a été refusée et l'assistant en a été informé.",
 				"ask_again": "Redemander",
-				"ask_again_message": "Ta dernière demande a expiré avant que je réponde : « {summary} ». Réessaie, s'il te plaît."
+				"ask_again_message": "Ta dernière demande a expiré avant que je réponde : « {summary} ». Réessaie, s'il te plaît.",
+				"destructive": {
+					"delete_page": "Supprimer la page {target}",
+					"delete_table": "Supprimer la table {target}",
+					"remove_field": "Retirer le champ {target}",
+					"delete_category": "Supprimer la catégorie {target}",
+					"remove_query": "Retirer la requête {target}"
+				},
+				"consequence_deletes_data": "Retire le code et ses données",
+				"consequence_removes_code": "Retire le code · annulable"
 			},
 			"rules": {
 				"title": "Autorisé dans cette conversation",
@@ -398,7 +407,8 @@
 			"browse_queries": "Parcourir les modèles de requête",
 			"add_query": "Ajouter une requête",
 			"configure_query": "Configurer la requête",
-			"remove_query": "Retirer la requête"
+			"remove_query": "Retirer la requête",
+			"search_tools": "Charger des outils"
 		}
 	}
 }

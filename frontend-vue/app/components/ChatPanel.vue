@@ -25,8 +25,8 @@ const isOpen = computed(() => session?.panel.isOpen.value === true);
 const hasOpened = ref(isOpen.value);
 const isResizing = ref(false);
 const isRestarting = ref(false);
-// Drawn once mounted: the server renders no assistant, so hydration must not
-// expect one.
+// Drawn once mounted, inside a host element rendered on the server and the
+// client alike, so hydration always finds the same node.
 const isMounted = ref(false);
 let resizeStart: ResizeStart | null = null;
 
@@ -127,91 +127,99 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<aside
-		v-if="session && isMounted"
-		:id="OVERLAY_DOM_ID"
-		ref="panelEl"
-		class="dms-ai-panel"
-		:data-open="isOpen"
-		:data-resizing="isResizing"
-		:style="panelStyle"
-		:inert="!isOpen"
-		:aria-label="t('dms_ai.panel.launcher')"
-	>
-		<div class="dms-ai-panel-resize" @pointerdown="startResize" />
-		<ChatView
-			v-if="hasOpened"
-			class="dms-ai-panel-chat"
-			:transport="session.chat"
-			:intents="session.intents"
-			:is-open="isOpen"
-			:page="session.currentPage.value"
-			:is-reviving="status === SIDECAR_STATUS_REVIVING"
-			:api="session.api"
-			@close="close"
-			@navigate="navigate"
-		/>
-		<div
-			v-if="isUnavailable || isFirstConnect"
-			class="dms-ai-panel-status"
-			role="status"
+	<div class="dms-ai-panel-host">
+		<aside
+			v-if="session && isMounted"
+			:id="OVERLAY_DOM_ID"
+			ref="panelEl"
+			class="dms-ai-panel"
+			:data-open="isOpen"
+			:data-resizing="isResizing"
+			:style="panelStyle"
+			:inert="!isOpen"
+			:aria-label="t('dms_ai.panel.launcher')"
 		>
-			<UButton
-				size="sm"
-				color="neutral"
-				variant="ghost"
-				square
-				icon="i-ph-x"
-				class="dms-ai-panel-close"
-				:aria-label="t('dms_ai.panel.header.close')"
-				@click="close"
+			<div class="dms-ai-panel-resize" @pointerdown="startResize" />
+			<ChatView
+				v-if="hasOpened"
+				class="dms-ai-panel-chat"
+				:transport="session.chat"
+				:intents="session.intents"
+				:is-open="isOpen"
+				:page="session.currentPage.value"
+				:is-reviving="status === SIDECAR_STATUS_REVIVING"
+				:api="session.api"
+				@close="close"
+				@navigate="navigate"
 			/>
-			<template v-if="isUnavailable">
-				<DmsIconWell icon="i-ph-plugs" tone="error" size="lg" />
-				<b class="dms-ai-panel-status-title">
-					{{ t("dms_ai.panel.unavailable.title") }}
-				</b>
-				<span class="dms-ai-panel-status-text">
-					{{
-						lastError
-							? t("dms_ai.panel.unavailable.text_error")
-							: t("dms_ai.panel.unavailable.text")
-					}}
-				</span>
-				<code v-if="lastError" class="dms-ai-panel-error">{{ lastError }}</code>
-				<div class="dms-ai-panel-actions">
-					<UButton
-						size="sm"
-						color="secondary"
-						icon="i-ph-arrows-clockwise"
-						:loading="isRestarting"
-						:label="t('dms_ai.panel.unavailable.restart')"
-						@click="restart"
-					/>
-					<UButton
-						size="sm"
-						color="neutral"
-						variant="outline"
-						icon="i-ph-gear-six"
-						:label="t('dms_ai.panel.header.settings')"
-						@click="navigate(SETTINGS_PAGE_PATH)"
-					/>
-				</div>
-				<span class="dms-ai-panel-note">
-					{{ t("dms_ai.panel.unavailable.kept") }}
-				</span>
-			</template>
-			<template v-else>
-				<span class="dms-ai-panel-spinner" />
-				<b class="dms-ai-panel-status-title">
-					{{ t("dms_ai.panel.connection.first_connect") }}
-				</b>
-			</template>
-		</div>
-	</aside>
+			<div
+				v-if="isUnavailable || isFirstConnect"
+				class="dms-ai-panel-status"
+				role="status"
+			>
+				<UButton
+					size="sm"
+					color="neutral"
+					variant="ghost"
+					square
+					icon="i-ph-x"
+					class="dms-ai-panel-close"
+					:aria-label="t('dms_ai.panel.header.close')"
+					@click="close"
+				/>
+				<template v-if="isUnavailable">
+					<DmsIconWell icon="i-ph-plugs" tone="error" size="lg" />
+					<b class="dms-ai-panel-status-title">
+						{{ t("dms_ai.panel.unavailable.title") }}
+					</b>
+					<span class="dms-ai-panel-status-text">
+						{{
+							lastError
+								? t("dms_ai.panel.unavailable.text_error")
+								: t("dms_ai.panel.unavailable.text")
+						}}
+					</span>
+					<code v-if="lastError" class="dms-ai-panel-error">
+						{{ lastError }}
+					</code>
+					<div class="dms-ai-panel-actions">
+						<UButton
+							size="sm"
+							color="secondary"
+							icon="i-ph-arrows-clockwise"
+							:loading="isRestarting"
+							:label="t('dms_ai.panel.unavailable.restart')"
+							@click="restart"
+						/>
+						<UButton
+							size="sm"
+							color="neutral"
+							variant="outline"
+							icon="i-ph-gear-six"
+							:label="t('dms_ai.panel.header.settings')"
+							@click="navigate(SETTINGS_PAGE_PATH)"
+						/>
+					</div>
+					<span class="dms-ai-panel-note">
+						{{ t("dms_ai.panel.unavailable.kept") }}
+					</span>
+				</template>
+				<template v-else>
+					<span class="dms-ai-panel-spinner" />
+					<b class="dms-ai-panel-status-title">
+						{{ t("dms_ai.panel.connection.first_connect") }}
+					</b>
+				</template>
+			</div>
+		</aside>
+	</div>
 </template>
 
 <style scoped>
+.dms-ai-panel-host {
+	display: contents;
+}
+
 .dms-ai-panel {
 	position: fixed;
 	top: 0;

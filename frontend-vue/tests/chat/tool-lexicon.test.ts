@@ -11,6 +11,7 @@ import { toolRowState } from "../../app/chat/utils/tool-state";
 import type { ToolCallMessage } from "../../app/chat/types/conversation";
 import type { PermissionRequestData } from "../../app/chat/types/permission";
 import { findWaitingRequest } from "../../app/chat/utils/tool-state";
+import { permissionCardText } from "../../app/chat/utils/permission-view";
 
 const echo = (key: string): string => key;
 
@@ -136,5 +137,57 @@ describe("a tool row is in one of seven states", () => {
 		expect(
 			findWaitingRequest(tool({ toolName: "Bash" }), [request]),
 		).toBeNull();
+	});
+});
+
+describe("permission cards are titled from the preview, never the raw tool", () => {
+	const t = (key: string, params?: Record<string, string | number>): string =>
+		`${key}${params ? JSON.stringify(params) : ""}`;
+	const base = {
+		requestId: "r",
+		conversationId: "c",
+		args: {},
+		summary: "Use tool: BuilderDeletePage",
+		alwaysAsk: true,
+		ruleOptions: [],
+		createdAtMs: 0,
+		expiresAtMs: null,
+	};
+
+	it("names a Builder deletion by what it deletes", () => {
+		const text = permissionCardText(
+			{
+				...base,
+				toolName: "mcp__dms-ai__BuilderDeletePage",
+				kind: "destructive",
+				preview: {
+					type: "destructive",
+					operation: "BuilderDeletePage",
+					target: "/home",
+					consequence: "removes_code",
+					canKeepData: false,
+				},
+			},
+			t,
+		);
+		expect(text.title).toBe(
+			'dms_ai.panel.approvals.destructive.delete_page{"target":"/home"}',
+		);
+		expect(text.sub).toBe("dms_ai.panel.approvals.consequence_removes_code");
+	});
+
+	it("titles a generic request with the lexicon, not the summary", () => {
+		const text = permissionCardText(
+			{
+				...base,
+				toolName: "mcp__dms-ai__BuilderRemoveBlock",
+				args: { path: "home/contactForm" },
+				kind: "builder",
+				preview: { type: "generic", args: {} },
+			},
+			t,
+		);
+		expect(text.title).toBe("dms_ai.tools.remove_block home/contactForm");
+		expect(text.sub).toBe("");
 	});
 });

@@ -155,13 +155,13 @@ function startTool(state: ConversationState, event: ToolStartEvent): void {
 		toolName: event.toolName,
 		args: event.args,
 		status: "pending",
-		timestampMs: Date.now(),
+		timestampMs: state.callTimes.get(event.callId)?.startedAtMs ?? Date.now(),
 	};
 	appendMessage(state, tool);
 }
 
 function endTool(state: ConversationState, event: ToolEndEvent): void {
-	const endedAtMs = Date.now();
+	const endedAtMs = state.callTimes.get(event.callId)?.endedAtMs ?? Date.now();
 	setMessages(
 		state,
 		state.messages.value.map((msg) => {
@@ -188,7 +188,46 @@ function failRun(state: ConversationState, event: RunErrorEvent): void {
 	);
 }
 
+function isTurnStart(msg: ConversationMessage): boolean {
+	if (msg.role === MESSAGE_ROLES.USER) return true;
+	return msg.role === MESSAGE_ROLES.NOTICE && msg.notice.kind === "autofix";
+}
+
+/** Kept through a replay: stored outside the turn's own events. */
+function isOutOfTurn(msg: ConversationMessage): boolean {
+	return (
+		msg.role === MESSAGE_ROLES.NOTICE ||
+		msg.role === MESSAGE_ROLES.QUESTION_ANSWER
+	);
+}
+
+/**
+ * The transcript up to where the running turn began. A re-attach sends the
+ * stored transcript, then `run_resumed` and every event of the running turn
+ * from its start: the turn's stored part makes way for that replay, or its
+ * texts would be appended twice.
+ */
+function withoutRunningTurn(
+	list: ConversationMessage[],
+): ConversationMessage[] {
+	const start = lastIndexWhere(list, isTurnStart);
+	return [
+		...list.slice(0, start + 1),
+		...list.slice(start + 1).filter(isOutOfTurn),
+	];
+}
+
+function lastIndexWhere(
+	list: ConversationMessage[],
+	predicate: (msg: ConversationMessage) => boolean,
+): number {
+	for (let index = list.length - 1; index >= 0; index -= 1)
+		if (predicate(list[index])) return index;
+	return -1;
+}
+
 function resumeRun(state: ConversationState): void {
+	setMessages(state, withoutRunningTurn(state.messages.value));
 	state.isRunning.value = true;
 	state.isTurnInFlight.value = true;
 	state.lastEventAtMs.value = Date.now();
@@ -223,8 +262,24 @@ function byId(sets: readonly ChangeSetSummary[]) {
 	return Object.fromEntries(sets.map((set) => [set.id, set]));
 }
 
+function rememberCallTimes(
+	state: ConversationState,
+	list: ConversationMessage[],
+): void {
+	state.callTimes.clear();
+	for (const msg of list) {
+		if (msg.role !== MESSAGE_ROLES.TOOL) continue;
+		state.callTimes.set(msg.callId, {
+			startedAtMs: msg.timestampMs,
+			endedAtMs: msg.endedAtMs,
+		});
+	}
+}
+
 function applySnapshot(state: ConversationState, event: SnapshotEvent): void {
-	setMessages(state, snapshotToMessages(event.messages ?? []));
+	const messages = snapshotToMessages(event.messages ?? []);
+	rememberCallTimes(state, messages);
+	setMessages(state, messages);
 	state.changeSets.value = byId(event.changeSets ?? []);
 	state.mode.value = toModeState(event.mode) ?? state.mode.value;
 	state.totalTokens.value = event.totalTokens ?? state.totalTokens.value;

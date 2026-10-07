@@ -228,6 +228,136 @@ describe("the conversation folds the redesign's events", () => {
 	});
 });
 
+describe("a running turn reads the same live, after a re-attach and after a reload", () => {
+	const TURN = [
+		{
+			type: "assistant_message_chunk",
+			text: "I'll check two things in parallel.",
+		},
+		{ type: "tool_call_start", callId: "t1", toolName: "Read", args: {} },
+		{
+			type: "tool_call_end",
+			callId: "t1",
+			status: "success",
+			result: "",
+			outcome: "done",
+		},
+		{ type: "assistant_message_chunk", text: "The page has two blocks." },
+		{ type: "tool_call_start", callId: "t2", toolName: "Read", args: {} },
+		{
+			type: "tool_call_end",
+			callId: "t2",
+			status: "success",
+			result: "",
+			outcome: "done",
+		},
+		{ type: "assistant_message_chunk", text: "All done." },
+	];
+	const shape = (conversation: ReturnType<typeof useConversation>) =>
+		conversation.messages.value.map((m) =>
+			m.role === "assistant"
+				? `text:${m.content}`
+				: m.role === "tool"
+					? `tool:${m.callId}`
+					: m.role,
+		);
+	const EXPECTED = [
+		"user",
+		"text:I'll check two things in parallel.",
+		"tool:t1",
+		"text:The page has two blocks.",
+		"tool:t2",
+		"text:All done.",
+	];
+
+	it("keeps chunk → tool → chunk → tool → chunk interleaved through run_done", () => {
+		const b = bus();
+		const conversation = useConversation(b.options as never);
+		conversation.sendUserMessage("go");
+		TURN.forEach(b.receive);
+		b.receive({ type: "run_done" });
+		expect(shape(conversation)).toEqual(EXPECTED);
+	});
+
+	it("does not append the replayed turn to its stored part on re-attach", () => {
+		const b = bus();
+		const conversation = useConversation(b.options as never);
+		b.receive({
+			type: "conversation_snapshot",
+			messages: [
+				{ role: "assistant", content: "Earlier answer.", timestampMs: 1 },
+				{ role: "user", content: "go", timestampMs: 1_000 },
+				{
+					role: "assistant",
+					content: "I'll check two things in parallel.",
+					timestampMs: 1_100,
+				},
+				{
+					role: "tool_use",
+					content: "{}",
+					toolName: "Read",
+					callId: "t1",
+					timestampMs: 1_200,
+				},
+				{
+					role: "tool_result",
+					content: "",
+					callId: "t1",
+					status: "success",
+					outcome: "done",
+					timestampMs: 1_500,
+				},
+				{
+					role: "assistant",
+					content: "The page has two blocks.",
+					timestampMs: 1_600,
+				},
+				{
+					role: "tool_use",
+					content: "{}",
+					toolName: "Read",
+					callId: "t2",
+					timestampMs: 1_700,
+				},
+			],
+		});
+		b.receive({ type: "run_resumed" });
+		TURN.forEach(b.receive);
+		b.receive({ type: "run_done" });
+		expect(shape(conversation)).toEqual(["text:Earlier answer.", ...EXPECTED]);
+	});
+
+	it("keeps each call's own start and end through a replay", () => {
+		const b = bus();
+		const conversation = useConversation(b.options as never);
+		b.receive({
+			type: "conversation_snapshot",
+			messages: [
+				{ role: "user", content: "go", timestampMs: 1_000 },
+				{
+					role: "tool_use",
+					content: "{}",
+					toolName: "Read",
+					callId: "t1",
+					timestampMs: 1_200,
+				},
+				{
+					role: "tool_result",
+					content: "",
+					callId: "t1",
+					status: "success",
+					outcome: "done",
+					timestampMs: 1_300,
+				},
+			],
+		});
+		b.receive({ type: "run_resumed" });
+		TURN.slice(1, 3).forEach(b.receive);
+		const tool = conversation.messages.value.find((m) => m.role === "tool");
+		expect(tool).toMatchObject({ timestampMs: 1_200, endedAtMs: 1_300 });
+	});
+});
+
 describe("approvals answer with the new vocabulary", () => {
 	const request = {
 		type: "permission_request",

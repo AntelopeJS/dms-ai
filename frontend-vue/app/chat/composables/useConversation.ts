@@ -76,6 +76,18 @@ export interface ConversationState {
 	changeSets: Ref<Record<string, ChangeSetSummary>>;
 	mode: Ref<ConversationModeState | null>;
 	totalTokens: Ref<number | null>;
+	/**
+	 * When the calls of the stored transcript started and ended. A re-attach
+	 * replays the running turn's events, and the replayed calls take their
+	 * times from here rather than from the moment of the replay.
+	 */
+	callTimes: Map<string, CallTimes>;
+}
+
+/** When a call started and, once it did, ended, in sidecar time. */
+export interface CallTimes {
+	startedAtMs: number;
+	endedAtMs?: number;
 }
 
 function appendMessage(
@@ -273,6 +285,7 @@ function reset(state: ConversationState): void {
 	state.changeSets.value = {};
 	state.mode.value = null;
 	state.totalTokens.value = null;
+	state.callTimes.clear();
 }
 
 function createConversationState(
@@ -289,6 +302,7 @@ function createConversationState(
 		changeSets: ref<Record<string, ChangeSetSummary>>({}),
 		mode: ref<ConversationModeState | null>(null),
 		totalTokens: ref<number | null>(null),
+		callTimes: new Map(),
 	};
 }
 

@@ -38,6 +38,7 @@ import {
 	RESTART_PATH,
 	SIDECAR_INFO_PATH,
 	SIDECAR_STATUS_CONNECTED,
+	SIDECAR_STATUS_REVIVING,
 	STATUS_PATH,
 	VISIBILITY_CHANGE_EVENT,
 } from "../runtime/constants";
@@ -166,12 +167,15 @@ function followSidecarStatus(
 	client: ChannelClient,
 ): FollowedSidecarStatus {
 	const status = ref<SidecarStatus>(controller.getStatus());
-	let isFirstReport = true;
+	// Only a sidecar coming back needs a fresh stream: replacing the one that
+	// just opened would re-attach every chat and replay its running turn.
 	const stop = controller.subscribe((next) => {
-		if (next === SIDECAR_STATUS_CONNECTED && !isFirstReport)
+		if (
+			next === SIDECAR_STATUS_CONNECTED &&
+			status.value === SIDECAR_STATUS_REVIVING
+		)
 			client.reconnectNow();
 		status.value = next;
-		isFirstReport = false;
 	});
 	return { status: readonly(status), stop };
 }
@@ -287,7 +291,6 @@ function registerDashboardEntries(
 			openChanges: () => session.navigate(CHANGES_PATH),
 		}),
 	);
-	useAppOverlay().register(CHAT_PANEL_COMPONENT_NAME);
 	return stopWatchingLocale;
 }
 
@@ -320,8 +323,36 @@ function installToasts(
 	});
 }
 
+/**
+ * The launcher, the palette entries and the panel join the dashboard only once
+ * the app is mounted: the server renders no assistant, and anything added
+ * before hydration would make the client's tree, and the ids its tooltips and
+ * menus draw, differ from the server's.
+ */
+function registerOnceMounted(
+	context: DmsAppContext,
+	appMounted: Promise<void>,
+	session: AssistantSession,
+	i18n: ChatI18n,
+): () => void {
+	let stop: (() => void) | null = null;
+	let isActive = true;
+	void appMounted.then(() => {
+		if (!isActive) return;
+		context.runWithContext(() => {
+			stop = registerDashboardEntries(session, i18n);
+			useAppOverlay().register(CHAT_PANEL_COMPONENT_NAME);
+		});
+	});
+	return () => {
+		isActive = false;
+		stop?.();
+	};
+}
+
 function wireAssistant(
 	context: DmsAppContext,
+	appMounted: Promise<void>,
 	deps: DashboardDeps,
 	controller: SidecarStatusController,
 ): () => void {
@@ -358,7 +389,7 @@ function wireAssistant(
 	context.vueApp.provide(ASSISTANT_SESSION_KEY, session);
 	context.vueApp.provide(CHAT_I18N_KEY, i18n);
 	const stops = [
-		registerDashboardEntries(session, i18n),
+		registerOnceMounted(context, appMounted, session, i18n),
 		installToasts(session, i18n, deps.toaster),
 		installToggleShortcut({ onToggle: panel.toggle }),
 		followPanel(panel, activity, client),
@@ -372,7 +403,10 @@ function wireAssistant(
 	return () => stops.forEach((stop) => stop());
 }
 
-async function startAssistant(context: DmsAppContext): Promise<void> {
+async function startAssistant(
+	context: DmsAppContext,
+	appMounted: Promise<void>,
+): Promise<void> {
 	const deps: DashboardDeps = {
 		$authFetch: useAuthFetch().$authFetch,
 		toaster: useToast(),
@@ -384,7 +418,7 @@ async function startAssistant(context: DmsAppContext): Promise<void> {
 	);
 	if (!(await controller.init())) return;
 	const teardown = context.runWithContext(() =>
-		wireAssistant(context, deps, controller),
+		wireAssistant(context, appMounted, deps, controller),
 	);
 	context.vueApp.onUnmount(teardown);
 	import.meta.hot?.dispose(teardown);
@@ -396,10 +430,14 @@ async function startAssistant(context: DmsAppContext): Promise<void> {
  */
 export default defineDmsPlugin((context) => {
 	if (!import.meta.env.DEV) return;
+	const appMounted = new Promise<void>((resolve) =>
+		context.hook("app:mounted", resolve),
+	);
 	const { loggedIn } = useUserSession();
 	const stopGate = runWhenLoggedIn(
 		() => loggedIn.value,
-		() => void context.runWithContext(() => startAssistant(context)),
+		() =>
+			void context.runWithContext(() => startAssistant(context, appMounted)),
 	);
 	context.vueApp.onUnmount(stopGate);
 });
