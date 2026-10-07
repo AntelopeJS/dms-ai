@@ -26,6 +26,7 @@ export interface TurnRequest {
   request: string;
   attachments?: AttachmentType[];
   isAutoFix: boolean;
+  includePageContext?: boolean;
 }
 
 function dispatch(
@@ -175,6 +176,7 @@ function buildRunnerContext(
     hostProjectRoot: services.hostProjectRoot,
     getCurrentPage: () => services.hostState.getCurrentPage(),
     attachments: request.attachments,
+    includePageContext: request.includePageContext,
     permissionBus: services.permissionBus,
     createMcpServer: () => services.createMcpServer(conversationId),
     onToolDecision: (decision) => {

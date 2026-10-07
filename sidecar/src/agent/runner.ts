@@ -1,5 +1,8 @@
 import { effectiveGenerationMode } from "../builder/capability.js";
-import { RUNNER_CLOSED_MESSAGE } from "../constants/agent.js";
+import {
+  HOST_CONTEXT_UNKNOWN_VALUE,
+  RUNNER_CLOSED_MESSAGE,
+} from "../constants/agent.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import type { AiMcpServer } from "../mcp/types.js";
 import type { AttachmentType } from "../protocol/messages.js";
@@ -16,6 +19,10 @@ import type {
 } from "./provider.js";
 import type { RunnerError, RunnerEvent } from "./runner-events.js";
 
+// What the agent is told about the page when the user removed the page chip:
+// the mode line of the host context still matters, the page does not.
+const WITHOUT_PAGE: CurrentPage = { path: HOST_CONTEXT_UNKNOWN_VALUE };
+
 export interface RunnerContext extends ToolCallHooks {
   conversationId: string;
   hostProjectRoot: string;
@@ -25,6 +32,8 @@ export interface RunnerContext extends ToolCallHooks {
   // Files the user attached to this turn. How they are carried to the agent is
   // the provider's business.
   attachments?: AttachmentType[];
+  // False when the user removed the page chip from the composer.
+  includePageContext?: boolean;
   permissionBus?: PermissionBus;
   // Built lazily: the server is consumed once, when the session opens, never
   // per turn. A provider that registers an HTTP endpoint would otherwise mint a
@@ -148,7 +157,7 @@ async function* startTurn(
   const settings = settingsOf(manager, ctx.conversationId);
   const grounded = prependHostContext(
     message,
-    ctx.getCurrentPage(),
+    ctx.includePageContext === false ? WITHOUT_PAGE : ctx.getCurrentPage(),
     effectiveGenerationMode(settings.generationMode),
   );
   yield* session.runTurn(

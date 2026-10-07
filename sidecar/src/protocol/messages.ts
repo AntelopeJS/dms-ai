@@ -102,6 +102,9 @@ export const UserMessageMsg = z.object({
     .array(AttachmentSchema)
     .max(MAX_ATTACHMENTS_PER_MESSAGE)
     .optional(),
+  // False when the user removed the page chip: the turn is sent without the
+  // page it was typed on.
+  includePageContext: z.boolean().optional(),
 });
 
 // A follow-up the user typed while a turn was running. The `id` is client-minted
@@ -114,6 +117,7 @@ export const QueuedItemSchema = z.object({
     .array(AttachmentSchema)
     .max(MAX_ATTACHMENTS_PER_MESSAGE)
     .optional(),
+  includePageContext: z.boolean().optional(),
 });
 
 // Chat -> server: append one follow-up to the conversation's server-owned

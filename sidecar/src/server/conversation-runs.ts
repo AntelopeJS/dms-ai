@@ -54,7 +54,7 @@ export function persistUserMessage(
 export function runUserTurn(
   services: SidecarServices,
   conversationId: string,
-  item: Pick<QueuedItemType, "content" | "attachments">,
+  item: Pick<QueuedItemType, "content" | "attachments" | "includePageContext">,
 ): Promise<void> {
   return runTurnWithHealing(services, {
     conversationId,
@@ -62,6 +62,7 @@ export function runUserTurn(
     request: item.content,
     attachments: item.attachments,
     isAutoFix: false,
+    includePageContext: item.includePageContext,
   });
 }
 
@@ -150,6 +151,7 @@ export function enqueueUserMessage(
   if (msg.attachments && msg.attachments.length > 0) {
     queued.attachments = msg.attachments;
   }
+  if (msg.includePageContext === false) queued.includePageContext = false;
   ctx.pendingQueue.enqueue(msg.conversationId, queued);
   broadcastQueueState(ctx, msg.conversationId);
 }
