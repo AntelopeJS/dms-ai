@@ -173,6 +173,22 @@ describe("permission bus", () => {
     await expect(other).resolves.toMatchObject({ isAllowed: false });
   });
 
+  it("cancels only the request of a call that already ended", async () => {
+    const t = createTestBus({ timeoutMs: 10_000 });
+    const ended = request({ pageRef: "/a" }, CONVERSATION_ID, DELETE_PAGE);
+    const ongoing = request({ pageRef: "/b" }, CONVERSATION_ID, DELETE_PAGE);
+    const endedOutcome = t.bus.requestPermission(ended);
+    void t.bus.requestPermission(ongoing);
+    await t.waitForPrompts(2);
+    t.bus.cancelCall(CONVERSATION_ID, ended.callId);
+    await expect(endedOutcome).resolves.toMatchObject({ isAllowed: false });
+    expect(t.decisions.at(-1)?.prompt?.settledAs).toBe("cancelled");
+    expect(t.bus.getPendingForConversation(CONVERSATION_ID)).toMatchObject([
+      { callId: ongoing.callId },
+    ]);
+    t.bus.cancelConversation(CONVERSATION_ID);
+  });
+
   it("Full auto answers for the user, but never for the always-ask set", async () => {
     const t = createTestBus({ policy: { isFullAuto: true } });
     await expect(

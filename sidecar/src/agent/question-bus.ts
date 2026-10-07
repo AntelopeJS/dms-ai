@@ -24,6 +24,8 @@ export type QuestionAnswers = QuestionReply | null;
 export interface QuestionRequest {
   conversationId: string;
   questions: QuestionType[];
+  // The provider's id for the AskUser call, when it could be paired.
+  callId?: string;
 }
 
 // The payload handed to the chat when a question needs answering. Carries the
@@ -54,9 +56,13 @@ export interface QuestionBus {
   // Resolve every pending question for a conversation as unanswered (turn
   // interrupted or conversation deleted) so the awaiting tools settle.
   cancelConversation: (conversationId: string) => void;
+  // Resolve the question its AskUser call is waiting on as unanswered: the
+  // call already ended on the provider's side.
+  cancelCall: (conversationId: string, callId: string) => void;
 }
 
 interface PendingState extends PendingQuestion {
+  callId?: string;
   resolve: (answers: QuestionAnswers) => void;
   timer: ReturnType<typeof setTimeout>;
 }
@@ -87,6 +93,12 @@ function settlePending(
   pending.resolve(answers);
 }
 
+// Settled unanswered: the chat is told so its card does not outlive the call.
+function expirePending(state: BusState, pending: PendingState): void {
+  state.onExpired?.(pendingToQuestion(pending));
+  settlePending(state, pending, null);
+}
+
 function scheduleTimeout(
   state: BusState,
   requestId: string,
@@ -97,8 +109,7 @@ function scheduleTimeout(
     console.warn(
       `${QUESTION_LOG_PREFIX} ${QUESTION_TIMEOUT_REASON} (requestId=${requestId})`,
     );
-    state.onExpired?.(pendingToQuestion(pending));
-    settlePending(state, pending, null);
+    expirePending(state, pending);
   }, state.timeoutMs);
 }
 
@@ -114,6 +125,7 @@ function registerPending(
     requestId,
     conversationId: req.conversationId,
     questions: req.questions,
+    callId: req.callId,
     createdAtMs,
     expiresAtMs: createdAtMs + state.timeoutMs,
     resolve,
@@ -161,12 +173,14 @@ function collectPendingForConversation(
   return out;
 }
 
-function cancelConversation(state: BusState, conversationId: string): void {
+function expireMatching(
+  state: BusState,
+  matches: (pending: PendingState) => boolean,
+): void {
   // Snapshot: settlePending deletes from the map being iterated.
   // oxlint-disable-next-line unicorn/no-useless-spread
   for (const pending of [...state.pending.values()]) {
-    if (pending.conversationId !== conversationId) continue;
-    settlePending(state, pending, null);
+    if (matches(pending)) expirePending(state, pending);
   }
 }
 
@@ -195,7 +209,13 @@ export function createQuestionBus(opts: QuestionBusOptions): QuestionBus {
       return collectPendingForConversation(state, conversationId);
     },
     cancelConversation(conversationId) {
-      cancelConversation(state, conversationId);
+      expireMatching(state, (p) => p.conversationId === conversationId);
+    },
+    cancelCall(conversationId, callId) {
+      expireMatching(
+        state,
+        (p) => p.conversationId === conversationId && p.callId === callId,
+      );
     },
   };
 }

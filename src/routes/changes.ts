@@ -10,7 +10,7 @@ import {
 import { AuthOwnerOnly, AuthRawUser } from "@antelopejs/interface-dms/auth";
 import type { User } from "@antelopejs/interface-dms/auth/db";
 import { ROUTE_PREFIX } from "../constants/module";
-import { buildQuery, type QueryParams } from "../sidecar";
+import { buildQuery, pathSegment, type QueryParams } from "../sidecar";
 import type {
   ChangeSetSummary,
   ChangeSetTableRow,
@@ -45,7 +45,7 @@ interface UndoBody {
 
 function changeSetPath(id: string, action = ""): string {
   const suffix = action ? `/${action}` : "";
-  return `${CHANGES_PATH}/${encodeURIComponent(id)}${suffix}`;
+  return `${CHANGES_PATH}/${pathSegment(id)}${suffix}`;
 }
 
 function tableRow(changeSet: ChangeSetSummary): ChangeSetTableRow {

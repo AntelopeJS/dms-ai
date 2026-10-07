@@ -89,6 +89,36 @@ describe("question bus", () => {
     expect(bus.getPendingForConversation(CONVERSATION_ID)).toHaveLength(0);
   });
 
+  it("expires the question of an AskUser call that already ended", async () => {
+    const expired: string[] = [];
+    const bus = createQuestionBus({
+      onPromptChat: () => {},
+      onExpired: (q) => expired.push(q.requestId),
+      timeoutMs: 10_000,
+    });
+    const ended = bus.requestQuestion({ ...buildRequest(), callId: "call-1" });
+    void bus.requestQuestion({ ...buildRequest(), callId: "call-2" });
+    await settleNextTick();
+    const [first] = bus.getPendingForConversation(CONVERSATION_ID);
+    bus.cancelCall(CONVERSATION_ID, "call-1");
+    await expect(ended).resolves.toBeNull();
+    expect(expired).toEqual([first?.requestId]);
+    expect(bus.countPending(CONVERSATION_ID)).toBe(1);
+    bus.cancelCall(OTHER_CONVERSATION_ID, "call-2");
+    expect(bus.countPending(CONVERSATION_ID)).toBe(1);
+    bus.cancelConversation(CONVERSATION_ID);
+    expect(expired).toHaveLength(2);
+  });
+
+  it("keeps the call id out of what the chat is shown", async () => {
+    const capture = makeCapture();
+    const bus = makeBus(capture, 10_000);
+    void bus.requestQuestion({ ...buildRequest(), callId: "call-1" });
+    await settleNextTick();
+    expect(capture.prompts[0]).not.toHaveProperty("callId");
+    bus.cancelConversation(CONVERSATION_ID);
+  });
+
   it("ignores a response for an unknown request id", async () => {
     const capture = makeCapture();
     const bus = makeBus(capture);

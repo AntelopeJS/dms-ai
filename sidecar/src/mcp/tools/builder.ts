@@ -7,16 +7,27 @@ import {
 } from "../../prompts/builder.js";
 import { defineTool, type McpToolResult } from "../define-tool.js";
 import { type BuilderGate, gateBuilderTools } from "./builder-gate.js";
+import { type CatalogSelection, shapeCatalog } from "./builder-catalog.js";
 
 export interface BuilderToolsDeps {
   builderClient: BuilderClient;
   gate?: BuilderGate;
 }
 
-function content(text: string): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text }] };
+function isFailedOp(value: unknown): boolean {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    (value as Record<string, unknown>).ok === false
+  );
+}
+
+// An `{ ok: false }` answer is a failed call, so the provider and the activity
+// record it as one rather than as a success carrying an error.
+function opResult(value: unknown): McpToolResult {
+  const text = JSON.stringify(value);
+  if (!isFailedOp(value)) return { content: [{ type: "text", text }] };
+  return { content: [{ type: "text", text }], isError: true };
 }
 
 function note(description: string): string {
@@ -37,13 +48,11 @@ function hasExprSentinel(value: unknown): boolean {
   return false;
 }
 
-function exprRefusal(): { content: Array<{ type: "text"; text: string }> } {
-  return content(
-    JSON.stringify({
-      ok: false,
-      error: { code: "unsupported", detail: BUILDER_EXPR_REFUSAL },
-    }),
-  );
+function exprRefusal(): McpToolResult {
+  return opResult({
+    ok: false,
+    error: { code: "unsupported", detail: BUILDER_EXPR_REFUSAL },
+  });
 }
 
 const CONFIG = z.record(z.string(), z.unknown());
@@ -164,8 +173,9 @@ type BuilderRun = (op: string, args: unknown[]) => Promise<McpToolResult>;
 
 export function buildUngatedBuilderTools(deps: BuilderToolsDeps) {
   const run: BuilderRun = async (op, args) =>
-    content(JSON.stringify(await deps.builderClient.call(op, args)));
+    opResult(await deps.builderClient.call(op, args));
   return [
+    buildCatalogTool(deps.builderClient),
     ...buildPageTools(run),
     ...buildBlockTools(run),
     ...buildResourceTools(run),
@@ -173,16 +183,31 @@ export function buildUngatedBuilderTools(deps: BuilderToolsDeps) {
   ];
 }
 
+const CATALOG_NAMES = z.array(z.string()).optional();
+
+function buildCatalogTool(builderClient: BuilderClient) {
+  return defineTool(
+    "BuilderCatalog",
+    note(
+      "The block types and DataTypes the page builder can emit. Without arguments it returns a compact index: each block type with a one-line description, its group, whether it is a `container` and whether it binds a resource (`controllerArg`); each DataType id with its config keys; and `reservedFieldNames`. Then pass `blocks` and/or `dataTypes` with the names you will use to get their full config schemas — always do so before adding or configuring a block of that type. For a config field whose schema is marked `x-dataType` (e.g. a Form field's `type`), pass a DataType value `{ $dataType: \"<id>\", config: {…} }` using an id and config from this catalog's `dataTypes` — never a raw `$expr`.",
+    ),
+    {
+      blocks: CATALOG_NAMES.describe(
+        "Block types (e.g. `TableView`, `Grid`) whose full config schema to return.",
+      ),
+      dataTypes: CATALOG_NAMES.describe(
+        "DataType ids (e.g. `select`, `relation`) whose full config schema to return.",
+      ),
+    },
+    async (selection: CatalogSelection) =>
+      opResult(
+        shapeCatalog(await builderClient.call("GetCatalog", []), selection),
+      ),
+  );
+}
+
 function buildPageTools(run: BuilderRun) {
   return [
-    defineTool(
-      "BuilderCatalog",
-      note(
-        "Lists every block type and DataType the page builder can emit, with their config schemas. Call this before adding blocks so you use valid types and options. For a config field whose schema is marked `x-dataType` (e.g. a Form field's `type`), pass a DataType value `{ $dataType: \"<id>\", config: {…} }` using an id and config from this catalog's `dataTypes` — never a raw `$expr`.",
-      ),
-      {},
-      () => run("GetCatalog", []),
-    ),
     defineTool(
       "BuilderListPages",
       note("Lists all builder-editable pages (route, id, category, file)."),
@@ -339,7 +364,7 @@ function buildBlockTools(run: BuilderRun) {
     defineTool(
       "BuilderRefresh",
       note(
-        "Reconciles the builder's source index with disk after out-of-band edits (e.g. a vibe-mode excursion).",
+        "Reconciles the builder's source index with disk after out-of-band edits (e.g. a Code mode excursion).",
       ),
       { pageRef: z.string().optional() },
       ({ pageRef }: { pageRef?: string }) =>

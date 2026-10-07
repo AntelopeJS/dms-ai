@@ -80,3 +80,26 @@ export function parseActivityQuery(params: URLSearchParams): ActivityQuery {
 }
 
 export { optional as optionalParam };
+
+// The backend's router hands its own params on still encoded, then encodes
+// them again when relaying, so an id may arrive encoded more than once.
+const MAX_PARAM_DECODES = 3;
+
+/**
+ * A path parameter decoded until stable, or `null` when it is malformed.
+ * Route ids never contain a literal `%`, so repeated decoding is lossless.
+ */
+export function decodeRouteParam(raw: string): string | null {
+  let value = raw;
+  for (let pass = 0; pass < MAX_PARAM_DECODES; pass++) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(value);
+    } catch {
+      return null;
+    }
+    if (decoded === value) return value;
+    value = decoded;
+  }
+  return value;
+}

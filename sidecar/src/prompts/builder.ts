@@ -29,11 +29,11 @@
 
 /** Appended to every Builder tool description by `note()`. */
 export const BUILDER_ESCALATION_NOTE =
-  "If the result is ok:false with error.code 'opaque_target' or 'unsupported', safe mode cannot make this change. Explain the limitation to the user and ask permission to switch to vibe mode (direct file edits) for this step.";
+  "If the result is ok:false with error.code 'opaque_target' or 'unsupported', safe mode cannot make this change. Explain the limitation to the user and ask permission to switch to Code mode (direct file edits) for this step.";
 
 /** Returned in place of an op when a tool is handed a raw `$expr` value. */
 export const BUILDER_EXPR_REFUSAL =
-  'Refused: safe mode does not allow raw `$expr` values in builder config. For a Form field or Column DataType, use `{ $dataType: "<id>", config: {…} }` (see BuilderCatalog for ids). To reference a generated resource class (e.g. a RelationType\'s `dataApiController`), use a reference value `{ $ref: { resource: "<name>" } }` instead — it is validated and allowed in safe mode. Only escalate to vibe mode for genuinely arbitrary code.';
+  'Refused: safe mode does not allow raw `$expr` values in builder config. For a Form field or Column DataType, use `{ $dataType: "<id>", config: {…} }` (see BuilderCatalog for ids). To reference a generated resource class (e.g. a RelationType\'s `dataApiController`), use a reference value `{ $ref: { resource: "<name>" } }` instead — it is validated and allowed in safe mode. Only escalate to Code mode for genuinely arbitrary code.';
 
 /**
  * The `$ref` shape. Describes a *value* the agent writes, so it rides on the

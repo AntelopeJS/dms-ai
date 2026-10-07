@@ -10,7 +10,12 @@ import {
   type PermissionBus,
 } from "../agent/permission-bus.js";
 import type { AgentProviderOptions } from "../agent/provider.js";
-import { createQuestionBus, type QuestionBus } from "../agent/question-bus.js";
+import {
+  createQuestionBus,
+  type QuestionAnswers,
+  type QuestionBus,
+  type QuestionRequest,
+} from "../agent/question-bus.js";
 import {
   type AgentRunner,
   type ConversationSettingsResolver,
@@ -27,6 +32,7 @@ import {
 } from "../checkpoints/checkpoints.js";
 import { createShadowGit } from "../checkpoints/shadow-git.js";
 import { WS_MAX_PAYLOAD_BYTES } from "../constants/attachments.js";
+import { ASK_USER_TOOL_NAME } from "../constants/mcp.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import {
   WS_CLIENT_CLOSE_GRACE_MS,
@@ -215,12 +221,25 @@ function buildMcpDepsFactory(
     ...staticDeps,
     conversationId,
     sendToHost: hostCommandsOf(conversationId),
-    requestQuestion: (req) => services(holder).questionBus.requestQuestion(req),
+    requestQuestion: (req) => askUser(services(holder), req),
     getLastEditedFile: () =>
       services(holder).editTracker.getLastEditedFile(conversationId),
     gateBuilderOp: (toolName, args) =>
       buildBuilderGate(services(holder), conversationId)(toolName, args),
   });
+}
+
+// Paired with its AskUser call so the question ends with the call.
+function askUser(
+  current: SidecarServices,
+  req: QuestionRequest,
+): Promise<QuestionAnswers> {
+  const callId = current.callLedger.claim(
+    req.conversationId,
+    ASK_USER_TOOL_NAME,
+    { questions: req.questions },
+  );
+  return current.questionBus.requestQuestion({ ...req, callId });
 }
 
 // Memoized so a conversation reuses one server instance across its turns.

@@ -133,6 +133,13 @@ describe("v2 assistant flow over the socket", () => {
         (detail.decisionTrail as WireMessage[]).map((s) => s.label),
       ).toContain("Asked you");
       expect(detail.diff).toHaveLength(1);
+      const relayedId = encodeURIComponent(
+        encodeURIComponent(activity.results[0]?.id as string),
+      );
+      const relayed = await callApi(harness.port, `/activity/${relayedId}`);
+      expect(relayed.status).toBe(200);
+      const malformed = await callApi(harness.port, "/activity/%E0%A4%A");
+      expect(malformed.status).toBe(400);
 
       const preview = await json<WireMessage>(
         await callApi(

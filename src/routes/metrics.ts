@@ -1,7 +1,12 @@
 import { Controller, Get, Parameter } from "@antelopejs/interface-api";
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import { ROUTE_PREFIX } from "../constants/module";
-import { buildQuery, type QueryParams, readSidecar } from "../sidecar";
+import {
+  buildQuery,
+  pathSegment,
+  type QueryParams,
+  readSidecar,
+} from "../sidecar";
 import type {
   AllowedBreakdown,
   ChartPayload,
@@ -72,7 +77,7 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
     @Parameter("compareTo", "query") compareTo?: string,
   ): Promise<KpiPayload> {
     const period: PeriodParams = { from, to, compareFrom, compareTo };
-    const path = `/metrics/kpi/${encodeURIComponent(metric)}`;
+    const path = `/metrics/kpi/${pathSegment(metric)}`;
     return readMetric(path, period, EMPTY_KPI, kpiPayload(metric));
   }
 

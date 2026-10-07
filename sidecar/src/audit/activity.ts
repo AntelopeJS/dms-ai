@@ -1,8 +1,8 @@
 import type { PendingRequest } from "../agent/permission-bus.js";
 import {
   bareToolName,
+  isEditTool,
   isMutatingBuilderTool,
-  isMutatingTool,
   isReadOnlyTool,
   permissionKindOf,
 } from "../agent/tool-kinds.js";
@@ -136,14 +136,17 @@ function resultOf(
   return result.status === "error" ? "failed" : "done";
 }
 
+// A shell command may or may not have touched the project: only a change set
+// says so. File edits and Builder ops are changes as soon as they succeed.
+function isChange(record: ActivityRecord): boolean {
+  if (record.result !== "done") return false;
+  if (record.changeSetId !== undefined) return true;
+  return isEditTool(record.tool) || isMutatingBuilderTool(record.tool);
+}
+
 function categoriesOf(record: ActivityRecord): ActivityCategory[] {
   const categories: ActivityCategory[] = [];
-  const isChanged =
-    record.changeSetId !== undefined ||
-    (isMutatingTool(record.tool) &&
-      !record.isReadOnly &&
-      record.result === "done");
-  if (isChanged) categories.push("changed");
+  if (isChange(record)) categories.push("changed");
   if (record.isAsked) categories.push("asked");
   if (DENIED_RESULTS.includes(record.result)) categories.push("denied");
   if (record.result === "failed") categories.push("failed");

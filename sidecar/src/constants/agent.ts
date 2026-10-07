@@ -1,3 +1,5 @@
+import type { GenerationMode } from "../state/settings-types.js";
+
 // Idle timeout: the turn is aborted only after this long with no activity from
 // the provider, not as a cap on total turn duration (see armTurnTimeout).
 export const TURN_IDLE_TIMEOUT_MS = 5 * 60_000;
@@ -64,3 +66,10 @@ export const HOST_CONTEXT_FILE_LABEL = "file: ";
 export const HOST_CONTEXT_TITLE_LABEL = "title: ";
 export const HOST_CONTEXT_MODE_LABEL = "mode: ";
 export const HOST_CONTEXT_UNKNOWN_VALUE = "unknown";
+
+// The generation modes as the agent reads them, matching the system prompt and
+// the product's vocabulary: the `vibe` wire value is called Code mode.
+export const GENERATION_MODE_AGENT_NAMES: Record<GenerationMode, string> = {
+  safe: "safe",
+  vibe: "code",
+};

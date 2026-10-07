@@ -194,6 +194,82 @@ describe("activity log", () => {
   });
 });
 
+describe("changed category", () => {
+  function categoryOf(
+    toolName: string,
+    args: unknown,
+    result: Partial<StoredMessage>,
+  ) {
+    const entry: ConversationEntry = {
+      ...ENTRY,
+      conversation: {
+        ...ENTRY.conversation,
+        messages: call("k1", toolName, args, result),
+      },
+    };
+    const [record] = buildActivityRecords({
+      entries: [entry],
+      changeSets: [{ ...CHANGE_SET, stateLog: [] }],
+      pending: [],
+      running: new Set(),
+      hostProjectRoot: ROOT,
+    });
+    return record?.category;
+  }
+
+  it("leaves out a shell command that belongs to no change set", () => {
+    expect(
+      categoryOf(
+        "Bash",
+        { command: "echo x > /tmp/f" },
+        { outcome: "done", allowedBy: "approved" },
+      ),
+    ).toEqual([]);
+  });
+
+  it("counts a shell command whose turn recorded a change set", () => {
+    expect(
+      categoryOf(
+        "Bash",
+        { command: "pnpm add zod" },
+        { outcome: "done", allowedBy: "approved", changeSetId: "cs-1" },
+      ),
+    ).toEqual(["changed"]);
+  });
+
+  it("counts a successful file edit or mutating Builder op", () => {
+    expect(
+      categoryOf(
+        "Write",
+        { file_path: `${ROOT}/src/b.ts` },
+        { outcome: "done", allowedBy: "rule" },
+      ),
+    ).toEqual(["changed"]);
+    expect(
+      categoryOf(
+        "mcp__dms-ai__BuilderAddBlock",
+        { page: "/p" },
+        { outcome: "done", allowedBy: "builder_auto" },
+      ),
+    ).toEqual(["changed"]);
+  });
+
+  it("leaves out a failed Builder op, even inside a change set", () => {
+    expect(
+      categoryOf(
+        "mcp__dms-ai__BuilderAddBlock",
+        { page: "/p" },
+        {
+          outcome: "failed",
+          status: "error",
+          allowedBy: "builder_auto",
+          changeSetId: "cs-1",
+        },
+      ),
+    ).toEqual(["failed"]);
+  });
+});
+
 describe("metrics", () => {
   it("counts the approval KPI with its asked, denied and expired totals", () => {
     expect(buildKpi(sources, "approved", WINDOW)).toMatchObject({

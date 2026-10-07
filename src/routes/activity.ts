@@ -9,7 +9,7 @@ import {
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import { CSV_CONTENT_TYPE, HTTP_STATUS } from "../constants/http";
 import { ROUTE_PREFIX } from "../constants/module";
-import { buildQuery } from "../sidecar";
+import { buildQuery, pathSegment } from "../sidecar";
 import type { ActivityRow, ActivityTableRow, SidecarList } from "../types";
 import { activityCsv } from "./activity-csv";
 import { type FilterMappings, sidecarListParams } from "./list-query";
@@ -82,6 +82,6 @@ export class AIActivityController extends Controller(ROUTE_PREFIX) {
 
   @Get(`${ACTIVITY_PATH}/:id`)
   detail(@Parameter("id", "param") id: string): Promise<unknown> {
-    return relay(`${ACTIVITY_PATH}/${encodeURIComponent(id)}`, tableRow);
+    return relay(`${ACTIVITY_PATH}/${pathSegment(id)}`, tableRow);
   }
 }

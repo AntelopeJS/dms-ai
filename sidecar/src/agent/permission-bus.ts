@@ -107,6 +107,8 @@ export interface PermissionBus {
   countPending(conversationId?: string): number;
   /** Denies everything pending for the conversation (turn interrupted). */
   cancelConversation(conversationId: string): void;
+  /** Denies what one call is waiting on: the call already ended. */
+  cancelCall(conversationId: string, callId: string): void;
   /** Cancels what is pending and drops the conversation's rules. */
   forgetConversation(conversationId: string): void;
   listRules(conversationId: string): ActiveRuleType[];
@@ -313,12 +315,25 @@ function handleAnswer(state: BusState, answer: PermissionAnswer): void {
   ANSWER_HANDLERS[answer.decision](state, pending, answer);
 }
 
-function cancelConversation(state: BusState, conversationId: string): void {
-  for (const pending of pendingOf(state, conversationId)) {
-    settle(state, pending, DENIED, {
-      settledAs: PERMISSION_SETTLEMENTS.CANCELLED,
-    });
+function cancelPending(state: BusState, pending: PendingState[]): void {
+  for (const one of pending) {
+    settle(state, one, DENIED, { settledAs: PERMISSION_SETTLEMENTS.CANCELLED });
   }
+}
+
+function cancelConversation(state: BusState, conversationId: string): void {
+  cancelPending(state, pendingOf(state, conversationId));
+}
+
+function cancelCall(
+  state: BusState,
+  conversationId: string,
+  callId: string,
+): void {
+  const ofCall = pendingOf(state, conversationId).filter(
+    (p) => p.request.callId === callId,
+  );
+  cancelPending(state, ofCall);
 }
 
 export function createPermissionBus(opts: BusOptions): PermissionBus {
@@ -338,6 +353,8 @@ export function createPermissionBus(opts: BusOptions): PermissionBus {
         : pendingOf(state, conversationId).length,
     cancelConversation: (conversationId) =>
       cancelConversation(state, conversationId),
+    cancelCall: (conversationId, callId) =>
+      cancelCall(state, conversationId, callId),
     forgetConversation(conversationId) {
       cancelConversation(state, conversationId);
       state.rules.forget(conversationId);

@@ -366,7 +366,8 @@ async function pruneExpired(state: CheckpointsState, retentionDays: number) {
   if (expired.length === 0) return;
   for (const record of expired) await state.git.drop(record.id);
   state.store.remove(expired.map((record) => record.id));
-  void state.git.prune().catch(() => undefined);
+  // On the lock, so a flush (and a test's cleanup) waits for the gc.
+  void serialize(state, () => state.git.prune()).catch(() => undefined);
 }
 
 async function start(state: CheckpointsState, retentionDays: number) {
@@ -403,7 +404,10 @@ export function createCheckpoints(deps: CheckpointsDeps): Checkpoints {
     undoPreview: (id) => undoPreview(state, id),
     undo: (id, includeLater, actor) => undo(state, id, includeLater, actor),
     redo: (id, actor) => redo(state, id, actor),
-    flush: () => state.store.flush(),
+    flush: async () => {
+      await state.lock;
+      await state.store.flush();
+    },
     setTypecheck: (id, outcome) =>
       state.store.update(id, { typecheck: outcome }),
   };

@@ -10,6 +10,7 @@ import type { AttachmentType } from "../protocol/messages.js";
 import { truncateTitle } from "../state/conversations.js";
 import type { ChangeSetRecord, TokenUsage } from "../state/types.js";
 import { broadcastConversationList, emitNotice } from "./chat-events.js";
+import { cancelCallRequests, cancelTurnRequests } from "./permission-events.js";
 import { inspectBuild } from "./safety-net.js";
 import type { SidecarServices } from "./services.js";
 import { endToolCall, startToolCall, stopOpenCalls } from "./tool-calls.js";
@@ -72,6 +73,7 @@ function endTurnEvents(
   services: SidecarServices,
   conversationId: string,
 ): void {
+  cancelTurnRequests(services, conversationId);
   dispatchAll(
     services,
     conversationId,
@@ -105,8 +107,10 @@ const TURN_EVENT_HANDLERS: {
       args: ev.args,
     };
   },
-  tool_result: (services, conversationId, ev) =>
-    endToolCall(services, conversationId, ev),
+  tool_result: (services, conversationId, ev) => {
+    cancelCallRequests(services, conversationId, ev.callId);
+    return endToolCall(services, conversationId, ev);
+  },
   done: (services, conversationId) => {
     endTurnEvents(services, conversationId);
     return { type: EVENT_TYPES.RUN_DONE, conversationId };

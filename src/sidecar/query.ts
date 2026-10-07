@@ -10,3 +10,20 @@ export function buildQuery(params: QueryParams): string {
   const serialized = search.toString();
   return serialized ? `?${serialized}` : "";
 }
+
+function decodeOnce(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * A route parameter as one sidecar path segment. The api router hands
+ * parameters over still percent-encoded, so they are decoded before being
+ * encoded again rather than encoded twice.
+ */
+export function pathSegment(raw: string): string {
+  return encodeURIComponent(decodeOnce(raw));
+}

@@ -23,6 +23,7 @@ export default defineConfig({
       source: {
         type: "local",
         path: ".",
+        watchDir: ["src"],
         installCommand: ["pnpm install", "pnpm build"],
       },
     },

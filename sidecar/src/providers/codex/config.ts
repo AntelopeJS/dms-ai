@@ -8,6 +8,7 @@ import {
   CODEX_MCP_SERVER_ID,
   CODEX_MCP_TOKEN_ENV_VAR,
 } from "../../constants/codex.js";
+import { MCP_TOOL_TIMEOUT_SEC } from "../../constants/mcp.js";
 import { SAFE_MODE_DENIED_MESSAGE } from "../../constants/settings.js";
 import type {
   AppSettings,
@@ -163,6 +164,9 @@ export function buildConfigToml(input: CodexConfigInput): string {
     `[mcp_servers.${CODEX_MCP_SERVER_ID}]`,
     `url = ${tomlString(input.mcpUrl)}`,
     `bearer_token_env_var = ${tomlString(CODEX_MCP_TOKEN_ENV_VAR)}`,
+    // Codex abandons a tool call after 60 s by default; AskUser and the
+    // Builder deletion gate wait on the user for much longer.
+    `tool_timeout_sec = ${MCP_TOOL_TIMEOUT_SEC}`,
     "",
     // Keeps the host project's own .codex layers out of the session, mirroring
     // `settingSources: []` on the Claude path.

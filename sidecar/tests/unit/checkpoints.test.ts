@@ -203,5 +203,6 @@ describe("checkpoints", () => {
     const reopened = await openProject(root);
     expect(reopened.checkpoints.get(record?.id as string)).toBeNull();
     expect(reopened.checkpoints.all()).toEqual([]);
+    await reopened.checkpoints.flush();
   });
 });

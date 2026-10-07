@@ -27,6 +27,7 @@ function startFakeSidecar() {
       sidecar.requests.push({
         method: req.method,
         path: url.pathname,
+        rawPath: req.url.split("?")[0],
         query: Object.fromEntries(url.searchParams),
         body: raw ? JSON.parse(raw) : undefined,
         authorization: req.headers.authorization,
@@ -155,6 +156,14 @@ void test("translates the Activity table's query and keys each row by its id", a
   assert.equal(page.total, 1);
   assert.equal(page.results[0]._id, ROW.id);
   assert.equal(page.results[0].timestamp, "2026-10-07T14:02:00.000Z");
+});
+
+void test("sends a still-encoded activity id to the sidecar encoded once", async () => {
+  reset();
+  answer("GET", `/activity/${encodeURIComponent(ROW.id)}`, 200, ROW);
+  await new routes.AIActivityController().detail(encodeURIComponent(ROW.id));
+  const [request] = sidecar.requests;
+  assert.equal(request.rawPath, `/activity/${encodeURIComponent(ROW.id)}`);
 });
 
 void test("answers 503 with a message from lists and settings while the sidecar is down", async () => {

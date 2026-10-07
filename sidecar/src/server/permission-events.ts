@@ -139,13 +139,31 @@ export function onPermissionDecided(
   broadcastConversationList(services);
 }
 
-/** deny_all: every request was refused; the turn is stopped too. */
-export function interruptConversation(
+/** The turn ended: nothing it asked the user can still be answered. */
+export function cancelTurnRequests(
   services: SidecarServices,
   conversationId: string,
 ): void {
   services.permissionBus.cancelConversation(conversationId);
   services.questionBus.cancelConversation(conversationId);
+}
+
+/** A call ended (or the provider gave up on it): its card is moot. */
+export function cancelCallRequests(
+  services: SidecarServices,
+  conversationId: string,
+  callId: string,
+): void {
+  services.permissionBus.cancelCall(conversationId, callId);
+  services.questionBus.cancelCall(conversationId, callId);
+}
+
+/** deny_all: every request was refused; the turn is stopped too. */
+export function interruptConversation(
+  services: SidecarServices,
+  conversationId: string,
+): void {
+  cancelTurnRequests(services, conversationId);
   services.runner.interruptSession(conversationId);
 }
 

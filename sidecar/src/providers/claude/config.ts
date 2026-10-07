@@ -1,4 +1,6 @@
 import type { PermissionMode } from "@anthropic-ai/claude-agent-sdk";
+import { CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR } from "../../constants/claude.js";
+import { MCP_TOOL_TIMEOUT_MS } from "../../constants/mcp.js";
 import type {
   AppSettings,
   ChatMode,
@@ -33,3 +35,16 @@ export const THINKING_TOKENS: Record<ThinkingLevel, number> = {
   medium: 12288,
   high: 24576,
 };
+
+export type ClaudeProcessEnv = Record<string, string | undefined>;
+
+/**
+ * The CLI's environment: the sidecar's own (the SDK replaces it rather than
+ * merging), with an MCP tool timeout that outlasts every wait on the user.
+ */
+export function buildClaudeEnv(baseEnv: ClaudeProcessEnv): ClaudeProcessEnv {
+  return {
+    ...baseEnv,
+    [CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR]: String(MCP_TOOL_TIMEOUT_MS),
+  };
+}

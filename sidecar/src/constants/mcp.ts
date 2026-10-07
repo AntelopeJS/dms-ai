@@ -1,6 +1,9 @@
 import { BUILDER_TOOL_NAMES } from "./builder.js";
 import { QUERY_LOGS_TOOL_NAME } from "./logs.js";
 import { FIND_PAGES_TOOL_NAME, LIST_PAGES_TOOL_NAME } from "./pages.js";
+import { REQUEST_TIMEOUT_MINUTES } from "../state/settings-types.js";
+import { QUESTION_TIMEOUT_MS } from "./questions.js";
+import { MS_PER_MINUTE } from "./settings.js";
 import { TYPECHECK_TOOL_NAME } from "./typecheck.js";
 
 export const MCP_SERVER_NAME = "dms-ai-mcp";
@@ -85,3 +88,24 @@ export const MCP_LOOPBACK_HOSTNAMES = [
   "::1",
   "[::1]",
 ];
+
+const MS_PER_SECOND = 1_000;
+
+// The longest a dms-ai tool waits on the user: an AskUser question, or a
+// Builder deletion held at the gate for the longest permission timeout.
+const LONGEST_USER_WAIT_MS = Math.max(
+  QUESTION_TIMEOUT_MS,
+  Math.max(...REQUEST_TIMEOUT_MINUTES) * MS_PER_MINUTE,
+);
+
+// Room left after that wait for the work the call then does (the turn's
+// checkpoint, the Builder op and its typecheck).
+const MCP_TOOL_TIMEOUT_GRACE_MS = 5 * MS_PER_MINUTE;
+
+/**
+ * How long a provider lets one dms-ai tool call run. It must outlast every wait
+ * on the user, or the provider abandons a call whose card is still on screen.
+ */
+export const MCP_TOOL_TIMEOUT_MS =
+  LONGEST_USER_WAIT_MS + MCP_TOOL_TIMEOUT_GRACE_MS;
+export const MCP_TOOL_TIMEOUT_SEC = MCP_TOOL_TIMEOUT_MS / MS_PER_SECOND;

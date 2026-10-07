@@ -20,6 +20,7 @@ import type { AppSettings } from "../state/settings-types.js";
 import { readSidecarVersion } from "../state/sidecar-version.js";
 import { API_ROUTES, type ApiDeps, type ApiRoute } from "./http-routes.js";
 import { readBody, sendJson, sendResponse } from "./http-io.js";
+import { decodeRouteParam } from "./http-params.js";
 import type { SidecarServices } from "./services.js";
 
 export interface SettingsApplier {
@@ -141,15 +142,20 @@ function buildDeps(ctx: RouteContext): ApiDeps | null {
 
 interface MatchedRoute {
   route: ApiRoute;
-  params: string[];
+  // `null` when a parameter is malformed.
+  params: string[] | null;
+}
+
+function decodeParams(raw: string[]): string[] | null {
+  const params = raw.map(decodeRouteParam);
+  return params.includes(null) ? null : (params as string[]);
 }
 
 function matchRoute(method: string, path: string): MatchedRoute | null {
   for (const route of [...SETTINGS_ROUTES, ...API_ROUTES]) {
     if (route.method !== method) continue;
     const match = route.pattern.exec(path);
-    if (match !== null)
-      return { route, params: match.slice(1).map(decodeURIComponent) };
+    if (match !== null) return { route, params: decodeParams(match.slice(1)) };
   }
   return null;
 }
@@ -169,6 +175,10 @@ async function handleApiRoute(
   const deps = buildDeps(ctx);
   if (matched === null || (deps === null && !matched.route.isStandalone)) {
     sendResponse(res, HTTP_STATUS.NOT_FOUND, CONTENT_TYPE.TEXT, "Not Found");
+    return;
+  }
+  if (matched.params === null) {
+    sendJson(res, HTTP_STATUS.BAD_REQUEST, { error: "malformed path" });
     return;
   }
   await matched.route.handle(req, res, deps as ApiDeps, {

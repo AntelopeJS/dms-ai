@@ -72,7 +72,12 @@ import type {
 import type { TokenUsage } from "../../state/types.js";
 import { extractTokenUsage, messageToEvents } from "./adapter.js";
 import { buildTurnContent, type TurnContent } from "./attachments.js";
-import { resolvePermissionMode, THINKING_TOKENS } from "./config.js";
+import {
+  buildClaudeEnv,
+  type ClaudeProcessEnv,
+  resolvePermissionMode,
+  THINKING_TOKENS,
+} from "./config.js";
 import { createInputQueue, type InputQueue } from "./input-queue.js";
 import { resolveClaudeBinary } from "./resolve-binary.js";
 import { buildSafeModeHooks, type SdkHooks } from "./safe-mode.js";
@@ -99,6 +104,7 @@ interface PromptOptions {
   plugins?: SdkPluginConfig[];
   skills?: string[];
   abortController: AbortController;
+  env: ClaudeProcessEnv;
 }
 
 // The plugins + explicit allowlist needed to load module/local skills. Built
@@ -137,6 +143,7 @@ function buildBasePromptOptions(input: PromptOptionsInput): PromptOptions {
     hooks: input.hooks,
     thinking: buildThinkingConfig(input.settings),
     abortController: input.abortController,
+    env: buildClaudeEnv(process.env),
   };
   const claudeBinary = resolveClaudeBinary();
   if (claudeBinary === undefined) return base;
