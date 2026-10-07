@@ -19,6 +19,9 @@ const BUILTIN_TOOLS: Readonly<Record<string, ToolEntry>> = {
   TodoWrite: { icon: "i-ph-list-checks", source: "assistant" },
   Task: { icon: "i-ph-users-three", source: "assistant" },
   ExitPlanMode: { icon: "i-ph-list-checks", source: "assistant" },
+  ToolSearch: { icon: "i-ph-wrench", source: "assistant" },
+  Skill: { icon: "i-ph-books", source: "assistant" },
+  AskUserQuestion: { icon: "i-ph-question", source: "assistant" },
   UndoChangeSet: { icon: "i-ph-arrow-counter-clockwise", source: "assistant" },
   RedoChangeSet: { icon: "i-ph-arrow-clockwise", source: "assistant" },
 };

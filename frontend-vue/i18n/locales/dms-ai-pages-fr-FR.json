@@ -309,7 +309,10 @@
 				"BuilderConfigureQuery": "Configurer une requête",
 				"BuilderRemoveQuery": "Retirer une requête",
 				"UndoChangeSet": "Annuler un lot de modifications",
-				"RedoChangeSet": "Rétablir un lot de modifications"
+				"RedoChangeSet": "Rétablir un lot de modifications",
+				"ToolSearch": "Charger des outils",
+				"Skill": "Utiliser une skill",
+				"AskUserQuestion": "Vous demander (intégré)"
 			}
 		},
 		"changes_table": {

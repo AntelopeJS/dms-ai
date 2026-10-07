@@ -309,7 +309,10 @@
 				"BuilderConfigureQuery": "Configure query",
 				"BuilderRemoveQuery": "Remove query",
 				"UndoChangeSet": "Undo change set",
-				"RedoChangeSet": "Redo change set"
+				"RedoChangeSet": "Redo change set",
+				"ToolSearch": "Load tools",
+				"Skill": "Use skill",
+				"AskUserQuestion": "Ask you (built-in)"
 			}
 		},
 		"changes_table": {
