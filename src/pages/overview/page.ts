@@ -1,113 +1,47 @@
+import { PeriodSelector } from "@antelopejs/interface-dms/base";
+import { CustomComponent } from "@antelopejs/interface-dms/base/custom";
+import { DefaultLayout } from "@antelopejs/interface-dms/base/layouts";
 import { PageController, RegisterPage } from "@antelopejs/interface-dms/page";
 import {
-  ChartArea,
-  ChartCard,
-  KpiCard,
-  PeriodSelector,
-  TopListCard,
-} from "@antelopejs/interface-dms/base";
-import { Grid, GridRow } from "@antelopejs/interface-dms/base/grid";
-import { DefaultLayout } from "@antelopejs/interface-dms/base/layouts";
+  OVERVIEW_PERIOD_SCOPE,
+  PAGE_IDS,
+  PAGE_ORDER,
+} from "../../constants/pages";
+import { blockMeta, pageMenu } from "../meta";
+import { overviewActivity, overviewChanges } from "./insights";
+import { overviewKpis } from "./kpis";
 
-const SCOPE_ID = "ai-overview";
-const COMPARE_LABEL = "vs previous period";
+const PERIOD_PATH = "overview.period";
 
 /**
- * AI Overview — landing dashboard for the AI module. Built from the shared DMS
- * dashboard components (KpiCard / ChartCard / TopListCard) bound to the
- * `/ai/metrics/*` routes, scoped to a single PeriodSelector. Like the reference
- * it shows compact stat cards (no sparklines) + a single activity chart + a top
- * skills list, and excludes the "Recent activity", "Needs attention", "Ask
- * AntelopeJS AI" hero and "Avg success rate" cards.
+ * AI Overview — the module's landing page: the assistant's live status, what
+ * it did over the selected period, how each action was allowed, and the latest
+ * change sets with Undo. Every block but the status card is a DMS block bound
+ * to an `/ai/*` route.
  */
 @RegisterPage()
 export class AIOverviewPage extends PageController(
-  "overview",
-  {
-    displayName: "Overview",
-    description: "AI assistant usage at a glance",
-    icon: "i-ph-chart-line",
-    module: "ai",
-    order: 0,
-  },
-  DefaultLayout({ fullWidth: true }),
+  PAGE_IDS.OVERVIEW,
+  pageMenu(PAGE_IDS.OVERVIEW, "i-ph-chart-line", PAGE_ORDER.OVERVIEW),
+  DefaultLayout(),
 ) {
-  static periodSelector = PeriodSelector({
-    id: SCOPE_ID,
+  static period = PeriodSelector({
+    id: OVERVIEW_PERIOD_SCOPE,
     align: "right",
+    variant: "segmented",
     defaultPreset: "last-7-days",
     defaultComparison: "previous-period",
-    presets: ["today", "last-7-days", "last-30-days"],
-    presetLabels: {
-      today: "24h",
-      "last-7-days": "7d",
-      "last-30-days": "30d",
-    },
-  });
+    presets: ["last-24h", "last-7-days", "last-30-days"],
+    comparisons: ["none", "previous-period"],
+  }).meta(blockMeta(PERIOD_PATH, "i-ph-calendar-blank"));
 
-  static kpis = Grid({ gap: "1rem" }).child(
-    "kpiRow",
-    GridRow()
-      .child(
-        "actions",
-        KpiCard({
-          title: "Actions",
-          icon: "i-ph-lightning",
-          fetchUrl: "/ai/metrics/kpi/actions",
-          periodScope: SCOPE_ID,
-          valueFormat: "compact",
-          compareLabel: COMPARE_LABEL,
-        }),
-      )
-      .child(
-        "approved",
-        KpiCard({
-          title: "Approved",
-          icon: "i-ph-check-circle",
-          fetchUrl: "/ai/metrics/kpi/approved",
-          periodScope: SCOPE_ID,
-          valueFormat: "compact",
-          compareLabel: COMPARE_LABEL,
-        }),
-      )
-      .child(
-        "denied",
-        KpiCard({
-          title: "Denied",
-          icon: "i-ph-prohibit",
-          fetchUrl: "/ai/metrics/kpi/denied",
-          periodScope: SCOPE_ID,
-          valueFormat: "compact",
-          invert: true,
-          compareLabel: COMPARE_LABEL,
-        }),
-      ),
+  static status = CustomComponent("DmsAiStatusCard").meta(
+    blockMeta("overview.status", "i-ph-pulse"),
   );
 
-  static activityRow = Grid({ gap: "1rem" }).child(
-    "row",
-    GridRow()
-      .child(
-        "activityChart",
-        ChartCard({
-          title: "AI activity",
-          description: "Actions over the selected period",
-          icon: "i-ph-chart-line",
-          fetchUrl: "/ai/metrics/series",
-          periodScope: SCOPE_ID,
-          valueFormat: "compact",
-          chart: ChartArea({ xaxisType: "datetime" }),
-        }),
-        { colSpan: 2 },
-      )
-      .child(
-        "topSkills",
-        TopListCard({
-          title: "Top skills",
-          description: "Most-used tools over the selected period",
-          fetchUrl: "/ai/metrics/top-skills?limit=5",
-          periodScope: SCOPE_ID,
-        }),
-      ),
-  );
+  static kpis = overviewKpis();
+
+  static activity = overviewActivity();
+
+  static changes = overviewChanges();
 }

@@ -40,6 +40,7 @@
     "test:sidecar-smoke": "pnpm run build:sidecar && node --test tests/sidecar-build.test.cjs",
     "test:frontend-registration": "pnpm run build && node --test tests/frontend-registration.test.cjs",
     "test:channels": "pnpm run build && node --test tests/channels.test.cjs tests/channel-limits.test.cjs",
+    "test:routes": "pnpm run build && node --test tests/routes.test.cjs",
     "test:spawn-args": "node --test tests/spawn-args.test.cjs",
     "test:sidecar-lifecycle": "node --test tests/sidecar-lifecycle.test.cjs",
     "test:build-id": "node --test tests/build-id.test.cjs",

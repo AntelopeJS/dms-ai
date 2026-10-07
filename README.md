@@ -49,12 +49,42 @@ the server.
 | `POST /ai/channel/:connectionId/messages` | One client message, relayed to that stream's sidecar socket.                |
 
 Each stream is bridged to a single sidecar socket, which the dashboard identifies as the host (the
-current page, the agent's navigation requests) and as the chat. Browsers keep at most six HTTP/1.1
+current page, the agent's navigation requests) and as the chat. The backend opens each socket with
+an `actor` frame naming the signed-in user, which the sidecar records on change sets and undos; a
+browser cannot send that frame, the backend drops it. Browsers keep at most six HTTP/1.1
 connections per origin, and every dashboard tab already holds two long-lived ones for the DMS. The
 assistant adds its stream only in the visible tab whose panel is open, which leaves two dashboard tabs
 usable side by side; over HTTPS with HTTP/2 the limit goes away. Over plain HTTP on an address other
 than `localhost`, start the frontend server with `DMS_COOKIE_SECURE=false`, or the browser drops the
 `Secure` session cookie.
+
+## Pages
+
+The module adds an **Assistant** module to the dashboard (`/modules/ai`), owner-only, with five
+pages. They are built from DMS blocks; a custom component is used only where no block draws the
+screen. Every page, block and child carries `$dms_ai.*` metadata, so the role editor lists them with
+translated names (English and French, in `frontend-vue/i18n/locales/dms-ai-pages-*.json`).
+
+| Page     | What it shows                                                                                                   |
+| -------- | --------------------------------------------------------------------------------------------------------------- |
+| Overview | Period selector, the assistant's live status, four KPIs, the activity chart, how actions were allowed, the latest change sets with Undo / Redo, and the top tools. |
+| Changes  | Every turn that touched the project as a change set: its diff, Undo with a conflict preview, Redo. `?set=<id>` opens one. |
+| Activity | The audit log: tabs (changed files, asked you, denied or blocked, failed), quick filters, a detail drawer per call (`?record=<id>`), and a CSV export. |
+| Skills   | The skills loaded into the agent as cards, a detail drawer per skill, and a warning when two skills share a name. |
+| Settings | The defaults of new conversations, saved as you change them: agent, thinking, approval mode, what always asks, request timeout, scope, local skills, checkpoint retention; then the tokens used over 14 days. |
+
+Every route below is owner-only. Lists and settings answer `503 { message }` while the sidecar is
+down, so tables show their error state and a setting says "Not saved"; charts answer empty.
+
+| Route                                                  | Purpose                                                        |
+| ------------------------------------------------------ | -------------------------------------------------------------- |
+| `GET /ai/status`, `POST /ai/sidecar/restart`           | The assistant's live status (`offline` when it does not answer), and a restart. |
+| `GET /ai/metrics/kpi/:metric`, `series`, `allowed`, `top-tools`, `usage`, `usage/summary` | The Overview's and Settings › Usage figures. |
+| `GET /ai/activity`, `/ai/activity/:id`, `/ai/activity/export.csv` | The audit log as a source table, one call's detail, the CSV export. |
+| `GET /ai/changes`, `/ai/changes/:id`, `/ai/changes/:id/undo-preview`, `/ai/changes/:id/undo-confirm` | Change sets, a set's diff, what Undo restores, and the dialog it asks in. |
+| `POST /ai/changes/:id/undo`, `/ai/changes/:id/redo`    | Undo (`{ includeLater? }`) and Redo, recorded with the signed-in user's name. |
+| `GET /ai/skills/catalog`, `/ai/skills/conflicts`       | The skills as table rows, and the duplicate names.             |
+| `GET` / `PUT /ai/settings`                             | The settings form; `PUT` takes the one field an instant save sends. |
 
 ## Model output in the dashboard
 
@@ -106,7 +136,7 @@ export default defineConfig({
 
 ## Agent providers
 
-The assistant runs on either Claude Code or Codex, picked in the AI settings page. Both go through
+The assistant runs on either Claude Code or Codex, picked on the Assistant's Settings page. Both go through
 the same seam, so the chat, the tool calls, the permission prompts and the file-change animation
 behave the same either way. `GET /settings` reports which ones this install can actually drive:
 
@@ -165,7 +195,7 @@ turn on Codex, without discarding the conversation.
    filesystem, so the file is only as private as the directory it sits in. ChatGPT login is not
    supported here — it shares a token refresh with the user's own `codex` install.
 
-3. **Restart the sidecar**, then pick *OpenAI (Codex)* in the AI settings page.
+3. **Restart the sidecar**, then pick *Codex* on the Assistant's Settings page.
 
 Linux, macOS and Windows are all supported. One app-server process runs per conversation, and the
 sidecar records its pid so a previous run's orphans are killed at startup — through procfs on
@@ -199,5 +229,6 @@ pnpm --dir frontend-vue build
 pnpm --dir frontend-vue typecheck
 ```
 
-`pnpm test:frontend-registration` checks backend registration and sidecar inputs with the sidecar launcher mocked.
-`pnpm test:sidecar-lifecycle` starts a stand-in sidecar to check that a hot reload keeps it, a sidecar left by an earlier run is stopped, and Ctrl+C on the backend stops it.
+`pnpm test:frontend-registration` checks backend registration and sidecar inputs with the sidecar launcher mocked, and that every page, block and child of the Assistant module is titled with `$dms_ai` keys present in both locales.
+`pnpm test:routes` drives the `/ai/*` routes against a stand-in sidecar: query translation, `503` while it is down, settings conversions, Undo stamping and the CSV export.
+`pnpm test:sidecar-lifecycle` starts a stand-in sidecar to check that a hot reload keeps it, a restart replaces it, a sidecar left by an earlier run is stopped, and Ctrl+C on the backend stops it.

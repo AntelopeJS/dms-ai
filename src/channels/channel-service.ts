@@ -6,7 +6,7 @@ import {
 } from "../constants/channels";
 import { SIDECAR_UNAVAILABLE_BODY } from "../constants/sidecar";
 import { connectSidecarSocket } from "../lifecycle/sidecar-socket";
-import { openBridge } from "./bridge";
+import { type ChannelActor, openBridge } from "./bridge";
 import {
   findOwnedBridge,
   forgetBridge,
@@ -40,9 +40,10 @@ async function tryConnect(
  */
 export async function openChannel(
   ctx: RequestContext,
-  userId: string,
+  actor: ChannelActor,
   connect: SidecarConnector = connectSidecarSocket,
 ): Promise<HTTPResult | undefined> {
+  const { userId } = actor;
   if (!reserveSocket(userId, CHANNEL_MAX_SOCKETS_PER_USER)) {
     return new HTTPResult(CHANNEL_STATUS.TOO_MANY_REQUESTS, TOO_MANY_STREAMS);
   }
@@ -54,7 +55,7 @@ export async function openChannel(
     );
   }
   openBridge({
-    userId,
+    actor,
     socket,
     stream: openSseStream(ctx),
     onOpened: trackBridge,

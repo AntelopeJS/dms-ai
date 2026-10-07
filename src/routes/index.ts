@@ -1,4 +1,6 @@
+export * from "./activity";
 export * from "./builder";
+export * from "./changes";
 export * from "./channels";
 export * from "./health";
 export * from "./logs";
@@ -7,3 +9,4 @@ export * from "./pages-registry";
 export * from "./settings";
 export * from "./sidecar-info";
 export * from "./skills";
+export * from "./status";

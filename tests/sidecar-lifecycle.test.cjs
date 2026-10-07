@@ -141,6 +141,19 @@ void test("a hot reload with a rebuilt sidecar replaces it", async () => {
   assert.equal(second.launcher.getSidecarPort(), second.lock.port);
 });
 
+void test("a restart replaces the running sidecar with a fresh one of the same build", async () => {
+  const first = await startSidecar();
+  await first.launcher.restartSidecar();
+  const lock = readLock();
+  assert.ok(lock, "the new sidecar claimed the lock");
+  track(lock.pid);
+  assert.notEqual(lock.pid, first.lock.pid);
+  assert.equal(lock.buildId, first.lock.buildId);
+  assert.equal(isRunning(first.lock.pid), false);
+  assert.equal(first.launcher.getSidecarPort(), lock.port);
+  assert.equal(first.launcher.hasSidecarGivenUp(), false);
+});
+
 void test("a sidecar left by an earlier run is stopped, not reused", async () => {
   const leftoverPid = await startLeftover();
   const { lock } = await startSidecar();
