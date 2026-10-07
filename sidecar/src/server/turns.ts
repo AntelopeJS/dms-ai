@@ -13,6 +13,7 @@ import { broadcastConversationList, emitNotice } from "./chat-events.js";
 import { cancelCallRequests, cancelTurnRequests } from "./permission-events.js";
 import { inspectBuild } from "./safety-net.js";
 import type { SidecarServices } from "./services.js";
+import type { ActiveTurn } from "./turn-registry.js";
 import { endToolCall, startToolCall, stopOpenCalls } from "./tool-calls.js";
 import { startTurnProgress } from "./turn-progress.js";
 
@@ -258,6 +259,16 @@ export function sendChangeSet(
   });
 }
 
+// Builder operations typecheck before they write anything, so a turn that
+// changed the project through them alone passed a typecheck.
+export function turnTypecheck(turn: ActiveTurn): ChangeSetRecord["typecheck"] {
+  const isBuilderOnly =
+    turn.builderOps > 0 && turn.builderOps >= turn.mutatingCallIds.length;
+  return turn.typecheck === "skipped" && isBuilderOnly
+    ? "passed"
+    : turn.typecheck;
+}
+
 async function recordChangeSet(
   services: SidecarServices,
   conversationId: string,
@@ -276,7 +287,7 @@ async function recordChangeSet(
     askedBy: turn.askedBy,
     approvalsNeeded: turn.approvalsNeeded,
     builderOps: turn.builderOps,
-    typecheck: turn.typecheck,
+    typecheck: turnTypecheck(turn),
     pagePath: turn.pagePath,
   });
   if (record !== null) publishChangeSet(services, record, turn.mutatingCallIds);
