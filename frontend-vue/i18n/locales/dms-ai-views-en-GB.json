@@ -180,7 +180,7 @@
 				"open_last_conversation": "Open last conversation"
 			},
 			"conflicts": {
-				"title": "Two skills are named “{name}” | {count} skills are named “{name}”",
+				"title": "{count} skills are named “{name}”",
 				"description": "The one from {winner} is used; {ignored} is ignored. Rename one to use both. | The one from {winner} is used; {ignored} are ignored. Rename them to use them all.",
 				"local_copy": "your local copy ({origin})",
 				"module_copy": "{origin}"

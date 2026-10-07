@@ -7,11 +7,13 @@ interface Props {
 	row: SkillRow;
 	selected?: boolean;
 	open?: () => void;
+	actions?: object;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	selected: false,
 	open: undefined,
+	actions: undefined,
 });
 
 const { t } = useI18n();

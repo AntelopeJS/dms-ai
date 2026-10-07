@@ -180,7 +180,7 @@
 				"open_last_conversation": "Ouvrir la dernière conversation"
 			},
 			"conflicts": {
-				"title": "Deux compétences s'appellent « {name} » | {count} compétences s'appellent « {name} »",
+				"title": "{count} compétences s’appellent « {name} »",
 				"description": "Celle de {winner} est utilisée ; {ignored} est ignorée. Renommez-en une pour utiliser les deux. | Celle de {winner} est utilisée ; {ignored} sont ignorées. Renommez-les pour toutes les utiliser.",
 				"local_copy": "votre copie locale ({origin})",
 				"module_copy": "{origin}"
