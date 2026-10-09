@@ -408,6 +408,12 @@ watch(
 	},
 );
 
+// The DMS mounts the panel open on a reload, often before the tab's stream
+// is up: the list (and the chat's title) is asked for again once it is.
+watch(isConnected, (connected) => {
+	if (connected) list.refresh();
+});
+
 onMounted(() => {
 	document.addEventListener("keydown", onDocumentKeydown);
 	list.refresh();

@@ -83,6 +83,16 @@ describe("the chat as a component of the dashboard", () => {
 		expect(sentOfType(harness, "request_host_navigate")).toEqual([]);
 	});
 
+	it("asks for the conversation list again once a stream that was down connects", async () => {
+		const harness = createHarness();
+		harness.setChannelStatus("connecting");
+		await openPanel(harness);
+		expect(sentOfType(harness, "list_conversations")).toEqual([]);
+		harness.setChannelStatus("connected");
+		await nextTick();
+		expect(sentOfType(harness, "list_conversations")).toHaveLength(1);
+	});
+
 	it("closes from its own button, and stays open on a click elsewhere: docked, it is part of the page", async () => {
 		const harness = createHarness();
 		const panel = await openPanel(harness);

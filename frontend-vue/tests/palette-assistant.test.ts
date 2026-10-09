@@ -80,9 +80,11 @@ describe("the assistant's registrations in the dashboard", () => {
 			label: "$dms_ai.panel.palette.assistant",
 			placeholder: "$dms_ai.panel.palette.placeholder",
 		});
-		expect(assistant.suggestions().map((item) => item.label)).toContain(
+		expect(assistant.suggestions().map((item) => item.label)).toEqual([
 			"Explain what Sales overview shows",
-		);
+			"Add a chart to Sales overview",
+			"Add a filter to the table on Sales overview",
+		]);
 		page.value = { path: "/home", title: "Home" };
 		expect(assistant.suggestions().map((item) => item.label)).toContain(
 			"Explain how this project is organised",

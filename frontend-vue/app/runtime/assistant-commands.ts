@@ -2,7 +2,11 @@ import type { Ref } from "vue";
 import type { Translate } from "../chat/composables/useChatI18n";
 import type { CurrentPage } from "../chat/types/conversation";
 import { shortcutLabel } from "../chat/utils/platform";
-import { pageName, pageSuggestions } from "../chat/utils/suggestions";
+import {
+	type PageSuggestion,
+	pageName,
+	pageSuggestions,
+} from "../chat/utils/suggestions";
 import {
 	CHAT_PANEL_COMPONENT_NAME,
 	COMMAND_PALETTE_ASSISTANT_ID,
@@ -114,6 +118,15 @@ export function launcherAction(t: Translate): LauncherAction {
 	};
 }
 
+/** The palette answers read-only: what it can answer in place comes first. */
+function byReadOnlyFirst(
+	suggestions: readonly PageSuggestion[],
+): PageSuggestion[] {
+	return [...suggestions].sort(
+		(left, right) => Number(right.isReadOnly) - Number(left.isReadOnly),
+	);
+}
+
 /**
  * The palette's assistant mode (Tab in ⌘K): first prompts that fit the page on
  * screen, as the panel's empty chat offers them, and an answer drawn by
@@ -130,7 +143,7 @@ export function paletteAssistant(
 		placeholder: PALETTE_ASSISTANT_PLACEHOLDER,
 		suggestions: () => {
 			const page = currentPage.value;
-			return pageSuggestions(page).map((suggestion) => ({
+			return byReadOnlyFirst(pageSuggestions(page)).map((suggestion) => ({
 				label: t(suggestion.textKey, { page: pageName(page) }),
 				icon: suggestion.icon,
 			}));

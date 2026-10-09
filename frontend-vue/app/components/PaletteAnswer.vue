@@ -167,6 +167,11 @@ onBeforeUnmount(() => {
 	overflow-y: auto;
 }
 
+/* The palette's frame already names the assistant. */
+.dms-ai-palette-answer__stream :deep(.cb-who) {
+	display: none;
+}
+
 .dms-ai-palette-answer__note {
 	margin: 0;
 	color: var(--ui-text-muted);
