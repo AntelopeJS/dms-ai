@@ -158,6 +158,41 @@ void test("translates the Activity table's query and keys each row by its id", a
   assert.equal(page.results[0].timestamp, "2026-10-07T14:02:00.000Z");
 });
 
+void test("draws the action's target under its name, in red for a destructive tool", async () => {
+  reset();
+  const deletion = {
+    ...ROW,
+    id: "c-1:call-2",
+    tool: "BuilderDeleteResource",
+    target: "orders",
+  };
+  const untargeted = { ...ROW, id: "c-1:call-3", target: "" };
+  answer("GET", "/activity", 200, {
+    results: [ROW, deletion, untargeted],
+    total: 3,
+  });
+  const page = await new routes.AIActivityController().list(context(""));
+  assert.deepEqual(
+    page.results.map((row) => row.actionDetail),
+    [{ text: "sales/overview" }, { text: "orders", tone: "error" }, null],
+  );
+});
+
+void test("composes the biggest conversation's token count in the reader's language", async () => {
+  reset();
+  answer("GET", "/metrics/usage", 200, {
+    days: [],
+    totalTokens: 48210,
+    conversations: 3,
+    top: { conversationId: "c-1", title: "Top customers", totalTokens: 31250 },
+  });
+  const summary = await new routes.AIMetricsController().usageSummary("14");
+  assert.deepEqual(summary.items.at(-1).detail, {
+    key: "$dms_ai.settings.usage.top_tokens",
+    params: { count: { type: "count", value: 31250 } },
+  });
+});
+
 void test("sends a still-encoded activity id to the sidecar encoded once", async () => {
   reset();
   answer("GET", `/activity/${encodeURIComponent(ROW.id)}`, 200, ROW);

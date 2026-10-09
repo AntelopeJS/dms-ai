@@ -3,8 +3,6 @@ import { i18nKey } from "./keys";
 import { LOGGED_TOOLS } from "./tools";
 import type { Vocabulary, VocabularyOption } from "./types";
 
-const DESTRUCTIVE_TOOL_TONE: Tone = "error";
-
 /** The label key of one value of an enumeration. */
 export function vocabularyLabel(
   section: string,
@@ -46,14 +44,4 @@ export function toolOptions(section: string): VocabularyOption[] {
     label: toolLabel(section, tool.name),
     icon: tool.icon,
   }));
-}
-
-/** Pill tones of the tools: destructive ones in red, the rest neutral. */
-export function toolTones(): Record<string, Tone> {
-  return Object.fromEntries(
-    LOGGED_TOOLS.filter((tool) => tool.isDestructive).map((tool) => [
-      tool.name,
-      DESTRUCTIVE_TOOL_TONE,
-    ]),
-  );
 }

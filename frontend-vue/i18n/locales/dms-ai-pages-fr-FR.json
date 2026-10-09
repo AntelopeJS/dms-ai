@@ -494,7 +494,8 @@
 				"series": "Tokens",
 				"total_tokens": "Tokens",
 				"conversations": "Conversations",
-				"top_conversation": "Conversation la plus gourmande"
+				"top_conversation": "Conversation la plus gourmande",
+				"top_tokens": "{count} token | {count} tokens"
 			}
 		},
 		"skills": {

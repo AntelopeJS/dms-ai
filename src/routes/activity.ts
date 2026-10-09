@@ -7,6 +7,10 @@ import {
   type RequestContext,
 } from "@antelopejs/interface-api";
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
+import type {
+  CellSubline,
+  CellTone,
+} from "@antelopejs/interface-dms/base/table-view";
 import { CSV_CONTENT_TYPE, HTTP_STATUS } from "../constants/http";
 import { ROUTE_PREFIX } from "../constants/module";
 import { buildQuery, pathSegment } from "../sidecar";
@@ -14,6 +18,7 @@ import type { ActivityRow, ActivityTableRow, SidecarList } from "../types";
 import { activityCsv } from "./activity-csv";
 import { type FilterMappings, sidecarListParams } from "./list-query";
 import { relay } from "./sidecar-results";
+import { findLoggedTool } from "../vocabulary";
 
 const ACTIVITY_PATH = "/activity";
 /** Most rows one export holds. */
@@ -29,11 +34,22 @@ const FILTERS: FilterMappings = {
   isReadOnly: { param: "hideReadOnly", values: { false: "true" } },
 };
 
+const DESTRUCTIVE_TARGET_TONE: CellTone = "error";
+
+function actionDetail(row: ActivityRow): CellSubline | null {
+  if (!row.target) return null;
+  const isDestructive = findLoggedTool(row.tool)?.isDestructive === true;
+  return isDestructive
+    ? { text: row.target, tone: DESTRUCTIVE_TARGET_TONE }
+    : { text: row.target };
+}
+
 function tableRow(row: ActivityRow): ActivityTableRow {
   return {
     ...row,
     _id: row.id,
     timestamp: new Date(row.timestampMs).toISOString(),
+    actionDetail: actionDetail(row),
   };
 }
 

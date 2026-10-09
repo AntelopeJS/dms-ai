@@ -1,3 +1,4 @@
+import type { CellSubline } from "@antelopejs/interface-dms/base/table-view";
 /** One audit log entry, as the sidecar lists it. */
 export interface ActivityRow {
   id: string;
@@ -27,8 +28,12 @@ export interface SidecarList<T> {
   total: number;
 }
 
-/** An audit log entry as the table reads it: its id and an ISO time. */
+/**
+ * An audit log entry as the table reads it: its id, an ISO time, and the
+ * target under the action's name, in red for a destructive one.
+ */
 export interface ActivityTableRow extends ActivityRow {
   _id: string;
   timestamp: string;
+  actionDetail: CellSubline | null;
 }

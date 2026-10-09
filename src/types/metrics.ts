@@ -1,3 +1,5 @@
+import type { BlockText } from "@antelopejs/interface-dms/base/types";
+
 /** One point of a chart series. */
 export interface SeriesPoint {
   x: string;
@@ -99,5 +101,6 @@ export interface KeyValueItem {
   label: string;
   value: string | number | null;
   type?: string;
-  detail?: string;
+  /** Composed in the reader's language when it names a count. */
+  detail?: BlockText;
 }

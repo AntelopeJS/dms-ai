@@ -128,7 +128,10 @@ export function usageSummaryPayload(report: UsageReport) {
       id: "top",
       label: i18nKey(SETTINGS, "usage", "top_conversation"),
       value: report.top.title,
-      detail: String(report.top.totalTokens),
+      detail: {
+        key: i18nKey(SETTINGS, "usage", "top_tokens"),
+        params: { count: { type: "count", value: report.top.totalTokens } },
+      },
     });
   }
   return { items };

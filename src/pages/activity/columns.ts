@@ -9,7 +9,6 @@ import {
   ALLOWED_BY,
   i18nKey,
   toolOptions,
-  toolTones,
   type Vocabulary,
   vocabularyOptions,
   vocabularyTones,
@@ -80,10 +79,7 @@ export const ACTIVITY_COLUMNS: Record<string, TableViewSourceColumn> = {
   tool: {
     name: columnName("action"),
     type: new DefaultDataTypes.SelectType({ items: toolOptions(SECTION) }),
-    display: new DefaultDisplays.StatusPillDisplay({
-      tones: toolTones(),
-      subField: "target",
-    }),
+    display: new DefaultDisplays.TwoLineDisplay({ subField: "actionDetail" }),
     filterable: true,
     size: ACTION_COLUMN_SIZE,
     order: 2,
