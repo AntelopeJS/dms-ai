@@ -1,37 +1,28 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, onMounted, ref } from "vue";
 import ChatView from "../chat/components/ChatView.vue";
 import { useChatI18n } from "../chat/composables/useChatI18n";
 import { SETTINGS_PAGE_PATH } from "../chat/constants/protocol";
 import { ASSISTANT_SESSION_KEY } from "../runtime/assistant-session";
 import {
-	DMS_OVERLAYS_DOM_ID,
-	OVERLAY_DOM_ID,
-	OVERLAY_Z_INDEX,
 	SIDECAR_STATUS_CONNECTING,
 	SIDECAR_STATUS_REVIVING,
 	SIDECAR_STATUS_UNAVAILABLE,
 } from "../runtime/constants";
 
-interface ResizeStart {
-	x: number;
-	width: number;
-}
-
-const session = inject(ASSISTANT_SESSION_KEY, null);
+// The DMS docks this component in its side panel and mounts it while the
+// panel is open; the session arrives once the sidecar answered its first
+// probe, and the panel shows the first connection until then.
+const sessionRef = inject(ASSISTANT_SESSION_KEY, null);
+const session = computed(() => sessionRef?.value ?? null);
 const { t } = useChatI18n();
-const panelEl = ref<HTMLElement | null>(null);
-const isOpen = computed(() => session?.panel.isOpen.value === true);
-const hasOpened = ref(isOpen.value);
-const isResizing = ref(false);
 const isRestarting = ref(false);
 // Drawn once mounted, inside a host element rendered on the server and the
 // client alike, so hydration always finds the same node.
 const isMounted = ref(false);
-let resizeStart: ResizeStart | null = null;
 
 const status = computed(
-	() => session?.status.value ?? SIDECAR_STATUS_CONNECTING,
+	() => session.value?.status.value ?? SIDECAR_STATUS_CONNECTING,
 );
 const isUnavailable = computed(
 	() => status.value === SIDECAR_STATUS_UNAVAILABLE,
@@ -39,73 +30,21 @@ const isUnavailable = computed(
 const isFirstConnect = computed(
 	() => status.value === SIDECAR_STATUS_CONNECTING,
 );
-const lastError = computed(() => session?.lastError.value ?? null);
-
-const panelStyle = computed(() => ({
-	width: `${session?.panel.width.value ?? 0}px`,
-	zIndex: OVERLAY_Z_INDEX,
-}));
-
-watch(isOpen, (open) => {
-	if (open) hasOpened.value = true;
-});
-
-function onResizeMove(event: PointerEvent): void {
-	if (resizeStart === null) return;
-	session?.panel.resize(resizeStart.width + (resizeStart.x - event.clientX));
-}
-
-function stopResizing(): void {
-	resizeStart = null;
-	isResizing.value = false;
-	globalThis.removeEventListener("pointermove", onResizeMove);
-	globalThis.removeEventListener("pointerup", onResizeEnd);
-}
-
-function onResizeEnd(): void {
-	stopResizing();
-	session?.panel.commitWidth();
-}
-
-function startResize(event: PointerEvent): void {
-	if (session === null) return;
-	event.preventDefault();
-	resizeStart = { x: event.clientX, width: session.panel.width.value };
-	isResizing.value = true;
-	globalThis.addEventListener("pointermove", onResizeMove);
-	globalThis.addEventListener("pointerup", onResizeEnd);
-}
-
-function isInside(event: Event, element: HTMLElement | null): boolean {
-	return element !== null && event.composedPath().includes(element);
-}
-
-function isInsidePanelOrDmsOverlays(event: Event): boolean {
-	return (
-		isInside(event, panelEl.value) ||
-		isInside(event, document.getElementById(DMS_OVERLAYS_DOM_ID))
-	);
-}
-
-function onDocumentPointerDown(event: PointerEvent): void {
-	if (!isOpen.value || panelEl.value === null) return;
-	if (isInsidePanelOrDmsOverlays(event)) return;
-	session?.panel.closeFromOutside(event.timeStamp);
-}
+const lastError = computed(() => session.value?.lastError.value ?? null);
 
 function close(): void {
-	session?.panel.close();
+	session.value?.panel.close();
 }
 
 function navigate(path: string): void {
-	session?.navigate(path);
+	session.value?.navigate(path);
 }
 
 async function restart(): Promise<void> {
-	if (session === null || isRestarting.value) return;
+	if (session.value === null || isRestarting.value) return;
 	isRestarting.value = true;
 	try {
-		await session.restart();
+		await session.value.restart();
 	} finally {
 		isRestarting.value = false;
 	}
@@ -113,39 +52,17 @@ async function restart(): Promise<void> {
 
 onMounted(() => {
 	isMounted.value = true;
-	document.addEventListener("pointerdown", onDocumentPointerDown, {
-		capture: true,
-	});
-});
-
-onBeforeUnmount(() => {
-	document.removeEventListener("pointerdown", onDocumentPointerDown, {
-		capture: true,
-	});
-	stopResizing();
 });
 </script>
 
 <template>
-	<div class="dms-ai-panel-host">
-		<aside
-			v-if="session && isMounted"
-			:id="OVERLAY_DOM_ID"
-			ref="panelEl"
-			class="dms-ai-panel"
-			:data-open="isOpen"
-			:data-resizing="isResizing"
-			:style="panelStyle"
-			:inert="!isOpen"
-			:aria-label="t('dms_ai.panel.launcher')"
-		>
-			<div class="dms-ai-panel-resize" @pointerdown="startResize" />
+	<div class="dms-ai-panel">
+		<template v-if="isMounted">
 			<ChatView
-				v-if="hasOpened"
+				v-if="session"
 				class="dms-ai-panel-chat"
 				:transport="session.chat"
 				:intents="session.intents"
-				:is-open="isOpen"
 				:page="session.currentPage.value"
 				:is-reviving="status === SIDECAR_STATUS_REVIVING"
 				:api="session.api"
@@ -158,6 +75,7 @@ onBeforeUnmount(() => {
 				role="status"
 			>
 				<UButton
+					v-if="session"
 					size="sm"
 					color="neutral"
 					variant="ghost"
@@ -211,52 +129,22 @@ onBeforeUnmount(() => {
 					</b>
 				</template>
 			</div>
-		</aside>
+		</template>
 	</div>
 </template>
 
 <style scoped>
-.dms-ai-panel-host {
-	display: contents;
-}
-
 .dms-ai-panel {
-	position: fixed;
-	top: 0;
-	right: 0;
-	bottom: 0;
+	position: relative;
 	display: flex;
+	min-width: 0;
 	overflow: hidden;
-	background: var(--dms-bg-sidebar, var(--ui-bg));
 	color: var(--ui-text);
-	border-left: 1px solid var(--ui-border-accented);
-	box-shadow: var(--dms-shadow-pop, 0 8px 24px rgb(0 0 0 / 0.18));
-	transform: translateX(100%);
-	transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.dms-ai-panel[data-open="true"] {
-	transform: none;
-}
-
-.dms-ai-panel[data-resizing="true"] {
-	user-select: none;
 }
 
 .dms-ai-panel-chat {
 	flex: 1 1 auto;
 	min-width: 0;
-}
-
-.dms-ai-panel-resize {
-	position: absolute;
-	top: 0;
-	left: 0;
-	z-index: 3;
-	width: 6px;
-	height: 100%;
-	cursor: ew-resize;
-	touch-action: none;
 }
 
 .dms-ai-panel-status {
@@ -319,7 +207,7 @@ onBeforeUnmount(() => {
 .dms-ai-panel-spinner {
 	width: 22px;
 	height: 22px;
-	border: 2px solid color-mix(in oklab, var(--ui-secondary) 25%, transparent);
+	border: 2px solid var(--dms-assistant-line);
 	border-top-color: var(--ui-secondary);
 	border-radius: 50%;
 	animation: dms-ai-spin 0.7s linear infinite;

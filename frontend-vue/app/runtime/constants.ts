@@ -1,12 +1,3 @@
-export const OVERLAY_DEFAULT_WIDTH_PX = 460;
-/**
- * Above the dashboard's header and the builder's overlay (z-50), below what the
- * dashboard portals out of the app: the DMS paints its popovers, modals and
- * toasts in an isolated layer after the app, whatever this value is.
- */
-export const OVERLAY_Z_INDEX = 55;
-export const OVERLAY_DOM_ID = "dms-ai-overlay-root";
-export const DMS_OVERLAYS_DOM_ID = "dms-overlays";
 export const SIDECAR_INFO_PATH = "/ai/sidecar-info";
 /** Event stream to receive, POST to send: HTTP the DMS frontend server relays. */
 export const CHANNEL_PATH = "/ai/channel";
@@ -54,14 +45,21 @@ export const HOST_COMMAND_NAVIGATE_TYPE = "host_command_navigate";
 export const HOST_COMMAND_TYPES: ReadonlySet<string> = new Set([
 	HOST_COMMAND_NAVIGATE_TYPE,
 ]);
-export const OVERLAY_MIN_WIDTH_PX = 320;
-export const OVERLAY_PREFS_STORAGE_KEY = "dms-ai:overlay-prefs";
-export const OVERLAY_OUTSIDE_TOGGLE_SUPPRESS_MS = 300;
-export const OVERLAY_PREFS_DEBOUNCE_MS = 300;
 export const TOGGLE_SHORTCUT_KEY = "k";
 export const MODAL_OPEN_SELECTOR = '[role="dialog"][aria-modal="true"]';
 
 export const CHAT_PANEL_COMPONENT_NAME = "DmsAiChatPanel";
+/** The panel's id among the dashboard's docked side panels. */
+export const SIDE_PANEL_ID = "dms-ai:assistant";
+export const PANEL_DEFAULT_WIDTH_PX = 460;
+export const PANEL_MIN_WIDTH_PX = 360;
+/** Wide enough for a diff side by side; the DMS caps it at 60% of the window too. */
+export const PANEL_MAX_WIDTH_PX = 820;
+export const COMMAND_PALETTE_ASSISTANT_ID = "dms-ai:assistant";
+export const PALETTE_ANSWER_COMPONENT_NAME = "DmsAiPaletteAnswer";
+export const PALETTE_ASSISTANT_LABEL = "$dms_ai.panel.palette.assistant";
+export const PALETTE_ASSISTANT_PLACEHOLDER =
+	"$dms_ai.panel.palette.placeholder";
 export const LAUNCHER_ACTION_ID = "dms-ai-launcher";
 /**
  * The chat panel's header shows the same icon, which is what gets it into the
@@ -70,6 +68,8 @@ export const LAUNCHER_ACTION_ID = "dms-ai-launcher";
 export const LAUNCHER_ICON = "i-ph-sparkle";
 export const LAUNCHER_ORDER = 50;
 export const LAUNCHER_LABEL_KEY = "dms_ai.panel.launcher";
+/** The panel landmark's name, as an i18n key the DMS resolves. */
+export const PANEL_ARIA_LABEL = `$${LAUNCHER_LABEL_KEY}`;
 export const COMMAND_PALETTE_SOURCE_ID = "dms-ai";
 export const COMMAND_PALETTE_ORDER = 60;
 /** The backend's view of the sidecar: pending approvals, last start error. */

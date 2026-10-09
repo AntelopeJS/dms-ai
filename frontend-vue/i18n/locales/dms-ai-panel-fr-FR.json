@@ -352,11 +352,21 @@
 			},
 			"palette": {
 				"group": "Assistant",
-				"ask": "Demander à l'assistant",
+				"ask": "Ouvrir l'assistant",
 				"new": "Nouvelle conversation",
 				"approvals": "Examiner les approbations",
 				"changes": "Ouvrir les modifications",
-				"waiting": "{count} en attente"
+				"waiting": "{count} en attente",
+				"assistant": "Assistant",
+				"placeholder": "Posez une question sur cette page ou le projet…",
+				"answer": {
+					"read_only": "Réponse en lecture seule · Plan seulement, mode sûr",
+					"thinking": "Réflexion…",
+					"waiting": "L'assistant attend votre réponse : continuez dans l'assistant pour répondre.",
+					"continue": "Continuer dans l'assistant",
+					"close": "Fermer",
+					"not_running": "L'assistant ne tourne pas dans cet onglet."
+				}
 			}
 		},
 		"tools": {

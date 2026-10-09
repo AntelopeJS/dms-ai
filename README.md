@@ -8,10 +8,12 @@
 
 An AntelopeJS DMS development assistant. It adds an owner-only AI workspace to the dashboard and
 runs a coding agent in a local sidecar that can inspect the loaded modules and their declared skills,
-edit the host project, and stream activity back to the dashboard. The chat is a panel of the
-dashboard itself: it stays open across page navigations, follows the dashboard's theme, and is toggled
-from the header or with Ctrl+Shift+K (⌘⇧K on macOS). Claude Code drives it by default; OpenAI's Codex
-is selectable once its CLI is installed.
+edit the host project, and stream activity back to the dashboard. The chat is a panel docked next to
+the page, which shrinks to make room: it stays open across page navigations and reloads, follows the
+dashboard's theme, and is toggled from the header or with Ctrl+Shift+K (⌘⇧K on macOS). In the
+command palette (Ctrl+K, ⌘K on macOS), Tab switches to the assistant, which answers a question
+read-only and hands the conversation over to the panel. Claude Code drives it by default; OpenAI's
+Codex is selectable once its CLI is installed.
 
 ## Installation
 
@@ -205,9 +207,11 @@ of the app-server with it.
 ## Vue frontend
 
 The module registers `frontend-vue` through `AddFrontendModule` with the Vue 3 renderer. The host DMS
-supplies authentication, shared state, Nuxt UI and the icons. The chat panel, `DmsAiChatPanel`, is
-rendered among the dashboard's persistent overlays (`dms-app-overlays`), so it lives through Inertia
-navigations; its code is under `frontend-vue/app/chat`. The renderer bundles the icons it finds in
+supplies authentication, shared state, Nuxt UI and the icons. The chat panel, `DmsAiChatPanel`, is a
+docked side panel of the dashboard (`registerSidePanel`): the DMS renders it once for the whole app,
+so it lives through Inertia navigations, and keeps its open state and width in a cookie. The command
+palette's assistant mode answers with `DmsAiPaletteAnswer` (`registerCommandPaletteAssistant`). The
+chat's code is under `frontend-vue/app/chat`. The renderer bundles the icons it finds in
 `.vue` files, so an icon name belongs in the component that shows it.
 
 ## Development

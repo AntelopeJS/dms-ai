@@ -3,8 +3,8 @@ import { useDmsRouter } from "#dms/frontend-module";
 import { ASSISTANT_SESSION_KEY } from "../../runtime/assistant-session";
 
 export interface AssistantActions {
-	/** The assistant runs in this tab: its buttons can be offered. */
-	isAvailable: boolean;
+	/** The assistant runs in this tab: its buttons can be offered. Reactive. */
+	readonly isAvailable: boolean;
 	openPanel: () => void;
 	openConversation: (conversationId: string) => void;
 	startConversation: (prompt?: string) => void;
@@ -13,19 +13,21 @@ export interface AssistantActions {
 }
 
 /**
- * The tab's assistant session as the workspace views use it. Without one
- * (production, sidecar disabled) the actions do nothing and `isAvailable`
- * hides the buttons that need them.
+ * The tab's assistant session as the workspace views use it. Until it runs
+ * (its first probe pending) and without one (production, sidecar disabled) the
+ * actions do nothing and `isAvailable` hides the buttons that need them.
  */
 export function useAssistant(): AssistantActions {
 	const session = inject(ASSISTANT_SESSION_KEY, null);
 	const router = useDmsRouter();
 	return {
-		isAvailable: session !== null,
-		openPanel: () => session?.panel.open(),
+		get isAvailable() {
+			return (session?.value ?? null) !== null;
+		},
+		openPanel: () => session?.value?.panel.open(),
 		openConversation: (conversationId) =>
-			session?.openConversation(conversationId),
-		startConversation: (prompt) => session?.startConversation(prompt),
+			session?.value?.openConversation(conversationId),
+		startConversation: (prompt) => session?.value?.startConversation(prompt),
 		goTo: (path) => void router.push(path),
 	};
 }

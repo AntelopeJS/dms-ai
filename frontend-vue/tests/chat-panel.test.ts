@@ -1,6 +1,7 @@
+import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { resetPrefsForTesting } from "../app/runtime/overlay-prefs";
+import ChatPanel from "../app/components/ChatPanel.vue";
 import {
 	CONVERSATION_ID,
 	createHarness,
@@ -9,7 +10,9 @@ import {
 	sendMessage,
 	sentOfType,
 	unmountPanel,
+	providedSession,
 } from "./support/panel-harness";
+import { PANEL_STUBS } from "./support/stubs";
 
 const STALL_AFTER_MS = 20_000;
 
@@ -19,7 +22,6 @@ beforeEach(() => {
 
 afterEach(() => {
 	unmountPanel();
-	resetPrefsForTesting();
 	localStorage.clear();
 	vi.useRealTimers();
 });
@@ -29,7 +31,9 @@ describe("the chat as a component of the dashboard", () => {
 		const harness = createHarness();
 		const panel = await openPanel(harness);
 		expect(document.querySelector("iframe")).toBeNull();
-		expect(document.getElementById("dms-ai-overlay-root")).not.toBeNull();
+		expect(panel.find("[data-dms-side-panel] .dms-ai-panel").exists()).toBe(
+			true,
+		);
 		expect(panel.find(".chat-view").exists()).toBe(true);
 		expect(Reflect.has(globalThis, "dmsAiChatTransport")).toBe(false);
 	});
@@ -42,13 +46,26 @@ describe("the chat as a component of the dashboard", () => {
 		]);
 	});
 
-	it("keeps its conversation when the panel is closed and opened again", async () => {
+	it("leaves its conversation when the panel closes, and picks it up again when it opens", async () => {
 		const harness = createHarness();
 		const panel = await openPanel(harness);
 		await sendMessage(panel, "build me a page");
 		harness.session.panel.close();
 		await nextTick();
+		expect(panel.find(".chat-view").exists()).toBe(false);
+		expect(sentOfType(harness, "leave_conversation")).toEqual([
+			{ type: "leave_conversation", conversationId: CONVERSATION_ID },
+		]);
 		harness.session.panel.toggle();
+		await flushPromises();
+		expect(sentOfType(harness, "hello")).toEqual([
+			{ type: "hello", role: "chat", conversationId: CONVERSATION_ID },
+			{ type: "hello", role: "chat", conversationId: CONVERSATION_ID },
+		]);
+		deliver(harness, {
+			type: "conversation_snapshot",
+			messages: [{ role: "user", content: "build me a page", timestampMs: 1 }],
+		});
 		await nextTick();
 		expect(panel.text()).toContain("build me a page");
 	});
@@ -66,38 +83,27 @@ describe("the chat as a component of the dashboard", () => {
 		expect(sentOfType(harness, "request_host_navigate")).toEqual([]);
 	});
 
-	it("closes from its own button, and on a click elsewhere in the dashboard", async () => {
+	it("closes from its own button, and stays open on a click elsewhere: docked, it is part of the page", async () => {
 		const harness = createHarness();
 		const panel = await openPanel(harness);
-		panel
-			.find(".chat-view")
-			.element.dispatchEvent(
-				new PointerEvent("pointerdown", { bubbles: true, composed: true }),
-			);
-		expect(harness.session.panel.isOpen.value).toBe(true);
 		document.body.dispatchEvent(
 			new PointerEvent("pointerdown", { bubbles: true, composed: true }),
 		);
-		expect(harness.session.panel.isOpen.value).toBe(false);
-		harness.session.panel.toggle();
-		await nextTick();
+		expect(harness.session.panel.isOpen.value).toBe(true);
 		await panel.find('button[aria-label="Close"]').trigger("click");
 		expect(harness.session.panel.isOpen.value).toBe(false);
 	});
 
-	it("stays open on a click in what the dashboard portals out of the app", async () => {
-		const harness = createHarness();
-		await openPanel(harness);
-		const overlays = document.createElement("div");
-		overlays.id = "dms-overlays";
-		const toast = document.createElement("button");
-		overlays.append(toast);
-		document.body.append(overlays);
-		toast.dispatchEvent(
-			new PointerEvent("pointerdown", { bubbles: true, composed: true }),
+	it("shows the first connection while the session is not there yet", async () => {
+		const panel = mount(ChatPanel, {
+			global: { provide: providedSession(null), stubs: PANEL_STUBS },
+		});
+		await nextTick();
+		expect(panel.find(".dms-ai-panel-status").text()).toContain(
+			"Connecting the assistant",
 		);
-		expect(harness.session.panel.isOpen.value).toBe(true);
-		overlays.remove();
+		expect(panel.find(".chat-view").exists()).toBe(false);
+		panel.unmount();
 	});
 
 	it("keeps the transcript under a banner while the sidecar revives, and offers a restart once it gave up", async () => {

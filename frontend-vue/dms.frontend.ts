@@ -1,6 +1,7 @@
 import { defineAsyncComponent, type Component } from "vue";
 import type { DmsFrontendModule } from "#dms/frontend-module";
 import aiPlugin from "./app/plugins/ai.client";
+import sidePanelPlugin from "./app/plugins/side-panel";
 
 interface VueModule {
 	default: Component;
@@ -29,6 +30,7 @@ const frontendModule: DmsFrontendModule = {
 					defineAsyncComponent(async () => (await loader()).default),
 				);
 			});
+		sdk.registerPlugin(sidePanelPlugin);
 		sdk.registerPlugin(aiPlugin, { clientOnly: true });
 	},
 };

@@ -1,10 +1,11 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { vi } from "vitest";
-import { nextTick, ref } from "vue";
+import { defineComponent, h, nextTick, readonly, ref, shallowRef } from "vue";
 import ChatPanel from "../../app/components/ChatPanel.vue";
 import {
 	ASSISTANT_SESSION_KEY,
 	type AssistantSession,
+	type ChatPanelState,
 } from "../../app/runtime/assistant-session";
 import type { ChannelStatus } from "../../app/runtime/channel-client";
 import {
@@ -12,7 +13,6 @@ import {
 	createChatTransport,
 } from "../../app/runtime/chat-transport";
 import { createPanelIntents } from "../../app/runtime/panel-intents";
-import { createChatPanelState } from "../../app/runtime/panel-state";
 import { CHAT_I18N_KEY } from "../../app/chat/composables/useChatI18n";
 import { createTestI18n } from "./i18n";
 import { PANEL_STUBS } from "./stubs";
@@ -32,6 +32,28 @@ export interface Harness {
 	restart: ReturnType<typeof vi.fn>;
 	lastError: ReturnType<typeof ref<string | null>>;
 	api: AssistantSession["api"];
+	/** How many holds keep the tab's stream open. */
+	streamHolds: number;
+}
+
+/**
+ * What the DMS's `useSidePanel` hands the plugin: the open state it keeps in
+ * its cookie, and the ways to change it.
+ */
+export function createSidePanel(): ChatPanelState {
+	const isOpen = ref(false);
+	return {
+		isOpen: readonly(isOpen),
+		open: () => {
+			isOpen.value = true;
+		},
+		close: () => {
+			isOpen.value = false;
+		},
+		toggle: () => {
+			isOpen.value = !isOpen.value;
+		},
+	};
 }
 
 export function createHarness(): Harness {
@@ -56,11 +78,12 @@ export function createHarness(): Harness {
 		},
 		getStatus: () => channelStatus,
 	});
+	harness.streamHolds = 0;
 	harness.setChannelStatus = (status) => {
 		channelStatus = status;
 		harness.hub.announceStatus(status);
 	};
-	const panel = createChatPanelState();
+	const panel = createSidePanel();
 	const intents = createPanelIntents();
 	harness.session = {
 		status: harness.sidecarStatus,
@@ -74,6 +97,12 @@ export function createHarness(): Harness {
 		startConversation: (prompt) => {
 			intents.push({ kind: "start", prompt });
 			panel.open();
+		},
+		holdStream: () => {
+			harness.streamHolds += 1;
+			return () => {
+				harness.streamHolds -= 1;
+			};
 		},
 		pendingApprovals: ref(0),
 		intents,
@@ -96,14 +125,32 @@ export function unmountPanel(): void {
 	wrapper = null;
 }
 
+/**
+ * The DMS's side panel host: the panel's component is mounted while the panel
+ * is open, and unmounted when it closes.
+ */
+function sidePanelHost(panel: ChatPanelState) {
+	return defineComponent({
+		setup: () => () =>
+			h("aside", { "data-dms-side-panel": "" }, [
+				panel.isOpen.value ? h(ChatPanel) : null,
+			]),
+	});
+}
+
+/** The providers the plugin installs, as a test mounts them. */
+export function providedSession(session: AssistantSession | null) {
+	return {
+		[ASSISTANT_SESSION_KEY as symbol]: shallowRef(session),
+		[CHAT_I18N_KEY as symbol]: createTestI18n(),
+	};
+}
+
 function mountPanel(harness: Harness): VueWrapper {
-	wrapper = mount(ChatPanel, {
+	wrapper = mount(sidePanelHost(harness.session.panel), {
 		attachTo: document.body,
 		global: {
-			provide: {
-				[ASSISTANT_SESSION_KEY as symbol]: harness.session,
-				[CHAT_I18N_KEY as symbol]: createTestI18n(),
-			},
+			provide: providedSession(harness.session),
 			stubs: PANEL_STUBS,
 		},
 	});
@@ -112,7 +159,7 @@ function mountPanel(harness: Harness): VueWrapper {
 
 export async function openPanel(harness: Harness): Promise<VueWrapper> {
 	const mounted = mountPanel(harness);
-	harness.session.panel.toggle();
+	harness.session.panel.open();
 	await nextTick();
 	await flushPromises();
 	return mounted;

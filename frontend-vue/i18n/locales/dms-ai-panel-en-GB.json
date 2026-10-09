@@ -352,11 +352,21 @@
 			},
 			"palette": {
 				"group": "Assistant",
-				"ask": "Ask the assistant",
+				"ask": "Open the assistant",
 				"new": "New conversation",
 				"approvals": "Review approvals",
 				"changes": "Open changes",
-				"waiting": "{count} waiting"
+				"waiting": "{count} waiting",
+				"assistant": "Assistant",
+				"placeholder": "Ask about this page or the project…",
+				"answer": {
+					"read_only": "Read-only answer · Plan only, Safe mode",
+					"thinking": "Thinking…",
+					"waiting": "The assistant is waiting for you: continue in the assistant to answer.",
+					"continue": "Continue in the assistant",
+					"close": "Close",
+					"not_running": "The assistant isn't running in this tab."
+				}
 			}
 		},
 		"tools": {

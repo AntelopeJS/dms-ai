@@ -26,7 +26,7 @@ export interface SidecarStatusController {
 	init: () => Promise<boolean>;
 	getStatus: () => SidecarStatus;
 	// Subscribe to status changes; fires immediately with the current status so a
-	// late subscriber (overlay/icon injected after init) reflects it right away.
+	// late subscriber (the panel or launcher registered after init) reflects it right away.
 	subscribe: (cb: (status: SidecarStatus) => void) => () => void;
 	/**
 	 * The host channel dropped: re-probe now, which also revives an idle-exited

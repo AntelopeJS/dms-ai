@@ -61,7 +61,7 @@ const offlineDescription = computed(() =>
 
 <template>
 	<section
-		class="dms-card border-secondary/30 bg-linear-100 from-secondary/10 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4 to-transparent to-55% px-5 py-[18px] md:grid-cols-[auto_minmax(0,1fr)_auto]"
+		class="dms-card border-(--dms-assistant-line) bg-linear-100 from-(--dms-assistant-tint) grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4 to-transparent to-55% px-5 py-[18px] md:grid-cols-[auto_minmax(0,1fr)_auto]"
 		:aria-busy="isFirstLoad || request.isLoading.value"
 		data-ai-status-card
 	>
@@ -70,7 +70,7 @@ const offlineDescription = computed(() =>
 			:class="
 				isOffline
 					? 'bg-error/10 text-error ring-error/30'
-					: 'bg-secondary/10 text-secondary ring-secondary/30 shadow-[0_0_24px_-4px_var(--ui-secondary)]'
+					: 'text-secondary bg-(--dms-assistant-tint) ring-(--dms-assistant-line) shadow-[0_0_24px_-4px_var(--ui-secondary)]'
 			"
 			aria-hidden="true"
 		>

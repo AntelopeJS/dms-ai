@@ -20,6 +20,11 @@ export const TOOL_STATUS = {
 
 export const TODO_WRITE_TOOL_NAME = "TodoWrite";
 export const EXIT_PLAN_MODE_TOOL_NAME = "ExitPlanMode";
+/** A question asked from the command palette is answered read-only. */
+export const PALETTE_TURN_MODE = {
+	mode: "plan",
+	generationMode: "safe",
+} as const;
 export const PLAN_ARG_KEY = "plan";
 
 export const TODO_STATUS = {

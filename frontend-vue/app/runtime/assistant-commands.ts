@@ -1,15 +1,37 @@
 import type { Ref } from "vue";
 import type { Translate } from "../chat/composables/useChatI18n";
+import type { CurrentPage } from "../chat/types/conversation";
 import { shortcutLabel } from "../chat/utils/platform";
+import { pageName, pageSuggestions } from "../chat/utils/suggestions";
 import {
+	CHAT_PANEL_COMPONENT_NAME,
+	COMMAND_PALETTE_ASSISTANT_ID,
 	COMMAND_PALETTE_ORDER,
 	COMMAND_PALETTE_SOURCE_ID,
 	LAUNCHER_ACTION_ID,
 	LAUNCHER_ICON,
 	LAUNCHER_LABEL_KEY,
 	LAUNCHER_ORDER,
+	PALETTE_ANSWER_COMPONENT_NAME,
+	PALETTE_ASSISTANT_LABEL,
+	PALETTE_ASSISTANT_PLACEHOLDER,
+	PANEL_ARIA_LABEL,
+	PANEL_DEFAULT_WIDTH_PX,
+	PANEL_MAX_WIDTH_PX,
+	PANEL_MIN_WIDTH_PX,
+	SIDE_PANEL_ID,
 	TOGGLE_SHORTCUT_KEY,
 } from "./constants";
+
+/** The panel, in the shape `registerSidePanel` takes. */
+export interface AssistantSidePanel {
+	id: string;
+	component: string;
+	ariaLabel: string;
+	defaultWidth: number;
+	minWidth: number;
+	maxWidth: number;
+}
 
 /** The header button, in the shape `registerHeaderAction` takes. */
 export interface LauncherAction {
@@ -17,8 +39,7 @@ export interface LauncherAction {
 	icon: string;
 	label: string;
 	order: number;
-	onSelect: () => void;
-	isActive: () => boolean;
+	sidePanelId: string;
 }
 
 /** One entry of the command palette. */
@@ -43,6 +64,22 @@ export interface PaletteSource {
 	groups: () => PaletteGroup[];
 }
 
+/** A first prompt the palette's assistant mode offers. */
+export interface PaletteSuggestion {
+	label: string;
+	icon: string;
+}
+
+/** The palette's assistant mode, in the shape `registerCommandPaletteAssistant` takes. */
+export interface PaletteAssistant {
+	id: string;
+	label: string;
+	icon: string;
+	placeholder: string;
+	suggestions: () => PaletteSuggestion[];
+	answerComponent: string;
+}
+
 /** What the palette's entries do. */
 export interface AssistantCommandActions {
 	ask: () => void;
@@ -51,25 +88,61 @@ export interface AssistantCommandActions {
 	openChanges: () => void;
 }
 
-/** "Assistant (⌘⇧K)": the launcher's label with its shortcut. */
-export function launcherAction(
-	t: Translate,
-	isOpen: Readonly<Ref<boolean>>,
-	onSelect: () => void,
-): LauncherAction {
+/** The panel docked on the right of the dashboard; the DMS owns its state. */
+export function assistantSidePanel(): AssistantSidePanel {
+	return {
+		id: SIDE_PANEL_ID,
+		component: CHAT_PANEL_COMPONENT_NAME,
+		ariaLabel: PANEL_ARIA_LABEL,
+		defaultWidth: PANEL_DEFAULT_WIDTH_PX,
+		minWidth: PANEL_MIN_WIDTH_PX,
+		maxWidth: PANEL_MAX_WIDTH_PX,
+	};
+}
+
+/**
+ * "Assistant (⌘⇧K)": the launcher's label with its shortcut. The DMS toggles
+ * the panel from it and draws it engaged while the panel is open.
+ */
+export function launcherAction(t: Translate): LauncherAction {
 	return {
 		id: LAUNCHER_ACTION_ID,
 		icon: LAUNCHER_ICON,
 		label: `${t(LAUNCHER_LABEL_KEY)} (${shortcutLabel(TOGGLE_SHORTCUT_KEY, true)})`,
 		order: LAUNCHER_ORDER,
-		onSelect,
-		isActive: () => isOpen.value,
+		sidePanelId: SIDE_PANEL_ID,
 	};
 }
 
 /**
- * The assistant's entries in the DMS command palette: the palette has no mode
- * of its own for the assistant, so it offers ways into the panel instead.
+ * The palette's assistant mode (Tab in ⌘K): first prompts that fit the page on
+ * screen, as the panel's empty chat offers them, and an answer drawn by
+ * `DmsAiPaletteAnswer`.
+ */
+export function paletteAssistant(
+	t: Translate,
+	currentPage: Readonly<Ref<CurrentPage | null>>,
+): PaletteAssistant {
+	return {
+		id: COMMAND_PALETTE_ASSISTANT_ID,
+		label: PALETTE_ASSISTANT_LABEL,
+		icon: LAUNCHER_ICON,
+		placeholder: PALETTE_ASSISTANT_PLACEHOLDER,
+		suggestions: () => {
+			const page = currentPage.value;
+			return pageSuggestions(page).map((suggestion) => ({
+				label: t(suggestion.textKey, { page: pageName(page) }),
+				icon: suggestion.icon,
+			}));
+		},
+		answerComponent: PALETTE_ANSWER_COMPONENT_NAME,
+	};
+}
+
+/**
+ * The assistant's commands among the palette's search results: ways into the
+ * panel and its pages. Asking a question inline is the palette's assistant
+ * mode, registered apart.
  */
 export function paletteSource(
 	t: Translate,

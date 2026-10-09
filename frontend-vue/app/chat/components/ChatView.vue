@@ -61,7 +61,6 @@ interface Props {
 	/** The chat's side of the tab's stream, which the dashboard owns. */
 	transport: ChatTransport;
 	intents: PanelIntents;
-	isOpen: boolean;
 	page: CurrentPage | null;
 	/** The sidecar is coming back up: the transcript stays, under a banner. */
 	isReviving: boolean;
@@ -219,8 +218,10 @@ const isEmpty = computed(
 	() => conversation.messages.value.length === 0 && !isRunning.value,
 );
 
+// Sent on the tab's stream itself: the chat's own channel is already closed
+// when the panel unmounts it.
 function leave(conversationId: string): void {
-	channel.send({
+	props.transport.send({
 		type: CLIENT_MESSAGE_TYPES.LEAVE_CONVERSATION,
 		conversationId,
 	});
@@ -356,13 +357,6 @@ watch(
 	{ immediate: true },
 );
 
-watch(
-	() => props.isOpen,
-	(isOpen) => {
-		if (!isOpen) leave(activeId.value);
-	},
-);
-
 function isHistoryCombo(event: KeyboardEvent): boolean {
 	return (
 		(event.metaKey || event.ctrlKey) &&
@@ -372,7 +366,7 @@ function isHistoryCombo(event: KeyboardEvent): boolean {
 }
 
 function onDocumentKeydown(event: KeyboardEvent): void {
-	if (!props.isOpen || !isHistoryCombo(event)) return;
+	if (!isHistoryCombo(event)) return;
 	event.preventDefault();
 	if (isDrawerOpen.value) isDrawerOpen.value = false;
 	else openDrawer();
@@ -420,8 +414,11 @@ onMounted(() => {
 	void nextTick(scrollToBottom);
 });
 
+// The DMS unmounts the panel's content when the panel closes: the chat is
+// left then, which ends a Full auto granted until the chat closes.
 onBeforeUnmount(() => {
 	document.removeEventListener("keydown", onDocumentKeydown);
+	leave(activeId.value);
 });
 </script>
 
@@ -753,13 +750,15 @@ onBeforeUnmount(() => {
 <style>
 /*
  * The panel's tokens, aliases of the dashboard's: violet (Nuxt UI
- * `secondary`) is the AI colour, everything else follows the DMS surfaces in
- * light and dark alike. Shared bits the panel's pieces draw are here too.
+ * `secondary`, tinted by the DMS's assistant tokens) is the AI colour,
+ * everything else follows the DMS surfaces in light and dark alike. Shared
+ * bits the panel's pieces draw are here too.
  */
-.chat-view {
+.chat-view,
+.dms-ai-chat-tokens {
 	--ai: var(--ui-secondary);
-	--ai-tint: color-mix(in oklab, var(--ui-secondary) 12%, transparent);
-	--ai-line: color-mix(in oklab, var(--ui-secondary) 40%, transparent);
+	--ai-tint: var(--dms-assistant-tint);
+	--ai-line: var(--dms-assistant-line);
 	--ai-bg-hover: var(--ui-bg-elevated);
 	--ai-radius-sm: 8px;
 	--ai-radius-md: 10px;
@@ -773,7 +772,9 @@ onBeforeUnmount(() => {
 		"Liberation Mono",
 		monospace
 	);
+}
 
+.chat-view {
 	position: relative;
 	display: flex;
 	flex-direction: column;
@@ -783,18 +784,22 @@ onBeforeUnmount(() => {
 	font-size: 13px;
 }
 
-.chat-view .plus {
+.chat-view .plus,
+.dms-ai-chat-tokens .plus {
 	color: var(--ui-success);
 	font: 600 11.5px var(--ai-font-mono);
 }
 
-.chat-view .minus {
+.chat-view .minus,
+.dms-ai-chat-tokens .minus {
 	color: var(--ui-error);
 	font: 600 11.5px var(--ai-font-mono);
 }
 
 .chat-view .inline-code,
-.chat-view .cb-md code {
+.dms-ai-chat-tokens .inline-code,
+.chat-view .cb-md code,
+.dms-ai-chat-tokens .cb-md code {
 	padding: 1px 5px;
 	border-radius: 4px;
 	background: var(--ui-bg-accented);
@@ -802,7 +807,8 @@ onBeforeUnmount(() => {
 	font: 500 12px var(--ai-font-mono);
 }
 
-.chat-view .spin-ai {
+.chat-view .spin-ai,
+.dms-ai-chat-tokens .spin-ai {
 	display: inline-block;
 	width: 12px;
 	height: 12px;
@@ -820,7 +826,8 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.chat-view .spin-ai {
+	.chat-view .spin-ai,
+	.dms-ai-chat-tokens .spin-ai {
 		animation-duration: 2.4s;
 	}
 }

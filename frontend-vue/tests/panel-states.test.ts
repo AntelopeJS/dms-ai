@@ -1,7 +1,6 @@
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { resetPrefsForTesting } from "../app/runtime/overlay-prefs";
 import {
 	buttonWithText,
 	CONVERSATION_ID,
@@ -128,7 +127,6 @@ beforeEach(() => {
 
 afterEach(() => {
 	unmountPanel();
-	resetPrefsForTesting();
 	localStorage.clear();
 	vi.useRealTimers();
 });
