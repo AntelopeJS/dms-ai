@@ -60,6 +60,9 @@ navigation contract today.
 - Playground: `@antelopejs/dms` `>=0.6.0 <1.0.0`, `@antelopejs/dms-frontend` `0.5.0`,
   `@antelopejs/dms-builder` latest, `@antelopejs/core` `>=1.13.4 <2`.
 - `@antelopejs/interface-api`, `interface-core`, `interface-dms-builder`: latest published ranges.
+- Since dms 0.7 (Q45 to Q48): `@antelopejs/interface-dms` `>=0.5.0 <1.0.0`, engines
+  `@antelopejs/dms-frontend` `>=0.5.1 <0.6.0`, playground `@antelopejs/dms` `>=0.7.1 <1.0.0` and
+  `@antelopejs/dms-frontend` `0.5.1`.
 
 ### Q5. How do component names change with dms-frontend 0.5?
 
@@ -434,9 +437,12 @@ footer.
 
 **Decision:**
 
-- The command palette's "assistant mode" (Tab inside ⌘K) belongs to the DMS's palette, which offers
-  no hook for a second mode. dms-ai registers a palette source instead: "Ask the assistant", "New
-  conversation", "Review approvals", "Open changes".
+- ~~The command palette's "assistant mode" (Tab inside ⌘K) belongs to the DMS's palette, which
+  offers no hook for a second mode.~~ Lifted by dms 0.7 (Q46): the palette has an assistant mode
+  dms-ai fills. The palette source stays for its commands ("Open the assistant", "New
+  conversation", "Review approvals", "Open changes").
+- ~~The panel is a fixed overlay over the page~~ (the DMS had no docked slot). Lifted by dms 0.7
+  (Q45): the panel is docked and the page shrinks next to it.
 - Row counts on destructive cards: the Builder does not report them.
 - The model picker stays read-only ("model chosen by Claude Code"), as the review recommends.
 - Grouped-by-day Activity rows: not available on source tables (Q13).
@@ -480,3 +486,63 @@ browser. Change sets and undo/redo record that actor.
 - A real run: the playground with MongoDB, `@antelopejs/dms` 0.6, `dms-builder`, the dms-ai sidecar
   driven by the repository's mock Claude, exercised in a browser (Playwright) on every page and panel
   state, in light and dark. Bugs found on the way are fixed in this pull request.
+
+---
+
+## 10. Follow-up after dms 0.7
+
+Inputs: `@antelopejs/dms` 0.7.1 and `@antelopejs/interface-dms` 0.5.0 (docked side panels, dms#168;
+the palette's assistant mode, dms#169; permission ancestors and member-open settings, dms#172),
+0.6.1/0.6.2 and interface-dms 0.4.1/0.4.2 (route tokens in block data URLs, dms#170; composed block
+texts, dms#173; cell sub-lines and `two_line`, dms#175), `@antelopejs/dms-frontend` 0.5.1. dms 0.7.0
+on npm needs interface files that only shipped with interface-dms 0.5.0, so the playground asks for
+0.7.1.
+
+### Q45. How does the panel use the docked side panels?
+
+**Decision:** the panel is a DMS side panel (`registerSidePanel`, id `dms-ai:assistant`, 460 px by
+default, 360 to 820 px), registered from a universal plugin in development so a panel left open is
+rendered docked on the first paint and survives reloads and layout switches. The DMS owns the open
+state and the width (its `dms-side-panel` cookie); the plugin drives it through `useSidePanel`
+(⌘⇧K, the toasts, the workspace views) and the header launcher only names it (`sidePanelId`), so the
+DMS draws it engaged. The panel's own fixed positioning, resize handle, outside-click close and
+localStorage preferences are gone. The DMS unmounts the panel's content when it closes: the chat
+sends `leave_conversation` on unmount and picks its conversation up again (hello, snapshot, replay)
+when it reopens. The assistant session is provided from the start as a ref, empty until the first
+probe answers; a probe that finds no assistant withdraws the panel.
+
+### Q46. What does the palette's assistant mode answer?
+
+**Decision:** Tab in ⌘K offers the page's first prompts (the panel's empty-chat suggestions, read-only
+ones first). A submitted prompt mounts `DmsAiPaletteAnswer`, which runs a read-only turn (Plan only,
+Safe mode) in a new conversation through the panel's own transport and conversation logic, drawn by
+the panel's message list. It offers "Continue in the assistant" (opens the panel on that
+conversation; the turn goes on) and Close; closing the palette on a running answer stops its turn.
+A question the agent asks, or a plan to approve, is answered in the panel. The conversation is
+stored like any other and shows in the history.
+
+### Q47. How does the palette's turn share the tab's one stream with the panel?
+
+A sidecar socket follows one conversation: a second chat's `hello` would take the panel's away.
+
+**Decision:** one protocol addition: `hello` with `follow: true` adds the socket to the
+conversation's recipients without leaving the one it shows; opening another conversation keeps the
+follow, closing the socket ends it (unit and integration tests in the sidecar). The palette holds
+the stream open while it answers (`holdStream`), as an open panel or a busy chat do.
+
+### Q48. Which other 0.6.1 to 0.7 changes apply?
+
+**Decision:**
+
+- Activity's "Action" column is a `two_line` cell: the tool's label and icon over its target, a
+  per-row `CellSubline` the route writes in red for a destructive tool (dms#175).
+- Settings › Usage composes the biggest conversation's token count (`ComposedText` with a `count`)
+  rather than a bare number (dms#173).
+- Permission ancestors (dms#172): the pages and blocks declare no permission list of their own (ids
+  are derived, roles are saved through the role editor, which completes ancestors), the playground
+  seeds no role, and the routes stay `@AuthOwnerOnly()` (Q11). Nothing to change; the interface's
+  removals (`ResolveNavBadges`, `skipEmailValidation`, unseen notification counts) are unused here.
+- Route tokens in block data URLs (dms#170): no page reads a URL parameter through a block.
+- The panel, the palette answer and the Overview status card take `--dms-assistant-tint` and
+  `--dms-assistant-line` where they meant the assistant's violet.
+
