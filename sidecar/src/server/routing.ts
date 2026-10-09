@@ -140,6 +140,10 @@ function registerSocket(
     ctx.chatSocketRegistry.addChat(socket);
     return;
   }
+  if (msg.follow === true) {
+    ctx.chatSocketRegistry.follow(msg.conversationId, socket);
+    return;
+  }
   ctx.chatSocketRegistry.set(msg.conversationId, socket);
 }
 

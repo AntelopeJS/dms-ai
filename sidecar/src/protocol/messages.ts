@@ -65,6 +65,9 @@ export const ClientHelloMsg = z.object({
   type: z.literal(MESSAGE_TYPES.HELLO),
   role: z.enum(ROLES),
   conversationId: z.string().optional(),
+  // A chat that follows the conversation next to the one its socket shows
+  // (the command palette's answer): the socket keeps receiving both.
+  follow: z.boolean().optional(),
 });
 
 export const EchoMsg = z.object({
