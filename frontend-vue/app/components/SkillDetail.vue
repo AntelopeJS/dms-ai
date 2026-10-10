@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { renderMarkdown } from "../chat/utils/markdown";
-import FactStrip from "../views/FactStrip.vue";
 import RowStepper from "../views/RowStepper.vue";
 import { useAssistant } from "../views/composables/useAssistant";
 import { useViewFormat } from "../views/composables/useViewFormat";
-import type { Fact, RowNavigation, SkillRow } from "../views/types";
+import type { RowNavigation, SkillRow } from "../views/types";
 import { skillLook } from "../views/utils/skills";
 
 interface Props {
@@ -23,14 +22,23 @@ const skill = computed(() => props.rowData);
 const look = computed(() => (skill.value ? skillLook(skill.value) : null));
 const html = computed(() => renderMarkdown(skill.value?.body ?? ""));
 
-const facts = computed<Fact[]>(() => {
+const facts = computed(() => {
 	const current = skill.value;
-	if (!current) return [];
+	if (!current || !look.value) return [];
 	return [
 		{
 			id: "source",
 			label: t("dms_ai.views.skills.source_label"),
 			value: t(`dms_ai.views.skills.source.${current.source}`),
+			type: "status" as const,
+			tone: look.value.badgeTone,
+		},
+		{
+			id: "origin",
+			label: t("dms_ai.views.skills.origin_label"),
+			value: current.origin,
+			type: "mono" as const,
+			copy: true,
 		},
 		{
 			id: "used",
@@ -87,7 +95,7 @@ function openLastConversation(): void {
 			"
 		/>
 
-		<FactStrip :facts="facts" :columns="3" framed />
+		<DmsKeyValueList :items="facts" />
 
 		<p class="text-muted text-[13px] leading-relaxed">
 			{{ skill.description }}

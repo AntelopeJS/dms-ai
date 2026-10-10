@@ -152,6 +152,7 @@
 				"uses": "{count} utilisation | {count} utilisations",
 				"never_used": "jamais utilisée",
 				"source_label": "Source",
+				"origin_label": "Origine",
 				"used_label": "Utilisée",
 				"used_value": "{count}× · 30 jours",
 				"last_used_label": "Dernière utilisation",

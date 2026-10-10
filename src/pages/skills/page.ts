@@ -21,7 +21,7 @@ import {
   vocabularyOptions,
   vocabularyTones,
 } from "../../vocabulary";
-import { blockMeta, pageMenu } from "../meta";
+import { blockMeta, pageMenu, ROW_DRAWER_DIRECTION } from "../meta";
 
 const SECTION = I18N_SECTIONS.SKILLS;
 const CARDS_DISPLAY = "cards";
@@ -138,6 +138,7 @@ export class AISkillsPage extends PageController(
               blockMeta("skills.detail", "i-ph-sidebar-simple"),
             ),
             title: text("detail", "title"),
+            direction: ROW_DRAWER_DIRECTION,
           },
         },
       ],

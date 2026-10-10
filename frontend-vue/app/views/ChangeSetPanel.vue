@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import DiffView from "./DiffView.vue";
-import FactStrip from "./FactStrip.vue";
 import UndoDialog from "./UndoDialog.vue";
 import UnavailableState from "./UnavailableState.vue";
 import { useAiRequest } from "./composables/useAiRequest";
@@ -9,11 +8,11 @@ import { useAssistant } from "./composables/useAssistant";
 import { useChangeSetActions } from "./composables/useChangeSetActions";
 import { useViewFormat } from "./composables/useViewFormat";
 import { AI_ROUTES } from "./constants";
+import type { Tone } from "#dms-ui/app/types/tone";
 import type {
 	ChangeSetDetail,
 	ChangeSetSummary,
 	Fact,
-	FactTone,
 	TypecheckOutcome,
 	UndoPreview,
 } from "./types";
@@ -52,7 +51,8 @@ const changeSet = computed<ChangeSetSummary | null>(
 );
 const isUndone = computed(() => changeSet.value?.state === "undone");
 
-const TYPECHECK_FACT_TONES: Record<TypecheckOutcome, FactTone | undefined> = {
+const FACT_COLUMNS = 2;
+const TYPECHECK_FACT_TONES: Record<TypecheckOutcome, Tone | undefined> = {
 	passed: "success",
 	failed: "error",
 	skipped: undefined,
@@ -216,7 +216,9 @@ function openPage(): void {
 				:title="t('dms_ai.views.changes.overlapped')"
 			/>
 		</div>
-		<FactStrip :facts="facts" />
+		<div class="border-default border-t px-5">
+			<DmsKeyValueList :items="facts" :columns="FACT_COLUMNS" dense />
+		</div>
 		<DiffView :files="detail.data.value?.files ?? []" variant="flush" />
 		<footer
 			class="border-default text-muted bg-(--dms-bg-muted) flex items-center gap-2 border-t px-5 py-3 text-[12.5px]"

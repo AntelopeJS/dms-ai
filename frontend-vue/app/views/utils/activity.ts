@@ -10,6 +10,8 @@ export interface ArgumentItem {
 	label: string;
 	value: string;
 	type: "mono";
+	/** The whole value, which the row's copy button copies. */
+	copyValue: string;
 }
 
 const MAX_ARGUMENT_CHARS = 240;
@@ -40,16 +42,20 @@ function stringifyArgument(value: unknown): string {
 	}
 }
 
-/** A call's arguments, one row per name, long values cut short. */
+/** A call's arguments, one row per name, long values cut short but copied whole. */
 export function argumentItems(
 	args: Record<string, unknown> | undefined,
 ): ArgumentItem[] {
-	return Object.entries(args ?? {}).map(([name, value]) => ({
-		id: name,
-		label: name,
-		value: shorten(stringifyArgument(value)),
-		type: "mono",
-	}));
+	return Object.entries(args ?? {}).map(([name, value]) => {
+		const text = stringifyArgument(value);
+		return {
+			id: name,
+			label: name,
+			value: shorten(text),
+			type: "mono",
+			copyValue: text,
+		};
+	});
 }
 
 /** The call's output text, whichever key the route sent it under. */

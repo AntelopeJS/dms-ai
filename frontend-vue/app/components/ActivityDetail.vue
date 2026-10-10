@@ -2,7 +2,6 @@
 import { computed, ref, watch } from "vue";
 import DecisionLabel from "../views/DecisionLabel.vue";
 import DiffView from "../views/DiffView.vue";
-import FactStrip from "../views/FactStrip.vue";
 import RowStepper from "../views/RowStepper.vue";
 import ResultPill from "../views/ResultPill.vue";
 import UnavailableState from "../views/UnavailableState.vue";
@@ -13,7 +12,6 @@ import { AI_PAGES, AI_ROUTES, CHANGE_SET_QUERY_KEY } from "../views/constants";
 import type {
 	ActivityDetailPayload,
 	ActivityRow,
-	Fact,
 	RowNavigation,
 } from "../views/types";
 import {
@@ -37,6 +35,9 @@ const { moment, toolLabel, clock } = useViewFormat();
 const assistant = useAssistant();
 const detail = useAiRequest<ActivityDetailPayload>();
 const isRawShown = ref(false);
+
+const OUTPUT_MAX_LINES = 14;
+const RAW_MAX_LINES = 20;
 
 const rowId = computed(() => props.rowData?.id ?? props.rowData?._id);
 
@@ -66,9 +67,9 @@ const heading = computed(() => {
 	return current.target ? `${label} · ${current.target}` : label;
 });
 
-const facts = computed<Fact[]>(() => [
-	{ id: "allowed", label: t("dms_ai.views.activity.allowed"), value: "" },
-	{ id: "result", label: t("dms_ai.views.activity.result"), value: "" },
+const facts = computed(() => [
+	{ id: "allowed", label: t("dms_ai.views.activity.allowed") },
+	{ id: "result", label: t("dms_ai.views.activity.result") },
 ]);
 
 const args = computed(() => argumentItems(detail.data.value?.args));
@@ -107,10 +108,10 @@ function openConversation(): void {
 			</div>
 		</header>
 
-		<FactStrip :facts="facts" :columns="2" framed>
-			<template #value="{ fact }">
+		<DmsKeyValueList :items="facts">
+			<template #value="{ item }">
 				<DecisionLabel
-					v-if="fact.id === 'allowed'"
+					v-if="item.id === 'allowed'"
 					:allowed-by="row.allowedBy"
 				/>
 				<ResultPill
@@ -120,7 +121,7 @@ function openConversation(): void {
 					:change-set-number="row.changeSetNumber"
 				/>
 			</template>
-		</FactStrip>
+		</DmsKeyValueList>
 
 		<UnavailableState
 			v-if="detail.failure.value"
@@ -170,9 +171,11 @@ function openConversation(): void {
 
 			<section v-if="output" class="flex flex-col gap-2">
 				<DmsEyebrow :label="t('dms_ai.views.activity.output')" />
-				<pre
-					class="border-default text-toned bg-(--dms-bg-field) max-h-72 overflow-auto whitespace-pre-wrap rounded-md border p-3 font-mono text-[11.5px]"
-					v-text="output"
+				<DmsCodeSnippet
+					:code="output"
+					language="text"
+					:max-lines="OUTPUT_MAX_LINES"
+					wrap
 				/>
 			</section>
 
@@ -193,10 +196,11 @@ function openConversation(): void {
 					"
 					@click="isRawShown = !isRawShown"
 				/>
-				<pre
+				<DmsCodeSnippet
 					v-if="isRawShown"
-					class="border-default text-toned bg-(--dms-bg-field) max-h-96 overflow-auto rounded-md border p-3 font-mono text-[11.5px]"
-					v-text="rawJson"
+					:code="rawJson"
+					language="json"
+					:max-lines="RAW_MAX_LINES"
 				/>
 			</div>
 		</template>

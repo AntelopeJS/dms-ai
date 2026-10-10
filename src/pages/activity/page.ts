@@ -11,7 +11,7 @@ import {
   PAGE_ROUTES,
 } from "../../constants/pages";
 import { ACTIVITY_CATEGORIES, i18nKey } from "../../vocabulary";
-import { blockMeta, pageMenu } from "../meta";
+import { blockMeta, pageMenu, ROW_DRAWER_DIRECTION } from "../meta";
 import { ACTIVITY_COLUMNS } from "./columns";
 
 const SECTION = I18N_SECTIONS.ACTIVITY;
@@ -88,6 +88,7 @@ export class AIActivityPage extends PageController(
             type: "drawer",
             component: DETAIL_DRAWER,
             title: text("detail", "title"),
+            direction: ROW_DRAWER_DIRECTION,
           },
         },
       ],

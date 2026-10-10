@@ -1,3 +1,5 @@
+import type { Tone } from "#dms-ui/app/types/tone";
+
 export type AgentId = "claude" | "codex";
 export type ScopeId = "safe" | "vibe";
 export type ApprovalMode = "normal" | "acceptEdits" | "plan" | "auto";
@@ -191,12 +193,10 @@ export interface RowNavigation {
 	next: () => void;
 }
 
-/** One fact of a FactStrip: a mono eyebrow over a short value. */
+/** One fact of a change set, a row of a DmsKeyValueList. */
 export interface Fact {
 	id: string;
 	label: string;
 	value: string;
-	tone?: FactTone;
+	tone?: Tone;
 }
-
-export type FactTone = "success" | "warning" | "error" | "secondary";
