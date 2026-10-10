@@ -15,8 +15,8 @@ importers:
         specifier: '>=0.1.1 <1.0.0'
         version: 0.1.1
       '@antelopejs/interface-dms':
-        specifier: '>=0.5.0 <1.0.0'
-        version: 0.5.0(5d2d4df9673a4746cb75166417c0c5b9)
+        specifier: '>=0.5.1 <1.0.0'
+        version: 0.5.1(5d2d4df9673a4746cb75166417c0c5b9)
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.2.131
         version: 0.2.141(zod@4.5.4)
@@ -122,8 +122,8 @@ packages:
     peerDependencies:
       '@antelopejs/interface-core': '>=0.1.1 <1.0.0'
 
-  '@antelopejs/interface-dms@0.5.0':
-    resolution: {integrity: sha512-qhsMCgKt33mrUZ7YqLMCl97MhjhDBR+TmMEwPsPzTQBjl4YWgd92buUUOkOTNCSmbmiPf6IT/C9oEw5fI/NDWQ==}
+  '@antelopejs/interface-dms@0.5.1':
+    resolution: {integrity: sha512-acOlQ/RLKAeYT7C1aXaW/rENCY3LhuzrwynnsM60jRI+CGuuzDq7VEal4kj0g/2S40cdVXD1TV1fAznAP43/eQ==}
     peerDependencies:
       '@antelopejs/interface-api': '>=0.0.13 <1.0.0'
       '@antelopejs/interface-api-util': '>=0.1.2 <1.0.0'
@@ -2329,7 +2329,7 @@ snapshots:
       '@antelopejs/interface-core': 0.1.1
     optional: true
 
-  '@antelopejs/interface-dms@0.5.0(5d2d4df9673a4746cb75166417c0c5b9)':
+  '@antelopejs/interface-dms@0.5.1(5d2d4df9673a4746cb75166417c0c5b9)':
     dependencies:
       '@antelopejs/interface-api': 0.0.14(@antelopejs/interface-core@0.1.1)
       '@antelopejs/interface-api-util': 0.1.2(@antelopejs/interface-api@0.0.14(@antelopejs/interface-core@0.1.1))(@antelopejs/interface-core@0.1.1)
