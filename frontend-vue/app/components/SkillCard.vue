@@ -6,12 +6,14 @@ import { skillLook } from "../views/utils/skills";
 interface Props {
 	row: SkillRow;
 	selected?: boolean;
+	select?: (value?: boolean) => void;
 	open?: () => void;
 	actions?: object;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	selected: false,
+	select: undefined,
 	open: undefined,
 	actions: undefined,
 });
@@ -44,7 +46,6 @@ const uses = computed(() =>
 		:tone="look.tone"
 		:title="props.row.name"
 		:subtitle="props.row.origin"
-		:badge="badge"
 		:description="props.row.description"
 		:tags="props.row.tags"
 		:meta="uses"
@@ -52,5 +53,25 @@ const uses = computed(() =>
 		:muted="props.row.isShadowed"
 		interactive
 		@open="props.open?.()"
-	/>
+	>
+		<!-- The aside slot replaces the badge: keep it and add the TableView
+		selection checkbox, which a custom card has to draw itself. -->
+		<template #aside>
+			<div class="flex shrink-0 items-center gap-2">
+				<DmsStatusPill
+					:label="badge.label"
+					:tone="badge.tone"
+					dot="none"
+					size="sm"
+				/>
+				<UCheckbox
+					v-if="props.select"
+					:model-value="props.selected"
+					:aria-label="props.row.name"
+					@click.stop
+					@update:model-value="props.select?.(!!$event)"
+				/>
+			</div>
+		</template>
+	</DmsRecordCard>
 </template>
