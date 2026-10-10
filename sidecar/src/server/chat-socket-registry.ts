@@ -4,15 +4,27 @@ import type { AnyServerEventType } from "../protocol/events.js";
 
 export interface ChatSocketRegistry {
   set: (conversationId: string, socket: WebSocket) => void;
+  /**
+   * The socket also receives the conversation's events, whatever it shows:
+   * opening another conversation does not drop it, only closing the socket.
+   */
+  follow: (conversationId: string, socket: WebSocket) => void;
+  /** A chat socket attached to no conversation yet (still reached by broadcast). */
+  addChat: (socket: WebSocket) => void;
   clear: (socket: WebSocket) => void;
+  /** Every socket showing the conversation: one per open tab. */
   send: (conversationId: string, event: AnyServerEventType) => void;
+  /** Every chat socket, attached to a conversation or not. */
   broadcast: (event: AnyServerEventType) => void;
   has: (conversationId: string) => boolean;
+  /** The socket that most recently opened the conversation, else one following it. */
   socketOf: (conversationId: string) => WebSocket | undefined;
 }
 
 interface RegistryState {
-  byConversation: Map<string, WebSocket>;
+  byConversation: Map<string, Set<WebSocket>>;
+  followers: Map<string, Set<WebSocket>>;
+  chats: Set<WebSocket>;
 }
 
 function trySend(socket: WebSocket, event: AnyServerEventType): void {
@@ -24,56 +36,80 @@ function trySend(socket: WebSocket, event: AnyServerEventType): void {
   }
 }
 
-function removeSocket(state: RegistryState, socket: WebSocket): void {
-  for (const [id, current] of state.byConversation) {
-    if (current === socket) state.byConversation.delete(id);
+function removeFrom(map: Map<string, Set<WebSocket>>, socket: WebSocket): void {
+  for (const [id, sockets] of map) {
+    sockets.delete(socket);
+    if (sockets.size === 0) map.delete(id);
   }
 }
 
-function buildSet(state: RegistryState) {
-  return (conversationId: string, socket: WebSocket): void => {
-    // A socket maps to exactly one active conversation: drop any prior
-    // mapping for this socket so events from the conversation the user
-    // switched away from stop streaming here (they keep buffering in
-    // liveTurns and replay on switch-back).
-    removeSocket(state, socket);
-    state.byConversation.set(conversationId, socket);
-  };
+function addTo(
+  map: Map<string, Set<WebSocket>>,
+  conversationId: string,
+  socket: WebSocket,
+): void {
+  const sockets = map.get(conversationId) ?? new Set();
+  sockets.delete(socket);
+  sockets.add(socket);
+  map.set(conversationId, sockets);
 }
 
-function buildClear(state: RegistryState) {
-  return (socket: WebSocket): void => {
-    removeSocket(state, socket);
-  };
+/** Every socket the conversation's events go to, each once. */
+function recipients(
+  state: RegistryState,
+  conversationId: string,
+): Set<WebSocket> {
+  return new Set([
+    ...(state.byConversation.get(conversationId) ?? []),
+    ...(state.followers.get(conversationId) ?? []),
+  ]);
 }
 
-function buildSend(state: RegistryState) {
-  return (conversationId: string, event: AnyServerEventType): void => {
-    const socket = state.byConversation.get(conversationId);
-    if (socket === undefined) return;
-    trySend(socket, event);
-  };
-}
-
-function buildBroadcast(state: RegistryState) {
-  return (event: AnyServerEventType): void => {
-    const seen = new Set<WebSocket>();
-    for (const socket of state.byConversation.values()) {
-      if (seen.has(socket)) continue;
-      seen.add(socket);
-      trySend(socket, event);
-    }
-  };
+// A socket maps to exactly one active conversation: drop any prior mapping
+// for this socket so events from the conversation the user switched away from
+// stop streaming here (they keep buffering in liveTurns and replay on
+// switch-back). Other tabs on the same conversation keep receiving.
+function attach(
+  state: RegistryState,
+  conversationId: string,
+  socket: WebSocket,
+): void {
+  removeFrom(state.byConversation, socket);
+  addTo(state.byConversation, conversationId, socket);
+  state.chats.add(socket);
 }
 
 export function createChatSocketRegistry(): ChatSocketRegistry {
-  const state: RegistryState = { byConversation: new Map() };
+  const state: RegistryState = {
+    byConversation: new Map(),
+    followers: new Map(),
+    chats: new Set(),
+  };
   return {
-    set: buildSet(state),
-    clear: buildClear(state),
-    send: buildSend(state),
-    broadcast: buildBroadcast(state),
+    set: (conversationId, socket) => attach(state, conversationId, socket),
+    follow: (conversationId, socket) => {
+      addTo(state.followers, conversationId, socket);
+      state.chats.add(socket);
+    },
+    addChat: (socket) => {
+      state.chats.add(socket);
+    },
+    clear: (socket) => {
+      removeFrom(state.byConversation, socket);
+      removeFrom(state.followers, socket);
+      state.chats.delete(socket);
+    },
+    send: (conversationId, event) => {
+      for (const socket of recipients(state, conversationId)) {
+        trySend(socket, event);
+      }
+    },
+    broadcast: (event) => {
+      for (const socket of state.chats) trySend(socket, event);
+    },
     has: (conversationId) => state.byConversation.has(conversationId),
-    socketOf: (conversationId) => state.byConversation.get(conversationId),
+    socketOf: (conversationId) =>
+      [...(state.byConversation.get(conversationId) ?? [])].at(-1) ??
+      [...(state.followers.get(conversationId) ?? [])].at(-1),
   };
 }

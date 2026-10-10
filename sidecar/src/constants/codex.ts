@@ -6,7 +6,7 @@ import { MCP_SERVER_KEY } from "./mcp.js";
 // the workflow it tells the agent to follow.
 export const SAFE_MODE_SKILL_NAME = "dms-builder-safe";
 export const SAFE_MODE_SKILL_MISSING_WARNING = `the ${SAFE_MODE_SKILL_NAME} skill is missing from the Codex skill index; safe-mode turns will fail on this session`;
-export const SAFE_MODE_SKILL_MISSING_MESSAGE = `[dms-ai] safe mode needs the ${SAFE_MODE_SKILL_NAME} skill, which is missing from the Codex skill index. Switch to Vibe mode, or check that dms-builder ships its skills.`;
+export const SAFE_MODE_SKILL_MISSING_MESSAGE = `[dms-ai] safe mode needs the ${SAFE_MODE_SKILL_NAME} skill, which is missing from the Codex skill index. Switch to Code mode, or check that dms-builder ships its skills.`;
 
 // Scopes Codex populates on its own. A fresh CODEX_HOME already carries six
 // system skills; none of them are part of this product, and they compete for
@@ -153,7 +153,7 @@ export const CODEX_DENIAL_REMINDER_THRESHOLD = 2;
 // by thread/start, and restarting the thread to re-say something would throw the
 // conversation's context away to deliver it.
 export const CODEX_DENIAL_REMINDER_TEMPLATE =
-  "You have been refused %count% times in a row. Retrying the same write through another route will be refused again: use the Builder tools, or tell the user the change needs Vibe mode.";
+  "You have been refused %count% times in a row. Retrying the same write through another route will be refused again: use the Builder tools, or tell the user the change needs Code mode.";
 export const CODEX_DENIAL_REMINDER_COUNT_TOKEN = "%count%";
 
 // Codex accepts text, image URLs and local image paths, but has no PDF input.

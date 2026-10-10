@@ -1,5 +1,4 @@
 import path from "node:path";
-import { effectiveChatMode } from "../../agent/effective-mode.js";
 import { effectiveGenerationMode } from "../../builder/capability.js";
 import {
   CODEX_AUTH_MODE_API_KEY,
@@ -9,6 +8,7 @@ import {
   CODEX_MCP_SERVER_ID,
   CODEX_MCP_TOKEN_ENV_VAR,
 } from "../../constants/codex.js";
+import { MCP_TOOL_TIMEOUT_SEC } from "../../constants/mcp.js";
 import { SAFE_MODE_DENIED_MESSAGE } from "../../constants/settings.js";
 import type {
   AppSettings,
@@ -55,16 +55,6 @@ export const CODEX_MODE_POLICIES: Record<ChatMode, CodexModePolicy> = {
     networkAccess: false,
     writable: false,
     autoDeclineEscalations: true,
-  },
-  // Full access writes everywhere by definition; `writable` is not read for
-  // this sandbox, and saying false would describe a restriction that is not
-  // there.
-  auto: {
-    approvalPolicy: "never",
-    sandbox: "danger-full-access",
-    networkAccess: true,
-    writable: true,
-    autoDeclineEscalations: false,
   },
 };
 
@@ -113,13 +103,13 @@ function buildSandboxPolicy(
 }
 
 /**
- * Policy in force for a conversation, read from the mode in force (safe mode
- * caps *Auto* at `acceptEdits`). Safe mode also pins the sandbox to read-only
+ * Policy in force for a conversation, read from its mode (Full auto already
+ * folded in, see agent/effective-mode.ts). Safe mode pins the sandbox to read-only
  * whatever the chat mode says: the Builder MCP tools write through the host
  * over HTTP, so they are outside the sandbox and keep working.
  */
 export function resolveModePolicy(settings: AppSettings): CodexModePolicy {
-  const base = CODEX_MODE_POLICIES[effectiveChatMode(settings)];
+  const base = CODEX_MODE_POLICIES[settings.mode];
   // Through effectiveGenerationMode, as the Claude path does: safe mode without
   // the Builder loaded has no write route at all, so it degrades to vibe rather
   // than declining everything.
@@ -174,6 +164,9 @@ export function buildConfigToml(input: CodexConfigInput): string {
     `[mcp_servers.${CODEX_MCP_SERVER_ID}]`,
     `url = ${tomlString(input.mcpUrl)}`,
     `bearer_token_env_var = ${tomlString(CODEX_MCP_TOKEN_ENV_VAR)}`,
+    // Codex abandons a tool call after 60 s by default; AskUser and the
+    // Builder deletion gate wait on the user for much longer.
+    `tool_timeout_sec = ${MCP_TOOL_TIMEOUT_SEC}`,
     "",
     // Keeps the host project's own .codex layers out of the session, mirroring
     // `settingSources: []` on the Claude path.

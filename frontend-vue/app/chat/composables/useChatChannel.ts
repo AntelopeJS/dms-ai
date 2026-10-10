@@ -11,6 +11,12 @@ import {
 export interface UseChatChannelOptions {
 	transport: ChatTransport;
 	getConversationId: () => string;
+	/**
+	 * Follows the conversation next to the one the tab's stream shows, rather
+	 * than switching it: the command palette's answer, while the panel keeps
+	 * its own chat.
+	 */
+	isFollowing?: boolean;
 }
 
 export type ChannelMessageHandler = (msg: unknown) => void;
@@ -43,10 +49,12 @@ function setStatus(state: ChannelState, status: string): void {
 }
 
 function sendHello(state: ChannelState): void {
-	state.options.transport.send({
+	const { transport, getConversationId, isFollowing } = state.options;
+	transport.send({
 		type: CLIENT_MESSAGE_TYPES.HELLO,
 		role: CHAT_ROLE,
-		conversationId: state.options.getConversationId(),
+		conversationId: getConversationId(),
+		...(isFollowing === true ? { follow: true } : {}),
 	});
 }
 

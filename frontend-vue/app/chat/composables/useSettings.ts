@@ -1,9 +1,6 @@
 import { type Ref, ref } from "vue";
-import { DEFAULT_SETTINGS } from "../constants/settings";
-import {
-	CLIENT_MESSAGE_TYPES,
-	SERVER_EVENT_TYPES,
-} from "../constants/protocol";
+import { DEFAULT_SETTINGS, STORABLE_MODES } from "../constants/settings";
+import { SERVER_EVENT_TYPES } from "../constants/protocol";
 import type {
 	AppSettings,
 	ProviderAvailability,
@@ -11,57 +8,46 @@ import type {
 } from "../types/settings";
 
 export interface UseSettingsOptions {
-	send: (msg: object) => void;
 	onMessage: (handler: (msg: unknown) => void) => () => void;
 }
 
 export interface UseSettingsResult {
 	settings: Ref<AppSettings>;
-	update: (next: Partial<AppSettings>) => void;
 }
 
 interface SettingsUpdateEvent {
 	type: typeof SERVER_EVENT_TYPES.SETTINGS_UPDATE;
-	settings: AppSettings;
+	settings?: Partial<AppSettings>;
 	builderAvailable?: boolean;
 	providers?: Record<ProviderName, ProviderAvailability>;
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === "object";
+function isSettingsUpdate(msg: unknown): msg is SettingsUpdateEvent {
+	if (msg === null || typeof msg !== "object") return false;
+	return Reflect.get(msg, "type") === SERVER_EVENT_TYPES.SETTINGS_UPDATE;
 }
 
-function getEventType(msg: unknown): string | null {
-	if (!isObject(msg)) return null;
-	const t = msg.type;
-	return typeof t === "string" ? t : null;
+/** The pushed settings over the defaults, with a legacy `auto` mode read as normal. */
+export function readSettings(event: SettingsUpdateEvent): AppSettings {
+	const merged: AppSettings = {
+		...DEFAULT_SETTINGS,
+		...event.settings,
+		builderAvailable: event.builderAvailable ?? false,
+		providers: event.providers ?? DEFAULT_SETTINGS.providers,
+	};
+	if (!STORABLE_MODES.includes(merged.mode))
+		merged.mode = DEFAULT_SETTINGS.mode;
+	return merged;
 }
 
+/** The sidecar's settings, as it pushes them; the Settings page edits them. */
 export function useSettings(options: UseSettingsOptions): UseSettingsResult {
 	const settings = ref<AppSettings>({ ...DEFAULT_SETTINGS });
 
 	options.onMessage((msg: unknown): void => {
-		if (getEventType(msg) !== SERVER_EVENT_TYPES.SETTINGS_UPDATE) return;
-		const event = msg as SettingsUpdateEvent;
-		settings.value = {
-			...event.settings,
-			builderAvailable: event.builderAvailable ?? false,
-			providers: event.providers ?? DEFAULT_SETTINGS.providers,
-		};
+		if (!isSettingsUpdate(msg)) return;
+		settings.value = readSettings(msg);
 	});
 
-	const update = (partial: Partial<AppSettings>): void => {
-		const next: AppSettings = { ...settings.value, ...partial };
-		settings.value = next;
-		options.send({
-			type: CLIENT_MESSAGE_TYPES.SET_SETTINGS,
-			provider: next.provider,
-			mode: next.mode,
-			thinking: next.thinking,
-			generationMode: next.generationMode,
-			allowLocalSkills: next.allowLocalSkills,
-		});
-	};
-
-	return { settings, update };
+	return { settings };
 }

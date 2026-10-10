@@ -1,7 +1,20 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import {
+	computed,
+	nextTick,
+	onBeforeUnmount,
+	onMounted,
+	ref,
+	watch,
+} from "vue";
 import type { ChatTransport } from "../../runtime/chat-transport";
+import type { PanelIntent, PanelIntents } from "../../runtime/panel-intents";
+import {
+	useChangeSetActions,
+	type ChatApi,
+} from "../composables/useChangeSetActions";
 import { useChatChannel } from "../composables/useChatChannel";
+import { useChatI18n } from "../composables/useChatI18n";
 import { useConversation } from "../composables/useConversation";
 import {
 	newConversationId,
@@ -9,45 +22,49 @@ import {
 	resolveConversationId,
 } from "../composables/useConversationId";
 import { useConversationList } from "../composables/useConversationList";
+import { useConversationMode } from "../composables/useConversationMode";
 import { usePermissionQueue } from "../composables/usePermissionQueue";
 import { useQuestionQueue } from "../composables/useQuestionQueue";
+import { useQueueActions } from "../composables/useQueueActions";
 import { useRunClock } from "../composables/useRunClock";
 import { useSettings } from "../composables/useSettings";
-import { TOGGLE_DRAWER_LABEL } from "../constants/conversation-drawer";
+import { EXIT_PLAN_MODE_TOOL_NAME } from "../constants/conversation";
 import {
-	type ConnectionStatus,
+	ACTIVITY_PAGE_PATH,
+	CHANGE_SET_QUERY_KEY,
+	CHANGES_PAGE_PATH,
+	CLIENT_MESSAGE_TYPES,
 	SERVER_EVENT_TYPES,
 	SETTINGS_PAGE_PATH,
 } from "../constants/protocol";
-import {
-	MODE_HINTS,
-	MODE_OPTIONS,
-	MODE_SECTION_LABEL,
-	OPEN_SETTINGS_LABEL,
-	PROVIDER_BUSY_HINT,
-	PROVIDER_OPTIONS,
-	PROVIDER_SECTION_LABEL,
-	PROVIDER_SWITCH_CONFIRM,
-	PROVIDER_SWITCH_WARNING,
-	PROVIDER_UNAVAILABLE_PREFIX,
-	SAFE_MODE_MODE_NOTE,
-} from "../constants/settings";
-import type { ChatMode, ProviderName } from "../types/settings";
+import type { ConversationSummary, CurrentPage } from "../types/conversation";
+import type { ExpiredRequest } from "../types/permission";
+import type { QuestionReply } from "../types/question";
 import type { PendingAttachment } from "../utils/attachments";
-import { isRunStalled } from "../utils/run-status";
+import { formatClock, formatTokens } from "../utils/format";
+import { isRunStalled, runElapsedMs } from "../utils/run-status";
+import { bareToolName } from "../utils/tool-lexicon";
 import { latestTodos } from "../utils/todos";
-import ComposerInput from "./ComposerInput.vue";
+import ApprovalDock from "./ApprovalDock.vue";
+import ChatEmpty from "./ChatEmpty.vue";
+import Composer from "./Composer.vue";
 import ConnectionBanner from "./ConnectionBanner.vue";
 import ConversationDrawer from "./ConversationDrawer.vue";
+import FullAutoBanner from "./FullAutoBanner.vue";
 import MessageList from "./MessageList.vue";
-import PermissionRequests from "./PermissionRequests.vue";
-import QuestionPrompt from "./QuestionPrompt.vue";
-import QueuedMessages from "./QueuedMessages.vue";
-import TodoList from "./TodoList.vue";
+import PanelHeader, { type PanelStatusKind } from "./PanelHeader.vue";
+import QuestionDock from "./QuestionDock.vue";
+import QueueDock from "./QueueDock.vue";
+import StepsDock from "./StepsDock.vue";
 
 interface Props {
 	/** The chat's side of the tab's stream, which the dashboard owns. */
 	transport: ChatTransport;
+	intents: PanelIntents;
+	page: CurrentPage | null;
+	/** The sidecar is coming back up: the transcript stays, under a banner. */
+	isReviving: boolean;
+	api: ChatApi | null;
 }
 
 interface Emits {
@@ -55,25 +72,26 @@ interface Emits {
 	navigate: [path: string];
 }
 
-const props = defineProps<Props>();
-const emit = defineEmits<Emits>();
-
-const ASSISTANT_ICON = "i-ph-robot";
-const TOGGLE_DRAWER_ICON = "i-ph-list-light";
-const OPEN_SETTINGS_ICON = "i-ph-gear-six-light";
-const CLOSE_PANEL_ICON = "i-ph-x-light";
-
-const MODE_BAR_SELECT_UI = { content: "min-w-fit" };
-
-function isObject(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === "object";
+interface FocusableComposer {
+	focus: () => void;
+	setDraft: (text: string) => void;
 }
 
-const STATUS_LABEL_BY_STATE: Record<ConnectionStatus, string> = {
-	connecting: "connecting…",
-	connected: "connected",
-	reconnecting: "reconnecting…",
-	disconnected: "disconnected",
+interface FocusableDock {
+	focusRequest: (requestId: string) => void;
+}
+
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
+const { t } = useChatI18n();
+
+const HISTORY_KEY = "j";
+const ESCAPE_KEY = "Escape";
+const SCROLL_STICKY_THRESHOLD_PX = 80;
+const NAVIGATION_TARGETS: Record<string, string> = {
+	changes: CHANGES_PAGE_PATH,
+	activity: ACTIVITY_PAGE_PATH,
+	settings: SETTINGS_PAGE_PATH,
 };
 
 const activeId = ref(resolveConversationId());
@@ -81,121 +99,143 @@ const channel = useChatChannel({
 	transport: props.transport,
 	getConversationId: () => activeId.value,
 });
-const permissionQueue = usePermissionQueue({ send: channel.send });
-const questionQueue = useQuestionQueue({ send: channel.send });
-const conversation = useConversation({
+const queueOptions = {
 	activeId,
 	send: channel.send,
 	onMessage: channel.onMessage,
-	onPermissionRequest: permissionQueue.enqueue,
-	onQuestionRequest: questionQueue.enqueue,
+};
+const permissions = usePermissionQueue(queueOptions);
+const questions = useQuestionQueue(queueOptions);
+const conversation = useConversation({
+	...queueOptions,
+	getPagePath: () => props.page?.path,
 });
-const conversationList = useConversationList({
+const list = useConversationList({
 	send: channel.send,
 	onMessage: channel.onMessage,
 });
-const settings = useSettings({
+const { settings } = useSettings({ onMessage: channel.onMessage });
+const mode = useConversationMode({
+	activeId,
+	mode: conversation.mode,
+	settings,
 	send: channel.send,
-	onMessage: channel.onMessage,
+});
+const queueActions = useQueueActions({
+	activeId,
+	queued: conversation.queued,
+	send: channel.send,
+});
+const changeSetActions = useChangeSetActions({
+	activeId,
+	changeSets: conversation.changeSets,
+	send: channel.send,
+	api: props.api,
 });
 
-const drawerOpen = ref(false);
-const nowMs = ref(Date.now());
-const runClockMs = useRunClock(conversation.isRunning);
+const isDrawerOpen = ref(false);
+const nowMs = useRunClock(computed(() => true));
+const composerRef = ref<FocusableComposer | null>(null);
+const approvalDockRef = ref<FocusableDock | null>(null);
+const scrollEl = ref<HTMLElement | null>(null);
 
-const isRunStalledNow = computed<boolean>(
+const isConnected = channel.isConnected;
+const isRunning = conversation.isRunning;
+const pendingCount = computed(
+	() => permissions.queue.value.length + questions.queue.value.length,
+);
+const isStalled = computed(
 	() =>
 		conversation.isTurnInFlight.value &&
-		channel.isConnected.value &&
-		isRunStalled(conversation.lastEventAtMs.value, runClockMs.value),
+		isConnected.value &&
+		isRunStalled(conversation.lastEventAtMs.value, nowMs.value),
+);
+const todos = computed(() => latestTodos(conversation.messages.value));
+const agentName = computed(() =>
+	t(`dms_ai.common.agent.${settings.value.provider}`),
+);
+const providerProblem = computed(
+	() => settings.value.providers[settings.value.provider]?.available === false,
 );
 
-const stalledForMs = computed<number>(
-	() => runClockMs.value - conversation.lastEventAtMs.value,
+const title = computed(
+	() =>
+		list.conversations.value.find((item) => item.id === activeId.value)
+			?.title || t("dms_ai.panel.new_conversation"),
 );
 
-function openSettingsPage(): void {
-	emit("navigate", SETTINGS_PAGE_PATH);
-}
-
-const modeHint = computed(() => {
-	const { mode, generationMode, builderAvailable } = settings.settings.value;
-	const isSafeModeActive = generationMode === "safe" && builderAvailable;
-	return isSafeModeActive
-		? `${MODE_HINTS[mode]}. ${SAFE_MODE_MODE_NOTE}`
-		: MODE_HINTS[mode];
+const status = computed<PanelStatusKind>(() => {
+	if (!isConnected.value)
+		return channel.connectionStatus.value === "disconnected"
+			? "offline"
+			: "connecting";
+	if (pendingCount.value > 0) return "waiting";
+	return isRunning.value ? "working" : "ready";
 });
 
-const modeModel = computed<ChatMode>({
-	get: () => settings.settings.value.mode,
-	set: (value) => {
-		if (value !== settings.settings.value.mode)
-			settings.update({ mode: value });
-	},
+const statusLabel = computed<string>(() => {
+	const labels: Record<PanelStatusKind, () => string> = {
+		ready: () => t("dms_ai.panel.status.ready"),
+		working: () =>
+			t("dms_ai.panel.status.working", {
+				time: formatClock(
+					runElapsedMs(conversation.progress.value, nowMs.value),
+				),
+			}),
+		waiting: () =>
+			t(
+				"dms_ai.panel.status.waiting",
+				{ count: pendingCount.value },
+				pendingCount.value,
+			),
+		connecting: () => t("dms_ai.panel.status.connecting"),
+		offline: () => t("dms_ai.panel.status.offline"),
+	};
+	const label = labels[status.value]();
+	return status.value === "offline" ? label : `${label} · ${agentName.value}`;
 });
 
-const providerItems = computed(() =>
-	PROVIDER_OPTIONS.map((option) => ({
-		...option,
-		disabled:
-			!isProviderAvailable(option.value) || conversation.isRunning.value,
-	})),
+const usageLabel = computed<string>(() => {
+	if (!isConnected.value) return t("dms_ai.panel.composer.usage_offline");
+	const tokens = conversation.totalTokens.value;
+	if (tokens === null || tokens === 0) {
+		return conversation.messages.value.length === 0
+			? t("dms_ai.panel.composer.usage_new")
+			: "";
+	}
+	return t("dms_ai.panel.composer.usage", { count: formatTokens(tokens) });
+});
+
+const placeholder = computed<string>(() => {
+	if (!isConnected.value) return t("dms_ai.panel.composer.placeholder_offline");
+	if (questions.queue.value.length > 0)
+		return t("dms_ai.panel.composer.placeholder_question");
+	if (isRunning.value) return t("dms_ai.panel.composer.placeholder_running");
+	return t("dms_ai.panel.composer.placeholder_idle");
+});
+
+const isEmpty = computed(
+	() => conversation.messages.value.length === 0 && !isRunning.value,
 );
 
-function isProviderAvailable(name: ProviderName): boolean {
-	return settings.settings.value.providers[name]?.available !== false;
-}
-
-const providerHint = computed(() => {
-	const active = settings.settings.value.provider;
-	const reason = settings.settings.value.providers[active]?.reason;
-	if (reason !== undefined) return `${PROVIDER_UNAVAILABLE_PREFIX}${reason}`;
-	if (conversation.isRunning.value) return PROVIDER_BUSY_HINT;
-	return PROVIDER_SWITCH_WARNING;
-});
-
-function mayLeaveCurrentSession(): boolean {
-	if (conversation.messages.value.length === 0) return true;
-	return window.confirm(PROVIDER_SWITCH_CONFIRM);
-}
-
-const providerModel = computed<ProviderName>({
-	get: () => settings.settings.value.provider,
-	set: (value) => {
-		if (value === settings.settings.value.provider) return;
-		if (!isProviderAvailable(value)) return;
-		if (conversation.isRunning.value) return;
-		if (!mayLeaveCurrentSession()) return;
-		settings.update({ provider: value });
-	},
-});
-
-function dismissPanel(): void {
-	emit("close");
-}
-
-function refreshList(): void {
-	nowMs.value = Date.now();
-	conversationList.refresh();
-}
-
-function openDrawer(): void {
-	refreshList();
-	drawerOpen.value = true;
-}
-
-function closeDrawer(): void {
-	drawerOpen.value = false;
+// Sent on the tab's stream itself: the chat's own channel is already closed
+// when the panel unmounts it.
+function leave(conversationId: string): void {
+	props.transport.send({
+		type: CLIENT_MESSAGE_TYPES.LEAVE_CONVERSATION,
+		conversationId,
+	});
 }
 
 function switchConversation(id: string): void {
-	closeDrawer();
+	isDrawerOpen.value = false;
 	if (id === activeId.value) return;
+	leave(activeId.value);
 	activeId.value = id;
 	persistConversationId(id);
 	conversation.reset();
-	permissionQueue.clear();
-	questionQueue.clear();
+	permissions.clear();
+	questions.clear();
 	channel.reidentify();
 }
 
@@ -203,253 +243,532 @@ function newConversation(): void {
 	switchConversation(newConversationId());
 }
 
-function deleteConversation(id: string): void {
-	const wasActive = id === activeId.value;
-	conversationList.remove(id);
-	if (wasActive) newConversation();
+function deleteConversation(item: ConversationSummary): void {
+	if (item.isRunning === true)
+		channel.send({
+			type: CLIENT_MESSAGE_TYPES.INTERRUPT_TURN,
+			conversationId: item.id,
+		});
+	list.remove(item);
+	if (item.id === activeId.value) newConversation();
+}
+
+function openDrawer(): void {
+	list.refresh();
+	isDrawerOpen.value = true;
+}
+
+function navigate(path: string): void {
+	emit("navigate", path);
+}
+
+function reviewChangeSet(changeSetId: string): void {
+	const query = new URLSearchParams({ [CHANGE_SET_QUERY_KEY]: changeSetId });
+	navigate(`${CHANGES_PAGE_PATH}?${query.toString()}`);
+}
+
+function submit(
+	content: string,
+	attachments: PendingAttachment[],
+	includePage: boolean,
+): void {
+	conversation.sendUserMessage(
+		content,
+		attachments,
+		includePage ? {} : { includePageContext: false },
+	);
+}
+
+function answerQuestions(requestId: string, replies: QuestionReply[]): void {
+	const records = questions.respond(requestId, replies);
+	if (records !== null) conversation.recordAnswers(records);
+}
+
+function stopTurn(): void {
+	conversation.interrupt();
+}
+
+function stopAutoFix(): void {
+	channel.send({
+		type: CLIENT_MESSAGE_TYPES.STOP_AUTOFIX,
+		conversationId: activeId.value,
+	});
+}
+
+function askAgain(summary: string): void {
+	conversation.sendUserMessage(
+		t("dms_ai.panel.approvals.ask_again_message", { summary }),
+	);
+}
+
+function askAgainExpired(request: ExpiredRequest): void {
+	permissions.dismissExpired(request.requestId);
+	askAgain(request.summary);
+}
+
+function runPlan(): void {
+	mode.setMode("normal");
+	const planRequest = permissions.queue.value.find(
+		(request) => bareToolName(request.toolName) === EXIT_PLAN_MODE_TOOL_NAME,
+	);
+	if (planRequest !== undefined) {
+		permissions.respond(planRequest.requestId, { decision: "allow_once" });
+		return;
+	}
+	conversation.sendUserMessage(t("dms_ai.panel.plan.go_ahead"));
+}
+
+function onConflictOpenChange(isOpen: boolean): void {
+	if (!isOpen) changeSetActions.cancelUndo();
+}
+
+function setDraft(text: string): void {
+	composerRef.value?.setDraft(text);
+}
+
+const INTENT_HANDLERS: Record<
+	PanelIntent["kind"],
+	(intent: PanelIntent) => void
+> = {
+	open: (intent) => {
+		if (intent.kind === "open") switchConversation(intent.conversationId);
+	},
+	start: (intent) => {
+		newConversation();
+		if (intent.kind === "start" && intent.prompt)
+			void nextTick(() => setDraft(intent.prompt ?? ""));
+		else void nextTick(() => composerRef.value?.focus());
+	},
+	focus: () => void nextTick(() => composerRef.value?.focus()),
+	approvals: () => {
+		const first = permissions.queue.value[0];
+		if (first !== undefined)
+			approvalDockRef.value?.focusRequest(first.requestId);
+		else openDrawer();
+	},
+};
+
+watch(
+	() => props.intents.pending.value,
+	() => {
+		const intent = props.intents.take();
+		if (intent !== null) INTENT_HANDLERS[intent.kind](intent);
+	},
+	{ immediate: true },
+);
+
+function isHistoryCombo(event: KeyboardEvent): boolean {
+	return (
+		(event.metaKey || event.ctrlKey) &&
+		!event.shiftKey &&
+		event.key.toLowerCase() === HISTORY_KEY
+	);
+}
+
+function onDocumentKeydown(event: KeyboardEvent): void {
+	if (!isHistoryCombo(event)) return;
+	event.preventDefault();
+	if (isDrawerOpen.value) isDrawerOpen.value = false;
+	else openDrawer();
+}
+
+function onPanelKeydown(event: KeyboardEvent): void {
+	if (event.key !== ESCAPE_KEY || event.defaultPrevented) return;
+	if (isDrawerOpen.value) {
+		isDrawerOpen.value = false;
+		return;
+	}
+	if (isRunning.value) stopTurn();
 }
 
 function refreshListAfterTurn(msg: unknown): void {
-	if (!drawerOpen.value) return;
-	if (!isObject(msg) || msg.type !== SERVER_EVENT_TYPES.RUN_DONE) return;
-	refreshList();
+	if (!isDrawerOpen.value || msg === null || typeof msg !== "object") return;
+	if (Reflect.get(msg, "type") === SERVER_EVENT_TYPES.RUN_DONE) list.refresh();
 }
 
 channel.onMessage(refreshListAfterTurn);
 
-const statusLabel = computed<string>(
-	() => STATUS_LABEL_BY_STATE[channel.connectionStatus.value],
-);
-
-const todos = computed(() => latestTodos(conversation.messages.value));
-
-const SCROLL_STICKY_THRESHOLD_PX = 80;
-const scrollContainer = ref<HTMLElement | null>(null);
-
 function isNearBottom(el: HTMLElement): boolean {
-	const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-	return distance <= SCROLL_STICKY_THRESHOLD_PX;
+	return (
+		el.scrollHeight - el.scrollTop - el.clientHeight <=
+		SCROLL_STICKY_THRESHOLD_PX
+	);
 }
 
 function scrollToBottom(): void {
-	const el = scrollContainer.value;
-	if (el === null) return;
-	el.scrollTop = el.scrollHeight;
+	const el = scrollEl.value;
+	if (el !== null) el.scrollTop = el.scrollHeight;
 }
 
 watch(
-	() => [conversation.messages.value, conversation.isRunning.value],
+	() => [conversation.messages.value, isRunning.value],
 	() => {
-		const el = scrollContainer.value;
-		const sticky = el === null || isNearBottom(el);
-		if (!sticky) return;
-		void nextTick(scrollToBottom);
+		const el = scrollEl.value;
+		if (el === null || isNearBottom(el)) void nextTick(scrollToBottom);
 	},
 );
 
+// The DMS mounts the panel open on a reload, often before the tab's stream
+// is up: the list (and the chat's title) is asked for again once it is.
+watch(isConnected, (connected) => {
+	if (connected) list.refresh();
+});
+
 onMounted(() => {
+	document.addEventListener("keydown", onDocumentKeydown);
+	list.refresh();
 	void nextTick(scrollToBottom);
 });
 
-function onComposerSubmit(
-	content: string,
-	attachments: PendingAttachment[],
-): void {
-	conversation.sendUserMessage(content, attachments);
-}
-
-function onComposerStop(): void {
-	conversation.interrupt();
-	permissionQueue.clear();
-	questionQueue.clear();
-}
-
-function manualReconnect(): void {
-	channel.reconnect();
-}
-
-function retryLastMessage(): void {
-	conversation.retry();
-}
+// The DMS unmounts the panel's content when the panel closes: the chat is
+// left then, which ends a Full auto granted until the chat closes.
+onBeforeUnmount(() => {
+	document.removeEventListener("keydown", onDocumentKeydown);
+	leave(activeId.value);
+});
 </script>
 
 <template>
-	<main class="chat-view">
-		<header class="chat-view-header">
-			<span class="chat-view-logo" aria-hidden="true">
-				<UIcon :name="ASSISTANT_ICON" class="size-[19px]" />
-			</span>
-			<div class="chat-view-titlewrap">
-				<b class="chat-view-title">AntelopeJS Assistant</b>
-				<span
-					class="chat-view-status"
-					:data-connected="channel.isConnected.value"
-					aria-live="polite"
-				>
-					<i class="chat-view-status-dot" />
-					{{ statusLabel }}
-				</span>
-			</div>
-			<button
-				type="button"
-				class="chat-view-ibtn"
-				:aria-label="TOGGLE_DRAWER_LABEL"
-				:title="TOGGLE_DRAWER_LABEL"
-				@click="openDrawer"
-			>
-				<UIcon :name="TOGGLE_DRAWER_ICON" class="size-[18px]" />
-			</button>
-			<button
-				type="button"
-				class="chat-view-ibtn"
-				:aria-label="OPEN_SETTINGS_LABEL"
-				:title="OPEN_SETTINGS_LABEL"
-				@click="openSettingsPage"
-			>
-				<UIcon :name="OPEN_SETTINGS_ICON" class="size-[18px]" />
-			</button>
-			<button
-				type="button"
-				class="chat-view-ibtn"
-				aria-label="Close"
-				title="Close"
-				@click="dismissPanel"
-			>
-				<UIcon :name="CLOSE_PANEL_ICON" class="size-[18px]" />
-			</button>
-		</header>
-
-		<div class="chat-view-modebar">
-			<span class="modebar-label">{{ MODE_SECTION_LABEL }}</span>
-			<USelect
-				v-model="modeModel"
-				:items="MODE_OPTIONS"
-				:portal="false"
-				:ui="MODE_BAR_SELECT_UI"
-				variant="ghost"
-				size="sm"
-				:title="modeHint"
-				class="text-primary font-semibold"
-			/>
-			<span class="modebar-label">{{ PROVIDER_SECTION_LABEL }}</span>
-			<USelect
-				v-model="providerModel"
-				:items="providerItems"
-				:portal="false"
-				:ui="MODE_BAR_SELECT_UI"
-				variant="ghost"
-				size="sm"
-				:title="providerHint"
-				class="text-primary font-semibold"
-			/>
-		</div>
+	<main class="chat-view" @keydown="onPanelKeydown">
+		<PanelHeader
+			:title="title"
+			:status="status"
+			:status-label="statusLabel"
+			:rules="permissions.rules.value"
+			@history="openDrawer"
+			@new-chat="newConversation"
+			@close="emit('close')"
+			@navigate="(target) => navigate(NAVIGATION_TARGETS[target])"
+			@revoke-rule="permissions.revokeRule"
+		/>
 
 		<ConnectionBanner
 			:status="channel.connectionStatus.value"
-			@reconnect="manualReconnect"
+			:is-reviving="isReviving"
+			@reconnect="channel.reconnect"
+		/>
+		<FullAutoBanner
+			v-if="mode.current.value.fullAuto"
+			:full-auto="mode.current.value.fullAuto"
+			:now-ms="nowMs"
+			@turn-off="mode.stopFullAuto"
 		/>
 
-		<section ref="scrollContainer" class="chat-view-body">
-			<MessageList
-				:messages="conversation.messages.value"
-				:is-running="conversation.isRunning.value"
-				:progress="conversation.progress.value"
-				:now-ms="runClockMs"
-				:is-stalled="isRunStalledNow"
-				:stalled-for-ms="stalledForMs"
-				@retry="retryLastMessage"
-				@reconnect="manualReconnect"
-				@stop="onComposerStop"
+		<section
+			ref="scrollEl"
+			class="chat-view-body"
+			:class="{ 'is-dimmed': !isConnected }"
+		>
+			<ChatEmpty
+				v-if="isEmpty"
+				:page="page"
+				:scope="mode.current.value.generationMode"
+				@suggest="setDraft"
 			/>
+			<MessageList
+				v-else
+				:messages="conversation.messages.value"
+				:change-sets="conversation.changeSets.value"
+				:busy-change-set-ids="changeSetActions.busyIds.value"
+				:requests="permissions.queue.value"
+				:is-running="isRunning"
+				:progress="conversation.progress.value"
+				:now-ms="nowMs"
+				:is-stalled="isStalled"
+				:stalled-for-ms="nowMs - conversation.lastEventAtMs.value"
+				@retry="conversation.retry"
+				@reconnect="channel.reconnect"
+				@stop="stopTurn"
+				@focus-request="(id) => approvalDockRef?.focusRequest(id)"
+				@undo="changeSetActions.undo"
+				@redo="changeSetActions.redo"
+				@review="reviewChangeSet"
+				@stop-auto-fix="stopAutoFix"
+				@ask-again="askAgain"
+				@run-plan="runPlan"
+				@edit-plan="setDraft(t('dms_ai.panel.plan.edit_prefix'))"
+			/>
+			<div v-if="providerProblem" class="chat-view-provider">
+				<div class="cb-provider" role="alert">
+					<UIcon name="i-ph-key" class="cb-provider__icon" />
+					<div>
+						<b>
+							{{
+								t("dms_ai.panel.errors.agent_cant_run", { agent: agentName })
+							}}
+						</b>
+						{{ settings.providers[settings.provider]?.reason ?? "" }}
+						{{ t("dms_ai.panel.errors.agent_no_fallback") }}
+						<div class="cb-provider__row">
+							<UButton
+								size="xs"
+								color="neutral"
+								variant="outline"
+								icon="i-ph-gear-six"
+								:label="t('dms_ai.panel.errors.open_settings')"
+								@click="navigate(SETTINGS_PAGE_PATH)"
+							/>
+						</div>
+					</div>
+				</div>
+			</div>
 		</section>
 
-		<PermissionRequests
-			v-if="permissionQueue.queue.value.length > 0"
-			:requests="permissionQueue.queue.value"
-			@decide="permissionQueue.respond"
-			@decide-all="permissionQueue.respondAll"
-		/>
-
-		<QuestionPrompt
-			v-if="questionQueue.queue.value.length > 0"
-			:requests="questionQueue.queue.value"
-			@answer="questionQueue.respond"
-		/>
-
-		<TodoList
-			v-if="todos.length > 0"
-			:todos="todos"
-			:is-running="conversation.isRunning.value"
-		/>
-
-		<QueuedMessages
-			v-if="conversation.queued.value.length > 0"
-			:queue="conversation.queued.value"
-			@cancel="conversation.cancelQueued"
-		/>
-
-		<ComposerInput
-			:is-disabled="!channel.isConnected.value"
-			:is-running="conversation.isRunning.value"
-			:generation-mode="settings.settings.value.generationMode"
-			:builder-available="settings.settings.value.builderAvailable"
-			@submit="onComposerSubmit"
-			@stop="onComposerStop"
-			@update:generation-mode="(m) => settings.update({ generationMode: m })"
-		/>
+		<div class="cb__dock">
+			<ApprovalDock
+				ref="approvalDockRef"
+				:requests="permissions.queue.value"
+				:expired="permissions.expired.value"
+				:rules="permissions.rules.value"
+				:now-ms="nowMs"
+				:timeout-minutes="settings.requestTimeoutMinutes"
+				@answer="permissions.respond"
+				@deny-all="permissions.denyAll"
+				@revoke-rule="permissions.revokeRule"
+				@ask-again="askAgainExpired"
+				@dismiss-expired="permissions.dismissExpired"
+			/>
+			<QuestionDock
+				v-if="questions.queue.value[0]"
+				:request="questions.queue.value[0]"
+				:now-ms="nowMs"
+				@respond="answerQuestions"
+			/>
+			<StepsDock
+				v-if="todos.length > 0"
+				:todos="todos"
+				:is-running="isRunning"
+			/>
+			<QueueDock
+				v-if="conversation.queued.value.length > 0"
+				:queue="conversation.queued.value"
+				@cancel="queueActions.cancel"
+				@update="queueActions.update"
+				@move="queueActions.move"
+				@clear="queueActions.clear"
+			/>
+			<Composer
+				ref="composerRef"
+				:is-disabled="!isConnected || providerProblem"
+				:is-running="isRunning"
+				:mode="mode.current.value"
+				:builder-available="settings.builderAvailable"
+				:page="page"
+				:usage-label="usageLabel"
+				:placeholder="placeholder"
+				@submit="submit"
+				@stop="stopTurn"
+				@set-scope="mode.setScope"
+				@set-mode="mode.setMode"
+				@start-full-auto="mode.startFullAuto"
+				@open-settings="navigate(SETTINGS_PAGE_PATH)"
+			/>
+		</div>
 
 		<ConversationDrawer
-			:open="drawerOpen"
-			:conversations="conversationList.conversations.value"
+			:open="isDrawerOpen"
+			:conversations="list.conversations.value"
 			:active-id="activeId"
 			:now-ms="nowMs"
 			@select="switchConversation"
 			@delete="deleteConversation"
 			@new="newConversation"
-			@close="closeDrawer"
+			@close="isDrawerOpen = false"
 		/>
+
+		<div v-if="list.pendingDelete.value" class="cb-toast" role="status">
+			<UIcon name="i-ph-trash" class="cb-toast__icon" />
+			<span class="cb-toast__text">
+				{{
+					t("dms_ai.panel.drawer.deleted", {
+						title: list.pendingDelete.value.title,
+					})
+				}}
+			</span>
+			<UButton
+				size="xs"
+				color="neutral"
+				variant="outline"
+				:label="t('dms_ai.common.undo')"
+				@click="list.undoRemove(list.pendingDelete.value.id)"
+			/>
+		</div>
+
+		<UModal
+			:open="changeSetActions.pendingUndo.value !== null"
+			:title="t('dms_ai.panel.change.conflict_title')"
+			@update:open="onConflictOpenChange"
+		>
+			<template #body>
+				<p class="chat-view-conflict">
+					{{
+						t("dms_ai.panel.change.conflict_text", {
+							number: changeSetActions.pendingUndo.value?.number ?? 0,
+						})
+					}}
+				</p>
+				<ul class="chat-view-conflicts">
+					<li
+						v-for="conflict in changeSetActions.pendingUndo.value?.conflicts ??
+						[]"
+						:key="conflict.changeSetId"
+					>
+						<b>#{{ conflict.number }}</b>
+						{{ conflict.title }}
+						<span>{{ conflict.files.join(", ") }}</span>
+					</li>
+				</ul>
+			</template>
+			<template #footer>
+				<div class="chat-view-conflict-foot">
+					<UButton
+						color="neutral"
+						variant="ghost"
+						:label="t('dms_ai.panel.change.undo_only')"
+						@click="changeSetActions.confirmUndo(false)"
+					/>
+					<UButton
+						color="secondary"
+						:label="t('dms_ai.panel.change.undo_together')"
+						@click="changeSetActions.confirmUndo(true)"
+					/>
+				</div>
+			</template>
+		</UModal>
 	</main>
 </template>
 
 <style scoped>
+.chat-view-body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+	overflow-y: auto;
+	scrollbar-width: thin;
+	transition: opacity 150ms;
+}
+
+.chat-view-body.is-dimmed {
+	opacity: 0.6;
+}
+
+.cb__dock {
+	flex: none;
+	border-top: 1px solid var(--ui-border);
+	background: var(--dms-bg-sidebar);
+}
+
+.chat-view-provider {
+	padding: 0 14px 16px;
+}
+
+.cb-provider {
+	display: flex;
+	gap: 10px;
+	padding: 10px 12px;
+	border: 1px solid var(--dms-error-line);
+	border-radius: var(--ai-radius-md);
+	background: var(--dms-error-tint);
+	font-size: 12.5px;
+	line-height: 1.5;
+	color: var(--ui-text-toned);
+}
+
+.cb-provider__icon {
+	width: 16px;
+	height: 16px;
+	flex: none;
+	margin-top: 1px;
+	color: var(--ui-error);
+}
+
+.cb-provider b {
+	font-weight: 600;
+	color: var(--ui-text-highlighted);
+}
+
+.cb-provider__row {
+	margin-top: 8px;
+}
+
+.cb-toast {
+	position: absolute;
+	right: 12px;
+	bottom: 12px;
+	left: 12px;
+	z-index: 7;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 10px 10px 12px;
+	border: 1px solid var(--ui-border-accented);
+	border-radius: var(--ai-radius-md);
+	background: var(--ui-bg-elevated);
+	box-shadow: var(--dms-shadow-pop);
+	font-size: 12.5px;
+}
+
+.cb-toast__icon {
+	width: 15px;
+	height: 15px;
+	flex: none;
+	color: var(--ui-text-muted);
+}
+
+.cb-toast__text {
+	flex: 1;
+	min-width: 0;
+}
+
+.chat-view-conflict {
+	margin: 0 0 10px;
+	font-size: 13px;
+	line-height: 1.5;
+	color: var(--ui-text-muted);
+}
+
+.chat-view-conflicts {
+	display: grid;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	font-size: 12.5px;
+}
+
+.chat-view-conflicts span {
+	display: block;
+	font-family: var(--ai-font-mono, ui-monospace, monospace);
+	font-size: 11px;
+	color: var(--ui-text-muted);
+	overflow-wrap: anywhere;
+}
+
+.chat-view-conflict-foot {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	width: 100%;
+}
+</style>
+
+<style>
 /*
- * The chat's design tokens, aliases of the dashboard's Nuxt UI tokens scoped to
- * the chat: it follows the dashboard's theme and light/dark mode as they are.
+ * The panel's tokens, aliases of the dashboard's: violet (Nuxt UI
+ * `secondary`, tinted by the DMS's assistant tokens) is the AI colour,
+ * everything else follows the DMS surfaces in light and dark alike. Shared
+ * bits the panel's pieces draw are here too.
  */
-.chat-view {
-	--accent: var(--ui-primary);
-	--accent-strong: var(--ui-color-primary-700);
-	--accent-fg: var(--ui-bg);
-	--accent-bg: color-mix(in oklab, var(--ui-primary) 10%, transparent);
-	--accent-bg-strong: color-mix(in oklab, var(--ui-primary) 18%, transparent);
-	--surface-side: var(--ui-bg);
-	--surface-card: var(--ui-bg-elevated);
-	--surface-card-2: var(--ui-bg-elevated);
-	--surface-inset: var(--ui-bg-muted);
-	--fg: var(--ui-text-highlighted);
-	--fg-secondary: var(--ui-text-toned);
-	--fg-tertiary: var(--ui-text-dimmed);
-	--hair: var(--ui-border);
-	--hair-strong: var(--ui-border-accented);
-	--success-400: var(--ui-color-success-400);
-	--success-500: var(--ui-color-success-500);
-	--success-bg: color-mix(
-		in oklab,
-		var(--ui-color-success-500) 10%,
-		transparent
-	);
-	--warning-400: var(--ui-color-warning-400);
-	--warning-bg: color-mix(
-		in oklab,
-		var(--ui-color-warning-500) 10%,
-		transparent
-	);
-	--danger-400: var(--ui-color-error-400);
-	--danger-bg: color-mix(in oklab, var(--ui-color-error-500) 12%, transparent);
-	--corner-sm: var(--ui-radius);
-	--corner-md: calc(var(--ui-radius) * 1.5);
-	--corner-lg: calc(var(--ui-radius) * 2);
-	--font-code: var(
+.chat-view,
+.dms-ai-chat-tokens {
+	--ai: var(--ui-secondary);
+	--ai-tint: var(--dms-assistant-tint);
+	--ai-line: var(--dms-assistant-line);
+	--ai-bg-hover: var(--ui-bg-elevated);
+	--ai-radius-sm: 8px;
+	--ai-radius-md: 10px;
+	--ai-font-mono: var(
 		--font-mono,
 		ui-monospace,
 		SFMono-Regular,
@@ -457,126 +776,65 @@ function retryLastMessage(): void {
 		Monaco,
 		Consolas,
 		"Liberation Mono",
-		"Courier New",
 		monospace
 	);
-	--dur-fast: 150ms;
+}
 
+.chat-view {
 	position: relative;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	background: var(--dms-bg-sidebar, var(--ui-bg));
+	color: var(--ui-text);
 	font-size: 13px;
-	background: var(--surface-side);
-	color: var(--fg);
 }
 
-.chat-view,
-.chat-view :deep(*) {
-	scrollbar-width: thin;
-	scrollbar-color: var(--hair) transparent;
+.chat-view .plus,
+.dms-ai-chat-tokens .plus {
+	color: var(--ui-success);
+	font: 600 11.5px var(--ai-font-mono);
 }
 
-.chat-view-header {
-	display: flex;
-	align-items: center;
-	gap: 11px;
-	padding: 14px 14px 12px;
-	border-bottom: 1px solid var(--hair);
+.chat-view .minus,
+.dms-ai-chat-tokens .minus {
+	color: var(--ui-error);
+	font: 600 11.5px var(--ai-font-mono);
 }
 
-.chat-view-logo {
-	width: 34px;
-	height: 34px;
-	flex: 0 0 auto;
-	display: grid;
-	place-items: center;
-	border-radius: var(--corner-md);
-	background: var(--accent-bg);
-	border: 1px solid var(--accent-bg-strong);
-	color: var(--accent);
+.chat-view .inline-code,
+.dms-ai-chat-tokens .inline-code,
+.chat-view .cb-md code,
+.dms-ai-chat-tokens .cb-md code {
+	padding: 1px 5px;
+	border-radius: 4px;
+	background: var(--ui-bg-accented);
+	color: var(--ui-text-highlighted);
+	font: 500 12px var(--ai-font-mono);
 }
 
-.chat-view-titlewrap {
-	flex: 1;
-	min-width: 0;
-}
-
-.chat-view-title {
-	display: block;
-	font-size: 15px;
-	font-weight: 600;
-	color: var(--fg);
-}
-
-.chat-view-status {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 11.5px;
-	margin-top: 2px;
-	color: var(--fg-tertiary);
-}
-
-.chat-view-status-dot {
-	width: 6px;
-	height: 6px;
+.chat-view .spin-ai,
+.dms-ai-chat-tokens .spin-ai {
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	flex: none;
+	border: 1.5px solid var(--ai);
+	border-right-color: transparent;
 	border-radius: 50%;
-	background: var(--fg-tertiary);
+	animation: dms-ai-spin 0.8s linear infinite;
 }
 
-.chat-view-status[data-connected="true"] {
-	color: var(--success-400);
+@keyframes dms-ai-spin {
+	to {
+		transform: rotate(360deg);
+	}
 }
 
-.chat-view-status[data-connected="true"] .chat-view-status-dot {
-	background: var(--success-500);
-}
-
-.chat-view-status[data-connected="false"] {
-	color: var(--danger-400);
-}
-
-.chat-view-status[data-connected="false"] .chat-view-status-dot {
-	background: var(--danger-400);
-}
-
-.chat-view-ibtn {
-	width: 30px;
-	height: 30px;
-	flex: 0 0 auto;
-	display: grid;
-	place-items: center;
-	border: none;
-	background: transparent;
-	border-radius: 7px;
-	color: var(--fg-tertiary);
-	line-height: 1;
-	cursor: pointer;
-}
-
-.chat-view-ibtn:hover {
-	background: var(--surface-inset);
-	color: var(--fg);
-}
-
-.chat-view-modebar {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 9px 14px;
-	background: var(--surface-inset);
-	border-bottom: 1px solid var(--hair);
-}
-
-.modebar-label {
-	font-size: 11.5px;
-	color: var(--fg-tertiary);
-}
-
-.chat-view-body {
-	flex: 1;
-	min-height: 0;
-	overflow-y: auto;
+@media (prefers-reduced-motion: reduce) {
+	.chat-view .spin-ai,
+	.dms-ai-chat-tokens .spin-ai {
+		animation-duration: 2.4s;
+	}
 }
 </style>

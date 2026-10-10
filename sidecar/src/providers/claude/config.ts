@@ -1,5 +1,6 @@
 import type { PermissionMode } from "@anthropic-ai/claude-agent-sdk";
-import { effectiveChatMode } from "../../agent/effective-mode.js";
+import { CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR } from "../../constants/claude.js";
+import { MCP_TOOL_TIMEOUT_MS } from "../../constants/mcp.js";
 import type {
   AppSettings,
   ChatMode,
@@ -13,16 +14,16 @@ export const PERMISSION_MODE_BY_MODE: Record<ChatMode, PermissionMode> = {
   normal: "default",
   acceptEdits: "acceptEdits",
   plan: "plan",
-  auto: "bypassPermissions",
 };
 
 /**
- * The SDK permission mode these settings put a session in. Through the mode in
- * force, so safe mode never hands the SDK `bypassPermissions`: in that mode the
- * CLI approves every tool call itself and never asks `canUseTool`.
+ * The SDK permission mode these settings put a session in. Never
+ * `bypassPermissions`: in that mode the CLI approves every tool call itself and
+ * never asks `canUseTool`, so Full auto runs in `default` and lets the
+ * permission bus answer (see agent/effective-mode.ts).
  */
 export function resolvePermissionMode(settings: AppSettings): PermissionMode {
-  return PERMISSION_MODE_BY_MODE[effectiveChatMode(settings)];
+  return PERMISSION_MODE_BY_MODE[settings.mode];
 }
 
 // Mapped to setMaxThinkingTokens. On adaptive-thinking models (Opus 4.6+) the
@@ -34,3 +35,16 @@ export const THINKING_TOKENS: Record<ThinkingLevel, number> = {
   medium: 12288,
   high: 24576,
 };
+
+export type ClaudeProcessEnv = Record<string, string | undefined>;
+
+/**
+ * The CLI's environment: the sidecar's own (the SDK replaces it rather than
+ * merging), with an MCP tool timeout that outlasts every wait on the user.
+ */
+export function buildClaudeEnv(baseEnv: ClaudeProcessEnv): ClaudeProcessEnv {
+  return {
+    ...baseEnv,
+    [CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR]: String(MCP_TOOL_TIMEOUT_MS),
+  };
+}

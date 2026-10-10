@@ -33,3 +33,11 @@ export const BUILDER_TOOL_NAMES = [
   "BuilderConfigureQuery",
   "BuilderRemoveQuery",
 ] as const;
+
+// The catalog's sections listed one line per entry by default; the agent names
+// the entries whose full schema it needs.
+export const BUILDER_CATALOG_SECTIONS = ["blocks", "dataTypes"] as const;
+export type BuilderCatalogSection = (typeof BUILDER_CATALOG_SECTIONS)[number];
+
+export const BUILDER_CATALOG_DETAIL_HINT =
+  'This is the index. Call BuilderCatalog again with `blocks: ["<type>", …]` and/or `dataTypes: ["<id>", …]` for the full config schema of the entries you will use.';

@@ -6,6 +6,7 @@ import type {
   ProviderSessionContext,
   TurnInput,
 } from "../../agent/provider.js";
+import type { RunnerEvent } from "../../agent/runner-events.js";
 import { createAgentSession } from "../../agent/session.js";
 import { TURN_IDLE_TIMEOUT_MS } from "../../constants/agent.js";
 import {
@@ -32,6 +33,7 @@ import {
   SAFE_MODE_SKILL_MISSING_MESSAGE,
   SAFE_MODE_SKILL_MISSING_WARNING,
 } from "../../constants/codex.js";
+import { MCP_TOOL_NAME_PREFIX } from "../../constants/mcp.js";
 import type { McpHttpRegistry } from "../../mcp/http-binding.js";
 import type { AiMcpServerDeps } from "../../mcp/types.js";
 import { resolveSkillSources } from "../../skills/resolve-sources.js";
@@ -254,6 +256,14 @@ function trackTurnId(
   backendRef.current.turnId = params.turn.id;
 }
 
+// MCP calls are announced as they start, so a gated Builder handler can name
+// the call it belongs to (see CallLedger).
+function announceToolCall(ctx: ProviderSessionContext, event: RunnerEvent) {
+  if (event.type !== "tool_use") return;
+  if (!event.toolName.startsWith(MCP_TOOL_NAME_PREFIX)) return;
+  ctx.onToolAnnounced?.(event.callId, event.toolName, event.args);
+}
+
 // `last` rather than `total`: the connection layer accumulates, and the thread
 // total would be counted again on every notification.
 function reportTokenUsage(
@@ -370,8 +380,9 @@ async function createProviderSession(
     conversationId: ctx.conversationId,
     permissionBus: ctx.permissionBus,
     getSettings: () => backendRef.current?.live.settings ?? ctx.settings,
-    getChangedPaths: (itemId) => adapter.getChangedPaths(itemId),
-    onPermissionDecision: ctx.onPermissionDecision,
+    getChanges: (itemId) => adapter.getChanges(itemId),
+    onToolDecision: ctx.onToolDecision,
+    beforeMutation: ctx.beforeMutation,
   });
 
   const { codexProcess, threadId, isSafeModeSkillIndexed } =
@@ -379,7 +390,10 @@ async function createProviderSession(
       onNotification: (notification) => {
         trackTurnId(backendRef, notification);
         reportTokenUsage(ctx, notification);
-        for (const event of adapter.handle(notification)) stream.push(event);
+        for (const event of adapter.handle(notification)) {
+          announceToolCall(ctx, event);
+          stream.push(event);
+        }
       },
       onServerRequest: (request) => permissions.handle(request),
       onAbort: (reason) => stream.fail(reason),

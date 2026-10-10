@@ -7,15 +7,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import type {
   PermissionBus,
+  PermissionOutcome,
   PermissionRequest,
 } from "../../src/agent/permission-bus.js";
 import type { ProviderSession } from "../../src/agent/provider.js";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
-import {
-  PERMISSION_DECISIONS,
-  type PermissionDecision,
-} from "../../src/constants/permissions.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import {
   createMcpHttpRegistry,
@@ -40,6 +37,8 @@ const CONVERSATION = "conv-acceptance";
 const TURN_TIMEOUT_MS = 120_000;
 const TEST_TIMEOUT_MS = 240_000;
 const INTERRUPT_BUDGET_MS = 5_000;
+const ALLOW: PermissionOutcome = { isAllowed: true, allowedBy: "approved" };
+const DENY: PermissionOutcome = { isAllowed: false, allowedBy: "denied" };
 
 function buildMcpDeps(conversationId: string): AiMcpServerDeps {
   return {
@@ -77,7 +76,7 @@ interface Harness {
   dispose: () => Promise<void>;
 }
 
-async function startHarness(answer: PermissionDecision): Promise<Harness> {
+async function startHarness(answer: PermissionOutcome): Promise<Harness> {
   const root = await mkdtemp(join(tmpdir(), TMP_PREFIX));
   const registry = createMcpHttpRegistry();
   const { server, port } = await createHttpServer({
@@ -188,7 +187,7 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
   it(
     "1 — a simple message streams deltas and ends with a final text",
     async () => {
-      harness = await startHarness(PERMISSION_DECISIONS.ALLOW_ONCE);
+      harness = await startHarness(ALLOW);
       const settings = settingsFor({});
       session = await openSession(harness, settings);
       const events = await collect(session, "Reply with just: ready", settings);
@@ -203,7 +202,7 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
   it(
     "3 — a write escalates, the denial reaches the agent, the turn still ends",
     async () => {
-      harness = await startHarness(PERMISSION_DECISIONS.DENY);
+      harness = await startHarness(DENY);
       const settings = settingsFor({});
       session = await openSession(harness, settings);
       const events = await collect(
@@ -222,7 +221,7 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
   it(
     "5 — safe mode refuses raw writes without ever prompting the user",
     async () => {
-      harness = await startHarness(PERMISSION_DECISIONS.ALLOW_ONCE);
+      harness = await startHarness(ALLOW);
       const settings = settingsFor({ generationMode: "safe" });
       session = await openSession(harness, settings);
       const events = await collect(
@@ -240,7 +239,7 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
   it(
     "8 — a stop mid-turn interrupts within budget, leaving nothing orphaned",
     async () => {
-      harness = await startHarness(PERMISSION_DECISIONS.ALLOW_ONCE);
+      harness = await startHarness(ALLOW);
       const settings = settingsFor({});
       session = await openSession(harness, settings);
       const events: RunnerEvent[] = [];
@@ -271,7 +270,7 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
   it(
     "9 — a settings change mid-conversation applies on the next turn",
     async () => {
-      harness = await startHarness(PERMISSION_DECISIONS.ALLOW_ONCE);
+      harness = await startHarness(ALLOW);
       const vibe = settingsFor({});
       session = await openSession(harness, vibe);
       await collect(session, "Reply with just: one", vibe);
@@ -295,7 +294,7 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
   it(
     "12 — disposing a conversation leaves no app-server process behind",
     async () => {
-      harness = await startHarness(PERMISSION_DECISIONS.ALLOW_ONCE);
+      harness = await startHarness(ALLOW);
       const settings = settingsFor({});
       const opened = await openSession(harness, settings);
       const before = await readRecordedPids(harness.stateDir);

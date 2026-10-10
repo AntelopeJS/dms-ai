@@ -1,7 +1,11 @@
-import type { StoredConversation, StoredMessage } from "../state/types.js";
+import type { ActivityRecord } from "../audit/activity.js";
+import { REDO_TOOL_NAME, UNDO_TOOL_NAME } from "../audit/activity.js";
+import { toolSourceOf } from "../agent/tool-kinds.js";
+import { ALLOWED_BY_VALUES } from "../constants/audit.js";
+import type { ConversationEntry } from "../state/conversations.js";
+import type { ChangeSetRecord } from "../state/types.js";
 import type {
-  ActivityItem,
-  ActivityPayload,
+  AllowedPayload,
   ChartCardPayload,
   KpiCardPayload,
   KpiMetric,
@@ -9,76 +13,77 @@ import type {
   NamedSeries,
   SeriesPoint,
   TopListPayload,
+  TopToolsPayload,
+  UsagePayload,
 } from "./types.js";
 
 const MS_PER_DAY = 86_400_000;
 const MAX_BUCKETS = 60;
-const ACTIVITY_SUMMARY_MAX = 80;
 // Length of the "YYYY-MM-DD" prefix of an ISO timestamp.
 const DAY_KEY_LENGTH = 10;
+const PERCENT_ROUNDING = 1000;
+const PERCENT_DIVISOR = 10;
 
-export interface ConversationEntry {
-  id: string;
-  title: string;
-  conversation: StoredConversation;
+/** What every metric is computed from. */
+export interface MetricSources {
+  records: readonly ActivityRecord[];
+  changeSets: readonly ChangeSetRecord[];
+  entries: readonly ConversationEntry[];
 }
 
-interface FlatMessage {
-  conversationId: string;
-  conversationTitle: string;
-  msg: StoredMessage;
+type TimestampSource = (sources: MetricSources) => number[];
+
+const STATE_CHANGE_TOOLS: readonly string[] = [UNDO_TOOL_NAME, REDO_TOOL_NAME];
+
+function calls(sources: MetricSources): ActivityRecord[] {
+  return sources.records.filter((r) => !STATE_CHANGE_TOOLS.includes(r.tool));
 }
 
-function flatten(entries: readonly ConversationEntry[]): FlatMessage[] {
-  const out: FlatMessage[] = [];
-  for (const entry of entries) {
-    for (const msg of entry.conversation.messages) {
-      out.push({
-        conversationId: entry.id,
-        conversationTitle: entry.title,
-        msg,
-      });
-    }
-  }
-  return out;
+function timestampsOf(
+  predicate: (record: ActivityRecord) => boolean,
+): TimestampSource {
+  return (sources) =>
+    calls(sources)
+      .filter(predicate)
+      .map((record) => record.timestampMs);
 }
+
+function undoTimestamps(sources: MetricSources): number[] {
+  return sources.changeSets.flatMap((changeSet) =>
+    (changeSet.stateLog ?? [])
+      .filter((change) => change.state === "undone")
+      .map((change) => change.atMs),
+  );
+}
+
+const KPI_SOURCES: Record<KpiMetric, TimestampSource> = {
+  actions: timestampsOf(() => true),
+  "change-sets": (sources) => sources.changeSets.map((c) => c.createdAtMs),
+  approved: timestampsOf((r) => r.isAsked && r.allowedBy === "approved"),
+  denied: timestampsOf((r) => r.allowedBy === "denied"),
+  undone: undoTimestamps,
+  errors: timestampsOf((r) => r.result === "failed"),
+  proposed: timestampsOf((r) => r.isAsked),
+};
 
 function inRange(ts: number, fromMs: number, toMs: number): boolean {
   return ts >= fromMs && ts <= toMs;
 }
 
-const METRIC_MATCHERS: Record<KpiMetric, (msg: StoredMessage) => boolean> = {
-  actions: (msg) => msg.role === "tool_use",
-  proposed: (msg) => msg.role === "permission",
-  approved: (msg) => msg.role === "permission" && msg.decision === "approved",
-  denied: (msg) => msg.role === "permission" && msg.decision === "denied",
-  // "errors": raw tool failures. The displayed value subtracts denials in
-  // buildKpi (a denied tool also surfaces as an error tool_result).
-  errors: (msg) => msg.role === "tool_result" && msg.status === "error",
-};
-
-function matchesMetric(msg: StoredMessage, metric: KpiMetric): boolean {
-  return METRIC_MATCHERS[metric](msg);
-}
-
-function countMetric(
-  flat: readonly FlatMessage[],
-  metric: KpiMetric,
-  fromMs: number,
-  toMs: number,
-): number {
-  let count = 0;
-  for (const { msg } of flat) {
-    if (inRange(msg.timestampMs, fromMs, toMs) && matchesMetric(msg, metric)) {
-      count += 1;
-    }
-  }
-  return count;
+function countIn(timestamps: number[], fromMs: number, toMs: number): number {
+  return timestamps.filter((ts) => inRange(ts, fromMs, toMs)).length;
 }
 
 function deltaPercent(current: number, previous: number): number {
   if (!previous) return 0;
-  return Math.round(((current - previous) / previous) * 1000) / 10;
+  return (
+    Math.round(((current - previous) / previous) * PERCENT_ROUNDING) /
+    PERCENT_DIVISOR
+  );
+}
+
+function dayKey(ts: number): string {
+  return new Date(ts).toISOString().slice(0, DAY_KEY_LENGTH);
 }
 
 // Inclusive list of UTC day keys ("YYYY-MM-DD") spanning [fromMs, toMs],
@@ -90,81 +95,81 @@ function dayBuckets(fromMs: number, toMs: number): string[] {
   const step = span >= MAX_BUCKETS ? Math.ceil((span + 1) / MAX_BUCKETS) : 1;
   const keys: string[] = [];
   for (let day = startDay; day <= endDay; day += step) {
-    keys.push(
-      new Date(day * MS_PER_DAY).toISOString().slice(0, DAY_KEY_LENGTH),
-    );
+    keys.push(dayKey(day * MS_PER_DAY));
   }
   return keys;
 }
 
-function dayKey(ts: number): string {
-  return new Date(ts).toISOString().slice(0, DAY_KEY_LENGTH);
-}
-
-function dailyCounts(
-  flat: readonly FlatMessage[],
-  metric: KpiMetric,
+function dailySums(
+  points: ReadonlyArray<readonly [number, number]>,
   fromMs: number,
   toMs: number,
 ): number[] {
   const buckets = dayBuckets(fromMs, toMs);
   const index = new Map(buckets.map((key, i) => [key, i]));
-  const counts = Array.from({ length: buckets.length }, (): number => 0);
-  for (const { msg } of flat) {
-    if (!inRange(msg.timestampMs, fromMs, toMs)) continue;
-    if (!matchesMetric(msg, metric)) continue;
-    const i = index.get(dayKey(msg.timestampMs));
-    if (i !== undefined) counts[i] += 1;
+  const sums = buckets.map(() => 0);
+  for (const [ts, amount] of points) {
+    if (!inRange(ts, fromMs, toMs)) continue;
+    const i = index.get(dayKey(ts));
+    if (i !== undefined) sums[i] = (sums[i] ?? 0) + amount;
   }
-  return counts;
+  return sums;
 }
 
-// Real execution failures = error tool_results minus permission denials, which
-// the SDK also surfaces as an error tool_result. Clamped so the two counters
-// can never drive the displayed value negative.
-function countErrors(
-  flat: readonly FlatMessage[],
-  fromMs: number,
-  toMs: number,
-): number {
-  const errors = countMetric(flat, "errors", fromMs, toMs);
-  const denied = countMetric(flat, "denied", fromMs, toMs);
-  return Math.max(0, errors - denied);
+function dailyCounts(timestamps: number[], fromMs: number, toMs: number) {
+  return dailySums(
+    timestamps.map((ts) => [ts, 1] as const),
+    fromMs,
+    toMs,
+  );
 }
 
-function countKpi(
-  flat: readonly FlatMessage[],
-  metric: KpiMetric,
-  fromMs: number,
-  toMs: number,
-): number {
-  if (metric === "errors") return countErrors(flat, fromMs, toMs);
-  return countMetric(flat, metric, fromMs, toMs);
+interface Comparison {
+  previousValue: number;
+  delta: number;
+}
+
+function compare(
+  timestamps: number[],
+  value: number,
+  window: MetricWindow,
+): Comparison {
+  if (window.compareFromMs === undefined || window.compareToMs === undefined) {
+    return { previousValue: value, delta: 0 };
+  }
+  const previousValue = countIn(
+    timestamps,
+    window.compareFromMs,
+    window.compareToMs,
+  );
+  return { previousValue, delta: deltaPercent(value, previousValue) };
+}
+
+function approvalBreakdown(sources: MetricSources, window: MetricWindow) {
+  const asked = calls(sources).filter(
+    (r) => r.isAsked && inRange(r.timestampMs, window.fromMs, window.toMs),
+  );
+  return {
+    total: asked.length,
+    denied: asked.filter((r) => r.allowedBy === "denied").length,
+    expired: asked.filter((r) => r.allowedBy === "expired").length,
+  };
 }
 
 export function buildKpi(
-  entries: readonly ConversationEntry[],
+  sources: MetricSources,
   metric: KpiMetric,
   window: MetricWindow,
 ): KpiCardPayload {
-  const flat = flatten(entries);
-  const value = countKpi(flat, metric, window.fromMs, window.toMs);
-  const hasCompare =
-    window.compareFromMs !== undefined && window.compareToMs !== undefined;
-  const previousValue = hasCompare
-    ? countKpi(
-        flat,
-        metric,
-        window.compareFromMs as number,
-        window.compareToMs as number,
-      )
-    : value;
-  return {
+  const timestamps = KPI_SOURCES[metric](sources);
+  const value = countIn(timestamps, window.fromMs, window.toMs);
+  const payload: KpiCardPayload = {
     value,
-    previousValue,
-    delta: hasCompare ? deltaPercent(value, previousValue) : 0,
-    sparkline: dailyCounts(flat, metric, window.fromMs, window.toMs),
+    ...compare(timestamps, value, window),
+    sparkline: dailyCounts(timestamps, window.fromMs, window.toMs),
   };
+  if (metric !== "approved") return payload;
+  return { ...payload, ...approvalBreakdown(sources, window) };
 }
 
 function seriesFrom(
@@ -181,104 +186,135 @@ function total(counts: readonly number[]): number {
 }
 
 export function buildSeries(
-  entries: readonly ConversationEntry[],
+  sources: MetricSources,
   window: MetricWindow,
 ): ChartCardPayload {
-  const flat = flatten(entries);
+  const timestamps = KPI_SOURCES.actions(sources);
   const keys = dayBuckets(window.fromMs, window.toMs);
-  const counts = dailyCounts(flat, "actions", window.fromMs, window.toMs);
+  const counts = dailyCounts(timestamps, window.fromMs, window.toMs);
   const value = total(counts);
-  const hasCompare =
-    window.compareFromMs !== undefined && window.compareToMs !== undefined;
-  let comparisonSeries: NamedSeries[] | undefined;
-  let previousValue = value;
-  if (hasCompare) {
-    const compareCounts = dailyCounts(
-      flat,
-      "actions",
-      window.compareFromMs as number,
-      window.compareToMs as number,
-    );
-    previousValue = total(compareCounts);
-    comparisonSeries = [seriesFrom("Comparison", keys, compareCounts)];
-  }
-  return {
+  const payload: ChartCardPayload = {
     value,
-    previousValue,
-    delta: hasCompare ? deltaPercent(value, previousValue) : 0,
+    ...compare(timestamps, value, window),
     series: [seriesFrom("Actions", keys, counts)],
-    comparisonSeries,
+  };
+  if (window.compareFromMs === undefined || window.compareToMs === undefined) {
+    return payload;
+  }
+  const compareCounts = dailyCounts(
+    timestamps,
+    window.compareFromMs,
+    window.compareToMs,
+  );
+  return {
+    ...payload,
+    comparisonSeries: [seriesFrom("Comparison", keys, compareCounts)],
   };
 }
 
+function inWindow(sources: MetricSources, window: MetricWindow) {
+  return calls(sources).filter((r) =>
+    inRange(r.timestampMs, window.fromMs, window.toMs),
+  );
+}
+
+function countBy<T extends string>(
+  records: readonly ActivityRecord[],
+  key: (record: ActivityRecord) => T,
+): Map<T, number> {
+  const counts = new Map<T, number>();
+  for (const record of records) {
+    const id = key(record);
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/** "How actions were allowed": one count per way, plus the deletions line. */
+export function buildAllowed(
+  sources: MetricSources,
+  window: MetricWindow,
+): AllowedPayload {
+  const records = inWindow(sources, window);
+  const counts = countBy(records, (r) => r.allowedBy);
+  const deletions = records.filter((r) => r.kind === "destructive");
+  return {
+    items: ALLOWED_BY_VALUES.map((id) => ({ id, value: counts.get(id) ?? 0 })),
+    deletionsAsked: deletions.filter((r) => r.isAsked).length,
+    deletions: deletions.length,
+  };
+}
+
+function topCounts(
+  sources: MetricSources,
+  window: MetricWindow,
+  limit: number,
+): Array<[string, number]> {
+  const counts = countBy(inWindow(sources, window), (r) => r.tool);
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
+}
+
+export function buildTopTools(
+  sources: MetricSources,
+  window: MetricWindow,
+  limit: number,
+): TopToolsPayload {
+  return {
+    items: topCounts(sources, window, limit).map(([id, value]) => ({
+      id,
+      value,
+      source: toolSourceOf(id),
+    })),
+  };
+}
+
+/** The pre-v2 top list shape, kept for clients that still read it. */
 export function buildTopSkills(
-  entries: readonly ConversationEntry[],
+  sources: MetricSources,
   window: MetricWindow,
   limit: number,
 ): TopListPayload {
-  const flat = flatten(entries);
-  const counts = new Map<string, number>();
-  for (const { msg } of flat) {
-    if (msg.role !== "tool_use") continue;
-    if (!inRange(msg.timestampMs, window.fromMs, window.toMs)) continue;
-    const name = msg.toolName ?? "unknown";
-    counts.set(name, (counts.get(name) ?? 0) + 1);
-  }
-  const items = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([name, value]) => ({
+  return {
+    items: topCounts(sources, window, limit).map(([name, value]) => ({
       id: name,
       title: name,
       description: `${value} run${value === 1 ? "" : "s"}`,
       value,
       delta: null,
-    }));
-  return { items };
+    })),
+  };
 }
 
-function truncate(text: string): string {
-  const trimmed = text.trim();
-  if (trimmed.length <= ACTIVITY_SUMMARY_MAX) return trimmed;
-  return `${trimmed.slice(0, ACTIVITY_SUMMARY_MAX).trimEnd()}…`;
+function conversationTokens(entry: ConversationEntry, window: MetricWindow) {
+  return (entry.conversation.usageLog ?? [])
+    .filter((u) => inRange(u.timestampMs, window.fromMs, window.toMs))
+    .reduce((sum, u) => sum + u.totalTokens, 0);
 }
 
-// callId -> status map across a single conversation, so each tool_use can show
-// the outcome of its matching tool_result.
-function statusByCallId(conversation: StoredConversation): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const msg of conversation.messages) {
-    if (msg.role === "tool_result" && msg.callId && msg.status) {
-      map.set(msg.callId, msg.status);
-    }
-  }
-  return map;
-}
-
-export function buildActivity(
-  entries: readonly ConversationEntry[],
+/** Tokens per day over the window, the total, and the costliest chat. */
+export function buildUsage(
+  sources: MetricSources,
   window: MetricWindow,
-  limit: number,
-): ActivityPayload {
-  const items: ActivityItem[] = [];
-  for (const entry of entries) {
-    const statuses = statusByCallId(entry.conversation);
-    for (const msg of entry.conversation.messages) {
-      if (msg.role !== "tool_use") continue;
-      if (!inRange(msg.timestampMs, window.fromMs, window.toMs)) continue;
-      const callId = msg.callId ?? "";
-      const status = statuses.get(callId);
-      items.push({
-        id: `${entry.id}:${callId || msg.timestampMs}`,
-        timestampMs: msg.timestampMs,
-        toolName: msg.toolName ?? "unknown",
-        status: status === "success" || status === "error" ? status : "pending",
-        conversationId: entry.id,
-        conversationTitle: entry.title,
-        summary: truncate(msg.content || msg.toolName || ""),
-      });
-    }
-  }
-  items.sort((a, b) => b.timestampMs - a.timestampMs);
-  return { items: items.slice(0, limit) };
+): UsagePayload {
+  const points = sources.entries.flatMap((entry) =>
+    (entry.conversation.usageLog ?? []).map(
+      (u) => [u.timestampMs, u.totalTokens] as const,
+    ),
+  );
+  const keys = dayBuckets(window.fromMs, window.toMs);
+  const sums = dailySums(points, window.fromMs, window.toMs);
+  const perConversation = sources.entries
+    .map((entry) => ({
+      conversationId: entry.id,
+      title: entry.title,
+      totalTokens: conversationTokens(entry, window),
+    }))
+    .filter((c) => c.totalTokens > 0)
+    .sort((a, b) => b.totalTokens - a.totalTokens);
+  return {
+    days: keys.map((day, i) => ({ day, totalTokens: sums[i] ?? 0 })),
+    totalTokens: total(sums),
+    conversations: perConversation.length,
+    top: perConversation[0],
+  };
 }

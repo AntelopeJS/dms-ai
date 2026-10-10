@@ -122,6 +122,15 @@ export async function ensureSidecarRunning(): Promise<void> {
   await getSidecarOwner().revive();
 }
 
+/**
+ * Stops the sidecar and starts a fresh one, whatever its state: the way back
+ * from a crash loop or a wedged agent. A no-op where spawning is turned off.
+ */
+export async function restartSidecar(): Promise<void> {
+  if (mustSkipSpawn()) return;
+  await getSidecarOwner().restart();
+}
+
 function mustSkipSpawn(): boolean {
   if (process.env.NODE_ENV === PRODUCTION_NODE_ENV) return true;
   if (process.env[SIDECAR_ENV_DISABLE_KEY] === SIDECAR_DISABLED_FLAG) {

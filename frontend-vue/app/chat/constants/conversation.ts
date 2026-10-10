@@ -3,6 +3,9 @@ export const MESSAGE_ROLES = {
 	ASSISTANT: "assistant",
 	TOOL: "tool",
 	ERROR: "error",
+	NOTICE: "notice",
+	CHANGE_SET: "change_set",
+	QUESTION_ANSWER: "question_answer",
 } as const;
 
 export const STORED_TOOL_USE_ROLE = "tool_use";
@@ -16,6 +19,13 @@ export const TOOL_STATUS = {
 } as const;
 
 export const TODO_WRITE_TOOL_NAME = "TodoWrite";
+export const EXIT_PLAN_MODE_TOOL_NAME = "ExitPlanMode";
+/** A question asked from the command palette is answered read-only. */
+export const PALETTE_TURN_MODE = {
+	mode: "plan",
+	generationMode: "safe",
+} as const;
+export const PLAN_ARG_KEY = "plan";
 
 export const TODO_STATUS = {
 	PENDING: "pending",
@@ -23,44 +33,17 @@ export const TODO_STATUS = {
 	COMPLETED: "completed",
 } as const;
 
-export const TODO_PANEL_TITLE = "Plan";
-
 export const STORAGE_CONVERSATION_ID_KEY = "dms-ai-conversation-id";
 
 export const SEND_HOTKEY = "Enter";
 export const NEWLINE_HOTKEY_MODIFIER = "shiftKey";
 
-export const ROLE_LABELS = {
-	USER: "You",
-	ASSISTANT: "Assistant",
-	TOOL: "Tool",
-	ERROR: "The run did not finish",
+/** Translation keys of the errors the chat itself raises. */
+export const LOCAL_ERROR_KEYS = {
+	NOT_SENT: "dms_ai.panel.errors.not_sent",
+	RETRY_NEEDS_FILES: "dms_ai.panel.errors.retry_needs_files",
+	STOP_NOT_DELIVERED: "dms_ai.panel.errors.stop_not_delivered",
 } as const;
-
-export const STATUS_LABELS = {
-	PENDING: "running",
-	SUCCESS: "success",
-	ERROR: "error",
-} as const;
-
-/** Shown when a message could not even leave the chat. */
-export const NOT_SENT_MESSAGE =
-	"Your message was not sent: the assistant is not connected. Reconnect, then retry.";
-
-/** Shown when a retry needs files that only the original message still had. */
-export const RETRY_NEEDS_FILES_MESSAGE =
-	"Attach the files again to retry: they are no longer available after a reload.";
-
-/** Shown when Stop could not reach the sidecar, so the run is let go locally. */
-export const STOP_NOT_DELIVERED_MESSAGE =
-	"The assistant could not be reached to stop the run. Reconnect to see where it stands.";
-
-/** Result given to a tool that was still running when its run ended. */
-export const TOOL_CUT_SHORT_RESULT = "The run ended before this tool finished.";
-
-export const RETRY_LABEL = "Retry";
-
-export const TOOL_CLUSTER_LABEL = "Used";
 
 /**
  * A live cluster peeks only its most recent rows; the rest hide behind a
@@ -73,3 +56,6 @@ export const TOOL_CLUSTER_VISIBLE_LIMIT = 3;
  * a fast hand-off to the next cluster doesn't flash.
  */
 export const TOOL_CLUSTER_COLLAPSE_LINGER_MS = 600;
+
+/** How long a deleted conversation can be brought back before it is deleted. */
+export const DELETE_UNDO_MS = 8_000;

@@ -126,3 +126,180 @@ void test("ignores config entries that are not usable origins", async () => {
     },
   ]);
 });
+
+const LOCALES_DIR = path.resolve(__dirname, "../frontend-vue/i18n/locales");
+const PAGE_LOCALES = ["dms-ai-pages-en-GB.json", "dms-ai-pages-fr-FR.json"];
+const I18N_KEY = /\$dms_ai\.[A-Za-z0-9_.-]+/g;
+const MODULE_PAGES = ["overview", "changes", "activity", "skills", "settings"];
+
+function readLocale(file) {
+  return JSON.parse(
+    require("node:fs").readFileSync(path.join(LOCALES_DIR, file), "utf8"),
+  );
+}
+
+function translate(locale, key) {
+  return key
+    .slice(1)
+    .split(".")
+    .reduce((node, part) => (node === undefined ? node : node[part]), locale);
+}
+
+function loadPages() {
+  const registered = { modules: [], pages: [] };
+  const pageApi = {
+    RegisterModule: (info) => registered.modules.push(info),
+    RegisterPage: () => (target) => {
+      registered.pages.push(target);
+    },
+    PageController: (id, menu, layout) => {
+      class Page {}
+      Page.pageId = id;
+      Page.menu = menu;
+      Page.layout = layout;
+      return Page;
+    },
+  };
+  const originalLoad = Module._load;
+  Module._load = (request, parent, isMain) =>
+    request === "@antelopejs/interface-dms/page"
+      ? pageApi
+      : originalLoad(request, parent, isMain);
+  try {
+    for (const file of Object.keys(require.cache)) {
+      if (file.includes(`${path.sep}dist${path.sep}pages`)) {
+        delete require.cache[file];
+      }
+    }
+    require(path.resolve(__dirname, "../dist/pages/index.js"));
+  } finally {
+    Module._load = originalLoad;
+  }
+  return registered;
+}
+
+function staticComponents(page) {
+  return Object.entries(page).filter(
+    ([, value]) => value && typeof value.serialize === "function",
+  );
+}
+
+async function collectPositions(prefix, component, positions) {
+  positions.push({ path: prefix, metadata: component.metadata });
+  const info = await component.componentInfo;
+  for (const child of info.children ?? []) {
+    await collectPositions(`${prefix}.${child.id}`, child.component, positions);
+  }
+}
+
+function collectKeys(value, keys) {
+  if (typeof value === "string") {
+    for (const match of value.matchAll(I18N_KEY)) keys.add(match[0]);
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const entry of Object.values(value)) collectKeys(entry, keys);
+  }
+}
+
+void test("registers the five AI pages, in order, with translated menu entries", () => {
+  const { modules, pages } = loadPages();
+  assert.equal(modules.length, 1);
+  assert.equal(modules[0].id, "ai");
+  assert.equal(modules[0].landingPage, "overview");
+  const sorted = [...pages].sort((a, b) => a.menu.order - b.menu.order);
+  assert.deepEqual(
+    sorted.map((page) => page.pageId),
+    MODULE_PAGES,
+  );
+  for (const page of pages) {
+    assert.equal(page.menu.module, "ai");
+    assert.match(page.menu.displayName, /^\$dms_ai\.pages\./);
+    assert.match(page.menu.description, /^\$dms_ai\.pages\./);
+    assert.ok(page.menu.icon, `${page.pageId} has an icon`);
+  }
+});
+
+void test("titles every block and child of the AI pages for the role editor", async () => {
+  const { pages } = loadPages();
+  const locales = PAGE_LOCALES.map(readLocale);
+  for (const page of pages) {
+    const positions = [];
+    for (const [key, component] of staticComponents(page)) {
+      await collectPositions(`${page.pageId}.${key}`, component, positions);
+    }
+    assert.ok(positions.length > 0, `${page.pageId} declares blocks`);
+    for (const { path: where, metadata } of positions) {
+      assert.match(metadata.name, /^\$dms_ai\.blocks\./, where);
+      assert.match(metadata.description ?? "", /^\$dms_ai\.blocks\./, where);
+      assert.ok(metadata.icon, `${where} has an icon`);
+      for (const locale of locales) {
+        assert.equal(typeof translate(locale, metadata.name), "string", where);
+        assert.equal(
+          typeof translate(locale, metadata.description),
+          "string",
+          where,
+        );
+      }
+    }
+  }
+});
+
+void test("translates every $dms_ai key the AI pages serve, in English and French", async () => {
+  const { modules, pages } = loadPages();
+  const keys = new Set();
+  collectKeys(modules, keys);
+  for (const page of pages) {
+    collectKeys(page.menu, keys);
+    collectKeys(page.layout, keys);
+    for (const [, component] of staticComponents(page)) {
+      collectKeys(await component.serialize(), keys);
+    }
+  }
+  assert.ok(keys.size > 0);
+  for (const file of PAGE_LOCALES) {
+    const locale = readLocale(file);
+    const missing = [...keys].filter(
+      (key) => typeof translate(locale, key) !== "string",
+    );
+    assert.deepEqual(missing, [], file);
+  }
+});
+
+const COMPONENT_PREFIX = "DmsAi";
+const CUSTOM_COMPONENT = /"(DmsAi[A-Z][A-Za-z]+)"/g;
+const COMPONENTS_DIR = path.resolve(
+  __dirname,
+  "../frontend-vue/app/components",
+);
+/** What no DMS block draws: the Changes view, the row drawers, the skill card. */
+const PAGE_CUSTOM_COMPONENTS = [
+  "DmsAiActivityDetail",
+  "DmsAiChangesView",
+  "DmsAiSkillCard",
+  "DmsAiSkillDetail",
+];
+
+void test("names only the custom components the frontend registers, where no DMS block fits", async () => {
+  const { pages } = loadPages();
+  const names = new Set();
+  for (const page of pages) {
+    for (const [, component] of staticComponents(page)) {
+      const serialized = JSON.stringify(await component.serialize());
+      for (const match of serialized.matchAll(CUSTOM_COMPONENT)) {
+        names.add(match[1]);
+      }
+    }
+  }
+  assert.deepEqual(
+    [...names].sort((left, right) => left.localeCompare(right)),
+    PAGE_CUSTOM_COMPONENTS,
+  );
+  for (const name of names) {
+    const file = `${name.slice(COMPONENT_PREFIX.length)}.vue`;
+    assert.ok(
+      require("node:fs").existsSync(path.join(COMPONENTS_DIR, file)),
+      `${name} is registered from ${file}`,
+    );
+  }
+});

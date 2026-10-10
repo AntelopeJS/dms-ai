@@ -3,6 +3,7 @@ import type {
   QuestionRequest,
 } from "../agent/question-bus.js";
 import type { BuilderClient } from "../builder/builder-client.js";
+import type { BuilderGate } from "./tools/builder-gate.js";
 import type { MCP_SERVER_TYPE_SDK } from "../constants/mcp.js";
 import type { LogsClient } from "../logs/logs-client.js";
 import type { ImportsScanner } from "../pages/imports-scanner.js";
@@ -32,6 +33,8 @@ export interface AiMcpServerDeps extends AiMcpServerStaticDeps {
   sendToHost: (event: AnyServerEventType) => void;
   requestQuestion: (req: QuestionRequest) => Promise<QuestionAnswers>;
   getLastEditedFile: () => string | undefined;
+  // Absent in tests and tools-only boots: every Builder op then runs as is.
+  gateBuilderOp?: BuilderGate;
 }
 
 // The in-process server handed to the Claude SDK. Described locally so the MCP

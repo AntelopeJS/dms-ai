@@ -8,10 +8,12 @@
 
 An AntelopeJS DMS development assistant. It adds an owner-only AI workspace to the dashboard and
 runs a coding agent in a local sidecar that can inspect the loaded modules and their declared skills,
-edit the host project, and stream activity back to the dashboard. The chat is a panel of the
-dashboard itself: it stays open across page navigations, follows the dashboard's theme, and is toggled
-from the header or with Ctrl+Shift+K (⌘⇧K on macOS). Claude Code drives it by default; OpenAI's Codex
-is selectable once its CLI is installed.
+edit the host project, and stream activity back to the dashboard. The chat is a panel docked next to
+the page, which shrinks to make room: it stays open across page navigations and reloads, follows the
+dashboard's theme, and is toggled from the header or with Ctrl+Shift+K (⌘⇧K on macOS). In the
+command palette (Ctrl+K, ⌘K on macOS), Tab switches to the assistant, which answers a question
+read-only and hands the conversation over to the panel. Claude Code drives it by default; OpenAI's
+Codex is selectable once its CLI is installed.
 
 ## Installation
 
@@ -49,12 +51,43 @@ the server.
 | `POST /ai/channel/:connectionId/messages` | One client message, relayed to that stream's sidecar socket.                |
 
 Each stream is bridged to a single sidecar socket, which the dashboard identifies as the host (the
-current page, the agent's navigation requests) and as the chat. Browsers keep at most six HTTP/1.1
+current page, the agent's navigation requests) and as the chat. The backend opens each socket with
+an `actor` frame naming the signed-in user, which the sidecar records on change sets and undos; a
+browser cannot send that frame, the backend drops it. Browsers keep at most six HTTP/1.1
 connections per origin, and every dashboard tab already holds two long-lived ones for the DMS. The
 assistant adds its stream only in the visible tab whose panel is open, which leaves two dashboard tabs
 usable side by side; over HTTPS with HTTP/2 the limit goes away. Over plain HTTP on an address other
 than `localhost`, start the frontend server with `DMS_COOKIE_SECURE=false`, or the browser drops the
 `Secure` session cookie.
+
+## Pages
+
+The module adds an **Assistant** module to the dashboard (`/modules/ai`), owner-only, with five
+pages. They are built from DMS blocks; a custom component is used only where no block draws the
+screen. Every page, block and child carries `$dms_ai.*` metadata, so the role editor lists them with
+translated names (English and French, in `frontend-vue/i18n/locales/dms-ai-pages-*.json`).
+
+| Page     | What it shows                                                                                                   |
+| -------- | --------------------------------------------------------------------------------------------------------------- |
+| Overview | Period selector, a banner when the assistant needs you (offline with Restart, a failed turn, requests waiting), its status rows, four KPIs, the activity chart, how actions were allowed, the latest change sets with Undo / Redo, and the top tools. |
+| Changes  | Every turn that touched the project as a change set: its diff, Undo with a conflict preview, Redo. `?set=<id>` opens one. |
+| Activity | The audit log: tabs (changed files, asked you, denied or blocked, failed), quick filters, a detail drawer per call (`?record=<id>`), and a CSV export. |
+| Skills   | The skills loaded into the agent as cards, a detail drawer per skill, and a warning when two skills share a name. |
+| Settings | The defaults of new conversations, saved as you change them: agent, thinking, approval mode, what always asks, request timeout, scope, local skills, checkpoint retention; then the tokens used over 14 days. |
+
+Every route below is owner-only. Lists and settings answer `503 { message }` while the sidecar is
+down, so tables show their error state and a setting says "Not saved"; charts answer empty.
+
+| Route                                                  | Purpose                                                        |
+| ------------------------------------------------------ | -------------------------------------------------------------- |
+| `GET /ai/status`, `POST /ai/sidecar/restart`           | The assistant's live status (`offline` when it does not answer), and a restart. |
+| `GET /ai/status/facts`, `/ai/status/banner`            | The Overview's status rows (a `KeyValueList`) and its banner (`BannerContent`, or 204 when all is well). |
+| `GET /ai/metrics/kpi/:metric`, `series`, `allowed`, `top-tools`, `usage`, `usage/summary` | The Overview's and Settings › Usage figures. |
+| `GET /ai/activity`, `/ai/activity/:id`, `/ai/activity/export.csv` | The audit log as a source table, one call's detail, the CSV export. |
+| `GET /ai/changes`, `/ai/changes/:id`, `/ai/changes/:id/undo-preview`, `/ai/changes/:id/undo-confirm` | Change sets, a set's diff, what Undo restores, and the dialog it asks in. |
+| `POST /ai/changes/:id/undo`, `/ai/changes/:id/redo`    | Undo (`{ includeLater? }`) and Redo, recorded with the signed-in user's name. |
+| `GET /ai/skills/catalog`, `/ai/skills/conflicts`       | The skills as table rows, and the banner about names several skills share (204 when none). |
+| `GET` / `PUT /ai/settings`                             | The settings form; `PUT` takes the one field an instant save sends. |
 
 ## Model output in the dashboard
 
@@ -106,7 +139,7 @@ export default defineConfig({
 
 ## Agent providers
 
-The assistant runs on either Claude Code or Codex, picked in the AI settings page. Both go through
+The assistant runs on either Claude Code or Codex, picked on the Assistant's Settings page. Both go through
 the same seam, so the chat, the tool calls, the permission prompts and the file-change animation
 behave the same either way. `GET /settings` reports which ones this install can actually drive:
 
@@ -165,7 +198,7 @@ turn on Codex, without discarding the conversation.
    filesystem, so the file is only as private as the directory it sits in. ChatGPT login is not
    supported here — it shares a token refresh with the user's own `codex` install.
 
-3. **Restart the sidecar**, then pick *OpenAI (Codex)* in the AI settings page.
+3. **Restart the sidecar**, then pick *Codex* on the Assistant's Settings page.
 
 Linux, macOS and Windows are all supported. One app-server process runs per conversation, and the
 sidecar records its pid so a previous run's orphans are killed at startup — through procfs on
@@ -175,9 +208,11 @@ of the app-server with it.
 ## Vue frontend
 
 The module registers `frontend-vue` through `AddFrontendModule` with the Vue 3 renderer. The host DMS
-supplies authentication, shared state, Nuxt UI and the icons. The chat panel, `DmsAiChatPanel`, is
-rendered among the dashboard's persistent overlays (`dms-app-overlays`), so it lives through Inertia
-navigations; its code is under `frontend-vue/app/chat`. The renderer bundles the icons it finds in
+supplies authentication, shared state, Nuxt UI and the icons. The chat panel, `DmsAiChatPanel`, is a
+docked side panel of the dashboard (`registerSidePanel`): the DMS renders it once for the whole app,
+so it lives through Inertia navigations, and keeps its open state and width in a cookie. The command
+palette's assistant mode answers with `DmsAiPaletteAnswer` (`registerCommandPaletteAssistant`). The
+chat's code is under `frontend-vue/app/chat`. The renderer bundles the icons it finds in
 `.vue` files, so an icon name belongs in the component that shows it.
 
 ## Development
@@ -199,5 +234,6 @@ pnpm --dir frontend-vue build
 pnpm --dir frontend-vue typecheck
 ```
 
-`pnpm test:frontend-registration` checks backend registration and sidecar inputs with the sidecar launcher mocked.
-`pnpm test:sidecar-lifecycle` starts a stand-in sidecar to check that a hot reload keeps it, a sidecar left by an earlier run is stopped, and Ctrl+C on the backend stops it.
+`pnpm test:frontend-registration` checks backend registration and sidecar inputs with the sidecar launcher mocked, and that every page, block and child of the Assistant module is titled with `$dms_ai` keys present in both locales.
+`pnpm test:routes` drives the `/ai/*` routes against a stand-in sidecar: query translation, `503` while it is down, settings conversions, Undo stamping and the CSV export.
+`pnpm test:sidecar-lifecycle` starts a stand-in sidecar to check that a hot reload keeps it, a restart replaces it, a sidecar left by an earlier run is stopped, and Ctrl+C on the backend stops it.

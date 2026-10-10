@@ -1,5 +1,10 @@
 import type { PermissionBus } from "../../agent/permission-bus.js";
 import {
+  CODEX_CHANGE_DIFF_ARG,
+  CODEX_CHANGE_KIND_ARG,
+} from "../../agent/permission-preview.js";
+import type { ToolDecision } from "../../agent/provider.js";
+import {
   CODEX_APPROVAL_DECISIONS,
   CODEX_COMMAND_APPROVAL_METHOD,
   CODEX_FILE_CHANGE_APPROVAL_METHOD,
@@ -7,15 +12,13 @@ import {
   CODEX_UNKNOWN_APPROVAL_METHOD,
 } from "../../constants/codex.js";
 import {
-  PERMISSION_DECISIONS,
-  type PermissionDecision,
-} from "../../constants/permissions.js";
-import {
   BASH_COMMAND_ARG,
   EDIT_FILE_PATH_ARG,
   TOOL_LEXICON,
 } from "../../constants/tool-lexicon.js";
+import { EDIT_PATHS_KEY } from "../../agent/edit-targets.js";
 import type { AppSettings } from "../../state/settings-types.js";
+import type { CodexFileChange } from "./adapter.js";
 import type { CodexServerRequest } from "./client.js";
 import { resolveModePolicy } from "./config.js";
 
@@ -28,11 +31,10 @@ export interface CodexPermissionDeps {
   permissionBus?: PermissionBus;
   /** Read live, so a safe/vibe flip takes effect without a new session. */
   getSettings: () => AppSettings;
-  getChangedPaths: (itemId: string) => string[];
-  onPermissionDecision?: (
-    toolName: string,
-    decision: PermissionDecision,
-  ) => void;
+  getChanges: (itemId: string) => CodexFileChange[];
+  onToolDecision?: (decision: ToolDecision) => void;
+  /** Awaited before an approved change runs (the turn's checkpoint). */
+  beforeMutation?: () => Promise<void>;
 }
 
 export interface CodexPermissionHandler {
@@ -47,6 +49,7 @@ export interface CodexPermissionHandler {
 interface ApprovalSubject {
   toolName: string;
   args: Record<string, unknown>;
+  callId?: string;
 }
 
 interface CommandApprovalParams {
@@ -57,11 +60,6 @@ interface CommandApprovalParams {
 interface FileChangeApprovalParams {
   itemId?: string;
 }
-
-const ACCEPTING_DECISIONS: PermissionDecision[] = [
-  PERMISSION_DECISIONS.ALLOW_ONCE,
-  PERMISSION_DECISIONS.ALLOW_SESSION,
-];
 
 function accept(): CodexApprovalDecisionResponse {
   return { decision: CODEX_APPROVAL_DECISIONS.ACCEPT };
@@ -78,20 +76,30 @@ export function createCodexPermissionHandler(
   let cancelled = false;
 
   function describeCommand(params: unknown): ApprovalSubject {
-    const { command } = params as CommandApprovalParams;
+    const { command, itemId } = params as CommandApprovalParams;
     return {
       toolName: TOOL_LEXICON.BASH,
       args: { [BASH_COMMAND_ARG]: command ?? "" },
+      callId: itemId,
     };
   }
 
-  // The request itself carries no paths, only the item they belong to.
+  // The request itself carries no paths, only the item they belong to. The
+  // first file's diff feeds the card; every path feeds the rule check, so a
+  // rule for one file never approves a patch that also touches another.
   function describeFileChange(params: unknown): ApprovalSubject {
     const { itemId } = params as FileChangeApprovalParams;
-    const paths = itemId === undefined ? [] : deps.getChangedPaths(itemId);
+    const changes = itemId === undefined ? [] : deps.getChanges(itemId);
+    const [first] = changes;
     return {
       toolName: TOOL_LEXICON.EDIT,
-      args: { [EDIT_FILE_PATH_ARG]: paths[0] ?? "" },
+      args: {
+        [EDIT_FILE_PATH_ARG]: first?.path ?? "",
+        [EDIT_PATHS_KEY]: changes.map((change) => change.path),
+        [CODEX_CHANGE_KIND_ARG]: first?.kind ?? "",
+        [CODEX_CHANGE_DIFF_ARG]: first?.diff ?? "",
+      },
+      callId: itemId,
     };
   }
 
@@ -103,25 +111,35 @@ export function createCodexPermissionHandler(
     [CODEX_FILE_CHANGE_APPROVAL_METHOD]: describeFileChange,
   };
 
-  function record(
-    subject: ApprovalSubject,
-    decision: PermissionDecision,
-  ): void {
-    deps.onPermissionDecision?.(subject.toolName, decision);
-    denials = decision === PERMISSION_DECISIONS.DENY ? denials + 1 : 0;
+  function countDenial(isAllowed: boolean): void {
+    denials = isAllowed ? 0 : denials + 1;
   }
 
   async function ask(
     subject: ApprovalSubject,
   ): Promise<CodexApprovalDecisionResponse> {
     if (deps.permissionBus === undefined) return decline();
-    const decision = await deps.permissionBus.requestPermission({
+    const outcome = await deps.permissionBus.requestPermission({
       conversationId: deps.conversationId,
       toolName: subject.toolName,
       args: subject.args,
+      callId: subject.callId,
     });
-    record(subject, decision);
-    return ACCEPTING_DECISIONS.includes(decision) ? accept() : decline();
+    countDenial(outcome.isAllowed);
+    if (!outcome.isAllowed) return decline();
+    await deps.beforeMutation?.();
+    return accept();
+  }
+
+  // Safe and plan modes refuse without asking: the mode blocked the call.
+  function block(subject: ApprovalSubject): CodexApprovalDecisionResponse {
+    deps.onToolDecision?.({
+      callId: subject.callId,
+      toolName: subject.toolName,
+      allowedBy: "blocked",
+    });
+    countDenial(false);
+    return decline();
   }
 
   return {
@@ -142,8 +160,7 @@ export function createCodexPermissionHandler(
       // Safe and plan modes decline every escalation, evaluated here rather
       // than baked into the session, so the switch is immediate.
       if (resolveModePolicy(deps.getSettings()).autoDeclineEscalations) {
-        record(subject, PERMISSION_DECISIONS.DENY);
-        return decline();
+        return block(subject);
       }
       return ask(subject);
     },

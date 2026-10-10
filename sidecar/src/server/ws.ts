@@ -1,27 +1,38 @@
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { type WebSocket, WebSocketServer } from "ws";
+import { createCallAudit } from "../audit/call-audit.js";
+import { createCallLedger } from "../agent/call-ledger.js";
+import { createConversationModes } from "../agent/conversation-modes.js";
 import { createEditTracker, type EditTracker } from "../agent/edit-tracker.js";
-import { effectiveChatMode } from "../agent/effective-mode.js";
 import {
   createPermissionBus,
-  type PendingRequest,
   type PermissionBus,
 } from "../agent/permission-bus.js";
 import type { AgentProviderOptions } from "../agent/provider.js";
 import {
   createQuestionBus,
-  type PendingQuestion,
+  type QuestionAnswers,
   type QuestionBus,
+  type QuestionRequest,
 } from "../agent/question-bus.js";
-import { type AgentRunner, createAgentRunner } from "../agent/runner.js";
+import {
+  type AgentRunner,
+  type ConversationSettingsResolver,
+  createAgentRunner,
+} from "../agent/runner.js";
 import {
   createSwitchingRunner,
   type ProviderRunnerFactory,
 } from "../agent/switching-runner.js";
-import { buildToolSummary } from "../agent/tool-summary.js";
 import { TURN_RESTARTED_REASON } from "../agent/turn-end-reasons.js";
+import {
+  type Checkpoints,
+  createCheckpoints,
+} from "../checkpoints/checkpoints.js";
+import { createShadowGit } from "../checkpoints/shadow-git.js";
 import { WS_MAX_PAYLOAD_BYTES } from "../constants/attachments.js";
+import { ASK_USER_TOOL_NAME } from "../constants/mcp.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import {
   WS_CLIENT_CLOSE_GRACE_MS,
@@ -35,29 +46,30 @@ import type {
   AiMcpServerDeps,
   AiMcpServerStaticDeps,
 } from "../mcp/types.js";
-import {
-  type AskQuestionEventType,
-  EVENT_TYPES,
-  type PermissionRequestEventType,
-} from "../protocol/events.js";
 import { PROVIDER_MODULES } from "../providers/registry.js";
 import type {
   ProviderHostRuntime,
   ProviderRuntime,
 } from "../providers/types.js";
 import type { SkillSource } from "../skills/types.js";
+import { createChangeSetStore } from "../state/change-sets.js";
 import type { ConversationStore } from "../state/conversations.js";
 import type { HostState } from "../state/host-state.js";
 import type { SettingsStore } from "../state/settings-store.js";
 import type { AppSettings } from "../state/settings-types.js";
 import { PROVIDER_NAMES, type ProviderName } from "../state/types.js";
+import {
+  broadcastConversationList,
+  emitNotice,
+  sendConversationMode,
+} from "./chat-events.js";
 import { isClientAuthorized } from "./client-auth.js";
 import {
   createHostCommandRouter,
   type HostCommandSender,
 } from "./host-command-router.js";
 import type { HostSocketRegistry } from "./host-socket-registry.js";
-import type { SettingsApplier } from "./http.js";
+import type { SettingsApplier, SidecarBridge } from "./http.js";
 import type { IdleShutdownController } from "./idle-shutdown.js";
 import {
   createChatSocketRegistry,
@@ -66,13 +78,25 @@ import {
 import { createLiveTurnStore } from "./live-turns.js";
 import type { NavigationCompleter } from "./navigation-completer.js";
 import { createPendingQueueStore } from "./pending-queue.js";
+import {
+  buildBuilderGate,
+  interruptConversation,
+  onPermissionDecided,
+  onPermissionPrompt,
+  onQuestionAnswered,
+  onQuestionExpired,
+  onQuestionPrompt,
+  onRulesChanged,
+  permissionPolicy,
+} from "./permission-events.js";
 import { rawDataToText } from "./raw-data.js";
 import {
   applySettings,
   buildConnectionContext,
   dispatchMessage,
-  type RoutingConfig,
 } from "./routing.js";
+import type { RoutingConfig, SidecarServices } from "./services.js";
+import { createTurnRegistry } from "./turn-registry.js";
 
 export interface AttachWsServerOptions {
   clientToken: string;
@@ -92,6 +116,10 @@ export interface AttachWsServerOptions {
   permissionBus?: PermissionBus;
   chatSocketRegistry?: ChatSocketRegistry;
   settingsApplier?: SettingsApplier;
+  // Started by the caller; absent, change sets are off.
+  checkpoints?: Checkpoints;
+  // Filled with the live services, for the HTTP routes that read them.
+  bridge?: SidecarBridge;
 }
 
 const NOOP_IDLE_CONTROLLER: IdleShutdownController = {
@@ -127,6 +155,7 @@ function buildBaseOptions(
 function buildRunnerFactories(
   options: AttachWsServerOptions,
   runtime: ProviderRuntime,
+  resolveSettings: ConversationSettingsResolver,
 ): Record<ProviderName, ProviderRunnerFactory> {
   const factories = PROVIDER_NAMES.map((name) => [
     name,
@@ -136,7 +165,7 @@ function buildRunnerFactories(
           buildBaseOptions(options, settings),
           runtime,
         ),
-        { settings },
+        { settings, resolveSettings },
       ),
   ]);
   return Object.fromEntries(factories) as Record<
@@ -149,12 +178,15 @@ function buildRunner(
   options: AttachWsServerOptions,
   settings: AppSettings,
   createMcpDeps: (conversationId: string) => AiMcpServerDeps,
+  holder: ServicesHolder,
 ): AgentRunner {
   return createSwitchingRunner(
-    buildRunnerFactories(options, {
-      ...options.providerRuntime,
-      createMcpDeps,
-    }),
+    buildRunnerFactories(
+      options,
+      { ...options.providerRuntime, createMcpDeps },
+      (conversationId, global) =>
+        services(holder).conversationModes.settingsFor(conversationId, global),
+    ),
     settings,
   );
 }
@@ -177,70 +209,37 @@ function bindConnection(socket: WebSocket, config: RoutingConfig): void {
   });
 }
 
-function buildPermissionRequestEvent(
-  event: PendingRequest,
-): PermissionRequestEventType {
-  return {
-    type: EVENT_TYPES.PERMISSION_REQUEST,
-    conversationId: event.conversationId,
-    requestId: event.requestId,
-    toolName: event.toolName,
-    args: event.args,
-    summary: buildToolSummary(event.toolName, event.args),
-  };
-}
-
-function buildSharedPermissionBus(
-  chatSocketRegistry: ChatSocketRegistry,
-): PermissionBus {
-  return createPermissionBus({
-    onPromptChat: (event) => {
-      chatSocketRegistry.send(
-        event.conversationId,
-        buildPermissionRequestEvent(event),
-      );
-    },
-  });
-}
-
-function buildAskQuestionEvent(event: PendingQuestion): AskQuestionEventType {
-  return {
-    type: EVENT_TYPES.ASK_QUESTION,
-    conversationId: event.conversationId,
-    requestId: event.requestId,
-    questions: event.questions,
-  };
-}
-
-function buildSharedQuestionBus(
-  chatSocketRegistry: ChatSocketRegistry,
-): QuestionBus {
-  return createQuestionBus({
-    onPromptChat: (event) => {
-      chatSocketRegistry.send(
-        event.conversationId,
-        buildAskQuestionEvent(event),
-      );
-    },
-  });
-}
-
 // Tools are bound per conversation so AskUser can reach the right chat: no
 // MCP transport carries our conversationId down to a tool handler, so it is
 // closed over here instead. Shared by both bindings.
 function buildMcpDepsFactory(
   staticDeps: AiMcpServerStaticDeps,
-  questionBus: QuestionBus,
-  editTracker: EditTracker,
+  holder: ServicesHolder,
   hostCommandsOf: (conversationId: string) => HostCommandSender,
 ): (conversationId: string) => AiMcpServerDeps {
   return (conversationId) => ({
     ...staticDeps,
     conversationId,
     sendToHost: hostCommandsOf(conversationId),
-    requestQuestion: questionBus.requestQuestion,
-    getLastEditedFile: () => editTracker.getLastEditedFile(conversationId),
+    requestQuestion: (req) => askUser(services(holder), req),
+    getLastEditedFile: () =>
+      services(holder).editTracker.getLastEditedFile(conversationId),
+    gateBuilderOp: (toolName, args) =>
+      buildBuilderGate(services(holder), conversationId)(toolName, args),
   });
+}
+
+// Paired with its AskUser call so the question ends with the call.
+function askUser(
+  current: SidecarServices,
+  req: QuestionRequest,
+): Promise<QuestionAnswers> {
+  const callId = current.callLedger.claim(
+    req.conversationId,
+    ASK_USER_TOOL_NAME,
+    { questions: req.questions },
+  );
+  return current.questionBus.requestQuestion({ ...req, callId });
 }
 
 // Memoized so a conversation reuses one server instance across its turns.
@@ -307,45 +306,134 @@ async function closeWss(wss: WebSocketServer): Promise<void> {
   await closed;
 }
 
-export function attachWsServer(
-  httpServer: Server,
+interface ServicesHolder {
+  current: SidecarServices | null;
+}
+
+function services(holder: ServicesHolder): SidecarServices {
+  if (holder.current === null) throw new Error("sidecar services not ready");
+  return holder.current;
+}
+
+function buildPermissionBus(
   options: AttachWsServerOptions,
-): AttachWsServerResult {
-  const chatSocketRegistry =
-    options.chatSocketRegistry ?? createChatSocketRegistry();
-  const permissionBus =
-    options.permissionBus ?? buildSharedPermissionBus(chatSocketRegistry);
-  const questionBus = buildSharedQuestionBus(chatSocketRegistry);
-  const editTracker = createEditTracker();
+  holder: ServicesHolder,
+): PermissionBus {
+  if (options.permissionBus !== undefined) return options.permissionBus;
+  return createPermissionBus({
+    getPolicy: (conversationId) =>
+      permissionPolicy(services(holder), conversationId),
+    onPromptChat: (request) => onPermissionPrompt(services(holder), request),
+    onDecided: (record) => onPermissionDecided(services(holder), record),
+    onRulesChanged: (conversationId) =>
+      onRulesChanged(services(holder), conversationId),
+    onDenyAll: (conversationId) =>
+      interruptConversation(services(holder), conversationId),
+  });
+}
+
+function buildQuestionBus(holder: ServicesHolder): QuestionBus {
+  return createQuestionBus({
+    onPromptChat: (question) => onQuestionPrompt(services(holder), question),
+    onAnswered: (question, reply) =>
+      onQuestionAnswered(services(holder), question, reply),
+    onExpired: (question) => onQuestionExpired(services(holder), question),
+    onSettled: () => broadcastConversationList(services(holder)),
+  });
+}
+
+/** Change sets off: no git, nothing recorded. */
+export function createDisabledCheckpoints(): Checkpoints {
+  return createCheckpoints({
+    git: createShadowGit({ gitDir: "", workTree: "", extraExcludes: [] }),
+    store: createChangeSetStore(""),
+  });
+}
+
+function onModeChanged(
+  holder: ServicesHolder,
+  conversationId: string,
+  hasFullAutoEnded: boolean,
+): void {
+  const current = services(holder);
+  current.runner.refreshSession(conversationId);
+  if (hasFullAutoEnded) {
+    emitNoticeSafely(current, conversationId);
+  }
+  sendConversationMode(current, conversationId);
+  broadcastConversationList(current);
+}
+
+function emitNoticeSafely(current: SidecarServices, conversationId: string) {
+  if (current.conversationStore.get(conversationId) === null) return;
+  emitNotice(current, conversationId, {
+    kind: "full_auto_ended",
+    timestampMs: Date.now(),
+  });
+}
+
+interface ServiceParts {
+  options: AttachWsServerOptions;
+  holder: ServicesHolder;
+  chatSocketRegistry: ChatSocketRegistry;
+  settingsStore: SettingsStore;
+  editTracker: EditTracker;
+}
+
+function buildServices(parts: ServiceParts): RoutingConfig {
+  const { options, holder, chatSocketRegistry, settingsStore } = parts;
   const createMcpDeps = buildMcpDepsFactory(
     options.mcpDeps,
-    questionBus,
-    editTracker,
+    holder,
     createHostCommandRouter(options.hostSocketRegistry, chatSocketRegistry),
   );
-  const createMcpServer = buildMcpServerFactory(createMcpDeps);
-  const settingsStore = options.settingsStore ?? NOOP_SETTINGS_STORE;
-  const initialSettings = settingsStore.get();
-  permissionBus.setAutoApprove(effectiveChatMode(initialSettings) === "auto");
-  const config: RoutingConfig = {
+  return {
     hostProjectRoot: options.hostProjectRoot,
     conversationStore: options.conversationStore,
     settingsStore,
-    createMcpServer,
-    questionBus,
-    editTracker,
+    createMcpServer: buildMcpServerFactory(createMcpDeps),
+    questionBus: buildQuestionBus(holder),
+    editTracker: parts.editTracker,
     logsClient: options.mcpDeps.logsClient,
     moduleRoots: options.moduleRoots ?? [],
     hostState: options.hostState,
     hostSocketRegistry: options.hostSocketRegistry,
     chatSocketRegistry,
-    permissionBus,
+    permissionBus: buildPermissionBus(options, holder),
     navigationCompleter: options.navigationCompleter,
     idleController: options.idleController ?? NOOP_IDLE_CONTROLLER,
-    runner: buildRunner(options, initialSettings, createMcpDeps),
+    runner: buildRunner(options, settingsStore.get(), createMcpDeps, holder),
     liveTurns: createLiveTurnStore(),
     pendingQueue: createPendingQueueStore(),
+    conversationModes: createConversationModes({
+      conversationStore: options.conversationStore,
+      settingsStore,
+      onChanged: (conversationId, hasEnded) =>
+        onModeChanged(holder, conversationId, hasEnded),
+    }),
+    checkpoints: options.checkpoints ?? createDisabledCheckpoints(),
+    callAudit: createCallAudit(),
+    callLedger: createCallLedger(),
+    turns: createTurnRegistry(),
+    askers: new Map(),
   };
+}
+
+export function attachWsServer(
+  httpServer: Server,
+  options: AttachWsServerOptions,
+): AttachWsServerResult {
+  const holder: ServicesHolder = { current: null };
+  const config = buildServices({
+    options,
+    holder,
+    chatSocketRegistry:
+      options.chatSocketRegistry ?? createChatSocketRegistry(),
+    settingsStore: options.settingsStore ?? NOOP_SETTINGS_STORE,
+    editTracker: createEditTracker(),
+  });
+  holder.current = config;
+  if (options.bridge !== undefined) options.bridge.services = config;
   // Let the HTTP Settings page apply changes through the same path as the
   // chat's socket by pointing the shared applier at this connection's services.
   if (options.settingsApplier) {

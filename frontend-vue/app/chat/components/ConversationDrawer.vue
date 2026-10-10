@@ -1,18 +1,12 @@
 <script setup lang="ts">
-import {
-	CLOSE_DRAWER_LABEL,
-	DAYS_BEFORE_DATE,
-	DELETE_BUTTON_GLYPH,
-	DELETE_BUTTON_LABEL,
-	DRAWER_TITLE,
-	EMPTY_LIST_LABEL,
-	HOURS_PER_DAY,
-	MINUTES_PER_HOUR,
-	NEW_CONVERSATION_LABEL,
-	RELATIVE_TIME_NOW,
-	SECONDS_PER_MINUTE,
-} from "../constants/conversation-drawer";
+import { computed, nextTick, ref, watch } from "vue";
+import { useChatI18n } from "../composables/useChatI18n";
 import type { ConversationSummary } from "../types/conversation";
+import {
+	conversationTime,
+	groupConversations,
+} from "../utils/conversation-groups";
+import { formatTokens } from "../utils/format";
 
 interface Props {
 	open: boolean;
@@ -21,246 +15,459 @@ interface Props {
 	nowMs: number;
 }
 
-const props = defineProps<Props>();
 interface Emits {
 	select: [id: string];
-	delete: [id: string];
+	delete: [conversation: ConversationSummary];
 	new: [];
 	close: [];
 }
 
+const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
+const { t, locale } = useChatI18n();
 
-const MS_PER_SECOND = 1000;
-const SECONDS_PER_HOUR = SECONDS_PER_MINUTE * MINUTES_PER_HOUR;
-const SECONDS_PER_DAY = SECONDS_PER_HOUR * HOURS_PER_DAY;
+const SEARCH_KEY = "/";
+const ESCAPE_KEY = "Escape";
 
-function formatRelativeTime(timestampMs: number): string {
-	const deltaSeconds = Math.max(
-		0,
-		Math.floor((props.nowMs - timestampMs) / MS_PER_SECOND),
+const search = ref("");
+const searchEl = ref<HTMLInputElement | null>(null);
+const confirming = ref<ConversationSummary | null>(null);
+
+const groups = computed(() =>
+	groupConversations(props.conversations, props.nowMs, search.value),
+);
+const isEmpty = computed(() => props.conversations.length === 0);
+
+watch(
+	() => props.open,
+	(isOpen) => {
+		if (!isOpen) return;
+		search.value = "";
+		void nextTick(() => searchEl.value?.focus());
+	},
+);
+
+function groupLabel(key: string, count: number): string {
+	return t(`dms_ai.panel.drawer.group_${key}`, { count });
+}
+
+function time(item: ConversationSummary): string {
+	return conversationTime(
+		item.updatedAtMs,
+		props.nowMs,
+		locale.value,
+		t("dms_ai.common.now"),
 	);
-	if (deltaSeconds < SECONDS_PER_MINUTE) return RELATIVE_TIME_NOW;
-	if (deltaSeconds < SECONDS_PER_HOUR) {
-		return `${Math.floor(deltaSeconds / SECONDS_PER_MINUTE)}m ago`;
+}
+
+function meta(item: ConversationSummary): string[] {
+	const parts: string[] = [];
+	const files = item.filesChanged ?? 0;
+	parts.push(
+		files === 0
+			? t("dms_ai.panel.drawer.no_changes")
+			: t("dms_ai.panel.drawer.files", { count: files }, files),
+	);
+	if (item.provider === "codex") parts.push(t("dms_ai.common.agent.codex"));
+	if ((item.totalTokens ?? 0) > 0)
+		parts.push(
+			t("dms_ai.panel.drawer.tokens", {
+				count: formatTokens(item.totalTokens ?? 0),
+			}),
+		);
+	return parts;
+}
+
+function requestDelete(item: ConversationSummary): void {
+	if (item.isRunning === true) {
+		confirming.value = item;
+		return;
 	}
-	if (deltaSeconds < SECONDS_PER_DAY) {
-		return `${Math.floor(deltaSeconds / SECONDS_PER_HOUR)}h ago`;
+	emit("delete", item);
+}
+
+function onConfirmOpenChange(isOpen: boolean): void {
+	if (!isOpen) confirming.value = null;
+}
+
+function confirmDelete(): void {
+	const item = confirming.value;
+	confirming.value = null;
+	if (item !== null) emit("delete", item);
+}
+
+function onKeydown(event: KeyboardEvent): void {
+	if (event.key === ESCAPE_KEY) {
+		event.stopPropagation();
+		emit("close");
+		return;
 	}
-	if (deltaSeconds < SECONDS_PER_DAY * DAYS_BEFORE_DATE) {
-		return `${Math.floor(deltaSeconds / SECONDS_PER_DAY)}d ago`;
-	}
-	return new Date(timestampMs).toLocaleDateString();
-}
-
-function onSelect(id: string): void {
-	emit("select", id);
-}
-
-function onDelete(id: string): void {
-	emit("delete", id);
-}
-
-function onNew(): void {
-	emit("new");
-}
-
-function onClose(): void {
-	emit("close");
+	if (event.key !== SEARCH_KEY || event.target === searchEl.value) return;
+	event.preventDefault();
+	searchEl.value?.focus();
 }
 </script>
 
 <template>
-	<div v-if="props.open" class="drawer-root">
-		<div class="drawer-backdrop" @click="onClose" />
-		<aside class="drawer-panel" aria-label="Conversations">
-			<header class="drawer-header">
-				<span class="drawer-title">{{ DRAWER_TITLE }}</span>
-				<button type="button" class="drawer-new" @click="onNew">
-					{{ NEW_CONVERSATION_LABEL }}
-				</button>
-				<button
-					type="button"
-					class="drawer-close"
-					:aria-label="CLOSE_DRAWER_LABEL"
-					@click="onClose"
-				>
-					×
-				</button>
-			</header>
-
-			<ul v-if="props.conversations.length > 0" class="drawer-list">
-				<li
-					v-for="item in props.conversations"
-					:key="item.id"
-					class="drawer-item"
-					:data-active="item.id === props.activeId"
-				>
-					<button
-						type="button"
-						class="drawer-item-main"
-						@click="onSelect(item.id)"
-					>
-						<span class="drawer-item-title">{{ item.title }}</span>
-						<span class="drawer-item-time">
-							{{ formatRelativeTime(item.updatedAtMs) }}
+	<div v-if="open" class="cb-drawer-wrap drawer-root" @keydown="onKeydown">
+		<div class="cb-drawer__scrim" @click="emit('close')" />
+		<aside
+			class="cb-drawer"
+			role="dialog"
+			:aria-label="t('dms_ai.panel.drawer.title')"
+		>
+			<div class="cb-drawer__head">
+				<h3>{{ t("dms_ai.panel.drawer.title") }}</h3>
+				<UButton
+					size="xs"
+					color="secondary"
+					icon="i-ph-plus"
+					:label="t('dms_ai.panel.drawer.new')"
+					@click="emit('new')"
+				/>
+				<UButton
+					size="sm"
+					color="neutral"
+					variant="ghost"
+					square
+					icon="i-ph-x"
+					:aria-label="t('dms_ai.common.close')"
+					@click="emit('close')"
+				/>
+			</div>
+			<template v-if="!isEmpty">
+				<div class="cb-drawer__search">
+					<UIcon name="i-ph-magnifying-glass" class="cb-drawer__search-icon" />
+					<input
+						ref="searchEl"
+						v-model="search"
+						type="search"
+						:placeholder="t('dms_ai.panel.drawer.search')"
+						:aria-label="t('dms_ai.panel.drawer.search')"
+					/>
+					<UKbd :value="SEARCH_KEY" size="sm" />
+				</div>
+				<div class="cb-drawer__list">
+					<p v-if="groups.length === 0" class="cb-drawer__none">
+						{{ t("dms_ai.panel.drawer.no_match") }}
+					</p>
+					<template v-for="group in groups" :key="group.key">
+						<span class="cb-drawer__group">
+							{{ groupLabel(group.key, group.items.length) }}
 						</span>
-					</button>
-					<button
-						type="button"
-						class="drawer-item-delete"
-						:aria-label="DELETE_BUTTON_LABEL"
-						:title="DELETE_BUTTON_LABEL"
-						@click="onDelete(item.id)"
-					>
-						{{ DELETE_BUTTON_GLYPH }}
-					</button>
-				</li>
-			</ul>
-			<p v-else class="drawer-empty">{{ EMPTY_LIST_LABEL }}</p>
+						<div
+							v-for="item in group.items"
+							:key="item.id"
+							class="convo"
+							:class="{ 'is-active': item.id === activeId }"
+						>
+							<button
+								type="button"
+								class="convo__open"
+								@click="emit('select', item.id)"
+							>
+								<span class="convo__title">
+									{{ item.title || t("dms_ai.panel.new_conversation") }}
+								</span>
+								<span class="convo__time">{{ time(item) }}</span>
+								<span class="convo__meta">
+									<span
+										v-if="(item.pendingApprovals ?? 0) > 0"
+										class="convo__wait"
+									>
+										<UIcon name="i-ph-hand-palm" />
+										{{
+											t(
+												"dms_ai.panel.drawer.approvals_waiting",
+												{ count: item.pendingApprovals ?? 0 },
+												item.pendingApprovals ?? 0,
+											)
+										}}
+									</span>
+									<span
+										v-else-if="(item.pendingQuestions ?? 0) > 0"
+										class="convo__wait"
+									>
+										<UIcon name="i-ph-question" />
+										{{ t("dms_ai.panel.drawer.question_waiting") }}
+									</span>
+									<span v-else-if="item.isRunning" class="convo__run">
+										<span class="spin-ai" />
+										{{ t("dms_ai.panel.drawer.working") }}
+									</span>
+									<template v-for="(part, index) in meta(item)" :key="index">
+										<span class="convo__sep">·</span>
+										{{ part }}
+									</template>
+								</span>
+							</button>
+							<UButton
+								size="xs"
+								color="neutral"
+								variant="ghost"
+								square
+								icon="i-ph-trash"
+								class="convo__delete"
+								:aria-label="t('dms_ai.panel.drawer.delete')"
+								:title="t('dms_ai.panel.drawer.delete')"
+								@click="requestDelete(item)"
+							/>
+						</div>
+					</template>
+				</div>
+			</template>
+			<div v-else class="cb-drawer__empty">
+				<DmsEmptyState
+					icon="i-ph-sparkle"
+					tone="secondary"
+					:title="t('dms_ai.panel.drawer.empty_title')"
+					:description="t('dms_ai.panel.drawer.empty_text')"
+				>
+					<template #actions>
+						<UButton
+							size="sm"
+							color="secondary"
+							icon="i-ph-plus"
+							:label="t('dms_ai.panel.drawer.start')"
+							@click="emit('new')"
+						/>
+					</template>
+				</DmsEmptyState>
+			</div>
 		</aside>
+		<UModal
+			:open="confirming !== null"
+			:title="t('dms_ai.panel.drawer.confirm_title')"
+			@update:open="onConfirmOpenChange"
+		>
+			<template #body>
+				<p class="cb-drawer__confirm">
+					{{
+						t("dms_ai.panel.drawer.confirm_text", {
+							title: confirming?.title ?? "",
+						})
+					}}
+				</p>
+			</template>
+			<template #footer>
+				<div class="cb-drawer__confirm-foot">
+					<UButton
+						color="neutral"
+						variant="outline"
+						:label="t('dms_ai.common.cancel')"
+						@click="confirming = null"
+					/>
+					<UButton
+						color="error"
+						:label="t('dms_ai.panel.drawer.confirm_action')"
+						@click="confirmDelete"
+					/>
+				</div>
+			</template>
+		</UModal>
 	</div>
 </template>
 
 <style scoped>
-.drawer-root {
+.cb-drawer-wrap {
 	position: absolute;
 	inset: 0;
-	z-index: 20;
+	z-index: 6;
+	display: flex;
 }
 
-.drawer-backdrop {
+.cb-drawer__scrim {
 	position: absolute;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.35);
+	background: var(--dms-overlay);
 }
 
-.drawer-panel {
-	position: absolute;
-	top: 0;
-	left: 0;
-	bottom: 0;
-	width: 80%;
-	max-width: 320px;
+.cb-drawer {
+	position: relative;
 	display: flex;
 	flex-direction: column;
-	background: var(--surface-card);
-	border-right: 1px solid var(--hair-strong);
-	box-shadow: 12px 0 40px rgba(0, 0, 0, 0.5);
+	width: 330px;
+	max-width: 88%;
+	height: 100%;
+	border-right: 1px solid var(--dms-border-top);
+	background: var(--ui-bg-elevated);
+	box-shadow: var(--dms-shadow-modal);
 }
 
-.drawer-header {
+.cb-drawer__head {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	padding: 12px 14px;
-	border-bottom: 1px solid var(--hair);
-	color: var(--fg);
+	height: 52px;
+	padding: 0 8px 0 14px;
+	border-bottom: 1px solid var(--ui-border);
 }
 
-.drawer-title {
-	flex: 1;
-	font-weight: 600;
+.cb-drawer__head h3 {
+	margin: 0 auto 0 0;
+	font-size: 13px;
+	font-weight: 650;
 }
 
-.drawer-new {
-	background: var(--accent);
-	border: none;
-	color: var(--accent-fg);
-	border-radius: var(--corner-md);
-	padding: 3px 9px;
-	font: inherit;
-	font-size: 11px;
-	font-weight: 600;
-	cursor: pointer;
-}
-
-.drawer-new:hover {
-	background: var(--accent-strong);
-}
-
-.drawer-close {
-	background: transparent;
-	border: none;
-	color: var(--fg-tertiary);
-	font-size: 18px;
-	line-height: 1;
-	cursor: pointer;
-	padding: 0 4px;
-}
-
-.drawer-close:hover {
-	color: var(--fg);
-}
-
-.drawer-list {
-	flex: 1;
-	overflow-y: auto;
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.drawer-item {
+.cb-drawer__search {
 	display: flex;
-	align-items: stretch;
-	border-bottom: 1px solid var(--hair);
+	align-items: center;
+	gap: 6px;
+	margin: 10px 12px 6px;
+	padding: 0 6px 0 8px;
+	height: 30px;
+	border: 1px solid var(--ui-border-accented);
+	border-radius: var(--ai-radius-sm);
+	background: var(--dms-bg-field);
 }
 
-.drawer-item[data-active="true"] {
-	background: var(--accent-bg);
+.cb-drawer__search:focus-within {
+	border-color: var(--ai-line);
+	box-shadow: 0 0 0 3px var(--ai-tint);
 }
 
-.drawer-item-main {
+.cb-drawer__search-icon {
+	width: 14px;
+	height: 14px;
+	color: var(--ui-text-dimmed);
+}
+
+.cb-drawer__search input {
 	flex: 1;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 2px;
+	min-width: 0;
+	border: 0;
+	outline: 0;
 	background: transparent;
-	border: none;
-	padding: 9px 14px;
+	color: var(--ui-text-highlighted);
 	font: inherit;
+	font-size: 12.5px;
+}
+
+.cb-drawer__list {
+	flex: 1;
+	padding: 4px 8px 10px;
+	overflow: auto;
+}
+
+.cb-drawer__group {
+	display: block;
+	padding: 10px 6px 6px;
+	font: 600 10px var(--ai-font-mono);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--ui-text-muted);
+}
+
+.cb-drawer__none {
+	padding: 16px 6px;
+	font-size: 12.5px;
+	color: var(--ui-text-muted);
+}
+
+.convo {
+	position: relative;
+	border-radius: var(--ai-radius-sm);
+}
+
+.convo:hover,
+.convo:focus-within {
+	background: var(--ai-bg-hover);
+}
+
+.convo.is-active {
+	background: var(--ai-tint);
+}
+
+.convo__open {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 2px 8px;
+	width: 100%;
+	padding: 8px 36px 8px 8px;
+	border: 0;
+	background: transparent;
+	color: inherit;
 	text-align: left;
 	cursor: pointer;
-	min-width: 0;
 }
 
-.drawer-item-main:hover {
-	background: var(--surface-card-2);
-}
-
-.drawer-item-title {
-	font-weight: 500;
-	color: var(--fg);
-	white-space: nowrap;
+.convo__title {
 	overflow: hidden;
+	font-size: 12.5px;
+	font-weight: 550;
 	text-overflow: ellipsis;
-	max-width: 100%;
+	white-space: nowrap;
+	color: var(--ui-text-highlighted);
 }
 
-.drawer-item-time {
-	font-family: var(--font-code);
-	font-size: 10px;
-	color: var(--fg-tertiary);
+.convo__time {
+	align-self: center;
+	font: 500 10.5px var(--ai-font-mono);
+	color: var(--ui-text-dimmed);
 }
 
-.drawer-item-delete {
-	background: transparent;
-	border: none;
-	color: var(--fg-tertiary);
-	padding: 0 12px;
+.convo__meta {
+	grid-column: 1 / -1;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0 6px;
+	font: 500 10.5px var(--ai-font-mono);
+	color: var(--ui-text-muted);
+}
+
+.convo__meta > .convo__sep:first-child {
+	display: none;
+}
+
+.convo__sep {
+	color: var(--ui-text-dimmed);
+}
+
+.convo__run {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	color: var(--ai);
+}
+
+.convo__wait {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--ui-warning);
+}
+
+.convo__delete {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	opacity: 0;
+}
+
+.convo:hover .convo__delete,
+.convo:focus-within .convo__delete {
+	opacity: 1;
+}
+
+.cb-drawer__empty {
+	display: grid;
+	flex: 1;
+	place-content: center;
+	padding: 24px;
+}
+
+.cb-drawer__confirm {
+	margin: 0;
 	font-size: 13px;
-	cursor: pointer;
+	line-height: 1.5;
+	color: var(--ui-text-muted);
 }
 
-.drawer-item-delete:hover {
-	color: var(--danger-400);
-}
-
-.drawer-empty {
-	padding: 16px 14px;
-	color: var(--fg-tertiary);
-	font-size: 12px;
+.cb-drawer__confirm-foot {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	width: 100%;
 }
 </style>

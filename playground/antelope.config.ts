@@ -23,6 +23,7 @@ export default defineConfig({
       source: {
         type: "local",
         path: ".",
+        watchDir: ["src"],
         installCommand: ["pnpm install", "pnpm build"],
       },
     },
@@ -30,7 +31,7 @@ export default defineConfig({
       source: {
         type: "package",
         package: "@antelopejs/dms",
-        version: ">=0.5.0 <1.0.0",
+        version: ">=0.7.4 <1.0.0",
       },
       config: {
         homepage: "/home",
@@ -58,7 +59,7 @@ export default defineConfig({
       source: {
         type: "package",
         package: "@antelopejs/dms-builder",
-        version: ">=0.2.0 <1.0.0",
+        version: ">=0.2.6 <1.0.0",
       },
     },
     mongodb: {

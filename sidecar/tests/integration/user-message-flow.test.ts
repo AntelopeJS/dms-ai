@@ -50,10 +50,13 @@ describe.each(PROVIDER_FIXTURES)(
         sendHello(client, CONVERSATION_ID);
         sendUserMessage(client, CONVERSATION_ID, "list");
         const events = await collected;
-        const types = events.map((e) => e.type);
+        // Bookkeeping (the drawer's list, the change set, the usage) may
+        // follow the terminal event; the turn's own events end with it.
+        const ended = events.slice(0, events.findIndex(isTerminal) + 1);
+        const types = ended.map((e) => e.type);
         expect(types).toContain("assistant_message_chunk");
         expect(types.at(-1)).toBe("run_done");
-        expect(events.at(-1)?.conversationId).toBe(CONVERSATION_ID);
+        expect(ended.at(-1)?.conversationId).toBe(CONVERSATION_ID);
       },
       TEST_TIMEOUT_MS,
     );

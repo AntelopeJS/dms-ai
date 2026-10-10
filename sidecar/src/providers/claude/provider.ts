@@ -12,7 +12,11 @@ import type {
   SettingSource,
   ThinkingConfig,
 } from "@anthropic-ai/claude-agent-sdk";
-import type { PermissionBus } from "../../agent/permission-bus.js";
+import {
+  denialMessage,
+  type PermissionBus,
+  type PermissionOutcome,
+} from "../../agent/permission-bus.js";
 import type {
   AgentProvider,
   AgentProviderOptions,
@@ -24,6 +28,7 @@ import {
   isAutoAllowedRead,
   resolveReadRoots,
 } from "../../agent/read-access.js";
+import { isMutatingBuilderTool } from "../../agent/tool-kinds.js";
 import {
   type AgentRunner,
   type AgentRunnerOptions,
@@ -53,12 +58,7 @@ import {
   MCP_SERVER_KEY,
 } from "../../constants/mcp.js";
 import { STATE_DIR_SEGMENTS } from "../../constants/paths.js";
-import {
-  PERMISSION_DECISIONS,
-  PERMISSION_DENIED_MESSAGE,
-  type PermissionDecision,
-  SDK_PERMISSION_BEHAVIOR,
-} from "../../constants/permissions.js";
+import { SDK_PERMISSION_BEHAVIOR } from "../../constants/permissions.js";
 import { readProjectInfo } from "../../host/project-info.js";
 import type { AiMcpServer } from "../../mcp/types.js";
 import { buildSkillCatalog } from "../../skills/build-catalog.js";
@@ -72,7 +72,12 @@ import type {
 import type { TokenUsage } from "../../state/types.js";
 import { extractTokenUsage, messageToEvents } from "./adapter.js";
 import { buildTurnContent, type TurnContent } from "./attachments.js";
-import { resolvePermissionMode, THINKING_TOKENS } from "./config.js";
+import {
+  buildClaudeEnv,
+  type ClaudeProcessEnv,
+  resolvePermissionMode,
+  THINKING_TOKENS,
+} from "./config.js";
 import { createInputQueue, type InputQueue } from "./input-queue.js";
 import { resolveClaudeBinary } from "./resolve-binary.js";
 import { buildSafeModeHooks, type SdkHooks } from "./safe-mode.js";
@@ -99,6 +104,7 @@ interface PromptOptions {
   plugins?: SdkPluginConfig[];
   skills?: string[];
   abortController: AbortController;
+  env: ClaudeProcessEnv;
 }
 
 // The plugins + explicit allowlist needed to load module/local skills. Built
@@ -137,6 +143,7 @@ function buildBasePromptOptions(input: PromptOptionsInput): PromptOptions {
     hooks: input.hooks,
     thinking: buildThinkingConfig(input.settings),
     abortController: input.abortController,
+    env: buildClaudeEnv(process.env),
   };
   const claudeBinary = resolveClaudeBinary();
   if (claudeBinary === undefined) return base;
@@ -207,37 +214,34 @@ function buildAllowResult(input: Record<string, unknown>): SdkPermissionAllow {
   };
 }
 
-function buildDenyResult(): SdkPermissionDeny {
-  return {
+function buildDenyResult(outcome: PermissionOutcome): SdkPermissionDeny {
+  const denial: SdkPermissionDeny = {
     behavior: SDK_PERMISSION_BEHAVIOR.DENY,
-    message: PERMISSION_DENIED_MESSAGE,
+    message: denialMessage(outcome),
   };
+  return outcome.shouldInterrupt === true
+    ? { ...denial, interrupt: true }
+    : denial;
 }
 
-const PERMISSION_TO_SDK: Record<
-  PermissionDecision,
-  (input: Record<string, unknown>) => PermissionResult
-> = {
-  [PERMISSION_DECISIONS.ALLOW_ONCE]: (input) => buildAllowResult(input),
-  [PERMISSION_DECISIONS.ALLOW_SESSION]: (input) => buildAllowResult(input),
-  [PERMISSION_DECISIONS.DENY]: () => buildDenyResult(),
-};
-
+/**
+ * Asks the permission bus about one call and renders its outcome for the SDK:
+ * the user's own words become the denial message the agent reads.
+ */
 export async function bridgeCanUseTool(
   bus: PermissionBus,
   conversationId: string,
   toolName: string,
   input: Record<string, unknown>,
-  onDecision?: (toolName: string, decision: PermissionDecision) => void,
+  callId?: string,
 ): Promise<PermissionResult> {
-  const decision = await bus.requestPermission({
+  const outcome = await bus.requestPermission({
     conversationId,
     toolName,
     args: input,
+    callId,
   });
-  onDecision?.(toolName, decision);
-  const mapper = PERMISSION_TO_SDK[decision];
-  return mapper(input);
+  return outcome.isAllowed ? buildAllowResult(input) : buildDenyResult(outcome);
 }
 
 function isFirstPartyMcpTool(toolName: string): boolean {
@@ -254,39 +258,56 @@ function buildAskUserRedirectResult(): SdkPermissionDeny {
 /** What the permission gate needs to answer one tool request. */
 interface CanUseToolDeps {
   bus: PermissionBus;
-  conversationId: string;
+  ctx: ProviderSessionContext;
   readRoots: string[];
-  cwd: string;
-  onDecision?: (toolName: string, decision: PermissionDecision) => void;
 }
 
-function buildCanUseTool({
-  bus,
-  conversationId,
-  readRoots,
-  cwd,
-  onDecision,
-}: CanUseToolDeps): CanUseTool {
-  return (toolName, input) => {
+function allowAutomatically(
+  deps: CanUseToolDeps,
+  toolName: string,
+  input: Record<string, unknown>,
+  callId: string,
+): Promise<PermissionResult> {
+  const allowedBy = isMutatingBuilderTool(toolName)
+    ? "builder_auto"
+    : "read_auto";
+  deps.ctx.onToolDecision?.({ callId, toolName, allowedBy });
+  return Promise.resolve(buildAllowResult(input));
+}
+
+function buildCanUseTool(deps: CanUseToolDeps): CanUseTool {
+  const { ctx } = deps;
+  return (toolName, input, options) => {
     // The SDK's built-in AskUserQuestion cannot render in the chat, so
     // bounce the agent to our own AskUser MCP tool instead of dead-ending at a
     // permission prompt the host can't show.
     if (toolName === ASK_USER_QUESTION_BUILTIN_TOOL_NAME) {
       return Promise.resolve(buildAskUserRedirectResult());
     }
+    const callId = options.toolUseID;
     // The module's own MCP tools (the FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES set)
     // are first-party — the documented workflow drives them constantly — so
-    // auto-allow them instead of prompting.
+    // auto-allow them instead of prompting. Builder deletions are gated inside
+    // their own handler, which claims the call announced here.
     if (isFirstPartyMcpTool(toolName)) {
-      return Promise.resolve(buildAllowResult(input));
+      ctx.onToolAnnounced?.(callId, toolName, input);
+      return allowAutomatically(deps, toolName, input, callId);
     }
     // Read-only inspection of in-workspace files (the project and its sibling
     // local modules) is non-mutating, so auto-allow it. Writes, shell and
     // network tools still prompt.
-    if (isAutoAllowedRead(toolName, input, readRoots, cwd)) {
-      return Promise.resolve(buildAllowResult(input));
+    if (
+      isAutoAllowedRead(toolName, input, deps.readRoots, ctx.hostProjectRoot)
+    ) {
+      return allowAutomatically(deps, toolName, input, callId);
     }
-    return bridgeCanUseTool(bus, conversationId, toolName, input, onDecision);
+    return bridgeCanUseTool(
+      deps.bus,
+      ctx.conversationId,
+      toolName,
+      input,
+      callId,
+    );
   };
 }
 
@@ -302,13 +323,7 @@ function resolveCanUseTool(
     ...moduleRoots,
     ...skillRoots,
   ]);
-  return buildCanUseTool({
-    bus: ctx.permissionBus,
-    conversationId: ctx.conversationId,
-    readRoots,
-    cwd: ctx.hostProjectRoot,
-    onDecision: ctx.onPermissionDecision,
-  });
+  return buildCanUseTool({ bus: ctx.permissionBus, ctx, readRoots });
 }
 
 interface ProviderConfig {
@@ -448,7 +463,12 @@ async function buildSessionOptions(
   );
   return buildPromptOptions({
     systemPrompt: await buildSessionPrompt(ctx),
-    hooks: buildSafeModeHooks(() => activeGenerationMode(live)),
+    hooks: buildSafeModeHooks({
+      getGenerationMode: () => activeGenerationMode(live),
+      onBlocked: (callId, toolName) =>
+        ctx.onToolDecision?.({ callId, toolName, allowedBy: "blocked" }),
+      beforeMutation: ctx.beforeMutation,
+    }),
     canUseTool: resolveCanUseTool(
       ctx,
       config.moduleRoots,

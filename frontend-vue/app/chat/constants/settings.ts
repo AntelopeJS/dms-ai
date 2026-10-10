@@ -1,4 +1,6 @@
-import type { AppSettings, ChatMode, ProviderName } from "../types/settings";
+import type { AppSettings } from "../types/settings";
+
+export const DEFAULT_REQUEST_TIMEOUT_MINUTES = 5;
 
 export const DEFAULT_SETTINGS: AppSettings = {
 	provider: "claude",
@@ -6,6 +8,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
 	thinking: "medium",
 	generationMode: "safe",
 	allowLocalSkills: false,
+	notifyRequests: true,
+	requestTimeoutMinutes: DEFAULT_REQUEST_TIMEOUT_MINUTES,
 	builderAvailable: false,
 	providers: {
 		claude: { available: true },
@@ -13,48 +17,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
 	},
 };
 
-export const OPEN_SETTINGS_LABEL = "Settings";
-
-export const MODE_SECTION_LABEL = "Mode";
-export const PROVIDER_SECTION_LABEL = "Agent";
-
-export const PROVIDER_OPTIONS: { value: ProviderName; label: string }[] = [
-	{ value: "claude", label: "Claude" },
-	{ value: "codex", label: "Codex" },
+/** The modes a stored setting may hold; an old global `auto` reads as Ask first. */
+export const STORABLE_MODES: readonly string[] = [
+	"normal",
+	"acceptEdits",
+	"plan",
 ];
-
-/**
- * Shown in place of the hint when the sidecar reports the provider as
- * unavailable, so the reason travels with the greyed-out option.
- */
-export const PROVIDER_UNAVAILABLE_PREFIX = "Unavailable: ";
-
-/**
- * Sessions belong to the backend that opened them, so a switch tears them down.
- * The transcript survives; what the agent remembers of it does not — and that
- * is not something to discover after the fact.
- */
-export const PROVIDER_SWITCH_WARNING =
-	"Switching agent starts a new session: open conversations lose what the agent remembers of them. Transcripts are kept.";
-export const PROVIDER_SWITCH_CONFIRM = `${PROVIDER_SWITCH_WARNING}\n\nSwitch now?`;
-export const PROVIDER_BUSY_HINT =
-	"Stop the current turn before switching agent.";
-
-export const MODE_OPTIONS: { value: ChatMode; label: string }[] = [
-	{ value: "normal", label: "Normal" },
-	{ value: "acceptEdits", label: "Accept edits" },
-	{ value: "plan", label: "Plan" },
-	{ value: "auto", label: "Auto" },
-];
-
-export const MODE_HINTS: Record<ChatMode, string> = {
-	normal: "Ask before each tool action",
-	acceptEdits: "Auto-accept file edits, ask for the rest",
-	plan: "Plan only — propose without making changes",
-	auto: "Auto-approve every tool action",
-};
-
-// Safe mode refuses raw edits whatever the mode, and Auto stops short of
-// approving everything there, so the mode hint says so while it is active.
-export const SAFE_MODE_MODE_NOTE =
-	"Safe mode: raw edits and shell commands stay blocked, and Auto still asks before other actions.";

@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import {
-	BANNER_LABELS,
-	RECONNECT_BUTTON_LABEL,
-} from "../constants/connection-banner";
+import { useChatI18n } from "../composables/useChatI18n";
 import {
 	CONNECTION_STATUSES,
 	type ConnectionStatus,
@@ -11,95 +8,74 @@ import {
 
 interface Props {
 	status: ConnectionStatus;
+	/** The sidecar itself is coming back up, not just the stream. */
+	isReviving: boolean;
 }
 
-const props = defineProps<Props>();
 interface Emits {
 	reconnect: [];
 }
 
+const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
+const { t } = useChatI18n();
 
-const LABEL_BY_STATUS: Record<
-	Exclude<ConnectionStatus, typeof CONNECTION_STATUSES.CONNECTED>,
-	string
-> = {
-	[CONNECTION_STATUSES.CONNECTING]: BANNER_LABELS.connecting,
-	[CONNECTION_STATUSES.RECONNECTING]: BANNER_LABELS.reconnecting,
-	[CONNECTION_STATUSES.DISCONNECTED]: BANNER_LABELS.disconnected,
+const LABEL_KEYS: Record<ConnectionStatus, string> = {
+	[CONNECTION_STATUSES.CONNECTING]: "dms_ai.panel.connection.connecting",
+	[CONNECTION_STATUSES.CONNECTED]: "",
+	[CONNECTION_STATUSES.RECONNECTING]: "dms_ai.panel.connection.lost",
+	[CONNECTION_STATUSES.DISCONNECTED]: "dms_ai.panel.connection.disconnected",
 };
 
-const isVisible = computed<boolean>(
-	() => props.status !== CONNECTION_STATUSES.CONNECTED,
+const labelKey = computed<string>(() =>
+	props.isReviving
+		? "dms_ai.panel.connection.reviving"
+		: LABEL_KEYS[props.status],
 );
-
-const label = computed<string>(() => {
-	if (props.status === CONNECTION_STATUSES.CONNECTED) return "";
-	return LABEL_BY_STATUS[props.status];
-});
-
-function onReconnect(): void {
-	emit("reconnect");
-}
 </script>
 
 <template>
 	<div
-		v-if="isVisible"
-		class="connection-banner"
-		:data-status="props.status"
+		v-if="labelKey"
+		class="cb-banner connection-banner"
+		:data-status="status"
 		role="status"
-		aria-live="polite"
 	>
-		<span class="connection-banner-label">{{ label }}</span>
-		<button type="button" class="connection-banner-button" @click="onReconnect">
-			{{ RECONNECT_BUTTON_LABEL }}
-		</button>
+		<UIcon name="i-ph-wifi-slash" class="cb-banner__icon" />
+		<span class="cb-banner__text">{{ t(labelKey) }}</span>
+		<UButton
+			v-if="status !== 'connecting'"
+			size="xs"
+			color="neutral"
+			variant="outline"
+			:label="t('dms_ai.panel.connection.retry_now')"
+			@click="emit('reconnect')"
+		/>
 	</div>
 </template>
 
 <style scoped>
-.connection-banner {
+.cb-banner {
 	display: flex;
+	flex: none;
 	align-items: center;
-	justify-content: space-between;
 	gap: 8px;
-	padding: 6px 12px;
-	font-size: 12px;
-	border-bottom: 1px solid transparent;
+	padding: 8px 10px 8px 14px;
+	border-bottom: 1px solid var(--dms-warning-line);
+	background: var(--dms-warning-tint);
+	font-size: 12.5px;
+	color: var(--ui-text-toned);
 }
 
-.connection-banner[data-status="connecting"],
-.connection-banner[data-status="reconnecting"] {
-	color: var(--warning-400);
-	background: var(--warning-bg);
-	border-bottom-color: color-mix(in srgb, var(--warning-400) 25%, transparent);
+.cb-banner__icon {
+	width: 15px;
+	height: 15px;
+	flex: none;
+	color: var(--ui-warning);
 }
 
-.connection-banner[data-status="disconnected"] {
-	color: var(--danger-400);
-	background: var(--danger-bg);
-	border-bottom-color: color-mix(in srgb, var(--danger-400) 25%, transparent);
-}
-
-.connection-banner-label {
+.cb-banner__text {
 	flex: 1;
-	text-align: left;
-}
-
-.connection-banner-button {
-	background: transparent;
-	border: 1px solid currentColor;
-	color: inherit;
-	border-radius: var(--corner-sm);
-	padding: 2px 8px;
-	font: inherit;
-	font-size: 11px;
-	font-weight: 600;
-	cursor: pointer;
-}
-
-.connection-banner-button:hover {
-	background: rgba(255, 255, 255, 0.08);
+	min-width: 0;
 }
 </style>

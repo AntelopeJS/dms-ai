@@ -1,243 +1,374 @@
 import { randomUUID } from "node:crypto";
+import type { AllowedBy } from "../constants/audit.js";
 import {
   PERMISSION_DECISIONS,
+  PERMISSION_DENIED_MESSAGE,
+  PERMISSION_DENY_ALL_MESSAGE,
+  PERMISSION_EXPIRED_MESSAGE,
+  PERMISSION_FEEDBACK_PREFIX,
   PERMISSION_LOG_PREFIX,
-  PERMISSION_TIMEOUT_MS,
+  PERMISSION_SETTLEMENTS,
   PERMISSION_TIMEOUT_REASON,
   PERMISSION_UNKNOWN_REQUEST_REASON,
-  type PermissionDecision,
 } from "../constants/permissions.js";
+import type {
+  ActiveRuleType,
+  PermissionRequestEventType,
+} from "../protocol/events.js";
+import type {
+  PermissionDecisionValue,
+  PermissionRuleType,
+} from "../protocol/messages.js";
+import { describeRequest } from "./permission-preview.js";
+import {
+  createPermissionRuleStore,
+  isSameRule,
+  type PermissionRuleStore,
+} from "./permission-rules.js";
+import { buildToolSummary } from "./tool-summary.js";
 
 export interface PermissionRequest {
   conversationId: string;
   toolName: string;
   args: unknown;
+  // The provider's id for the call, when it gives one.
+  callId?: string;
 }
 
-export interface PendingRequest {
-  requestId: string;
+/** What the agent is told, and what the audit records, for one request. */
+export interface PermissionOutcome {
+  isAllowed: boolean;
+  allowedBy: AllowedBy;
+  feedback?: string;
+  keepData?: boolean;
+  // deny_all: the turn is to be stopped as well.
+  shouldInterrupt?: boolean;
+}
+
+/** A request waiting for the user, exactly as the chat is shown it. */
+export type PendingRequest = Omit<PermissionRequestEventType, "type">;
+
+export type PermissionSettlementKind =
+  | PermissionDecisionValue
+  | (typeof PERMISSION_SETTLEMENTS)[keyof typeof PERMISSION_SETTLEMENTS];
+
+/** How the bus judges one conversation's requests right now. */
+export interface PermissionPolicy {
+  hostProjectRoot: string;
+  // Full auto in force (and not capped by safe mode).
+  isFullAuto: boolean;
+  timeoutMs: number;
+  alwaysAskDependencies: boolean;
+  alwaysAskBlockRemoval: boolean;
+}
+
+/** Every decision the bus makes, prompted or not. */
+export interface PermissionDecisionRecord {
   conversationId: string;
+  callId?: string;
   toolName: string;
-  args: unknown;
+  outcome: PermissionOutcome;
+  // Set when the user was asked: the request and how it ended.
+  prompt?: PermissionPrompt;
+}
+
+export interface PermissionPrompt {
+  request: PendingRequest;
+  settledAs: PermissionSettlementKind;
+  decidedAtMs: number;
+  decidedBy?: string;
+}
+
+/** The user's answer to one request. */
+export interface PermissionAnswer {
+  requestId: string;
+  decision: PermissionDecisionValue;
+  rule?: PermissionRuleType;
+  feedback?: string;
+  keepData?: boolean;
+  actor?: string;
 }
 
 export interface BusOptions {
+  getPolicy: (conversationId: string) => PermissionPolicy;
   onPromptChat: (event: PendingRequest) => void;
+  onDecided?: (record: PermissionDecisionRecord) => void;
+  onRulesChanged?: (conversationId: string, rules: ActiveRuleType[]) => void;
+  onDenyAll?: (conversationId: string) => void;
+  // Overrides the policy's timeout (tests).
   timeoutMs?: number;
+  rules?: PermissionRuleStore;
 }
 
 export interface PermissionBus {
-  requestPermission(req: PermissionRequest): Promise<PermissionDecision>;
-  resolvePermission(requestId: string, decision: PermissionDecision): void;
-  rememberSessionDecision(conversationId: string, toolName: string): void;
-  hasSessionAllowed(conversationId: string, toolName: string): boolean;
-  forgetConversation(conversationId: string): void;
+  requestPermission(req: PermissionRequest): Promise<PermissionOutcome>;
+  resolvePermission(answer: PermissionAnswer): void;
   getPendingForConversation(conversationId: string): PendingRequest[];
-  setAutoApprove(autoApprove: boolean): void;
+  countPending(conversationId?: string): number;
+  /** Denies everything pending for the conversation (turn interrupted). */
+  cancelConversation(conversationId: string): void;
+  /** Denies what one call is waiting on: the call already ended. */
+  cancelCall(conversationId: string, callId: string): void;
+  /** Cancels what is pending and drops the conversation's rules. */
+  forgetConversation(conversationId: string): void;
+  listRules(conversationId: string): ActiveRuleType[];
+  revokeRule(conversationId: string, ruleId: string): boolean;
 }
 
 interface PendingState {
-  requestId: string;
-  conversationId: string;
-  toolName: string;
-  args: unknown;
-  resolve: (decision: PermissionDecision) => void;
+  request: PendingRequest;
+  resolve: (outcome: PermissionOutcome) => void;
   timer: ReturnType<typeof setTimeout>;
 }
 
-interface BusState {
+interface BusState extends BusOptions {
   pending: Map<string, PendingState>;
-  sessionAllowed: Map<string, Set<string>>;
-  timeoutMs: number;
-  autoApprove: boolean;
-  onPromptChat: (event: PendingRequest) => void;
+  rules: PermissionRuleStore;
 }
 
-function ensureSessionSet(
-  state: BusState,
-  conversationId: string,
-): Set<string> {
-  const existing = state.sessionAllowed.get(conversationId);
-  if (existing) return existing;
-  const fresh = new Set<string>();
-  state.sessionAllowed.set(conversationId, fresh);
-  return fresh;
+const DENIED: PermissionOutcome = { isAllowed: false, allowedBy: "denied" };
+
+/** The reason the agent reads when a request is refused. */
+export function denialMessage(outcome: PermissionOutcome): string {
+  if (outcome.allowedBy === "expired") return PERMISSION_EXPIRED_MESSAGE;
+  if (outcome.shouldInterrupt === true) return PERMISSION_DENY_ALL_MESSAGE;
+  const feedback = outcome.feedback?.trim();
+  if (feedback) return `${PERMISSION_FEEDBACK_PREFIX}${feedback}`;
+  return PERMISSION_DENIED_MESSAGE;
 }
 
-// "Allow for session" grants the TOOL for the rest of the conversation, not just
-// this exact call — keying on args would re-prompt on every different file/config.
-function rememberDecision(
-  state: BusState,
-  conversationId: string,
-  toolName: string,
-): void {
-  const set = ensureSessionSet(state, conversationId);
-  set.add(toolName);
-}
-
-function hasAllowed(
-  state: BusState,
-  conversationId: string,
-  toolName: string,
-): boolean {
-  const set = state.sessionAllowed.get(conversationId);
-  if (!set) return false;
-  return set.has(toolName);
-}
-
-type DecisionHandler = (state: BusState, pending: PendingState) => void;
-
-const DECISION_HANDLERS: Record<PermissionDecision, DecisionHandler> = {
-  [PERMISSION_DECISIONS.ALLOW_ONCE]: () => {},
-  [PERMISSION_DECISIONS.ALLOW_SESSION]: (state, pending) => {
-    rememberDecision(state, pending.conversationId, pending.toolName);
-  },
-  [PERMISSION_DECISIONS.DENY]: () => {},
-};
-
-function applyDecisionSideEffect(
+function settle(
   state: BusState,
   pending: PendingState,
-  decision: PermissionDecision,
-): void {
-  const handler = DECISION_HANDLERS[decision];
-  handler(state, pending);
-}
-
-function settlePending(
-  state: BusState,
-  pending: PendingState,
-  decision: PermissionDecision,
+  outcome: PermissionOutcome,
+  answer: Omit<PermissionPrompt, "request" | "decidedAtMs">,
 ): void {
   clearTimeout(pending.timer);
-  state.pending.delete(pending.requestId);
-  applyDecisionSideEffect(state, pending, decision);
-  pending.resolve(decision);
+  state.pending.delete(pending.request.requestId);
+  const { request } = pending;
+  state.onDecided?.({
+    conversationId: request.conversationId,
+    callId: request.callId,
+    toolName: request.toolName,
+    outcome,
+    prompt: { request, decidedAtMs: Date.now(), ...answer },
+  });
+  pending.resolve(outcome);
 }
+
+function addRule(
+  state: BusState,
+  pending: PendingState,
+  rule: PermissionRuleType | undefined,
+): void {
+  const offered = pending.request.ruleOptions;
+  if (rule === undefined || !offered.some((o) => isSameRule(o, rule))) return;
+  const { conversationId } = pending.request;
+  state.rules.add(conversationId, rule);
+  state.onRulesChanged?.(conversationId, state.rules.list(conversationId));
+}
+
+function pendingOf(state: BusState, conversationId: string): PendingState[] {
+  return [...state.pending.values()].filter(
+    (p) => p.request.conversationId === conversationId,
+  );
+}
+
+function denyAll(
+  state: BusState,
+  pending: PendingState,
+  answer: PermissionAnswer,
+): void {
+  const outcome: PermissionOutcome = { ...DENIED, shouldInterrupt: true };
+  const { conversationId } = pending.request;
+  for (const other of [pending, ...pendingOf(state, conversationId)]) {
+    if (!state.pending.has(other.request.requestId)) continue;
+    settle(state, other, outcome, {
+      settledAs: PERMISSION_DECISIONS.DENY_ALL,
+      decidedBy: answer.actor,
+    });
+  }
+  state.onDenyAll?.(conversationId);
+}
+
+type AnswerHandler = (
+  state: BusState,
+  pending: PendingState,
+  answer: PermissionAnswer,
+) => void;
+
+const ANSWER_HANDLERS: Record<PermissionDecisionValue, AnswerHandler> = {
+  allow_once: (state, pending, answer) =>
+    settle(
+      state,
+      pending,
+      { isAllowed: true, allowedBy: "approved", keepData: answer.keepData },
+      { settledAs: answer.decision, decidedBy: answer.actor },
+    ),
+  allow_rule: (state, pending, answer) => {
+    addRule(state, pending, answer.rule);
+    settle(
+      state,
+      pending,
+      { isAllowed: true, allowedBy: "approved" },
+      { settledAs: answer.decision, decidedBy: answer.actor },
+    );
+  },
+  deny: (state, pending, answer) =>
+    settle(
+      state,
+      pending,
+      { ...DENIED, feedback: answer.feedback },
+      { settledAs: answer.decision, decidedBy: answer.actor },
+    ),
+  deny_all: denyAll,
+};
 
 function scheduleTimeout(
   state: BusState,
   requestId: string,
+  timeoutMs: number,
 ): ReturnType<typeof setTimeout> {
   return setTimeout(() => {
     const pending = state.pending.get(requestId);
-    if (!pending) return;
+    if (pending === undefined) return;
     console.warn(
       `${PERMISSION_LOG_PREFIX} ${PERMISSION_TIMEOUT_REASON} (requestId=${requestId})`,
     );
-    settlePending(state, pending, PERMISSION_DECISIONS.DENY);
-  }, state.timeoutMs);
+    settle(
+      state,
+      pending,
+      { isAllowed: false, allowedBy: "expired" },
+      { settledAs: PERMISSION_SETTLEMENTS.EXPIRED },
+    );
+  }, timeoutMs);
 }
 
-function registerPending(
-  state: BusState,
+async function buildPending(
   req: PermissionRequest,
-  resolve: (decision: PermissionDecision) => void,
-): PendingRequest {
-  const requestId = randomUUID();
-  const timer = scheduleTimeout(state, requestId);
-  const pending: PendingState = {
-    requestId,
-    conversationId: req.conversationId,
+  policy: PermissionPolicy,
+  timeoutMs: number,
+): Promise<PendingRequest> {
+  const description = await describeRequest({
     toolName: req.toolName,
     args: req.args,
-    resolve,
-    timer,
-  };
-  state.pending.set(requestId, pending);
+    hostProjectRoot: policy.hostProjectRoot,
+    alwaysAskDependencies: policy.alwaysAskDependencies,
+    alwaysAskBlockRemoval: policy.alwaysAskBlockRemoval,
+  });
+  const createdAtMs = Date.now();
   return {
-    requestId,
     conversationId: req.conversationId,
+    requestId: randomUUID(),
+    callId: req.callId,
     toolName: req.toolName,
     args: req.args,
+    summary: buildToolSummary(req.toolName, req.args),
+    ...description,
+    createdAtMs,
+    expiresAtMs: createdAtMs + timeoutMs,
   };
 }
 
-function startRequest(
+function decideWithoutAsking(
   state: BusState,
   req: PermissionRequest,
-): Promise<PermissionDecision> {
-  if (state.autoApprove) {
-    return Promise.resolve(PERMISSION_DECISIONS.ALLOW_ONCE);
+  request: PendingRequest,
+  policy: PermissionPolicy,
+): PermissionOutcome | null {
+  if (request.alwaysAsk) return null;
+  const subject = { ...req, hostProjectRoot: policy.hostProjectRoot };
+  if (state.rules.matches(req.conversationId, subject)) {
+    return { isAllowed: true, allowedBy: "rule" };
   }
-  if (hasAllowed(state, req.conversationId, req.toolName)) {
-    return Promise.resolve(PERMISSION_DECISIONS.ALLOW_ONCE);
+  if (policy.isFullAuto) return { isAllowed: true, allowedBy: "full_auto" };
+  return null;
+}
+
+async function startRequest(
+  state: BusState,
+  req: PermissionRequest,
+): Promise<PermissionOutcome> {
+  const policy = state.getPolicy(req.conversationId);
+  const timeoutMs = state.timeoutMs ?? policy.timeoutMs;
+  const request = await buildPending(req, policy, timeoutMs);
+  const automatic = decideWithoutAsking(state, req, request, policy);
+  if (automatic !== null) {
+    state.onDecided?.({ ...req, outcome: automatic });
+    return automatic;
   }
-  return new Promise<PermissionDecision>((resolve) => {
-    const event = registerPending(state, req, resolve);
-    state.onPromptChat(event);
+  return new Promise<PermissionOutcome>((resolve) => {
+    const timer = scheduleTimeout(state, request.requestId, timeoutMs);
+    state.pending.set(request.requestId, { request, resolve, timer });
+    state.onPromptChat(request);
   });
 }
 
-function handleResolve(
-  state: BusState,
-  requestId: string,
-  decision: PermissionDecision,
-): void {
-  const pending = state.pending.get(requestId);
-  if (!pending) {
+function handleAnswer(state: BusState, answer: PermissionAnswer): void {
+  const pending = state.pending.get(answer.requestId);
+  if (pending === undefined) {
     console.warn(
-      `${PERMISSION_LOG_PREFIX} ${PERMISSION_UNKNOWN_REQUEST_REASON} (requestId=${requestId})`,
+      `${PERMISSION_LOG_PREFIX} ${PERMISSION_UNKNOWN_REQUEST_REASON} (requestId=${answer.requestId})`,
     );
     return;
   }
-  settlePending(state, pending, decision);
+  ANSWER_HANDLERS[answer.decision](state, pending, answer);
 }
 
-function pendingToRequest(pending: PendingState): PendingRequest {
-  return {
-    requestId: pending.requestId,
-    conversationId: pending.conversationId,
-    toolName: pending.toolName,
-    args: pending.args,
-  };
+function cancelPending(state: BusState, pending: PendingState[]): void {
+  for (const one of pending) {
+    settle(state, one, DENIED, { settledAs: PERMISSION_SETTLEMENTS.CANCELLED });
+  }
 }
 
-function collectPendingForConversation(
+function cancelConversation(state: BusState, conversationId: string): void {
+  cancelPending(state, pendingOf(state, conversationId));
+}
+
+function cancelCall(
   state: BusState,
   conversationId: string,
-): PendingRequest[] {
-  const out: PendingRequest[] = [];
-  for (const pending of state.pending.values()) {
-    if (pending.conversationId !== conversationId) continue;
-    out.push(pendingToRequest(pending));
-  }
-  return out;
-}
-
-function buildState(opts: BusOptions): BusState {
-  return {
-    pending: new Map(),
-    sessionAllowed: new Map(),
-    timeoutMs: opts.timeoutMs ?? PERMISSION_TIMEOUT_MS,
-    autoApprove: false,
-    onPromptChat: opts.onPromptChat,
-  };
+  callId: string,
+): void {
+  const ofCall = pendingOf(state, conversationId).filter(
+    (p) => p.request.callId === callId,
+  );
+  cancelPending(state, ofCall);
 }
 
 export function createPermissionBus(opts: BusOptions): PermissionBus {
-  const state = buildState(opts);
+  const state: BusState = {
+    ...opts,
+    pending: new Map(),
+    rules: opts.rules ?? createPermissionRuleStore(),
+  };
   return {
-    requestPermission(req) {
-      return startRequest(state, req);
-    },
-    resolvePermission(requestId, decision) {
-      handleResolve(state, requestId, decision);
-    },
-    rememberSessionDecision(conversationId, toolName) {
-      rememberDecision(state, conversationId, toolName);
-    },
-    hasSessionAllowed(conversationId, toolName) {
-      return hasAllowed(state, conversationId, toolName);
-    },
+    requestPermission: (req) => startRequest(state, req),
+    resolvePermission: (answer) => handleAnswer(state, answer),
+    getPendingForConversation: (conversationId) =>
+      pendingOf(state, conversationId).map((p) => p.request),
+    countPending: (conversationId) =>
+      conversationId === undefined
+        ? state.pending.size
+        : pendingOf(state, conversationId).length,
+    cancelConversation: (conversationId) =>
+      cancelConversation(state, conversationId),
+    cancelCall: (conversationId, callId) =>
+      cancelCall(state, conversationId, callId),
     forgetConversation(conversationId) {
-      state.sessionAllowed.delete(conversationId);
+      cancelConversation(state, conversationId);
+      state.rules.forget(conversationId);
     },
-    getPendingForConversation(conversationId) {
-      return collectPendingForConversation(state, conversationId);
-    },
-    setAutoApprove(autoApprove) {
-      state.autoApprove = autoApprove;
+    listRules: (conversationId) => state.rules.list(conversationId),
+    revokeRule(conversationId, ruleId) {
+      const isRevoked = state.rules.revoke(conversationId, ruleId);
+      if (isRevoked) {
+        state.onRulesChanged?.(
+          conversationId,
+          state.rules.list(conversationId),
+        );
+      }
+      return isRevoked;
     },
   };
 }

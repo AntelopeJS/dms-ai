@@ -17,7 +17,7 @@ export class AISidecarInfoController extends Controller(ROUTE_PREFIX) {
   @Get("/sidecar-info")
   async sidecarInfo() {
     // Reviving here makes navigation transparently respawn the sidecar after
-    // its idle shutdown, so the overlay reappears on the same page load.
+    // its idle shutdown, so the panel reappears on the same page load.
     await ensureSidecarRunning();
     return HTTPResult.withHeaders(
       {

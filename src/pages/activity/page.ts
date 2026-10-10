@@ -1,78 +1,110 @@
-import { PageController, RegisterPage } from "@antelopejs/interface-dms/page";
-import { KpiCard } from "@antelopejs/interface-dms/base";
+import { TableView } from "@antelopejs/interface-dms/base";
 import { CustomComponent } from "@antelopejs/interface-dms/base/custom";
-import { Grid, GridRow } from "@antelopejs/interface-dms/base/grid";
 import { DefaultLayout } from "@antelopejs/interface-dms/base/layouts";
+import type { TableViewTab } from "@antelopejs/interface-dms/base/table-view/options";
+import { PageController, RegisterPage } from "@antelopejs/interface-dms/page";
+import { I18N_SECTIONS } from "../../constants/i18n";
+import {
+  ACTIVITY_PAGE_SIZE,
+  PAGE_IDS,
+  PAGE_ORDER,
+  PAGE_ROUTES,
+} from "../../constants/pages";
+import { ACTIVITY_CATEGORIES, i18nKey } from "../../vocabulary";
+import { blockMeta, pageMenu, ROW_DRAWER_DIRECTION } from "../meta";
+import { ACTIVITY_COLUMNS } from "./columns";
+
+const SECTION = I18N_SECTIONS.ACTIVITY;
+const TABLE_PATH = "activity.log";
+
+function text(...segments: string[]): string {
+  return i18nKey(SECTION, ...segments);
+}
+
+const TABS: TableViewTab[] = [
+  { id: "all", label: text("tabs", "all"), icon: "i-ph-list" },
+  ...Object.entries(ACTIVITY_CATEGORIES).map(([category, entry]) => ({
+    id: category,
+    label: text("tabs", category),
+    icon: entry.icon,
+    filter: { accessorKey: "category", mode: "is", value: category },
+  })),
+];
+
+const DETAIL_DRAWER = CustomComponent("DmsAiActivityDetail").meta(
+  blockMeta("activity.detail", "i-ph-sidebar-simple"),
+);
 
 /**
- * AI Activity — audit log of AI actions. The KPI row reuses the shared dms-base
- * KpiCard (bound to the `/ai/metrics/kpi/*` routes, minus a PeriodSelector so
- * they report the default window). The cards track the human-in-the-loop signal:
- * how many mutating actions the agent proposed, how many were approved/denied,
- * and how many tools failed for real (denials excluded). Only the timeline below
- * is a custom Vue view (`DmsAiActivityView`) fetching `/ai/activity`.
+ * AI Activity — the audit log: every tool the assistant used, how it was
+ * allowed and what came out, from `/ai/activity`. Tabs and quick filters are
+ * column filters the route forwards to the sidecar; a row opens its detail in
+ * a drawer, deep-linked as `?record=<id>`.
  */
 @RegisterPage()
 export class AIActivityPage extends PageController(
-  "activity",
-  {
-    displayName: "Activity",
-    description: "Audit trail of AI actions",
-    icon: "i-ph-clock-counter-clockwise",
-    module: "ai",
-    order: 1,
-  },
-  DefaultLayout({ fullWidth: true }),
+  PAGE_IDS.ACTIVITY,
+  pageMenu(
+    PAGE_IDS.ACTIVITY,
+    "i-ph-clock-counter-clockwise",
+    PAGE_ORDER.ACTIVITY,
+  ),
+  DefaultLayout({
+    headerActions: [
+      {
+        label: text("export"),
+        icon: "i-ph-download-simple",
+        target: { type: "external", url: PAGE_ROUTES.ACTIVITY_EXPORT },
+      },
+    ],
+  }),
 ) {
-  static kpis = Grid({ gap: "1rem" }).child(
-    "kpiRow",
-    GridRow()
-      .child(
-        "proposed",
-        KpiCard({
-          title: "Proposed",
-          icon: "i-ph-magic-wand",
-          fetchUrl: "/ai/metrics/kpi/proposed",
-          valueFormat: "compact",
-          showDelta: false,
-        }),
-      )
-      .child(
-        "approved",
-        KpiCard({
-          title: "Approved",
-          icon: "i-ph-check-circle",
-          fetchUrl: "/ai/metrics/kpi/approved",
-          valueFormat: "compact",
-          showDelta: false,
-        }),
-      )
-      .child(
-        "denied",
-        KpiCard({
-          title: "Denied",
-          icon: "i-ph-prohibit",
-          fetchUrl: "/ai/metrics/kpi/denied",
-          valueFormat: "compact",
-          invert: true,
-          showDelta: false,
-        }),
-      )
-      .child(
-        "errors",
-        KpiCard({
-          title: "Errors",
-          icon: "i-ph-warning-circle",
-          fetchUrl: "/ai/metrics/kpi/errors",
-          valueFormat: "compact",
-          invert: true,
-          showDelta: false,
-        }),
-      ),
-  );
-
-  static activity = CustomComponent("DmsAiActivityView").meta({
-    name: "Activity",
-    icon: "i-ph-clock-counter-clockwise",
-  });
+  static log = TableView.fromSource({
+    fetchUrl: PAGE_ROUTES.ACTIVITY,
+    capabilities: { search: true, paginate: true, filter: true },
+    columns: ACTIVITY_COLUMNS,
+    searchPlaceholder: text("search"),
+    pageSize: ACTIVITY_PAGE_SIZE,
+    pagination: "loadMore",
+    tabs: TABS,
+    quickFilters: [
+      { field: "tool", label: text("quick", "tool"), icon: "i-ph-wrench" },
+      { field: "agent", label: text("quick", "agent"), icon: "i-ph-robot" },
+      {
+        field: "isReadOnly",
+        label: text("quick", "read_only"),
+        icon: "i-ph-eye-slash",
+        allLabel: text("read_only", "show"),
+      },
+    ],
+    rowActions: {
+      custom: [
+        {
+          label: text("detail", "open"),
+          icon: "i-ph-sidebar-simple",
+          isDefault: true,
+          deepLink: true,
+          target: {
+            type: "drawer",
+            component: DETAIL_DRAWER,
+            title: text("detail", "title"),
+            direction: ROW_DRAWER_DIRECTION,
+          },
+        },
+      ],
+    },
+    footer: { countLabel: text("count") },
+    emptyStates: {
+      firstRun: {
+        title: text("empty", "title"),
+        description: text("empty", "description"),
+        icon: "i-ph-clock-counter-clockwise",
+      },
+      error: {
+        title: text("offline", "title"),
+        description: text("offline", "description"),
+        icon: "i-ph-plugs",
+      },
+    },
+  }).meta(blockMeta(TABLE_PATH, "i-ph-clock-counter-clockwise"));
 }

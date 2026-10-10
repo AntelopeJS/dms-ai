@@ -10,14 +10,14 @@ export const ACTIVITY_KINDS = {
 	RETRYING: "retrying",
 } as const;
 
-/** What a running turn shows while the agent works, by reported activity. */
-export const ACTIVITY_LABELS: Record<ActivityKind, string> = {
-	[ACTIVITY_KINDS.THINKING]: "Thinking",
-	[ACTIVITY_KINDS.RESPONDING]: "Writing the answer",
-	[ACTIVITY_KINDS.WRITING]: "Preparing",
-	[ACTIVITY_KINDS.TOOL]: "Running",
-	[ACTIVITY_KINDS.COMPACTING]: "Compacting the conversation",
-	[ACTIVITY_KINDS.RETRYING]: "The model is busy, retrying",
+/** Translation key of what a running turn shows, by reported activity. */
+export const ACTIVITY_LABEL_KEYS: Record<ActivityKind, string> = {
+	[ACTIVITY_KINDS.THINKING]: "dms_ai.panel.activity.thinking",
+	[ACTIVITY_KINDS.RESPONDING]: "dms_ai.panel.activity.responding",
+	[ACTIVITY_KINDS.WRITING]: "dms_ai.panel.activity.writing",
+	[ACTIVITY_KINDS.TOOL]: "dms_ai.panel.activity.tool",
+	[ACTIVITY_KINDS.COMPACTING]: "dms_ai.panel.activity.compacting",
+	[ACTIVITY_KINDS.RETRYING]: "dms_ai.panel.activity.retrying",
 };
 
 /** Activities whose detail names a tool, shown with the tool's own label. */
@@ -29,7 +29,6 @@ export const TOOL_DETAIL_ACTIVITIES: readonly ActivityKind[] = [
 /** Activities during which a silent agent is expected, so never called quiet. */
 export const SILENT_ACTIVITIES: readonly ActivityKind[] = [ACTIVITY_KINDS.TOOL];
 
-export const DEFAULT_ACTIVITY_LABEL = "Thinking";
 export const ACTIVITY_ELLIPSIS = "…";
 
 /**
@@ -43,8 +42,3 @@ export const STALL_AFTER_MS = 20_000;
 export const QUIET_NOTICE_AFTER_MS = 60_000;
 
 export const RUN_CLOCK_TICK_MS = 1_000;
-
-export const STALLED_LABEL = "No news from the assistant for";
-export const QUIET_LABEL = "no activity for";
-export const RECONNECT_LABEL = "Reconnect";
-export const STOP_LABEL = "Stop";

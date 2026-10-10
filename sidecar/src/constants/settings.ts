@@ -10,7 +10,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
   thinking: "medium",
   generationMode: "safe",
   allowLocalSkills: false,
+  alwaysAskDependencies: true,
+  alwaysAskBlockRemoval: true,
+  requestTimeoutMinutes: 5,
+  notifyRequests: true,
+  checkpointRetentionDays: 30,
 };
+
+export const MS_PER_MINUTE = 60_000;
 
 /**
  * In safe mode the agent may act ONLY through the Builder (MCP) tools and
@@ -31,4 +38,4 @@ export const SAFE_MODE_DISALLOWED_TOOLS = [
 ];
 
 export const SAFE_MODE_DENIED_MESSAGE =
-  'Safe generation mode is active: raw file edits are blocked. Use the Builder ("Builder…") MCP tools instead. If the change genuinely can\'t be done through the Builder, ask the user to switch to Vibe mode for this step.';
+  'Safe mode is active: shell commands and raw file edits are blocked. Make the change with the Builder ("Builder…") MCP tools instead. If it genuinely cannot be done through the Builder, ask the user to switch to Code mode for this step.';
