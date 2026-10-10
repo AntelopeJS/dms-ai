@@ -70,28 +70,6 @@
 				"pending": "Pending",
 				"expired": "Expired"
 			},
-			"status": {
-				"state": {
-					"ready": "Ready",
-					"working": "Working",
-					"waiting": "Waiting for you"
-				},
-				"working_count": "{count} conversation working | {count} conversations working",
-				"waiting_count": "{count} waiting for you | {count} waiting for you",
-				"agent": "Agent",
-				"default_scope": "Default scope",
-				"approvals": "Approvals",
-				"builder": "Builder",
-				"builder_connected": "connected",
-				"builder_missing": "not installed",
-				"sidecar": "Sidecar",
-				"last_error": "Last error: {error}",
-				"offline": "The assistant is offline",
-				"offline_description": "Its sidecar isn't running. Restart it to use the assistant again.",
-				"restart": "Restart assistant",
-				"review_approvals": "Review {count} approval | Review {count} approvals",
-				"settings": "Settings"
-			},
 			"changes": {
 				"search": "Search files or changes",
 				"filter_label": "Scope",
@@ -178,12 +156,6 @@
 				"used_value": "{count}× · 30 days",
 				"last_used_label": "Last used",
 				"open_last_conversation": "Open last conversation"
-			},
-			"conflicts": {
-				"title": "{count} skills are named “{name}”",
-				"description": "The one from {winner} is used; {ignored} is ignored. Rename one to use both. | The one from {winner} is used; {ignored} are ignored. Rename them to use them all.",
-				"local_copy": "your local copy ({origin})",
-				"module_copy": "{origin}"
 			}
 		}
 	}

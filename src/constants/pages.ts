@@ -41,6 +41,9 @@ export const SETTINGS_SKILLS_SECTION = "skills";
 /** The routes the pages read, by what they serve. */
 export const PAGE_ROUTES = {
   STATUS: `${ROUTE_PREFIX}/status`,
+  STATUS_FACTS: `${ROUTE_PREFIX}/status/facts`,
+  STATUS_BANNER: `${ROUTE_PREFIX}/status/banner`,
+  SIDECAR_RESTART: `${ROUTE_PREFIX}/sidecar/restart`,
   KPI: `${ROUTE_PREFIX}/metrics/kpi`,
   SERIES: `${ROUTE_PREFIX}/metrics/series`,
   ALLOWED: `${ROUTE_PREFIX}/metrics/allowed`,
@@ -54,6 +57,7 @@ export const PAGE_ROUTES = {
   ACTIVITY: `${ROUTE_PREFIX}/activity`,
   ACTIVITY_EXPORT: `${ROUTE_PREFIX}/activity/export.csv`,
   SKILLS_CATALOG: `${ROUTE_PREFIX}/skills/catalog`,
+  SKILL_CONFLICTS: `${ROUTE_PREFIX}/skills/conflicts`,
   SETTINGS: `${ROUTE_PREFIX}/settings`,
 } as const;
 
@@ -62,5 +66,6 @@ export const PAGE_LINKS = {
   CHANGES: `${MODULE_PAGES_PATH}/${PAGE_IDS.CHANGES}`,
   CHANGE_SET: `${MODULE_PAGES_PATH}/${PAGE_IDS.CHANGES}?set={_id}`,
   ACTIVITY: `${MODULE_PAGES_PATH}/${PAGE_IDS.ACTIVITY}`,
+  SETTINGS: `${MODULE_PAGES_PATH}/${PAGE_IDS.SETTINGS}`,
   SKILL_SETTINGS: `${MODULE_PAGES_PATH}/${PAGE_IDS.SETTINGS}#dms-form-${SETTINGS_FORM_KEY}-section-${SETTINGS_SKILLS_SECTION}`,
 } as const;

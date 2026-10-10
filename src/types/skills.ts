@@ -41,3 +41,21 @@ export interface SkillRow {
   body: string;
   qualifiedName: string;
 }
+
+/** One copy of a skill name, where it comes from. */
+export interface SidecarSkillOrigin {
+  source: string;
+  origin: string;
+}
+
+/** A skill name several skills share: the copy used and the ones ignored. */
+export interface SidecarSkillConflict {
+  name: string;
+  winner: SidecarSkillOrigin;
+  ignored: SidecarSkillOrigin[];
+}
+
+/** The sidecar's duplicate skill names. */
+export interface SidecarSkillConflicts {
+  conflicts: SidecarSkillConflict[];
+}

@@ -1,22 +1,17 @@
-import type { ActivityResult, AllowedBy, ScopeId } from "./types";
+import type { ActivityResult, AllowedBy } from "./types";
 import type { Tone } from "#dms-ui/app/types/tone";
 
 export const AI_ROUTES = {
 	status: "/ai/status",
-	restart: "/ai/sidecar/restart",
 	changes: "/ai/changes",
 	activity: "/ai/activity",
-	skillConflicts: "/ai/skills/conflicts",
 } as const;
 
 export const AI_PAGES = {
 	changes: "/modules/ai/changes",
-	activity: "/modules/ai/activity",
-	settings: "/modules/ai/settings",
 } as const;
 
 export const CHANGE_SET_QUERY_KEY = "set";
-export const STATUS_POLL_INTERVAL_MS = 10_000;
 export const CHANGES_PAGE_SIZE = 30;
 export const HTTP_SERVICE_UNAVAILABLE = 503;
 
@@ -44,9 +39,4 @@ export const RESULT_TONES: Record<ActivityResult, Tone> = {
 	stopped: "neutral",
 	pending: "warning",
 	expired: "neutral",
-};
-
-export const SCOPE_ICONS: Record<ScopeId, string> = {
-	safe: "i-ph-shield-check",
-	vibe: "i-ph-code",
 };

@@ -1,4 +1,8 @@
-import { DefaultDisplays, TableView } from "@antelopejs/interface-dms/base";
+import {
+  Banner,
+  DefaultDisplays,
+  TableView,
+} from "@antelopejs/interface-dms/base";
 import { CustomComponent } from "@antelopejs/interface-dms/base/custom";
 import { DefaultDataTypes } from "@antelopejs/interface-dms/base/data-types";
 import { DefaultLayout } from "@antelopejs/interface-dms/base/layouts";
@@ -76,7 +80,8 @@ const COLUMNS: Record<string, TableViewSourceColumn> = {
  * AI Skills — the SKILL.md files loaded into the agent, contributed by the
  * loaded modules and, when allowed, by this machine. A source table on
  * `/ai/skills/catalog` shown as cards, each opening the skill in a drawer;
- * the duplicate-name warning above it is fed by `/ai/skills/conflicts`.
+ * the banner above it warns, from `/ai/skills/conflicts`, about names several
+ * skills share.
  */
 @RegisterPage()
 export class AISkillsPage extends PageController(
@@ -92,7 +97,7 @@ export class AISkillsPage extends PageController(
     ],
   }),
 ) {
-  static conflicts = CustomComponent("DmsAiSkillConflicts").meta(
+  static conflicts = Banner({ fetchUrl: PAGE_ROUTES.SKILL_CONFLICTS }).meta(
     blockMeta("skills.conflicts", "i-ph-warning"),
   );
 

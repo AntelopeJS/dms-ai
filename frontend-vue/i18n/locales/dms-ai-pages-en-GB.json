@@ -34,7 +34,9 @@
 				},
 				"status": {
 					"name": "Assistant status",
-					"description": "Live state of the assistant, its agent, scope and approvals waiting"
+					"description": "The assistant's state, agent, default scope, approval mode, Builder and sidecar",
+					"title": "Assistant",
+					"settings": "Settings"
 				},
 				"kpis": {
 					"name": "Key figures",
@@ -114,6 +116,14 @@
 				"activity_chart_series": {
 					"name": "Activity chart series",
 					"description": "The area chart drawn inside the activity card"
+				},
+				"status_banner": {
+					"name": "Assistant notice",
+					"description": "Says when the assistant is offline, its last turn failed or requests wait for you"
+				},
+				"status_facts": {
+					"name": "Assistant facts",
+					"description": "One row per fact of the assistant's status"
 				}
 			},
 			"changes": {
@@ -531,6 +541,64 @@
 			"offline": {
 				"title": "Can't reach the assistant",
 				"description": "Skills come from the assistant, which isn't running. This isn't an empty list."
+			},
+			"conflicts": {
+				"title": "{count} skill name is shared by several skills | {count} skill names are shared by several skills",
+				"description": "{names}: only one copy of the name is used, the other is marked Shadowed. Rename a copy to use both. | {names}: only one copy of each name is used, the others are marked Shadowed. Rename a copy to use them all.",
+				"action": "Skill sources"
+			}
+		},
+		"status": {
+			"state": {
+				"ready": "Ready",
+				"working": "Working",
+				"waiting": "Waiting for you",
+				"offline": "Offline"
+			},
+			"agent": {
+				"claude": "Claude Code",
+				"codex": "Codex"
+			},
+			"scope": {
+				"safe": "Safe mode",
+				"vibe": "Code mode"
+			},
+			"mode": {
+				"normal": "Ask first",
+				"acceptEdits": "Accept edits",
+				"plan": "Plan only",
+				"auto": "Full auto"
+			},
+			"facts": {
+				"state": "Status",
+				"agent": "Agent",
+				"default_scope": "Default scope",
+				"approvals": "Approvals",
+				"builder": "Builder",
+				"builder_connected": "Connected",
+				"builder_missing": "Not installed",
+				"sidecar": "Sidecar",
+				"sidecar_stopped": "Not running",
+				"working_count": "{count} conversation working | {count} conversations working",
+				"waiting_count": "{count} waiting for you | {count} waiting for you"
+			},
+			"banner": {
+				"offline": {
+					"title": "The assistant is offline",
+					"description": "Its sidecar isn't running. Restart it to use the assistant again.",
+					"disabled": "Its sidecar is turned off in this module's configuration.",
+					"restart": "Restart assistant",
+					"restarted": "Assistant restarted"
+				},
+				"last_error": {
+					"title": "The assistant's last turn failed",
+					"description": "{error}",
+					"action": "Open activity"
+				},
+				"waiting": {
+					"title": "{count} request is waiting for you | {count} requests are waiting for you",
+					"description": "Open the assistant to answer: the button in the header, or ⌘⇧K."
+				}
 			}
 		}
 	}

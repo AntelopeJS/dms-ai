@@ -181,21 +181,6 @@ export interface SkillRow {
 	icon?: string;
 }
 
-export interface SkillOrigin {
-	source: SkillSource;
-	origin: string;
-}
-
-export interface SkillConflict {
-	name: string;
-	winner: SkillOrigin;
-	ignored: SkillOrigin[];
-}
-
-export interface SkillConflictsPayload {
-	conflicts: SkillConflict[];
-}
-
 /** What a DMS row drawer hands its component to step through the rows. */
 export interface RowNavigation {
 	index: number;

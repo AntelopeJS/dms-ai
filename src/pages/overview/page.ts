@@ -1,5 +1,4 @@
 import { PeriodSelector } from "@antelopejs/interface-dms/base";
-import { CustomComponent } from "@antelopejs/interface-dms/base/custom";
 import { DefaultLayout } from "@antelopejs/interface-dms/base/layouts";
 import { PageController, RegisterPage } from "@antelopejs/interface-dms/page";
 import {
@@ -10,14 +9,15 @@ import {
 import { blockMeta, pageMenu } from "../meta";
 import { overviewActivity, overviewChanges } from "./insights";
 import { overviewKpis } from "./kpis";
+import { overviewStatus, overviewStatusBanner } from "./status";
 
 const PERIOD_PATH = "overview.period";
 
 /**
- * AI Overview — the module's landing page: the assistant's live status, what
- * it did over the selected period, how each action was allowed, and the latest
- * change sets with Undo. Every block but the status card is a DMS block bound
- * to an `/ai/*` route.
+ * AI Overview — the module's landing page: what needs the owner, the
+ * assistant's status, what it did over the selected period, how each action
+ * was allowed, and the latest change sets with Undo. Every block is a DMS
+ * block bound to an `/ai/*` route.
  */
 @RegisterPage()
 export class AIOverviewPage extends PageController(
@@ -35,9 +35,9 @@ export class AIOverviewPage extends PageController(
     comparisons: ["none", "previous-period"],
   }).meta(blockMeta(PERIOD_PATH, "i-ph-calendar-blank"));
 
-  static status = CustomComponent("DmsAiStatusCard").meta(
-    blockMeta("overview.status", "i-ph-pulse"),
-  );
+  static attention = overviewStatusBanner();
+
+  static status = overviewStatus();
 
   static kpis = overviewKpis();
 

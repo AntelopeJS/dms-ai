@@ -2,6 +2,7 @@ import { SIDECAR_UNAVAILABLE_STATUS } from "./sidecar";
 
 export const HTTP_STATUS = {
   OK: 200,
+  NO_CONTENT: 204,
   BAD_REQUEST: 400,
   UNAVAILABLE: SIDECAR_UNAVAILABLE_STATUS,
 } as const;

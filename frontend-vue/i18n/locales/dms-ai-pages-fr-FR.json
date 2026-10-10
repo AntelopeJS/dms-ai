@@ -34,7 +34,9 @@
 				},
 				"status": {
 					"name": "État de l'assistant",
-					"description": "État en direct de l'assistant, de son agent, de sa portée et des validations en attente"
+					"description": "L'état de l'assistant, son agent, sa portée par défaut, son mode de validation, le Builder et le sidecar",
+					"title": "Assistant",
+					"settings": "Réglages"
 				},
 				"kpis": {
 					"name": "Chiffres clés",
@@ -114,6 +116,14 @@
 				"activity_chart_series": {
 					"name": "Courbe du graphique d'activité",
 					"description": "Le graphique en aires dessiné dans la carte d'activité"
+				},
+				"status_banner": {
+					"name": "Alerte de l'assistant",
+					"description": "Signale l'assistant hors ligne, l'échec de son dernier tour ou des demandes qui vous attendent"
+				},
+				"status_facts": {
+					"name": "Informations de l'assistant",
+					"description": "Une ligne par information sur l'état de l'assistant"
 				}
 			},
 			"changes": {
@@ -531,6 +541,64 @@
 			"offline": {
 				"title": "Impossible de joindre l'assistant",
 				"description": "Les skills viennent de l'assistant, qui ne tourne pas. Ce n'est pas une liste vide."
+			},
+			"conflicts": {
+				"title": "{count} nom de skill est porté par plusieurs skills | {count} noms de skills sont portés par plusieurs skills",
+				"description": "{names} : une seule copie du nom est utilisée, l'autre est marquée Masquée. Renommez une copie pour utiliser les deux. | {names} : une seule copie de chaque nom est utilisée, les autres sont marquées Masquées. Renommez une copie pour toutes les utiliser.",
+				"action": "Sources des skills"
+			}
+		},
+		"status": {
+			"state": {
+				"ready": "Prêt",
+				"working": "Au travail",
+				"waiting": "En attente de vous",
+				"offline": "Hors ligne"
+			},
+			"agent": {
+				"claude": "Claude Code",
+				"codex": "Codex"
+			},
+			"scope": {
+				"safe": "Mode sûr",
+				"vibe": "Mode code"
+			},
+			"mode": {
+				"normal": "Demander d'abord",
+				"acceptEdits": "Accepter les modifications",
+				"plan": "Plan seulement",
+				"auto": "Automatique complet"
+			},
+			"facts": {
+				"state": "État",
+				"agent": "Agent",
+				"default_scope": "Portée par défaut",
+				"approvals": "Validations",
+				"builder": "Builder",
+				"builder_connected": "Connecté",
+				"builder_missing": "Non installé",
+				"sidecar": "Sidecar",
+				"sidecar_stopped": "Arrêté",
+				"working_count": "{count} conversation en cours | {count} conversations en cours",
+				"waiting_count": "{count} demande en attente de vous | {count} demandes en attente de vous"
+			},
+			"banner": {
+				"offline": {
+					"title": "L'assistant est hors ligne",
+					"description": "Son sidecar ne tourne pas. Redémarrez-le pour utiliser à nouveau l'assistant.",
+					"disabled": "Son sidecar est désactivé dans la configuration de ce module.",
+					"restart": "Redémarrer l'assistant",
+					"restarted": "Assistant redémarré"
+				},
+				"last_error": {
+					"title": "Le dernier tour de l'assistant a échoué",
+					"description": "{error}",
+					"action": "Ouvrir l'activité"
+				},
+				"waiting": {
+					"title": "{count} demande vous attend | {count} demandes vous attendent",
+					"description": "Ouvrez l'assistant pour répondre : le bouton de l'en-tête, ou ⌘⇧K."
+				}
 			}
 		}
 	}

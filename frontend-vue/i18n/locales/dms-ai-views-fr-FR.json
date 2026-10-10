@@ -70,28 +70,6 @@
 				"pending": "En attente",
 				"expired": "Expiré"
 			},
-			"status": {
-				"state": {
-					"ready": "Prêt",
-					"working": "Au travail",
-					"waiting": "En attente de vous"
-				},
-				"working_count": "{count} conversation en cours | {count} conversations en cours",
-				"waiting_count": "{count} demande en attente de vous | {count} demandes en attente de vous",
-				"agent": "Agent",
-				"default_scope": "Portée par défaut",
-				"approvals": "Validations",
-				"builder": "Builder",
-				"builder_connected": "connecté",
-				"builder_missing": "non installé",
-				"sidecar": "Sidecar",
-				"last_error": "Dernière erreur : {error}",
-				"offline": "L'assistant est hors ligne",
-				"offline_description": "Son sidecar ne tourne pas. Redémarrez-le pour utiliser à nouveau l'assistant.",
-				"restart": "Redémarrer l'assistant",
-				"review_approvals": "Examiner {count} validation | Examiner {count} validations",
-				"settings": "Réglages"
-			},
 			"changes": {
 				"search": "Rechercher des fichiers ou des modifications",
 				"filter_label": "Portée",
@@ -178,12 +156,6 @@
 				"used_value": "{count}× · 30 jours",
 				"last_used_label": "Dernière utilisation",
 				"open_last_conversation": "Ouvrir la dernière conversation"
-			},
-			"conflicts": {
-				"title": "{count} compétences s’appellent « {name} »",
-				"description": "Celle de {winner} est utilisée ; {ignored} est ignorée. Renommez-en une pour utiliser les deux. | Celle de {winner} est utilisée ; {ignored} sont ignorées. Renommez-les pour toutes les utiliser.",
-				"local_copy": "votre copie locale ({origin})",
-				"module_copy": "{origin}"
 			}
 		}
 	}

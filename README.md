@@ -69,7 +69,7 @@ translated names (English and French, in `frontend-vue/i18n/locales/dms-ai-pages
 
 | Page     | What it shows                                                                                                   |
 | -------- | --------------------------------------------------------------------------------------------------------------- |
-| Overview | Period selector, the assistant's live status, four KPIs, the activity chart, how actions were allowed, the latest change sets with Undo / Redo, and the top tools. |
+| Overview | Period selector, a banner when the assistant needs you (offline with Restart, a failed turn, requests waiting), its status rows, four KPIs, the activity chart, how actions were allowed, the latest change sets with Undo / Redo, and the top tools. |
 | Changes  | Every turn that touched the project as a change set: its diff, Undo with a conflict preview, Redo. `?set=<id>` opens one. |
 | Activity | The audit log: tabs (changed files, asked you, denied or blocked, failed), quick filters, a detail drawer per call (`?record=<id>`), and a CSV export. |
 | Skills   | The skills loaded into the agent as cards, a detail drawer per skill, and a warning when two skills share a name. |
@@ -81,11 +81,12 @@ down, so tables show their error state and a setting says "Not saved"; charts an
 | Route                                                  | Purpose                                                        |
 | ------------------------------------------------------ | -------------------------------------------------------------- |
 | `GET /ai/status`, `POST /ai/sidecar/restart`           | The assistant's live status (`offline` when it does not answer), and a restart. |
+| `GET /ai/status/facts`, `/ai/status/banner`            | The Overview's status rows (a `KeyValueList`) and its banner (`BannerContent`, or 204 when all is well). |
 | `GET /ai/metrics/kpi/:metric`, `series`, `allowed`, `top-tools`, `usage`, `usage/summary` | The Overview's and Settings › Usage figures. |
 | `GET /ai/activity`, `/ai/activity/:id`, `/ai/activity/export.csv` | The audit log as a source table, one call's detail, the CSV export. |
 | `GET /ai/changes`, `/ai/changes/:id`, `/ai/changes/:id/undo-preview`, `/ai/changes/:id/undo-confirm` | Change sets, a set's diff, what Undo restores, and the dialog it asks in. |
 | `POST /ai/changes/:id/undo`, `/ai/changes/:id/redo`    | Undo (`{ includeLater? }`) and Redo, recorded with the signed-in user's name. |
-| `GET /ai/skills/catalog`, `/ai/skills/conflicts`       | The skills as table rows, and the duplicate names.             |
+| `GET /ai/skills/catalog`, `/ai/skills/conflicts`       | The skills as table rows, and the banner about names several skills share (204 when none). |
 | `GET` / `PUT /ai/settings`                             | The settings form; `PUT` takes the one field an instant save sends. |
 
 ## Model output in the dashboard

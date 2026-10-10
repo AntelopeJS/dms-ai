@@ -265,3 +265,41 @@ void test("translates every $dms_ai key the AI pages serve, in English and Frenc
     assert.deepEqual(missing, [], file);
   }
 });
+
+const COMPONENT_PREFIX = "DmsAi";
+const CUSTOM_COMPONENT = /"(DmsAi[A-Z][A-Za-z]+)"/g;
+const COMPONENTS_DIR = path.resolve(
+  __dirname,
+  "../frontend-vue/app/components",
+);
+/** What no DMS block draws: the Changes view, the row drawers, the skill card. */
+const PAGE_CUSTOM_COMPONENTS = [
+  "DmsAiActivityDetail",
+  "DmsAiChangesView",
+  "DmsAiSkillCard",
+  "DmsAiSkillDetail",
+];
+
+void test("names only the custom components the frontend registers, where no DMS block fits", async () => {
+  const { pages } = loadPages();
+  const names = new Set();
+  for (const page of pages) {
+    for (const [, component] of staticComponents(page)) {
+      const serialized = JSON.stringify(await component.serialize());
+      for (const match of serialized.matchAll(CUSTOM_COMPONENT)) {
+        names.add(match[1]);
+      }
+    }
+  }
+  assert.deepEqual(
+    [...names].sort((left, right) => left.localeCompare(right)),
+    PAGE_CUSTOM_COMPONENTS,
+  );
+  for (const name of names) {
+    const file = `${name.slice(COMPONENT_PREFIX.length)}.vue`;
+    assert.ok(
+      require("node:fs").existsSync(path.join(COMPONENTS_DIR, file)),
+      `${name} is registered from ${file}`,
+    );
+  }
+});

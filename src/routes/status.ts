@@ -8,10 +8,12 @@ import {
   restartSidecar,
 } from "../lifecycle/spawn-sidecar";
 import { requestSidecar } from "../sidecar";
+import type { AssistantStatus } from "../types";
+import { bannerAnswer } from "./banner";
 import { assistantUnavailable } from "./sidecar-results";
+import { OFFLINE_STATUS, statusBanner, statusFacts } from "./status-shapes";
 
 const STATUS_PATH = "/status";
-const OFFLINE_STATUS = "offline";
 const NO_STORE = { "Cache-Control": "no-store" };
 
 /** What the backend knows of the sidecar process, beside what it says itself. */
@@ -31,32 +33,43 @@ function processState(): ProcessState {
 
 /**
  * The sidecar's own status, or `{ status: "offline" }` when it does not
- * answer, both with the process state: the status card always has something
- * to draw, and knows whether a restart can help.
+ * answer, both with the process state: the Overview always has something to
+ * draw, and knows whether a restart can help.
  */
-async function readStatus(): Promise<HTTPResult> {
+async function readStatus(): Promise<AssistantStatus> {
   try {
     const response = await requestSidecar(STATUS_PATH);
     const reported = response.isOk ? (response.body as object) : {};
     const status = response.isOk ? {} : { status: OFFLINE_STATUS };
-    return HTTPResult.withHeaders(
-      { ...status, ...reported, ...processState() },
-      NO_STORE,
-    );
+    return { ...status, ...reported, ...processState() } as AssistantStatus;
   } catch {
-    return HTTPResult.withHeaders(
-      { status: OFFLINE_STATUS, ...processState() },
-      NO_STORE,
-    );
+    return { status: OFFLINE_STATUS, ...processState() };
   }
 }
 
-/** The assistant's live status, and the way to restart it. */
+function fresh(body: unknown): HTTPResult {
+  return HTTPResult.withHeaders(body, NO_STORE);
+}
+
+/**
+ * The assistant's live status, the Overview's status rows and banner drawn
+ * from it, and the way to restart it.
+ */
 @AuthOwnerOnly()
 export class AIStatusController extends Controller(ROUTE_PREFIX) {
   @Get(STATUS_PATH)
-  status(): Promise<HTTPResult> {
-    return readStatus();
+  async status(): Promise<HTTPResult> {
+    return fresh(await readStatus());
+  }
+
+  @Get(`${STATUS_PATH}/facts`)
+  async facts(): Promise<HTTPResult> {
+    return fresh({ items: statusFacts(await readStatus()) });
+  }
+
+  @Get(`${STATUS_PATH}/banner`)
+  async banner(): Promise<HTTPResult> {
+    return fresh(bannerAnswer(statusBanner(await readStatus())));
   }
 
   @Post("/sidecar/restart")
@@ -66,6 +79,6 @@ export class AIStatusController extends Controller(ROUTE_PREFIX) {
     } catch {
       return assistantUnavailable();
     }
-    return readStatus();
+    return fresh(await readStatus());
   }
 }
