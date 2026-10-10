@@ -546,3 +546,92 @@ the stream open while it answers (`holdStream`), as an open panel or a busy chat
 - The panel, the palette answer and the Overview status card take `--dms-assistant-tint` and
   `--dms-assistant-line` where they meant the assistant's violet.
 
+
+---
+
+## 11. Follow-up after dms 0.7.2
+
+Inputs: `@antelopejs/dms` 0.7.2, `@antelopejs/interface-dms` 0.5.1 and `@antelopejs/dms-frontend`
+0.5.2: banners read from a route (dms#186), drawers from a chosen edge (dms#188), `DmsMasterDetail`
+laid out from its own width (dms#183), the `CodeBlock` block and `DmsCodeSnippet` (dms#182), tone
+pills per row (dms#181), copy buttons on `KeyValueList` rows (dms#180), composed texts in more
+blocks (dms#179), period scope and realtime topics on list blocks (dms#184), `TableView` reloads
+(dms#185) and route tokens in `TableView.fromSource` (dms#178). The user's rule still holds: a DMS
+block before a custom component, and no glue between them.
+
+### Q49. What replaces the duplicate-skill warning?
+
+`DmsAiSkillConflicts` existed because the `Banner` block was static (Q18).
+
+**Decision:** a `Banner` block with `fetchUrl: /ai/skills/conflicts`. The route reads the sidecar's
+duplicate names and answers one `BannerContent` for all of them (warning tone, a composed title
+"2 skill names are shared by several skills", the names in a composed description, a link to
+Settings › Skills), or a 204 when no name is shared or the sidecar is down, so the block draws
+nothing. The card of an ignored copy keeps saying "Shadowed" and its drawer names the copy used
+instead, so the banner no longer spells out each winner. The component, its types, its route
+constant and its `dms_ai.views.conflicts` texts are gone.
+
+### Q50. What replaces the Overview's status card?
+
+**Decision:** two DMS blocks fed by two routes drawn from `GET /ai/status`:
+
+- a `Banner` on `/ai/status/banner`, which answers the most pressing state only: offline (error,
+  with a "Restart assistant" button running `POST /ai/sidecar/restart`, none when the sidecar is
+  disabled), the last turn failed (error, its message, a link to Activity), requests waiting
+  (warning, a composed count); else a 204;
+- a `Card` "Assistant" with a Settings link, holding a `KeyValueList` on `/ai/status/facts`, three
+  columns: the state as a status pill (with "2 waiting for you" or "1 conversation working"
+  composed beside it), the agent, the default scope as a pill (green Safe, amber Code), the approval
+  mode, the Builder as a pill, and the sidecar's address with a copy button (dms#180); offline, the
+  state and a stopped sidecar only.
+
+`DmsAiStatusCard`, `useStatusFacts`, the 10-second poll and the `dms_ai.views.status` texts are
+gone. Two things go with them, accepted: the "Open assistant" and "Review N approvals" buttons
+(the header launcher and ⌘⇧K open the panel, where approvals are answered; a link cannot open a
+side panel), and the live poll: the blocks read their routes on load and on every page refresh.
+The backend publishes no realtime topic for the status, and polling the sidecar to publish one
+would be glue.
+
+### Q51. Can the skill cards be the `TableView`'s own card?
+
+The built-in card of the cards display (`card.fields`, `labelKey`) draws the label, the row id
+and each field through its column's data type formatter.
+
+**Decision:** no, `DmsAiSkillCard` stays, plugged into the `TableView` as its `card.component`.
+The built-in card does not apply a column's `display` and does not hand the row to the formatter
+(`CardsDisplay` calls `formatter.default(value, locale, options)` on the column's own type), so
+the tone pills of dms#181 (`StatusPillDisplay` with `toneField`, `PillsDisplay` items) only reach
+table cells: on a card the source would be a bare label, the tags an unrendered list, and a
+shadowed skill would look like the copy used. It also cannot dim an ignored copy or show the
+description. Revisit when the cards display renders fields through the column renderer.
+
+### Q52. How do the row drawers open, and what do they draw with?
+
+**Decision:** the Activity and Skill drawers open from the right (`direction: "right"`, a 440 px
+side sheet, dms#188), like the mockup's slideover; the direction is one constant of the pages. In
+`DmsAiActivityDetail` the output and the raw JSON are `DmsCodeSnippet`s (text, wrapped, 14 lines;
+JSON, 20 lines) with their language label and copy button, the "Allowed" and "Result" facts a
+`DmsKeyValueList` with its value slot, and each argument row copies the whole value
+(`copyValue`) while showing it cut short. `DmsAiSkillDetail` lists source (a pill), origin (copy),
+uses and last use in a `DmsKeyValueList`. The change set panel of Changes shows its four facts in a
+two-column `DmsKeyValueList` too, so the module's own `FactStrip` is gone. The diff view and the
+rendered SKILL.md stay custom: no DMS component draws a diff or Markdown.
+
+### Q53. Is the Changes page still cramped next to the docked panel?
+
+**Decision:** no. `DmsMasterDetail` now lays out from its own width (dms#183): with the assistant
+docked, the list stacks above the selected change set instead of squeezing both side by side.
+Nothing changes in the module.
+
+### Q54. What stays custom, and why?
+
+**Decision:** on the pages, four components, each where no block draws the screen:
+
+- `DmsAiChangesView`: the change set list, the diff and the Undo preview with conflicts, on
+  `DmsMasterDetail` (Q16);
+- `DmsAiActivityDetail` and `DmsAiSkillDetail`: the content of the DMS row drawers (decision
+  trail, diff, rendered SKILL.md);
+- `DmsAiSkillCard`: the card of the Skills `TableView` (Q51).
+
+The panel (`DmsAiChatPanel`, a DMS side panel) and the palette's answer (`DmsAiPaletteAnswer`)
+are the assistant itself. The backend registration test pins this list.
