@@ -26,7 +26,7 @@ importers:
     devDependencies:
       '@antelopejs/tooling-configs':
         specifier: '>=0.0.7 <1.0.0'
-        version: 0.0.7(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))
+        version: 0.0.8(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))
       '@openai/codex':
         specifier: 0.154.0
         version: 0.154.0
@@ -60,8 +60,8 @@ importers:
 
 packages:
 
-  '@antelopejs/tooling-configs@0.0.7':
-    resolution: {integrity: sha512-AMGItAsD++kaoMfo+AwUeju+fFoHUSmXjzmKqwi2pQOdQD0kv2OuovGTZy80Eu6LKKyeaW7Ua/aBcdkhODhoFA==}
+  '@antelopejs/tooling-configs@0.0.8':
+    resolution: {integrity: sha512-0oYe8o6if5cO444akfSuwfwiCQJtSeGXcJUM85K1uS11ir99p/QPRXYhAtiKBTpHBfGgeXKgm/KLaeWH5nThIg==}
     engines: {node: '>=22.18.0'}
     hasBin: true
     peerDependencies:
@@ -1780,7 +1780,7 @@ packages:
 
 snapshots:
 
-  '@antelopejs/tooling-configs@0.0.7(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))':
+  '@antelopejs/tooling-configs@0.0.8(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))':
     dependencies:
       '@oxlint/plugins': 1.81.0
     optionalDependencies:
