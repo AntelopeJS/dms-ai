@@ -362,8 +362,9 @@
 			},
 			"undo_confirm": {
 				"title": "Annuler le lot n°{number} ?",
-				"description": "Remet {files} fichier(s) dans l'état d'avant ce lot, puis recharge la page.",
-				"description_conflicts": "Remet {files} fichier(s) dans l'état d'avant ce lot. {conflicts} lot(s) plus récent(s) touchent les mêmes fichiers.",
+				"description": "Remet le fichier dans l'état d'avant ce lot, puis recharge la page. | Remet {count} fichiers dans l'état d'avant ce lot, puis recharge la page.",
+				"description_conflict": "Remet le fichier dans l'état d'avant ce lot. Un lot plus récent touche le même fichier. | Remet {count} fichiers dans l'état d'avant ce lot. Un lot plus récent touche les mêmes fichiers.",
+				"description_conflicts": "Remet le fichier dans l'état d'avant ce lot. {conflicts} lots plus récents touchent le même fichier. | Remet {count} fichiers dans l'état d'avant ce lot. {conflicts} lots plus récents touchent les mêmes fichiers.",
 				"confirm": "Annuler",
 				"include_later": "Annuler aussi les lots plus récents",
 				"include_later_hint": "Sans risque : annuler ce lot seul garde leurs lignes et peut ne plus compiler."

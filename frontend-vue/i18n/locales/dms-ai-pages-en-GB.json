@@ -362,8 +362,9 @@
 			},
 			"undo_confirm": {
 				"title": "Undo change set #{number}?",
-				"description": "Restores {files} file(s) to how they were before this change set, then reloads the page.",
-				"description_conflicts": "Restores {files} file(s) to how they were before this change set. {conflicts} later change set(s) touch the same files.",
+				"description": "Restores the file to how it was before this change set, then reloads the page. | Restores {count} files to how they were before this change set, then reloads the page.",
+				"description_conflict": "Restores the file to how it was before this change set. A later change set touches the same file. | Restores {count} files to how they were before this change set. A later change set touches the same files.",
+				"description_conflicts": "Restores the file to how it was before this change set. {conflicts} later change sets touch the same file. | Restores {count} files to how they were before this change set. {conflicts} later change sets touch the same files.",
 				"confirm": "Undo",
 				"include_later": "Also undo the later change sets",
 				"include_later_hint": "Safe: undoing this one alone keeps their lines and may not compile."

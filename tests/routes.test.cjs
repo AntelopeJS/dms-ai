@@ -241,7 +241,11 @@ void test("asks Undo's confirmation with the later change sets it collides with"
     "set-1",
   );
   assert.equal(dialog.title, "$dms_ai.changes_table.undo_confirm.title");
-  assert.deepEqual(dialog.params, { files: 2, conflicts: 1 });
+  assert.equal(
+    dialog.description,
+    "$dms_ai.changes_table.undo_confirm.description_conflict",
+  );
+  assert.deepEqual(dialog.params, { count: 2, conflicts: 1 });
   assert.deepEqual(dialog.impact, [
     { icon: "i-ph-warning", label: "#14 · Top", count: 1 },
   ]);

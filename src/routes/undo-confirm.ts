@@ -13,6 +13,11 @@ function text(key: string): string {
   return i18nKey(I18N_SECTIONS.CHANGES_TABLE, "undo_confirm", key);
 }
 
+function descriptionKey(conflicts: number): string {
+  if (conflicts === 0) return "description";
+  return conflicts === 1 ? "description_conflict" : "description_conflicts";
+}
+
 function conflictImpact(conflict: UndoConflict) {
   return {
     icon: CONFLICT_ICON,
@@ -38,14 +43,14 @@ function includeLaterField() {
  * to undo them together (the safe default).
  */
 export function undoConfirmDialog(preview: UndoPreview) {
-  const hasConflicts = preview.conflicts.length > 0;
+  const conflicts = preview.conflicts.length;
+  const hasConflicts = conflicts > 0;
   const dialog: ConfirmDialog = {
     title: text("title"),
-    description: text(hasConflicts ? "description_conflicts" : "description"),
-    params: {
-      files: preview.files.length,
-      conflicts: preview.conflicts.length,
-    },
+    description: text(descriptionKey(conflicts)),
+    // DMS pluralizes a dialog text on `count`: here the files restored. The
+    // later change sets get a key of their own, one or several.
+    params: { count: preview.files.length, conflicts },
     icon: "i-ph-arrow-counter-clockwise",
     color: "warning",
     confirmLabel: text("confirm"),
