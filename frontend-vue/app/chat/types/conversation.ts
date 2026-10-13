@@ -143,6 +143,7 @@ export interface ConversationSummary {
 	provider?: ProviderName;
 	totalTokens?: number;
 	filesChanged?: number;
+	filesUndone?: number;
 	isRunning?: boolean;
 	pendingApprovals?: number;
 	pendingQuestions?: number;

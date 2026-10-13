@@ -58,15 +58,22 @@ export function buildSnapshotEvent(
   };
 }
 
-function filesChanged(services: SidecarServices, conversationId: string) {
-  const paths = new Set<string>();
+/**
+ * The files the conversation's change sets still change, and those only its
+ * undone sets touched: a chat whose every change was undone reads so in the
+ * history rather than "no changes".
+ */
+function fileCounts(services: SidecarServices, conversationId: string) {
+  const applied = new Set<string>();
+  const undone = new Set<string>();
   for (const changeSet of services.checkpoints.forConversation(
     conversationId,
   )) {
-    if (changeSet.state !== "applied") continue;
+    const paths = changeSet.state === "applied" ? applied : undone;
     for (const file of changeSet.files) paths.add(file.path);
   }
-  return paths.size;
+  for (const path of applied) undone.delete(path);
+  return { filesChanged: applied.size, filesUndone: undone.size };
 }
 
 function enrichSummary(
@@ -76,7 +83,7 @@ function enrichSummary(
   const { id } = summary;
   return {
     ...summary,
-    filesChanged: filesChanged(services, id),
+    ...fileCounts(services, id),
     isRunning: services.turns.isRunning(id),
     pendingApprovals: services.permissionBus.countPending(id),
     pendingQuestions: services.questionBus.countPending(id),

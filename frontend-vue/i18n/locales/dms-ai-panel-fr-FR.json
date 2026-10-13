@@ -332,6 +332,7 @@
 				"working": "en cours",
 				"no_changes": "aucune modification",
 				"files": "{count} fichier | {count} fichiers",
+				"files_undone": "{count} fichier annulé | {count} fichiers annulés",
 				"tokens": "{count} jetons",
 				"delete": "Supprimer la conversation",
 				"deleted": "« {title} » supprimée. Ses modifications restent dans l'historique des modifications.",

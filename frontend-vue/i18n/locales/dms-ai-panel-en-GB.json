@@ -332,6 +332,7 @@
 				"working": "working",
 				"no_changes": "no changes",
 				"files": "{count} file | {count} files",
+				"files_undone": "{count} file undone | {count} files undone",
 				"tokens": "{count} tok",
 				"delete": "Delete conversation",
 				"deleted": "Deleted “{title}”. Its changes stay in the change log.",

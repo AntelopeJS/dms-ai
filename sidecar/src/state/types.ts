@@ -178,6 +178,8 @@ export interface StoredConversationSummary {
 /** A conversation as the history drawer lists it: stored plus live state. */
 export interface ConversationSummary extends StoredConversationSummary {
   filesChanged: number;
+  /** Files only the conversation's undone change sets touched. */
+  filesUndone: number;
   isRunning: boolean;
   pendingApprovals: number;
   pendingQuestions: number;

@@ -249,6 +249,7 @@ export const ConversationSummarySchema = z.object({
   provider: z.enum(PROVIDER_NAMES).optional(),
   totalTokens: z.number(),
   filesChanged: z.number(),
+  filesUndone: z.number(),
   isRunning: z.boolean(),
   pendingApprovals: z.number(),
   pendingQuestions: z.number(),

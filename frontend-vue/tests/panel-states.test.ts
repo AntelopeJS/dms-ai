@@ -714,6 +714,7 @@ describe("the history drawer", () => {
 				updatedAtMs: Date.now() - 3_600_000,
 				messageCount: 2,
 				filesChanged: 0,
+				filesUndone: 1,
 				totalTokens: 1_300,
 			},
 		],
@@ -732,6 +733,7 @@ describe("the history drawer", () => {
 			drawer.findAll(".cb-drawer__group").map((group) => group.text()),
 		).toEqual(["Active · 1", "Today"]);
 		expect(drawer.text()).toContain("9.6k tok");
+		expect(drawer.text()).toContain("1 file undone");
 		await buttonWithText(drawer, "Why is order pending?").trigger("click");
 		expect(sentOfType(harness, "leave_conversation")[0]).toMatchObject({
 			conversationId: CONVERSATION_ID,

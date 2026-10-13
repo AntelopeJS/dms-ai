@@ -60,14 +60,17 @@ function time(item: ConversationSummary): string {
 	);
 }
 
+// Files still changed first; a chat whose changes were all undone says so.
+function changesLabel(files: number, undone: number): string {
+	if (files > 0) return t("dms_ai.panel.drawer.files", { count: files }, files);
+	if (undone > 0)
+		return t("dms_ai.panel.drawer.files_undone", { count: undone }, undone);
+	return t("dms_ai.panel.drawer.no_changes");
+}
+
 function meta(item: ConversationSummary): string[] {
 	const parts: string[] = [];
-	const files = item.filesChanged ?? 0;
-	parts.push(
-		files === 0
-			? t("dms_ai.panel.drawer.no_changes")
-			: t("dms_ai.panel.drawer.files", { count: files }, files),
-	);
+	parts.push(changesLabel(item.filesChanged ?? 0, item.filesUndone ?? 0));
 	if (item.provider === "codex") parts.push(t("dms_ai.common.agent.codex"));
 	if ((item.totalTokens ?? 0) > 0)
 		parts.push(
