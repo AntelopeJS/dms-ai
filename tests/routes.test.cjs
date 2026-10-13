@@ -289,6 +289,36 @@ void test("keys the change sets for the Overview table", async () => {
   assert.equal(page.results[0].stateDetail, "Camille");
 });
 
+void test("lists the latest change sets as one page for the Overview", async () => {
+  reset();
+  const set = (id) => ({
+    id,
+    number: 1,
+    title: id,
+    createdAtMs: 0,
+    files: [],
+    added: 0,
+    removed: 0,
+    state: "applied",
+  });
+  answer("GET", "/changes", 200, {
+    total: 9,
+    results: ["a", "b", "c", "d"].map(set),
+  });
+  const page = await new harness.routes.AIChangesController().recent(
+    context("offset=4&limit=10&filter_state=is:applied"),
+  );
+  assert.deepEqual(sidecar.requests[0].query, {
+    limit: "4",
+    state: "applied",
+  });
+  assert.equal(page.total, 4);
+  assert.deepEqual(
+    page.results.map((row) => row._id),
+    ["a", "b", "c", "d"],
+  );
+});
+
 void test("exports the audit log as CSV, cells escaped and formulas neutralized", async () => {
   reset();
   answer("GET", "/activity", 200, {

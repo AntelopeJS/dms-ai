@@ -51,6 +51,7 @@ export const PAGE_ROUTES = {
   USAGE: `${ROUTE_PREFIX}/metrics/usage?days=${USAGE_DAYS}`,
   USAGE_SUMMARY: `${ROUTE_PREFIX}/metrics/usage/summary?days=${USAGE_DAYS}`,
   CHANGES: `${ROUTE_PREFIX}/changes`,
+  RECENT_CHANGES: `${ROUTE_PREFIX}/recent-changes`,
   CHANGE_UNDO: `${ROUTE_PREFIX}/changes/{_id}/undo`,
   CHANGE_UNDO_CONFIRM: `${ROUTE_PREFIX}/changes/{id}/undo-confirm`,
   CHANGE_REDO: `${ROUTE_PREFIX}/changes/{_id}/redo`,

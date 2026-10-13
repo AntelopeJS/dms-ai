@@ -10,6 +10,7 @@ import {
 import { AuthOwnerOnly, AuthRawUser } from "@antelopejs/interface-dms/auth";
 import type { User } from "@antelopejs/interface-dms/auth/db";
 import { ROUTE_PREFIX } from "../constants/module";
+import { RECENT_CHANGE_SETS } from "../constants/pages";
 import { buildQuery, pathSegment, type QueryParams } from "../sidecar";
 import type {
   ChangeSetSummary,
@@ -36,6 +37,17 @@ function changesParams(search: URLSearchParams): QueryParams {
     DIRECT_PARAMS.map((name) => [name, search.get(name) ?? undefined]),
   );
   return { ...direct, ...sidecarListParams(search, FILTERS) };
+}
+
+/**
+ * The latest change sets only, as one page: the Overview lists them and links
+ * to the Changes page for the rest, so its table never pages.
+ */
+function recentPage(
+  page: SidecarList<ChangeSetSummary>,
+): SidecarList<ChangeSetTableRow> {
+  const results = page.results.slice(0, RECENT_CHANGE_SETS);
+  return tablePage({ results, total: results.length });
 }
 
 /** What Undo may send: the dialog's choice to undo later sets too. */
@@ -77,6 +89,16 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
   list(@Context() ctx: RequestContext): Promise<unknown> {
     const query = buildQuery(changesParams(ctx.url.searchParams));
     return relay(`${CHANGES_PATH}${query}`, tablePage);
+  }
+
+  @Get("/recent-changes")
+  recent(@Context() ctx: RequestContext): Promise<unknown> {
+    const params: QueryParams = {
+      ...changesParams(ctx.url.searchParams),
+      offset: undefined,
+      limit: String(RECENT_CHANGE_SETS),
+    };
+    return relay(`${CHANGES_PATH}${buildQuery(params)}`, recentPage);
   }
 
   @Get(`${CHANGES_PATH}/:id`)

@@ -124,7 +124,8 @@ export function recentChangeSets(rows: number): ComponentBuilder {
   const path = "overview.recent_changes";
   return TableView.fromSource({
     caption: blockText(path, "title"),
-    fetchUrl: PAGE_ROUTES.CHANGES,
+    // A short list of the latest sets: the route answers them as one page.
+    fetchUrl: PAGE_ROUTES.RECENT_CHANGES,
     capabilities: { paginate: true, filter: true },
     columns: COLUMNS,
     labelKey: "title",
