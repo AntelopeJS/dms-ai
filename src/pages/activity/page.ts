@@ -66,6 +66,9 @@ export class AIActivityPage extends PageController(
     searchPlaceholder: text("search"),
     pageSize: ACTIVITY_PAGE_SIZE,
     pagination: "loadMore",
+    // A click opens the row's detail drawer, as the audit log is read row
+    // after row; the default double-click left a single click inert.
+    rowClick: "single",
     tabs: TABS,
     quickFilters: [
       { field: "tool", label: text("quick", "tool"), icon: "i-ph-wrench" },
