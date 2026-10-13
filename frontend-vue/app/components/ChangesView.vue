@@ -28,7 +28,7 @@ type ScopeFilter = ScopeId | "all";
 
 const { t } = useI18n();
 const { $authFetch } = useAuthFetch();
-const { moment, clock } = useViewFormat();
+const { moment } = useViewFormat();
 const assistant = useAssistant();
 const route = useDmsRoute();
 
@@ -103,7 +103,7 @@ function select(id: string | number | undefined): void {
 function sublabel(set: ChangeSetSummary): string {
 	if (set.state === "undone") {
 		const parts = [`#${set.number}`, t("dms_ai.views.changes.undone")];
-		if (set.stateChangedAtMs) parts.push(clock(set.stateChangedAtMs));
+		if (set.stateChangedAtMs) parts.push(moment(set.stateChangedAtMs));
 		if (set.stateChangedBy) parts.push(set.stateChangedBy);
 		return parts.join(" · ");
 	}
