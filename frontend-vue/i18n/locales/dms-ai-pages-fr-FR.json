@@ -56,7 +56,7 @@
 					"name": "Lots de modifications",
 					"description": "Tours qui ont modifié le projet sur la période",
 					"title": "Lots de modifications",
-					"caption": "Tours qui ont modifié des fichiers, lots annulés compris"
+					"caption": "Tours ayant modifié des fichiers, annulés compris"
 				},
 				"kpi_approved": {
 					"name": "Autorisées par vous",
@@ -574,7 +574,7 @@
 				"state": "État",
 				"agent": "Agent",
 				"default_scope": "Portée par défaut",
-				"scope_safe_needs_builder": "Mode sûr choisi, mais il nécessite Builder",
+				"scope_safe_needs_builder": "Le mode sûr nécessite Builder",
 				"approvals": "Validations",
 				"builder": "Builder",
 				"builder_connected": "Connecté",

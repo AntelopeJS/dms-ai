@@ -56,7 +56,7 @@
 					"name": "Change sets",
 					"description": "Turns that changed the project over the period",
 					"title": "Change sets",
-					"caption": "Turns that changed files, undone ones included"
+					"caption": "Turns that changed files, undone too"
 				},
 				"kpi_approved": {
 					"name": "Approved by you",
@@ -574,7 +574,7 @@
 				"state": "Status",
 				"agent": "Agent",
 				"default_scope": "Default scope",
-				"scope_safe_needs_builder": "Safe mode is set but needs Builder",
+				"scope_safe_needs_builder": "Safe needs Builder",
 				"approvals": "Approvals",
 				"builder": "Builder",
 				"builder_connected": "Connected",
