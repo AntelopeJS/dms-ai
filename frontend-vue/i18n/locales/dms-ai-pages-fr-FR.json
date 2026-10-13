@@ -574,6 +574,7 @@
 				"state": "État",
 				"agent": "Agent",
 				"default_scope": "Portée par défaut",
+				"scope_safe_needs_builder": "Mode sûr choisi, mais il nécessite Builder",
 				"approvals": "Validations",
 				"builder": "Builder",
 				"builder_connected": "Connecté",

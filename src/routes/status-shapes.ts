@@ -82,10 +82,20 @@ function sidecarFact(status: AssistantStatus): KeyValueListItem {
   };
 }
 
+/**
+ * The scope turns actually run in, as the chat composer shows it: Safe mode
+ * needs Builder, so without it the sidecar runs every turn in Code mode.
+ */
+function effectiveScope(status: AssistantStatus): string {
+  const scope = status.generationMode ?? "";
+  return scope === "safe" && status.builderAvailable === false ? "vibe" : scope;
+}
+
 /** What the sidecar tells only while it runs: agent, scope, approvals, Builder. */
 function settingsFacts(status: AssistantStatus): KeyValueListItem[] {
   if (isOffline(status)) return [];
-  const scope = status.generationMode ?? "";
+  const scope = effectiveScope(status);
+  const isSafeWithoutBuilder = scope !== status.generationMode;
   return [
     {
       id: "agent",
@@ -98,6 +108,9 @@ function settingsFacts(status: AssistantStatus): KeyValueListItem[] {
       value: text("scope", scope),
       type: "status",
       tone: SCOPE_TONES[scope] ?? "neutral",
+      detail: isSafeWithoutBuilder
+        ? text("facts", "scope_safe_needs_builder")
+        : undefined,
     },
     {
       id: "mode",

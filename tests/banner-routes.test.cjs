@@ -121,6 +121,19 @@ void test("lists the assistant's status as key / value rows, the sidecar's addre
   assert.deepEqual(untranslated(items), []);
 });
 
+void test("shows the scope turns run in: Code mode when Safe mode lacks Builder", async () => {
+  reset();
+  answer("GET", "/status", 200, { ...ONLINE_STATUS, builderAvailable: false });
+  const { items } = bodyOf(
+    await new harness.routes.AIStatusController().facts(),
+  );
+  const scope = items.find((item) => item.id === "scope");
+  assert.equal(scope.value, "$dms_ai.status.scope.vibe");
+  assert.equal(scope.tone, "warning");
+  assert.equal(scope.detail, "$dms_ai.status.facts.scope_safe_needs_builder");
+  assert.deepEqual(untranslated(items), []);
+});
+
 void test("keeps only the state and the stopped sidecar while the assistant is offline", async () => {
   reset();
   sidecar.isDown = true;
