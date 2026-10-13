@@ -73,8 +73,13 @@ function countIn(timestamps: number[], fromMs: number, toMs: number): number {
   return timestamps.filter((ts) => inRange(ts, fromMs, toMs)).length;
 }
 
-function deltaPercent(current: number, previous: number): number {
-  if (!previous) return 0;
+/**
+ * The share `current` moved against `previous`, in percent. None away from
+ * zero: growth from nothing is unbounded, so the card shows no trend rather
+ * than a misleading "0.0%" (the DMS `ComparedFigure` convention).
+ */
+function deltaPercent(current: number, previous: number): number | undefined {
+  if (previous === 0) return current === 0 ? 0 : undefined;
   return (
     Math.round(((current - previous) / previous) * PERCENT_ROUNDING) /
     PERCENT_DIVISOR
@@ -124,24 +129,26 @@ function dailyCounts(timestamps: number[], fromMs: number, toMs: number) {
 }
 
 interface Comparison {
-  previousValue: number;
-  delta: number;
+  previousValue?: number;
+  delta?: number;
 }
 
+/** The figure of the comparison period and the share moved; none without one. */
 function compare(
   timestamps: number[],
   value: number,
   window: MetricWindow,
 ): Comparison {
   if (window.compareFromMs === undefined || window.compareToMs === undefined) {
-    return { previousValue: value, delta: 0 };
+    return {};
   }
   const previousValue = countIn(
     timestamps,
     window.compareFromMs,
     window.compareToMs,
   );
-  return { previousValue, delta: deltaPercent(value, previousValue) };
+  const delta = deltaPercent(value, previousValue);
+  return delta === undefined ? { previousValue } : { previousValue, delta };
 }
 
 function approvalBreakdown(sources: MetricSources, window: MetricWindow) {

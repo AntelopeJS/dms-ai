@@ -24,18 +24,9 @@ import {
   usageSummaryPayload,
 } from "./metric-shapes";
 
-const EMPTY_KPI: SidecarKpi = {
-  value: 0,
-  delta: 0,
-  previousValue: 0,
-  sparkline: [],
-};
-const EMPTY_CHART: ChartPayload = {
-  value: 0,
-  delta: 0,
-  previousValue: 0,
-  series: [],
-};
+// No comparison while the sidecar is down: the cards show no trend.
+const EMPTY_KPI: SidecarKpi = { value: 0, sparkline: [] };
+const EMPTY_CHART: ChartPayload = { value: 0, series: [] };
 const EMPTY_ALLOWED: AllowedBreakdown = {
   items: [],
   deletionsAsked: 0,

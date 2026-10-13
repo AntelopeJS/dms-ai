@@ -284,6 +284,23 @@ describe("metrics", () => {
     expect(buildKpi(sources, "actions", WINDOW).value).toBe(5);
   });
 
+  it("states no delta without a comparison or away from zero", () => {
+    const compared = {
+      ...WINDOW,
+      compareFromMs: WINDOW.fromMs - 7 * DAY_MS,
+      compareToMs: WINDOW.fromMs - 1,
+    };
+    const fromNothing = buildKpi(sources, "actions", compared);
+    expect(fromNothing.previousValue).toBe(0);
+    expect(fromNothing).not.toHaveProperty("delta");
+    expect(buildKpi(sources, "actions", WINDOW)).not.toHaveProperty("delta");
+    const empty = { records: [], changeSets: [], entries: [] };
+    expect(buildKpi(empty, "actions", compared)).toMatchObject({
+      previousValue: 0,
+      delta: 0,
+    });
+  });
+
   it("breaks actions down by how they were allowed", () => {
     const allowed = buildAllowed(sources, WINDOW);
     const value = (id: string) => allowed.items.find((i) => i.id === id)?.value;

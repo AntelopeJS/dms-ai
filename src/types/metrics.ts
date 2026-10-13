@@ -15,8 +15,10 @@ export interface NamedSeries {
 /** What a `KpiCard` reads, plus the line the backend words under it. */
 export interface KpiPayload {
   value: number;
-  delta: number;
-  previousValue: number;
+  /** Absent without a comparison period, or when it counted zero. */
+  delta?: number;
+  /** Absent without a comparison period. */
+  previousValue?: number;
   sparkline: number[];
   caption?: string;
 }
@@ -31,8 +33,10 @@ export interface SidecarKpi extends KpiPayload {
 /** What a `ChartCard` reads. */
 export interface ChartPayload {
   value: number;
-  delta: number;
-  previousValue: number;
+  /** Absent without a comparison period, or when it counted zero. */
+  delta?: number;
+  /** Absent without a comparison period. */
+  previousValue?: number;
   series: NamedSeries[];
   comparisonSeries?: NamedSeries[];
 }

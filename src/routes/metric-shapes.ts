@@ -96,8 +96,6 @@ export function topToolsPayload(tools: TopTools): TopListPayload {
 export function usageChartPayload(report: UsageReport): ChartPayload {
   return {
     value: report.totalTokens,
-    delta: 0,
-    previousValue: 0,
     series: [
       {
         name: i18nKey(SETTINGS, "usage", "series"),

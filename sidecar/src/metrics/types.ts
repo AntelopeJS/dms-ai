@@ -16,8 +16,10 @@ export interface NamedSeries {
 
 export interface KpiCardPayload {
   value: number;
-  delta: number;
-  previousValue: number;
+  /** Absent without a comparison period, or when it counted zero. */
+  delta?: number;
+  /** Absent without a comparison period. */
+  previousValue?: number;
   sparkline: number[];
   // `approved` only: how many were asked, denied and left to expire, so the
   // backend can caption "21 / 25 · 84%".
@@ -28,8 +30,10 @@ export interface KpiCardPayload {
 
 export interface ChartCardPayload {
   value: number;
-  delta: number;
-  previousValue: number;
+  /** Absent without a comparison period, or when it counted zero. */
+  delta?: number;
+  /** Absent without a comparison period. */
+  previousValue?: number;
   series: NamedSeries[];
   comparisonSeries?: NamedSeries[];
 }
