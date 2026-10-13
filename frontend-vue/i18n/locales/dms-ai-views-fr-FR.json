@@ -2,7 +2,6 @@
 	"dms_ai": {
 		"views": {
 			"common": {
-				"cancel": "Annuler",
 				"load_more": "Charger plus",
 				"loading": "Chargement",
 				"next": "Suivant",
@@ -108,20 +107,6 @@
 				"no_lines": "Aucune ligne modifiée.",
 				"collapse": "Replier {path}",
 				"expand": "Déplier {path}"
-			},
-			"undo": {
-				"title": "Annuler le lot #{number} ?",
-				"description": "Restaure {count} fichier tel qu'il était avant {when}. | Restaure {count} fichiers tels qu'ils étaient avant {when}.",
-				"conflict_title": "{count} modification ultérieure touche les mêmes fichiers | {count} modifications ultérieures touchent les mêmes fichiers",
-				"conflict_description": "{sets} a aussi modifié {files}.",
-				"choice_label": "Comment annuler",
-				"together": "Annuler {sets} ensemble",
-				"together_hint": "Sûr",
-				"only": "Annuler seulement #{number}, garder les lignes de {later}",
-				"only_hint": "Risque de ne pas compiler",
-				"no_conflict": "Aucun lot ultérieur ne touche ces fichiers.",
-				"confirm_one": "Annuler le lot",
-				"confirm_many": "Annuler {count} lots"
 			},
 			"toast": {
 				"undone": "Annulé · point de restauration #{number} restauré",

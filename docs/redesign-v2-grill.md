@@ -635,3 +635,39 @@ Nothing changes in the module.
 
 The panel (`DmsAiChatPanel`, a DMS side panel) and the palette's answer (`DmsAiPaletteAnswer`)
 are the assistant itself. The backend registration test pins this list.
+
+---
+
+## 12. Follow-up after dms 0.7.21
+
+Inputs: `@antelopejs/dms` 0.7.21, `@antelopejs/interface-dms` 0.5.13 and `@antelopejs/dms-frontend`
+0.5.5: `download` action targets (dms#246), table views without the built-in grid (dms#255),
+`useConfirmFrom` (dms#232), header buttons hidden by availability (dms#237), visible query param
+filters (dms#228), `showRow` in row containers (dms#252) and public endpoints (dms#230).
+
+### Q55. Which of them replace module code?
+
+**Decision:**
+
+- Activity's "Export CSV" is a `download` target: the file is fetched with the user's session, so
+  the owner-only `/ai/activity/export.csv` answers it, rather than a link the browser opens without
+  one.
+- Skills offers the cards display only (`tableDisplay: false`), as Q18 decided: the grid and the
+  display switcher are gone.
+- Undo on the Changes page asks the dialog `/ai/changes/{id}/undo-confirm` words through
+  `useConfirmFrom`, the one the Overview's Undo already asks, and undoes from inside it with its
+  "Also undo the later change sets" field. The module's `UndoDialog`, its undo plan helpers, their
+  test and the `dms_ai.views.undo` texts are gone.
+
+The others fit nothing here: no link opens Activity on a filter, the row drawers link to no other
+row of their table (the Skills drawer names the copy a shadowed skill yields to, which is not a
+link), no header button depends on the request, and the sidecar reaches the backend directly, not
+through the frontend server's proxy.
+
+### Q56. Does the playground still load `dms-builder`?
+
+**Decision:** no. `@antelopejs/dms-builder` 0.2.6, its latest release, accepts
+`@antelopejs/dms-frontend` below 0.4.0 only, so the dashboard cannot build with it. The Builder is
+optional to dms-ai (`@antelopejs/interface-dms-builder` is an optional dependency, and every
+Builder feature is gated on its presence), so the playground runs without it until a release
+supports dms-frontend 0.5.

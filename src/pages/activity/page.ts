@@ -54,7 +54,7 @@ export class AIActivityPage extends PageController(
       {
         label: text("export"),
         icon: "i-ph-download-simple",
-        target: { type: "external", url: PAGE_ROUTES.ACTIVITY_EXPORT },
+        target: { type: "download", url: PAGE_ROUTES.ACTIVITY_EXPORT },
       },
     ],
   }),

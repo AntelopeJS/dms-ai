@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, watch } from "vue";
 import DiffView from "./DiffView.vue";
-import UndoDialog from "./UndoDialog.vue";
 import UnavailableState from "./UnavailableState.vue";
 import { useAiRequest } from "./composables/useAiRequest";
 import { useAssistant } from "./composables/useAssistant";
@@ -14,7 +13,6 @@ import type {
 	ChangeSetSummary,
 	Fact,
 	TypecheckOutcome,
-	UndoPreview,
 } from "./types";
 
 interface Props {
@@ -33,8 +31,6 @@ const actions = useChangeSetActions(() => {
 	void load();
 	emit("changed");
 });
-
-const preview = ref<UndoPreview | null>(null);
 
 function load(): Promise<ChangeSetDetail | null> {
 	return detail.run(() =>
@@ -106,10 +102,6 @@ const footNote = computed(() => {
 		? t("dms_ai.views.changes.redo_note", { count }, count)
 		: t("dms_ai.views.changes.undo_note", { count }, count);
 });
-
-async function startUndo(): Promise<void> {
-	preview.value = await actions.preview(props.changeSetId);
-}
 
 function openPage(): void {
 	const path = detail.data.value?.pagePath;
@@ -194,7 +186,7 @@ function openPage(): void {
 					size="sm"
 					:loading="actions.isBusy.value"
 					:label="t('dms_ai.views.changes.undo')"
-					@click="startUndo"
+					@click="actions.undo(changeSet)"
 				/>
 			</div>
 		</header>
@@ -226,12 +218,5 @@ function openPage(): void {
 			<UIcon name="i-ph-info" class="size-4 shrink-0" :aria-hidden="true" />
 			{{ footNote }}
 		</footer>
-		<UndoDialog
-			v-if="preview"
-			:change-set="changeSet"
-			:preview="preview"
-			:undo="(plan) => actions.undo(changeSet!, plan)"
-			@close="preview = null"
-		/>
 	</article>
 </template>

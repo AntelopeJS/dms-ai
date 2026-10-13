@@ -2,7 +2,6 @@
 	"dms_ai": {
 		"views": {
 			"common": {
-				"cancel": "Cancel",
 				"load_more": "Load more",
 				"loading": "Loading",
 				"next": "Next",
@@ -108,20 +107,6 @@
 				"no_lines": "No line changes.",
 				"collapse": "Collapse {path}",
 				"expand": "Expand {path}"
-			},
-			"undo": {
-				"title": "Undo change set #{number}?",
-				"description": "Restores {count} file to how it was before {when}. | Restores {count} files to how they were before {when}.",
-				"conflict_title": "{count} later change touches the same files | {count} later changes touch the same files",
-				"conflict_description": "{sets} also edited {files}.",
-				"choice_label": "How to undo",
-				"together": "Undo {sets} together",
-				"together_hint": "Safe",
-				"only": "Undo #{number} only, keep the lines of {later}",
-				"only_hint": "May not compile",
-				"no_conflict": "No later change set touches these files.",
-				"confirm_one": "Undo change set",
-				"confirm_many": "Undo {count} change sets"
 			},
 			"toast": {
 				"undone": "Undone · checkpoint #{number} restored",

@@ -88,19 +88,6 @@ export interface ChangeSetDetail {
 	pagePath?: string;
 }
 
-export interface UndoConflict {
-	changeSetId: string;
-	number: number;
-	title: string;
-	files: string[];
-}
-
-export interface UndoPreview {
-	changeSetId: string;
-	files: string[];
-	conflicts: UndoConflict[];
-}
-
 export interface ListPayload<T> {
 	results: T[];
 	total: number;

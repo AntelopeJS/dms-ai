@@ -1,19 +1,20 @@
 import { ref, type Ref } from "vue";
 import { AI_ROUTES } from "../constants";
-import type { ChangeSetSummary, UndoPreview } from "../types";
-import type { UndoPlan } from "../utils/undo";
+import type { ChangeSetSummary } from "../types";
 import { classifyFailure, errorMessage } from "./useAiRequest";
 
 export interface ChangeSetActions {
 	isBusy: Ref<boolean>;
-	/** What undoing the set would touch; `null` (and a toast) on failure. */
-	preview: (changeSetId: string) => Promise<UndoPreview | null>;
-	/** Rejects with the server's message, for the dialog to show it. */
-	undo: (changeSet: ChangeSetSummary, plan: UndoPlan) => Promise<void>;
+	/** Asks the undo dialog the server words, then undoes from inside it. */
+	undo: (changeSet: ChangeSetSummary) => Promise<void>;
 	redo: (changeSet: ChangeSetSummary) => Promise<void>;
 }
 
 const AI_COLOR = "secondary";
+
+interface UndoResult {
+	undone: string[];
+}
 
 function changeSetPath(changeSetId: string, action: string): string {
 	return `${AI_ROUTES.changes}/${encodeURIComponent(changeSetId)}/${action}`;
@@ -27,6 +28,7 @@ export function useChangeSetActions(onChanged: () => void): ChangeSetActions {
 	const { t } = useI18n();
 	const toast = useToast();
 	const { $authFetch } = useAuthFetch();
+	const { confirmFrom } = useConfirmFrom();
 	const isBusy = ref(false);
 
 	function failureToast(error: unknown): void {
@@ -40,20 +42,6 @@ export function useChangeSetActions(onChanged: () => void): ChangeSetActions {
 			color: "error",
 			icon: "i-ph-warning-circle",
 		});
-	}
-
-	async function preview(changeSetId: string): Promise<UndoPreview | null> {
-		isBusy.value = true;
-		try {
-			return await $authFetch<UndoPreview>(
-				changeSetPath(changeSetId, "undo-preview"),
-			);
-		} catch (error) {
-			failureToast(error);
-			return null;
-		} finally {
-			isBusy.value = false;
-		}
 	}
 
 	async function redo(changeSet: ChangeSetSummary): Promise<void> {
@@ -76,21 +64,18 @@ export function useChangeSetActions(onChanged: () => void): ChangeSetActions {
 		}
 	}
 
-	async function undo(
+	async function sendUndo(
 		changeSet: ChangeSetSummary,
-		plan: UndoPlan,
+		values: Record<string, unknown>,
 	): Promise<void> {
-		await $authFetch(changeSetPath(changeSet.id, "undo"), {
-			method: "POST",
-			body: { includeLater: plan.includeLater },
-		});
+		const result = await $authFetch<UndoResult>(
+			changeSetPath(changeSet.id, "undo"),
+			{ method: "POST", body: values },
+		);
+		const count = result.undone.length;
 		toast.add({
 			title: t("dms_ai.views.toast.undone", { number: changeSet.number }),
-			description: t(
-				"dms_ai.views.toast.undone_description",
-				{ count: plan.count },
-				plan.count,
-			),
+			description: t("dms_ai.views.toast.undone_description", { count }, count),
 			color: AI_COLOR,
 			icon: "i-ph-arrow-counter-clockwise",
 			actions: [
@@ -106,5 +91,12 @@ export function useChangeSetActions(onChanged: () => void): ChangeSetActions {
 		onChanged();
 	}
 
-	return { isBusy, preview, undo, redo };
+	async function undo(changeSet: ChangeSetSummary): Promise<void> {
+		await confirmFrom(AI_ROUTES.changeUndoConfirm, {
+			params: { id: changeSet.id, number: changeSet.number },
+			onConfirm: (values) => sendUndo(changeSet, values),
+		});
+	}
+
+	return { isBusy, undo, redo };
 }
