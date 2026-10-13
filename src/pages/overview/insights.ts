@@ -11,7 +11,7 @@ import {
   RECENT_CHANGE_SETS,
   TOP_TOOLS_LIMIT,
 } from "../../constants/pages";
-import { blockMeta, blockText } from "../meta";
+import { blockMeta, blockText, DAY_AXIS } from "../meta";
 import { recentChangeSets } from "./recent-changes";
 
 const GRID_GAP = "1rem";
@@ -30,7 +30,7 @@ function activityChart(): ComponentBuilder {
     valueFormat: "compact",
     primaryLabel: blockText(path, "primary"),
     comparisonLabel: blockText(path, "comparison"),
-    chart: ChartArea({ xaxisType: "datetime" }).meta(
+    chart: ChartArea({ xaxisType: "datetime", xAxis: DAY_AXIS }).meta(
       blockMeta("overview.activity_chart_series", "i-ph-chart-line-up"),
     ),
   }).meta(blockMeta(path, "i-ph-chart-line"));

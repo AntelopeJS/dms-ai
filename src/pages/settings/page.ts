@@ -8,7 +8,7 @@ import {
 import { FormPageLayout } from "@antelopejs/interface-dms/base/layouts";
 import { PageController, RegisterPage } from "@antelopejs/interface-dms/page";
 import { PAGE_IDS, PAGE_ORDER, PAGE_ROUTES } from "../../constants/pages";
-import { blockMeta, blockText, pageMenu } from "../meta";
+import { blockMeta, blockText, DAY_AXIS, pageMenu } from "../meta";
 import { lockUnavailableChoices } from "./availability";
 import { SETTINGS_SECTIONS } from "./sections";
 
@@ -54,7 +54,7 @@ export class AISettingsPage extends PageController(
         fetchUrl: PAGE_ROUTES.USAGE,
         valueFormat: "compact",
         showDelta: false,
-        chart: ChartColumn({ xaxisType: "datetime" }).meta(
+        chart: ChartColumn({ xaxisType: "datetime", xAxis: DAY_AXIS }).meta(
           blockMeta("settings.usage_chart_series", "i-ph-chart-bar"),
         ),
       }).meta(blockMeta("settings.usage_chart", "i-ph-chart-bar")),

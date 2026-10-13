@@ -34,3 +34,10 @@ export function pageMenu(id: string, icon: string, order: number): MenuOptions {
     order,
   };
 }
+
+/**
+ * The X axis of a chart with one point per day: every label the day and the
+ * month ("02 Oct"), where ApexCharts' default writes a month's first day as
+ * the month and year ("Oct '26").
+ */
+export const DAY_AXIS = { datetimeFormat: "dd MMM" } as const;
