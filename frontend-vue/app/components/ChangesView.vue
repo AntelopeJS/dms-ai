@@ -39,6 +39,9 @@ const total = ref(0);
 const scope = ref<ScopeFilter>("all");
 const search = ref("");
 const selectedId = ref<string | undefined>(readSelectedSet());
+// The list loads on the client only: until its first answer the server and
+// the hydrating client both draw the skeleton, never a premature empty state.
+const hasLoaded = ref(false);
 
 const SCOPE_ITEMS = computed(() => [
 	{ value: "all", label: t("dms_ai.views.changes.filter_all") },
@@ -61,6 +64,7 @@ async function loadPage(offset: number): Promise<void> {
 			query: listQuery(offset),
 		}),
 	);
+	hasLoaded.value = true;
 	if (!page) return;
 	changeSets.value =
 		offset === 0 ? page.results : [...changeSets.value, ...page.results];
@@ -129,7 +133,9 @@ const isCheckpointOff = computed(
 	() => status.data.value?.checkpointsAvailable === false,
 );
 const isFirstLoad = computed(
-	() => list.isLoading.value && changeSets.value.length === 0,
+	() =>
+		(!hasLoaded.value || list.isLoading.value) &&
+		changeSets.value.length === 0,
 );
 const hasMore = computed(() => changeSets.value.length < total.value);
 const listLabel = computed(() =>
