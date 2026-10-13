@@ -134,8 +134,7 @@ const isCheckpointOff = computed(
 );
 const isFirstLoad = computed(
 	() =>
-		(!hasLoaded.value || list.isLoading.value) &&
-		changeSets.value.length === 0,
+		(!hasLoaded.value || list.isLoading.value) && changeSets.value.length === 0,
 );
 const hasMore = computed(() => changeSets.value.length < total.value);
 const listLabel = computed(() =>
