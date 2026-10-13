@@ -16,7 +16,7 @@ const OTHER_SHIFT = "Shift+";
  * Shortcuts accept meta or ctrl, so hints show the modifier each platform
  * actually uses: ⌘ on Apple, Ctrl elsewhere.
  */
-export function isApplePlatform(): boolean {
+function isApplePlatform(): boolean {
 	const nav = globalThis.navigator as
 		| (Navigator & NavigatorUserAgentData)
 		| undefined;

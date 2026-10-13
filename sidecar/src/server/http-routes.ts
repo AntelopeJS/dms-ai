@@ -20,7 +20,6 @@ import {
   buildAllowed,
   buildKpi,
   buildSeries,
-  buildTopSkills,
   buildTopTools,
   buildUsage,
   type MetricSources,
@@ -59,7 +58,7 @@ export interface ApiDeps {
   port: number;
 }
 
-export interface RouteMatch {
+interface RouteMatch {
   params: string[];
   query: URLSearchParams;
   getSkillSources?: () => SkillSource[];
@@ -349,17 +348,6 @@ export const API_ROUTES: readonly ApiRoute[] = [
     method: "GET",
     pattern: /^\/metrics\/series$/,
     handle: json((d, m) => buildSeries(metricSources(d), parseWindow(m.query))),
-  },
-  {
-    method: "GET",
-    pattern: /^\/metrics\/top-skills$/,
-    handle: json((d, m) =>
-      buildTopSkills(
-        metricSources(d),
-        parseWindow(m.query),
-        parseLimit(m.query, DEFAULT_TOP_LIMIT),
-      ),
-    ),
   },
   {
     method: "GET",

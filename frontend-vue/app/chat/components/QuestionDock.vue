@@ -36,9 +36,7 @@ const choice = computed(() => choices.value[page.value] ?? NONE);
 const isLast = computed(() => page.value >= total.value - 1);
 
 const countdown = computed<string>(() => {
-	const expiresAt = props.request.expiresAtMs;
-	if (expiresAt === null) return "";
-	return formatClock(Math.max(0, expiresAt - props.nowMs));
+	return formatClock(Math.max(0, props.request.expiresAtMs - props.nowMs));
 });
 
 const canAdvance = computed<boolean>(() => {

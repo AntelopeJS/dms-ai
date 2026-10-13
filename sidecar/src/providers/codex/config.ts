@@ -31,7 +31,7 @@ export interface CodexModePolicy {
 // workspace-write "auto": in workspace-write an edit inside the roots asks for
 // nothing, while every write under read-only escalates — which is the prompt
 // per write that the Claude path gives today.
-export const CODEX_MODE_POLICIES: Record<ChatMode, CodexModePolicy> = {
+const CODEX_MODE_POLICIES: Record<ChatMode, CodexModePolicy> = {
   normal: {
     approvalPolicy: "on-request",
     sandbox: "read-only",
@@ -61,7 +61,7 @@ export const CODEX_MODE_POLICIES: Record<ChatMode, CodexModePolicy> = {
 // Codex has no "reasoning off": the current models reject `minimal` and accept
 // low, medium, high, xhigh and max. `off` therefore maps to the lowest level
 // available rather than disabling anything.
-export const CODEX_EFFORT_BY_THINKING: Record<ThinkingLevel, string> = {
+const CODEX_EFFORT_BY_THINKING: Record<ThinkingLevel, string> = {
   off: "low",
   low: "low",
   medium: "medium",

@@ -30,7 +30,7 @@ export interface ConversationModesPatch {
   fullAuto?: FullAutoRequest | null;
 }
 
-export interface FullAutoRequest {
+interface FullAutoRequest {
   duration: FullAutoDuration;
 }
 

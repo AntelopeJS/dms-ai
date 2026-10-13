@@ -20,7 +20,7 @@ import type { PendingQueueStore } from "./pending-queue.js";
 import type { TurnRegistry } from "./turn-registry.js";
 
 /** Who drives a connection, as the backend bridge announced it. */
-export interface Actor {
+interface Actor {
   userId: string;
   name: string;
 }

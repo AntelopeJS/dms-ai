@@ -1,24 +1,24 @@
 import { type Ref, ref } from "vue";
 
 /** Opens the panel on a stored conversation. */
-export interface OpenConversationIntent {
+interface OpenConversationIntent {
 	kind: "open";
 	conversationId: string;
 }
 
 /** Opens the panel on a new conversation, the composer optionally prefilled. */
-export interface StartConversationIntent {
+interface StartConversationIntent {
 	kind: "start";
 	prompt?: string;
 }
 
 /** Puts the caret in the composer of the current conversation. */
-export interface FocusComposerIntent {
+interface FocusComposerIntent {
 	kind: "focus";
 }
 
 /** Brings the approvals dock forward. */
-export interface ReviewApprovalsIntent {
+interface ReviewApprovalsIntent {
 	kind: "approvals";
 }
 

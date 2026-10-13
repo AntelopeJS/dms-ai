@@ -1,6 +1,6 @@
 import type { ZodRawShape } from "zod";
 
-export interface McpToolTextContent {
+interface McpToolTextContent {
   type: "text";
   text: string;
 }
@@ -15,7 +15,7 @@ export interface McpToolResult {
  * that moving a tool to a neutral definition changes no handler typing: an
  * optional zod field stays present-but-undefined rather than becoming optional.
  */
-export type McpToolArgs<Schema extends ZodRawShape> = {
+type McpToolArgs<Schema extends ZodRawShape> = {
   [K in keyof Schema]: Schema[K] extends { _output: infer Output }
     ? Output
     : never;

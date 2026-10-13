@@ -261,17 +261,11 @@ export const ConversationListEvent = z.object({
 });
 
 export const AppSettingsSchema = z.object({
-  // Optional rather than defaulted: an older client that omits the field must
-  // leave the stored provider alone, not silently reset it to the default.
-  provider: z.enum(PROVIDER_NAMES).optional(),
+  provider: z.enum(PROVIDER_NAMES),
   mode: z.enum(CHAT_MODES),
   thinking: z.enum(THINKING_LEVELS),
-  // Older persisted payloads / clients omit this; safe is the product default,
-  // and it self-downgrades to vibe when the Builder is absent.
-  generationMode: z.enum(GENERATION_MODES).default("safe"),
-  // Older persisted payloads / clients omit this; default off preserves the
-  // reproducible-by-default posture.
-  allowLocalSkills: z.boolean().default(false),
+  generationMode: z.enum(GENERATION_MODES),
+  allowLocalSkills: z.boolean(),
   alwaysAskDependencies: z
     .boolean()
     .default(DEFAULT_SETTINGS.alwaysAskDependencies),

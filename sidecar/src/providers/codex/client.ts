@@ -6,12 +6,12 @@ import {
   JSONRPC_VERSION,
 } from "../../constants/codex.js";
 
-export interface JsonRpcError {
+interface JsonRpcError {
   code: number;
   message: string;
 }
 
-export interface JsonRpcFrame {
+interface JsonRpcFrame {
   id?: number | string;
   method?: string;
   params?: unknown;

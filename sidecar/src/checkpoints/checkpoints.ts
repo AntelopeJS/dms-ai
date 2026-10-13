@@ -39,7 +39,7 @@ export interface TurnCheckpoint {
   finish(meta: TurnChangeMeta): Promise<ChangeSetRecord | null>;
 }
 
-export interface ChangeSetFileDetail extends ChangeSetFile {
+interface ChangeSetFileDetail extends ChangeSetFile {
   hunks: DiffHunkType[];
   isBinary: boolean;
 }

@@ -13,7 +13,7 @@ const NUMERIC = /^\d+$/;
 const TRUE_VALUE = "true";
 
 /** An ISO date or a millisecond count, as the backend forwards them. */
-export function parseTimestamp(value: string | null): number | undefined {
+function parseTimestamp(value: string | null): number | undefined {
   if (!value) return undefined;
   if (NUMERIC.test(value)) return Number(value);
   const parsed = Date.parse(value);

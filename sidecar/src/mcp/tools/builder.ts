@@ -171,7 +171,7 @@ export function buildBuilderTools(deps: BuilderToolsDeps) {
 
 type BuilderRun = (op: string, args: unknown[]) => Promise<McpToolResult>;
 
-export function buildUngatedBuilderTools(deps: BuilderToolsDeps) {
+function buildUngatedBuilderTools(deps: BuilderToolsDeps) {
   const run: BuilderRun = async (op, args) =>
     opResult(await deps.builderClient.call(op, args));
   return [

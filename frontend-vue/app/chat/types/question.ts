@@ -1,4 +1,4 @@
-export interface QuestionOptionData {
+interface QuestionOptionData {
 	label: string;
 	description: string;
 	preview?: string;
@@ -15,8 +15,7 @@ export interface QuestionRequestData {
 	conversationId: string;
 	questions: QuestionData[];
 	createdAtMs: number;
-	/** Null when the sidecar gave no deadline. */
-	expiresAtMs: number | null;
+	expiresAtMs: number;
 }
 
 /** One question's answer: an option label, the user's own words, or skipped. */

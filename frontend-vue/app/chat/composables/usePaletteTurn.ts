@@ -7,7 +7,7 @@ import {
 import { PALETTE_TURN_MODE } from "../constants/conversation";
 import { createChatChannel, type UseChatChannelResult } from "./useChatChannel";
 import { useConversation, type UseConversationResult } from "./useConversation";
-import { newConversationId } from "./useConversationId";
+import { newUuid } from "../utils/ids";
 import {
 	usePermissionQueue,
 	type UsePermissionQueueResult,
@@ -70,7 +70,7 @@ function ask(
 }
 
 export function usePaletteTurn(options: UsePaletteTurnOptions): PaletteTurn {
-	const conversationId = newConversationId();
+	const conversationId = newUuid();
 	const activeId = ref(conversationId);
 	const channel = createChatChannel({
 		transport: options.transport,

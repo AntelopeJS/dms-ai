@@ -4,11 +4,7 @@ import type {
 	PermissionRule,
 } from "./protocol";
 
-/**
- * A permission request as the approvals dock shows it. Every field past
- * `summary` came with the redesign and is defaulted when a sidecar leaves it
- * out, so an older request still renders, as a generic card.
- */
+/** A permission request as the approvals dock shows it. */
 export interface PermissionRequestData {
 	requestId: string;
 	conversationId: string;
@@ -21,8 +17,7 @@ export interface PermissionRequestData {
 	preview: PermissionPreview;
 	ruleOptions: PermissionRule[];
 	createdAtMs: number;
-	/** Null when the sidecar gave no deadline. */
-	expiresAtMs: number | null;
+	expiresAtMs: number;
 }
 
 /** A request the sidecar denied for want of an answer, kept until dismissed. */

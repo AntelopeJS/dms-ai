@@ -115,11 +115,9 @@ function indexConversation(
   };
 }
 
-// Transcripts written before v2 carry no `allowedBy`: read it off what they do.
-function legacyAllowedBy(toolName: string, permission?: StoredMessage) {
-  if (permission?.decision !== undefined) {
-    return permission.decision === "approved" ? "approved" : "denied";
-  }
+// A call no decision was recorded for (still running, or cut short) carries no
+// `allowedBy`: read it off what it does.
+function undecidedAllowedBy(toolName: string): AllowedBy {
   if (isReadOnlyTool(toolName)) return "read_auto";
   return isMutatingBuilderTool(toolName) ? "builder_auto" : "approved";
 }
@@ -188,7 +186,7 @@ function callRecord(input: RowInput, use: StoredMessage): ActivityRecord {
     result?.allowedBy ??
     use.allowedBy ??
     permission?.allowedBy ??
-    legacyAllowedBy(toolName, permission);
+    undecidedAllowedBy(toolName);
   const changeSetId = result?.changeSetId ?? use.changeSetId;
   const changeSet =
     changeSetId === undefined ? undefined : index.changeSets.get(changeSetId);
@@ -225,8 +223,7 @@ function callRecord(input: RowInput, use: StoredMessage): ActivityRecord {
 function permissionOnlyRecord(input: RowInput, permission: StoredMessage) {
   const { entry } = input;
   const toolName = permission.toolName ?? "";
-  const allowedBy =
-    permission.allowedBy ?? legacyAllowedBy(toolName, permission);
+  const allowedBy = permission.allowedBy ?? undecidedAllowedBy(toolName);
   const record: ActivityRecord = {
     id: `${entry.id}:${permission.requestId ?? permission.callId ?? permission.timestampMs}`,
     timestampMs: permission.requestedAtMs ?? permission.timestampMs,

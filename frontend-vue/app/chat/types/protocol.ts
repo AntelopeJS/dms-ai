@@ -21,12 +21,6 @@ export type AllowedBy =
 	| "denied"
 	| "expired";
 
-export type PermissionDecision =
-	| "allow_once"
-	| "allow_rule"
-	| "deny"
-	| "deny_all";
-
 export type RuleKind = "file" | "directory" | "command" | "domain";
 
 export interface PermissionRule {
@@ -65,7 +59,7 @@ export interface DiffPreview {
 	hunks: DiffHunk[];
 }
 
-export type CommandEffect = "adds_dependency" | "removes_dependency";
+type CommandEffect = "adds_dependency" | "removes_dependency";
 
 export interface CommandPreview {
 	type: "command";
@@ -75,7 +69,7 @@ export interface CommandPreview {
 	touches?: string[];
 }
 
-export type DestructiveConsequence = "deletes_data" | "removes_code";
+type DestructiveConsequence = "deletes_data" | "removes_code";
 
 export interface DestructivePreview {
 	type: "destructive";
@@ -92,7 +86,7 @@ export interface WebPreview {
 	host: string;
 }
 
-export interface GenericPreview {
+interface GenericPreview {
 	type: "generic";
 	args: Record<string, unknown>;
 }

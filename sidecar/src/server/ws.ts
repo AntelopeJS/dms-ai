@@ -343,7 +343,7 @@ function buildQuestionBus(holder: ServicesHolder): QuestionBus {
 }
 
 /** Change sets off: no git, nothing recorded. */
-export function createDisabledCheckpoints(): Checkpoints {
+function createDisabledCheckpoints(): Checkpoints {
   return createCheckpoints({
     git: createShadowGit({ gitDir: "", workTree: "", extraExcludes: [] }),
     store: createChangeSetStore(""),

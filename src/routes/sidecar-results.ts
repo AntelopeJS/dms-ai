@@ -11,7 +11,7 @@ import {
 } from "../sidecar";
 
 /** An error answer, as the DMS shows it under a field or in a toast. */
-export interface ErrorBody {
+interface ErrorBody {
   message: string;
 }
 

@@ -52,7 +52,7 @@ export interface TopListPayload {
 }
 
 /** A counted value of a sidecar breakdown. */
-export interface CountedValue {
+interface CountedValue {
   id: string;
   value: number;
 }
@@ -81,7 +81,7 @@ export interface UsageDay {
 }
 
 /** The conversation that used the most tokens. */
-export interface UsageTopConversation {
+interface UsageTopConversation {
   conversationId: string;
   title: string;
   totalTokens: number;

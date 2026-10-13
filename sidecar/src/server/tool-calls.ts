@@ -56,7 +56,7 @@ const OUTCOME_BY_DECISION: Partial<Record<AllowedBy, ToolOutcome>> = {
 
 const STOPPED_RESULT = "stopped";
 
-export function defaultAllowedBy(
+function defaultAllowedBy(
   services: SidecarServices,
   conversationId: string,
   toolName: string,

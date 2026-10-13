@@ -15,9 +15,9 @@ const USAGE_WINDOW_DAYS = 30;
 const LOCAL_SKILLS_ORIGIN = "~/.claude/skills";
 const QUALIFIED_SEPARATOR = ":";
 
-export type SkillSourceKind = "module" | "local";
+type SkillSourceKind = "module" | "local";
 
-export interface SkillOrigin {
+interface SkillOrigin {
   source: SkillSourceKind;
   origin: string;
 }
@@ -43,7 +43,7 @@ interface SkillUse {
   conversationId: string;
 }
 
-export function originOf(item: SkillCatalogItem): SkillOrigin {
+function originOf(item: SkillCatalogItem): SkillOrigin {
   const isLocal = item.provenance === LOCAL_SKILLS_PROVENANCE;
   return {
     source: isLocal ? "local" : "module",

@@ -18,7 +18,7 @@ export interface UseConversationListOptions {
 }
 
 /** A deletion still within its undo window. */
-export interface PendingDelete {
+interface PendingDelete {
 	id: string;
 	title: string;
 }

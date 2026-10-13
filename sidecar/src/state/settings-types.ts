@@ -6,9 +6,6 @@ import type { ProviderName } from "./types.js";
 export const CHAT_MODES = ["normal", "acceptEdits", "plan"] as const;
 export type ChatMode = (typeof CHAT_MODES)[number];
 
-// The mode a pre-v2 settings file may still hold. It reads as `normal`.
-export const LEGACY_AUTO_MODE = "auto";
-
 export const THINKING_LEVELS = ["off", "low", "medium", "high"] as const;
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
@@ -19,11 +16,10 @@ export const GENERATION_MODES = ["safe", "vibe"] as const;
 export type GenerationMode = (typeof GENERATION_MODES)[number];
 
 export const REQUEST_TIMEOUT_MINUTES = [5, 15, 30] as const;
-export type RequestTimeoutMinutes = (typeof REQUEST_TIMEOUT_MINUTES)[number];
+type RequestTimeoutMinutes = (typeof REQUEST_TIMEOUT_MINUTES)[number];
 
 export const CHECKPOINT_RETENTION_DAYS = [7, 30, 90] as const;
-export type CheckpointRetentionDays =
-  (typeof CHECKPOINT_RETENTION_DAYS)[number];
+type CheckpointRetentionDays = (typeof CHECKPOINT_RETENTION_DAYS)[number];
 
 export interface AppSettings {
   // Which agent backend drives the conversations. The default is a starting

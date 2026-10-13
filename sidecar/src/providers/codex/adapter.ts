@@ -74,12 +74,8 @@ export interface CodexAdapter {
   getChanges(itemId: string): CodexFileChange[];
 }
 
-const UPDATE_CHANGE_KIND = "update";
-
-// Older dumps carry no kind; a plain update is what they describe.
 function changeKindOf(change: v2.FileUpdateChange): string {
-  const kind = change.kind as Partial<v2.PatchChangeKind> | null | undefined;
-  return kind?.type ?? UPDATE_CHANGE_KIND;
+  return change.kind.type;
 }
 
 function toolUse(callId: string, toolName: string, args: unknown): RunnerEvent {

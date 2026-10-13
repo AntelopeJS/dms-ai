@@ -150,7 +150,7 @@ async function indexFileImports(
   }
 }
 
-async function buildScanResult(rootDir: string): Promise<ScanResult> {
+export async function scanImports(rootDir: string): Promise<ScanResult> {
   const files = await walkFiles(rootDir);
   const importersByFile = new Map<string, string[]>();
   for (const file of files) {
@@ -164,7 +164,7 @@ export function createImportsScanner(): ImportsScanner {
   return {
     scan: async (rootDir) => {
       if (cache !== null && cache.rootDir === rootDir) return cache.result;
-      const result = await buildScanResult(rootDir);
+      const result = await scanImports(rootDir);
       cache = { rootDir, result };
       return result;
     },
@@ -172,8 +172,4 @@ export function createImportsScanner(): ImportsScanner {
       cache = null;
     },
   };
-}
-
-export async function scanImports(rootDir: string): Promise<ScanResult> {
-  return buildScanResult(rootDir);
 }

@@ -9,7 +9,7 @@ const FALLBACK_FILE_NAME = "file";
 
 // Reduce an arbitrary upload name to a safe basename (strip directory parts and
 // characters that could escape or confuse the uploads dir). Empty → "file".
-export function sanitizeFileName(name: string): string {
+function sanitizeFileName(name: string): string {
   const base = path
     .basename(name)
     .replace(/[^\w.\- ]+/g, "_")

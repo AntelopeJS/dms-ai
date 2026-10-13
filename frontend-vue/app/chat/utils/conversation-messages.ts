@@ -81,7 +81,7 @@ export function buildLocalError(
 	};
 }
 
-export function normalizeToolStatus(raw: string | undefined): ToolStatus {
+function normalizeToolStatus(raw: string | undefined): ToolStatus {
 	if (raw === TOOL_STATUS.SUCCESS) return TOOL_STATUS.SUCCESS;
 	if (raw === TOOL_STATUS.ERROR) return TOOL_STATUS.ERROR;
 	return TOOL_STATUS.PENDING;
@@ -105,7 +105,7 @@ function safeParse(raw: string): unknown {
 	}
 }
 
-export function isOpenTool(msg: ConversationMessage): msg is ToolCallMessage {
+function isOpenTool(msg: ConversationMessage): msg is ToolCallMessage {
 	return (
 		msg.role === MESSAGE_ROLES.TOOL &&
 		msg.outcome === undefined &&

@@ -34,7 +34,7 @@ export interface SidecarBridge {
 
 // What both frontends read: the stored settings plus the read-only capabilities
 // that gate them.
-export interface SettingsPayload extends AppSettings {
+interface SettingsPayload extends AppSettings {
   builderAvailable: boolean;
   providers: ProviderAvailabilityMap;
 }
@@ -79,7 +79,7 @@ async function healthHandler(res: ServerResponse, ctx: RouteContext) {
   sendJson(res, HTTP_STATUS.OK, body);
 }
 
-export function buildSettingsPayload(settings: AppSettings): SettingsPayload {
+function buildSettingsPayload(settings: AppSettings): SettingsPayload {
   return {
     ...settings,
     builderAvailable: getBuilderAvailable(),

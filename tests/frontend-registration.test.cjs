@@ -4,19 +4,15 @@ const path = require("node:path");
 const { test } = require("node:test");
 
 const BACKEND_URL = "http://127.0.0.1:41234";
-const HOST_ORIGIN = "http://localhost:4173";
 
-function loadModule(registrations, sidecars, warnings = []) {
+function loadModule(registrations, sidecars) {
   const filename = path.resolve(__dirname, "../dist/index.js");
   const mocks = {
     "@antelopejs/interface-dms/page": {
       AddFrontendModule: (registration) => registrations.push(registration),
     },
     "@antelopejs/interface-core/logging": {
-      Logging: {
-        Warn: (...args) => warnings.push(args),
-        Error() {},
-      },
+      Logging: { Error() {} },
     },
     "./builder/presence": { isBuilderAvailable: () => true },
     "./lifecycle/module-roots": {
@@ -79,24 +75,6 @@ void test("registers Vue and preserves sidecar inputs without launching an agent
   ]);
 });
 
-void test("warns once about a set hostOrigin and otherwise ignores it", async () => {
-  const withHostOrigin = [];
-  const warnings = [];
-  const loaded = loadModule([], withHostOrigin, warnings);
-  loaded.construct({ backendUrl: BACKEND_URL, hostOrigin: HOST_ORIGIN });
-  loaded.construct({ backendUrl: BACKEND_URL, hostOrigin: HOST_ORIGIN });
-  await loaded.start();
-  const withoutHostOrigin = [];
-  const silent = [];
-  const reference = loadModule([], withoutHostOrigin, silent);
-  reference.construct({ backendUrl: BACKEND_URL });
-  await reference.start();
-  assert.equal(warnings.length, 1);
-  assert.match(String(warnings[0][0]), /hostOrigin/);
-  assert.deepEqual(silent, []);
-  assert.deepEqual(withHostOrigin, withoutHostOrigin);
-});
-
 void test("omits the origins the project did not configure", async () => {
   const sidecars = [];
   const loaded = loadModule([], sidecars);
@@ -115,7 +93,7 @@ void test("omits the origins the project did not configure", async () => {
 void test("ignores config entries that are not usable origins", async () => {
   const sidecars = [];
   const loaded = loadModule([], sidecars);
-  loaded.construct({ backendUrl: "   ", hostOrigin: 5010 });
+  loaded.construct({ backendUrl: "   ", unknown: 5010 });
   await loaded.start();
   assert.deepEqual(sidecars, [
     {

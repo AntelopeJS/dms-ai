@@ -5,7 +5,7 @@ import type { DiffHunkType } from "../protocol/events.js";
 import type { ActivityRecord, ActivityRow } from "./activity.js";
 import { toActivityRow } from "./activity.js";
 
-export const MAX_ACTIVITY_OUTPUT_CHARS = 20_000;
+const MAX_ACTIVITY_OUTPUT_CHARS = 20_000;
 const TRUNCATION_MARKER = "\n…";
 
 /** The Activity table's query, as the sidecar route reads it. */

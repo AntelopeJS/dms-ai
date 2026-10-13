@@ -77,21 +77,17 @@ function pidRegistryPath(stateDir: string): string {
   return path.join(stateDir, CODEX_PID_REGISTRY_FILE);
 }
 
-/**
- * One app-server a sidecar started, with the home it was given. The home is
- * absent from registries written before it was recorded.
- */
+/** One app-server a sidecar started, with the home it was given. */
 interface PidRecord {
   pid: number;
-  home?: string;
+  home: string;
 }
 
 function toPidRecord(entry: unknown): PidRecord | undefined {
-  if (Number.isInteger(entry)) return { pid: entry as number };
   if (entry === null || typeof entry !== "object") return undefined;
   const { pid, home } = entry as Partial<PidRecord>;
   if (pid === undefined || !Number.isInteger(pid)) return undefined;
-  return typeof home === "string" ? { pid, home } : { pid };
+  return typeof home === "string" ? { pid, home } : undefined;
 }
 
 function isPidRecord(record: PidRecord | undefined): record is PidRecord {
@@ -214,16 +210,11 @@ async function stopOrphan(record: PidRecord): Promise<ReapOutcome> {
   return { record, isStopped };
 }
 
-/**
- * Removes every home under `<state>/codex-home/` but the survivors'. A survivor
- * recorded without its home leaves them all in place: which one it still uses
- * cannot be told apart.
- */
+/** Removes every home under `<state>/codex-home/` but the survivors'. */
 async function removeOrphanHomes(
   stateDir: string,
   survivors: readonly PidRecord[],
 ): Promise<void> {
-  if (survivors.some((record) => record.home === undefined)) return;
   const kept = new Set(survivors.map((record) => record.home));
   const homesRoot = path.join(stateDir, CODEX_HOME_DIR_NAME);
   const entries = await readdir(homesRoot).catch((): string[] => []);

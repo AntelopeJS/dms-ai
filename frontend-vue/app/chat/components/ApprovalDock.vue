@@ -57,7 +57,7 @@ const focused = computed(() => props.requests[focusedIndex.value] ?? null);
 
 const countdown = computed<string>(() => {
 	const expiresAt = focused.value?.expiresAtMs;
-	if (expiresAt === null || expiresAt === undefined) return "";
+	if (expiresAt === undefined) return "";
 	return formatClock(Math.max(0, expiresAt - props.nowMs));
 });
 

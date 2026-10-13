@@ -51,12 +51,12 @@ function matches(entry: BufferedLog, query: LogQuery): boolean {
   return true;
 }
 
-export interface LogBuffer {
+interface LogBuffer {
   handler: (log: Log) => void;
   query(query: LogQuery): BufferedLog[];
 }
 
-export function createLogBuffer(cap: number = LOG_BUFFER_CAP): LogBuffer {
+function createLogBuffer(cap: number = LOG_BUFFER_CAP): LogBuffer {
   const entries: BufferedLog[] = [];
   return {
     handler: (log) => {

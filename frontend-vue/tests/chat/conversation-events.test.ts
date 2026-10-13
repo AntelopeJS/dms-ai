@@ -414,24 +414,11 @@ describe("approvals answer with the new vocabulary", () => {
 		expect(queue.queue.value).toEqual([]);
 	});
 
-	it("defaults what an older sidecar leaves out, and never offers rules for always-ask", () => {
+	it("never offers rules for always-ask", () => {
 		const b = bus();
 		const queue = usePermissionQueue(b.options as never);
-		b.receive({
-			type: "permission_request",
-			requestId: "r1",
-			toolName: "X",
-			args: { a: 1 },
-			summary: "x",
-		});
-		b.receive({ ...request, requestId: "r2", alwaysAsk: true });
-		expect(queue.queue.value[0]).toMatchObject({
-			kind: "other",
-			preview: { type: "generic", args: { a: 1 } },
-			ruleOptions: [],
-			expiresAtMs: null,
-		});
-		expect(queue.queue.value[1].ruleOptions).toEqual([]);
+		b.receive({ ...request, alwaysAsk: true });
+		expect(queue.queue.value[0].ruleOptions).toEqual([]);
 	});
 
 	it("drops a request another tab answered, and keeps an expired one as a card", () => {

@@ -2,11 +2,6 @@ import { TOOL_STATUS } from "../constants/conversation";
 import type { ToolCallMessage, ToolRowState } from "../types/conversation";
 import type { PermissionRequestData } from "../types/permission";
 
-const STATE_BY_LEGACY_STATUS: Record<string, ToolRowState> = {
-	[TOOL_STATUS.SUCCESS]: "done",
-	[TOOL_STATUS.ERROR]: "failed",
-};
-
 /** Where a waiting call's request sits in the dock: "1 of 2". */
 export interface WaitingPosition {
 	index: number;
@@ -53,7 +48,7 @@ export function toolRowState(
 	waiting: WaitingPosition | null,
 ): ToolRowState {
 	if (tool.outcome !== undefined) return tool.outcome;
-	if (!isOpen(tool)) return STATE_BY_LEGACY_STATUS[tool.status] ?? "done";
+	if (!isOpen(tool)) return "done";
 	if (waiting !== null) return "waiting";
 	return isTurnRunning ? "running" : "stopped";
 }

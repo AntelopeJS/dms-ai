@@ -1,6 +1,6 @@
 import type { DiffHunk, DiffLine } from "../types/protocol";
 
-export type DiffRowKind = "hunk" | "context" | "add" | "remove";
+type DiffRowKind = "hunk" | "context" | "add" | "remove";
 
 /** One line of a unified diff as drawn: number, sign, text. */
 export interface DiffRow {

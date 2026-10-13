@@ -1,6 +1,6 @@
 import type { AppSettings } from "../types/settings";
 
-export const DEFAULT_REQUEST_TIMEOUT_MINUTES = 5;
+const DEFAULT_REQUEST_TIMEOUT_MINUTES = 5;
 
 export const DEFAULT_SETTINGS: AppSettings = {
 	provider: "claude",
@@ -16,10 +16,3 @@ export const DEFAULT_SETTINGS: AppSettings = {
 		codex: { available: false },
 	},
 };
-
-/** The modes a stored setting may hold; an old global `auto` reads as Ask first. */
-export const STORABLE_MODES: readonly string[] = [
-	"normal",
-	"acceptEdits",
-	"plan",
-];

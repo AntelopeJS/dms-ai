@@ -1,9 +1,9 @@
 import type { Tone } from "#dms-ui/app/types/tone";
 
-export type AgentId = "claude" | "codex";
+type AgentId = "claude" | "codex";
 export type ScopeId = "safe" | "vibe";
-export type ApprovalMode = "normal" | "acceptEdits" | "plan" | "auto";
-export type AssistantState = "ready" | "working" | "waiting";
+export type ApprovalMode = "normal" | "acceptEdits" | "plan";
+type AssistantState = "ready" | "working" | "waiting";
 export type TypecheckOutcome = "passed" | "failed" | "skipped";
 export type ChangeSetState = "applied" | "undone";
 export type ChangeFileStatus = "added" | "modified" | "deleted";

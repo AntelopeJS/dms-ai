@@ -350,7 +350,7 @@ export function applySettings(
 }
 
 /** Merges a partial settings change over what is stored, then applies it. */
-export function applySettingsPatch(
+function applySettingsPatch(
   deps: SettingsApplyDeps,
   patch: SettingsPatchType,
 ): AppSettings {

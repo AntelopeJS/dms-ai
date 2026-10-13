@@ -31,12 +31,6 @@
 				"safe": "Mode sûr",
 				"vibe": "Mode code"
 			},
-			"mode": {
-				"normal": "Demander d'abord",
-				"acceptEdits": "Accepter les modifications",
-				"plan": "Plan seulement",
-				"auto": "Automatique complet"
-			},
 			"typecheck": {
 				"passed": "Vérification des types réussie",
 				"failed": "Vérification des types en échec",

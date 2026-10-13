@@ -28,7 +28,7 @@ export interface RunnerToolResult {
   isStopped?: boolean;
 }
 
-export interface RunnerDone {
+interface RunnerDone {
   type: "done";
 }
 

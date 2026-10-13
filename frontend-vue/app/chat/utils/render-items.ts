@@ -16,19 +16,19 @@ import { bareToolName } from "./tool-lexicon";
 import { isTodoWrite } from "./todos";
 
 /** A day boundary in the stream. */
-export interface SeparatorItem {
+interface SeparatorItem {
 	kind: "separator";
 	key: string;
 	dayMs: number;
 }
 
 /** The "✦ Assistant" line that opens the agent's side of a turn. */
-export interface WhoItem {
+interface WhoItem {
 	kind: "who";
 	key: string;
 }
 
-export interface MessageItem {
+interface MessageItem {
 	kind: "user" | "assistant" | "error" | "notice" | "change" | "answers";
 	key: string;
 	message:
@@ -40,13 +40,13 @@ export interface MessageItem {
 		| QuestionAnswerMessage;
 }
 
-export interface ToolsItem {
+interface ToolsItem {
 	kind: "tools";
 	key: string;
 	tools: ToolCallMessage[];
 }
 
-export interface PlanItem {
+interface PlanItem {
 	kind: "plan";
 	key: string;
 	tool: ToolCallMessage;

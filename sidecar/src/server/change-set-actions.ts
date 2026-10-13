@@ -4,7 +4,7 @@ import { broadcastConversationList } from "./chat-events.js";
 import type { SidecarServices } from "./services.js";
 import { sendChangeSet } from "./turns.js";
 
-export type ChangeSetAction = ChangeSetActionMsgType["action"];
+type ChangeSetAction = ChangeSetActionMsgType["action"];
 
 export interface ChangeSetActionRequest {
   changeSetId: string;

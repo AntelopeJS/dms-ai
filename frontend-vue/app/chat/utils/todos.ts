@@ -8,7 +8,7 @@ import type {
 	ToolCallMessage,
 } from "../types/conversation";
 
-export type TodoItemStatus = "pending" | "in_progress" | "completed";
+type TodoItemStatus = "pending" | "in_progress" | "completed";
 
 export interface TodoItem {
 	content: string;
@@ -40,7 +40,7 @@ function toTodo(value: unknown): TodoItem | null {
 	return { content, status: toStatus(record.status), activeForm };
 }
 
-export function extractTodos(args: unknown): TodoItem[] {
+function extractTodos(args: unknown): TodoItem[] {
 	if (args === null || typeof args !== "object") return [];
 	const todos = (args as Record<string, unknown>).todos;
 	if (!Array.isArray(todos)) return [];

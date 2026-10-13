@@ -98,7 +98,3 @@ export interface AgentProviderOptions {
    */
   skillDirs?: SkillSource[];
 }
-
-export type AgentProviderFactory = (
-  options?: AgentProviderOptions,
-) => AgentProvider;

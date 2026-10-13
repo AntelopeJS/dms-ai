@@ -3,7 +3,7 @@ import type { TurnCheckpoint } from "../checkpoints/checkpoints.js";
 import { EMPTY_TOKEN_USAGE, type TokenUsage } from "../state/types.js";
 
 /** A tool call of the running turn that has not ended yet. */
-export interface OpenCall {
+interface OpenCall {
   toolName: string;
   startedAtMs: number;
 }
@@ -26,7 +26,7 @@ export interface ActiveTurn {
   usage: TokenUsage;
 }
 
-export interface BeginTurnOptions {
+interface BeginTurnOptions {
   conversationId: string;
   request: string;
   isAutoFix: boolean;

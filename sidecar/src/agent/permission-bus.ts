@@ -48,7 +48,7 @@ export interface PermissionOutcome {
 /** A request waiting for the user, exactly as the chat is shown it. */
 export type PendingRequest = Omit<PermissionRequestEventType, "type">;
 
-export type PermissionSettlementKind =
+type PermissionSettlementKind =
   | PermissionDecisionValue
   | (typeof PERMISSION_SETTLEMENTS)[keyof typeof PERMISSION_SETTLEMENTS];
 

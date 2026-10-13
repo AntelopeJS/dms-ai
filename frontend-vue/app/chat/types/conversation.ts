@@ -9,21 +9,13 @@ import type {
 	ToolOutcome,
 } from "./protocol";
 
-export type MessageRole =
-	| "user"
-	| "assistant"
-	| "tool"
-	| "error"
-	| "notice"
-	| "change_set"
-	| "question_answer";
 export type ToolStatus = "pending" | "success" | "error";
 export type ActivityKind = (typeof ACTIVITY_KINDS)[keyof typeof ACTIVITY_KINDS];
 
 /**
  * What a tool row shows. `waiting` and `running` are derived by the chat (an
  * open call, with or without a pending request); the rest come from the
- * sidecar's `outcome`, or from the legacy `status` when it sends none.
+ * sidecar's `outcome`.
  */
 export type ToolRowState =
 	| "done"

@@ -671,3 +671,15 @@ through the frontend server's proxy.
 optional to dms-ai (`@antelopejs/interface-dms-builder` is an optional dependency, and every
 Builder feature is gated on its presence), so the playground runs without it until a release
 supports dms-frontend 0.5.
+
+### Q57. What happens to the code kept for older installs?
+
+Nothing has shipped on the redesign, and every store is reset with it.
+
+**Decision:** it goes. The deprecated `hostOrigin` config key and its warning, the sidecar's
+pre-v2 `/metrics/top-skills` route, the pid-only codex registry format and the pid fallback for an
+app-server that does not lead its group, the `allowedBy` read off an old permission record, the
+settings defaults for clients that omitted a field, and, in the chat, the defaults for a
+permission request or question missing redesign fields, the tool row state read from a bare
+`status` and the stored `auto` mode. The sidecar and the chat ship in one package, so the chat
+reads the sidecar's events as they are.

@@ -31,12 +31,6 @@
 				"safe": "Safe mode",
 				"vibe": "Code mode"
 			},
-			"mode": {
-				"normal": "Ask first",
-				"acceptEdits": "Accept edits",
-				"plan": "Plan only",
-				"auto": "Full auto"
-			},
 			"typecheck": {
 				"passed": "Typecheck passed",
 				"failed": "Typecheck failed",

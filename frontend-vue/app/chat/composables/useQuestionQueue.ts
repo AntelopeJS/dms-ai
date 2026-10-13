@@ -32,9 +32,9 @@ export interface UseQuestionQueueResult {
 interface AskQuestionWire {
 	conversationId: string;
 	requestId: string;
-	questions?: QuestionData[];
-	createdAtMs?: number;
-	expiresAtMs?: number;
+	questions: QuestionData[];
+	createdAtMs: number;
+	expiresAtMs: number;
 }
 
 interface RequestIdWire {
@@ -45,14 +45,14 @@ function toRequest(wire: AskQuestionWire): QuestionRequestData {
 	return {
 		requestId: wire.requestId,
 		conversationId: wire.conversationId,
-		questions: wire.questions ?? [],
-		createdAtMs: wire.createdAtMs ?? Date.now(),
-		expiresAtMs: wire.expiresAtMs ?? null,
+		questions: wire.questions,
+		createdAtMs: wire.createdAtMs,
+		expiresAtMs: wire.expiresAtMs,
 	};
 }
 
 /** What the transcript keeps of each answer. */
-export function toAnswerRecords(
+function toAnswerRecords(
 	questions: readonly QuestionData[],
 	replies: readonly QuestionReply[],
 ): QuestionAnswerRecord[] {

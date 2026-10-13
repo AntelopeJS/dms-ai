@@ -1,7 +1,7 @@
 import type { ToolEntry } from "./types";
 
 /** Prefix the agent SDK gives the module's own MCP tools. */
-export const MCP_TOOL_PREFIX = "mcp__dms-ai__";
+const MCP_TOOL_PREFIX = "mcp__dms-ai__";
 
 /** The agents' built-in tools, by the name they are logged under. */
 const BUILTIN_TOOLS: Readonly<Record<string, ToolEntry>> = {

@@ -7,7 +7,7 @@ const FILTER_PARAM_PREFIX = "filter_";
 const EQUALS_MODE_PREFIX = "is:";
 
 /** How a table column's filter reaches the sidecar. */
-export interface FilterMapping {
+interface FilterMapping {
   /** The sidecar's query parameter. */
   param: string;
   /** The parameter's value for each filtered value; others are dropped. */

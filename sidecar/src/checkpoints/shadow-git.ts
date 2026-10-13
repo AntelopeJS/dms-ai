@@ -43,7 +43,7 @@ export interface ShadowGitOptions {
   extraExcludes: string[];
 }
 
-export interface FileDiff {
+interface FileDiff {
   text: string;
   isBinary: boolean;
 }

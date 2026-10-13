@@ -33,7 +33,7 @@ interface FetchErrorLike {
 }
 
 /** The HTTP status of a `$authFetch` rejection, if it got an answer. */
-export function errorStatus(error: unknown): number | undefined {
+function errorStatus(error: unknown): number | undefined {
 	const candidate = error as FetchErrorLike | null;
 	return (
 		candidate?.status ?? candidate?.statusCode ?? candidate?.response?.status

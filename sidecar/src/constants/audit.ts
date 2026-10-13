@@ -40,14 +40,6 @@ export type RuleKind = (typeof RULE_KINDS)[number];
 export const FULL_AUTO_DURATIONS = ["turn", "30m", "chat"] as const;
 export type FullAutoDuration = (typeof FULL_AUTO_DURATIONS)[number];
 
-export const NOTICE_KINDS = [
-  "autofix",
-  "permission_expired",
-  "question_skipped",
-  "full_auto_ended",
-] as const;
-export type NoticeKind = (typeof NOTICE_KINDS)[number];
-
 export const CHANGE_SET_STATES = ["applied", "undone"] as const;
 export type ChangeSetState = (typeof CHANGE_SET_STATES)[number];
 

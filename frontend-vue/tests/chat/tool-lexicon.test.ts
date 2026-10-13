@@ -110,11 +110,6 @@ describe("a tool row is in one of seven states", () => {
 			);
 	});
 
-	it("reads an older sidecar's status", () => {
-		expect(toolRowState(tool({ status: "success" }), false, null)).toBe("done");
-		expect(toolRowState(tool({ status: "error" }), false, null)).toBe("failed");
-	});
-
 	it("tells running, waiting and stopped apart for an open call", () => {
 		const request = {
 			requestId: "r1",
@@ -151,7 +146,7 @@ describe("permission cards are titled from the preview, never the raw tool", () 
 		alwaysAsk: true,
 		ruleOptions: [],
 		createdAtMs: 0,
-		expiresAtMs: null,
+		expiresAtMs: 0,
 	};
 
 	it("names a Builder deletion by what it deletes", () => {

@@ -44,12 +44,12 @@ interface PermissionRequestWire {
 	toolName: string;
 	args: unknown;
 	summary: string;
-	kind?: PermissionKind;
-	alwaysAsk?: boolean;
-	preview?: PermissionPreview;
-	ruleOptions?: PermissionRule[];
-	createdAtMs?: number;
-	expiresAtMs?: number;
+	kind: PermissionKind;
+	alwaysAsk: boolean;
+	preview: PermissionPreview;
+	ruleOptions: PermissionRule[];
+	createdAtMs: number;
+	expiresAtMs: number;
 }
 
 interface PermissionExpiredWire {
@@ -77,16 +77,8 @@ interface QueueState {
 
 type QueueHandler = (state: QueueState, event: never) => void;
 
-function genericPreview(args: unknown): PermissionPreview {
-	const record =
-		args !== null && typeof args === "object" && !Array.isArray(args)
-			? (args as Record<string, unknown>)
-			: {};
-	return { type: "generic", args: record };
-}
-
-/** A request as the dock reads it, every redesign field defaulted. */
-export function toPermissionRequest(
+/** A request as the dock reads it: an always-ask one never offers a rule. */
+function toPermissionRequest(
 	wire: PermissionRequestWire,
 ): PermissionRequestData {
 	return {
@@ -96,12 +88,12 @@ export function toPermissionRequest(
 		toolName: wire.toolName,
 		args: wire.args,
 		summary: wire.summary,
-		kind: wire.kind ?? "other",
-		alwaysAsk: wire.alwaysAsk === true,
-		preview: wire.preview ?? genericPreview(wire.args),
-		ruleOptions: wire.alwaysAsk === true ? [] : (wire.ruleOptions ?? []),
-		createdAtMs: wire.createdAtMs ?? Date.now(),
-		expiresAtMs: wire.expiresAtMs ?? null,
+		kind: wire.kind,
+		alwaysAsk: wire.alwaysAsk,
+		preview: wire.preview,
+		ruleOptions: wire.alwaysAsk ? [] : wire.ruleOptions,
+		createdAtMs: wire.createdAtMs,
+		expiresAtMs: wire.expiresAtMs,
 	};
 }
 

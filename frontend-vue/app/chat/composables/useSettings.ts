@@ -1,5 +1,5 @@
 import { type Ref, ref } from "vue";
-import { DEFAULT_SETTINGS, STORABLE_MODES } from "../constants/settings";
+import { DEFAULT_SETTINGS } from "../constants/settings";
 import { SERVER_EVENT_TYPES } from "../constants/protocol";
 import type {
 	AppSettings,
@@ -27,17 +27,14 @@ function isSettingsUpdate(msg: unknown): msg is SettingsUpdateEvent {
 	return Reflect.get(msg, "type") === SERVER_EVENT_TYPES.SETTINGS_UPDATE;
 }
 
-/** The pushed settings over the defaults, with a legacy `auto` mode read as normal. */
-export function readSettings(event: SettingsUpdateEvent): AppSettings {
-	const merged: AppSettings = {
+/** The pushed settings over the defaults. */
+function readSettings(event: SettingsUpdateEvent): AppSettings {
+	return {
 		...DEFAULT_SETTINGS,
 		...event.settings,
 		builderAvailable: event.builderAvailable ?? false,
 		providers: event.providers ?? DEFAULT_SETTINGS.providers,
 	};
-	if (!STORABLE_MODES.includes(merged.mode))
-		merged.mode = DEFAULT_SETTINGS.mode;
-	return merged;
 }
 
 /** The sidecar's settings, as it pushes them; the Settings page edits them. */

@@ -43,9 +43,7 @@ function isBoolean(value: unknown): boolean {
 }
 
 // One validator per stored field: anything else in the file (an unknown key, a
-// value from an older or newer version) falls back to the default. A legacy
-// `mode: "auto"` therefore reads as the default `normal` (Full auto is per
-// conversation now, never a stored default).
+// value it does not accept) falls back to the default.
 const FIELD_VALIDATORS: Record<keyof AppSettings, FieldValidator> = {
   provider: isOneOf(PROVIDER_NAMES),
   mode: isOneOf(CHAT_MODES),

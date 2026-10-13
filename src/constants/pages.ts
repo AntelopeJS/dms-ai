@@ -4,7 +4,7 @@ export const AI_MODULE_ICON = "i-ph-sparkle";
 export const AI_MODULE_LANDING_PAGE = "overview";
 
 /** Where the module's pages live in the dashboard. */
-export const MODULE_PAGES_PATH = "/modules/ai";
+const MODULE_PAGES_PATH = "/modules/ai";
 
 export const PAGE_IDS = {
   OVERVIEW: "overview",
@@ -32,10 +32,10 @@ export const TOP_TOOLS_LIMIT = 5;
 /** Rows a page of the audit log holds, and each "Load more" adds. */
 export const ACTIVITY_PAGE_SIZE = 25;
 /** Days of the Settings › Usage chart. */
-export const USAGE_DAYS = 14;
+const USAGE_DAYS = 14;
 
 /** Field key of the settings form: part of its section anchors. */
-export const SETTINGS_FORM_KEY = "settings";
+const SETTINGS_FORM_KEY = "settings";
 export const SETTINGS_SKILLS_SECTION = "skills";
 
 /** The routes the pages read, by what they serve. */

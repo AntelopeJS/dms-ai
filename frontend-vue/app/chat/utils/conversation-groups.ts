@@ -1,6 +1,6 @@
 import type { ConversationSummary } from "../types/conversation";
 
-export type ConversationGroupKey = "active" | "today" | "week" | "older";
+type ConversationGroupKey = "active" | "today" | "week" | "older";
 
 export interface ConversationGroup {
 	key: ConversationGroupKey;
@@ -16,7 +16,7 @@ const GROUP_ORDER: readonly ConversationGroupKey[] = [
 ];
 
 /** Working, or waiting on the user: pinned on top so it never times out unseen. */
-export function isActiveConversation(item: ConversationSummary): boolean {
+function isActiveConversation(item: ConversationSummary): boolean {
 	return (
 		item.isRunning === true ||
 		(item.pendingApprovals ?? 0) > 0 ||

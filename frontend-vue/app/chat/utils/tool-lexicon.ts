@@ -18,7 +18,7 @@ const DEFAULT_ICON = "i-ph-wrench";
 /** Where a tool's target comes from in its arguments. */
 type TargetReader = (args: Record<string, unknown>) => string;
 
-export interface ToolLexiconEntry {
+interface ToolLexiconEntry {
 	/** Key under `dms_ai.tools.*`. */
 	verb: string;
 	icon: string;

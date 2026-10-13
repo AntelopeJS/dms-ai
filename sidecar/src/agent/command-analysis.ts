@@ -7,7 +7,7 @@ const UNRULABLE_CONSTRUCTS = /`|\$\(|>|</;
 const WHITESPACE = /\s+/;
 const FLAG_PREFIX = "-";
 // Words of a command a "command" rule keeps: `pnpm test`, `git status`.
-export const COMMAND_RULE_WORDS = 2;
+const COMMAND_RULE_WORDS = 2;
 
 const PACKAGE_MANAGERS: readonly string[] = ["pnpm", "npm", "yarn", "bun"];
 const ADD_VERBS: readonly string[] = ["add"];
@@ -32,7 +32,7 @@ const LOCKFILE_BY_MANAGER: Record<string, string> = {
 };
 const PACKAGE_MANIFEST = "package.json";
 
-export type DependencyEffect = "adds_dependency" | "removes_dependency";
+type DependencyEffect = "adds_dependency" | "removes_dependency";
 
 export interface DependencyChange {
   effect: DependencyEffect;
@@ -44,7 +44,7 @@ interface VerbAt {
   rest: string[];
 }
 
-export function splitSegments(command: string): string[] {
+function splitSegments(command: string): string[] {
   return command
     .split(SEGMENT_SEPARATORS)
     .map((segment) => segment.trim())

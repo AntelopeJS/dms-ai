@@ -1,7 +1,7 @@
 import type { DiffHunkType, DiffLineType } from "../protocol/events.js";
 
 // Lines of unchanged context kept around each change, as `git diff` does.
-export const DIFF_CONTEXT_LINES = 3;
+const DIFF_CONTEXT_LINES = 3;
 // Above this many cells the line-matching table is not worth building: the
 // changed region is shown as a whole removal plus a whole addition instead.
 const MAX_MATCH_CELLS = 2_000_000;
@@ -28,7 +28,7 @@ interface LineCursor {
 }
 
 /** Splits text into lines, without the empty one a trailing newline makes. */
-export function splitLines(text: string): string[] {
+function splitLines(text: string): string[] {
   if (text.length === 0) return [];
   const lines = text.split(LINE_BREAK);
   if (lines.at(-1) === "") lines.pop();
@@ -122,7 +122,7 @@ function toLines(kinds: LineKind[], a: string[], b: string[]): DiffLineType[] {
 }
 
 /** Every line of both texts, each marked unchanged, added or removed. */
-export function diffLines(oldText: string, newText: string): DiffLineType[] {
+function diffLines(oldText: string, newText: string): DiffLineType[] {
   const a = splitLines(oldText);
   const b = splitLines(newText);
   const prefix = commonPrefixLength(a, b);
@@ -167,7 +167,7 @@ function advance(cursor: LineCursor, line: DiffLineType): void {
 }
 
 /** Groups a full line diff into hunks with `context` lines around changes. */
-export function groupHunks(
+function groupHunks(
   lines: DiffLineType[],
   context = DIFF_CONTEXT_LINES,
 ): DiffHunkType[] {

@@ -17,7 +17,7 @@ function readStringList(args: unknown, key: string): string[] {
 }
 
 /** Argument keys a file-writing tool names its target with. */
-export const EDIT_PATH_KEYS: readonly string[] = ["file_path", "notebook_path"];
+const EDIT_PATH_KEYS: readonly string[] = ["file_path", "notebook_path"];
 /** Every file a Codex patch touches, when it touches several. */
 export const EDIT_PATHS_KEY = "file_paths";
 

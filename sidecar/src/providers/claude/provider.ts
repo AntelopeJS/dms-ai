@@ -29,12 +29,6 @@ import {
   resolveReadRoots,
 } from "../../agent/read-access.js";
 import { isMutatingBuilderTool } from "../../agent/tool-kinds.js";
-import {
-  type AgentRunner,
-  type AgentRunnerOptions,
-  createAgentRunner,
-  type RunnerContext,
-} from "../../agent/runner.js";
 import type { RunnerEvent } from "../../agent/runner-events.js";
 import {
   type AgentSession,
@@ -82,10 +76,6 @@ import { createInputQueue, type InputQueue } from "./input-queue.js";
 import { resolveClaudeBinary } from "./resolve-binary.js";
 import { buildSafeModeHooks, type SdkHooks } from "./safe-mode.js";
 import { type LoadedSdk, loadSdk } from "./sdk-loader.js";
-
-export type ClaudeRunner = AgentRunner;
-export type ClaudeRunnerOptions = AgentProviderOptions & AgentRunnerOptions;
-export type { RunnerContext };
 
 interface PromptOptions {
   systemPrompt: {
@@ -530,12 +520,4 @@ export function createClaudeProvider(
     skillDirs: options?.skillDirs ?? [],
   };
   return { createSession: (ctx) => createProviderSession(config, ctx) };
-}
-
-export function createClaudeRunner(
-  options?: ClaudeRunnerOptions,
-): ClaudeRunner {
-  return createAgentRunner(createClaudeProvider(options), {
-    settings: options?.settings,
-  });
 }

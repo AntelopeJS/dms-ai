@@ -10,7 +10,7 @@ import type {
 // Neutral settings rendered in the SDK's own vocabulary, the mirror of what
 // providers/codex/config.ts does for the app-server. Both providers read the
 // same AppSettings; only the translation differs.
-export const PERMISSION_MODE_BY_MODE: Record<ChatMode, PermissionMode> = {
+const PERMISSION_MODE_BY_MODE: Record<ChatMode, PermissionMode> = {
   normal: "default",
   acceptEdits: "acceptEdits",
   plan: "plan",

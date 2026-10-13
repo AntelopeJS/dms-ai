@@ -136,7 +136,7 @@ function lineOffset(text: string, line: number): number {
 	return offset;
 }
 
-export interface MarkdownBlocks {
+interface MarkdownBlocks {
 	/** Top-level blocks that the text still to come can no longer change. */
 	settled: readonly string[];
 	/** The last block, which the next text may still extend. */

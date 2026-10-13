@@ -6,14 +6,14 @@ import { TOAST_DURATION_MS } from "./constants";
 import { isTypedMessage } from "./typed-message";
 
 /** One button of a toast, as Nuxt UI's `useToast().add` takes it. */
-export interface ToastAction {
+interface ToastAction {
 	label: string;
 	color?: "secondary" | "neutral";
 	variant?: "solid" | "outline";
 	onClick: () => void;
 }
 
-export interface ToastInput {
+interface ToastInput {
 	title: string;
 	description?: string;
 	icon: string;

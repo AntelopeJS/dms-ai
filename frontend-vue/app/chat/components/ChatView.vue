@@ -17,7 +17,6 @@ import { useChatChannel } from "../composables/useChatChannel";
 import { useChatI18n } from "../composables/useChatI18n";
 import { useConversation } from "../composables/useConversation";
 import {
-	newConversationId,
 	persistConversationId,
 	resolveConversationId,
 } from "../composables/useConversationId";
@@ -42,6 +41,7 @@ import type { ExpiredRequest } from "../types/permission";
 import type { QuestionReply } from "../types/question";
 import type { PendingAttachment } from "../utils/attachments";
 import { formatClock, formatTokens } from "../utils/format";
+import { newUuid } from "../utils/ids";
 import { isRunStalled, runElapsedMs } from "../utils/run-status";
 import { bareToolName } from "../utils/tool-lexicon";
 import { latestTodos } from "../utils/todos";
@@ -240,7 +240,7 @@ function switchConversation(id: string): void {
 }
 
 function newConversation(): void {
-	switchConversation(newConversationId());
+	switchConversation(newUuid());
 }
 
 function deleteConversation(item: ConversationSummary): void {

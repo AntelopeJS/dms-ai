@@ -18,7 +18,7 @@ const RULE_LABELS: Record<RuleKind, (value: string) => string> = {
   domain: (value) => `Requests to ${value}`,
 };
 
-export interface RuleSubject {
+interface RuleSubject {
   toolName: string;
   args: unknown;
   hostProjectRoot: string;
@@ -102,7 +102,7 @@ const RULE_MATCHERS: readonly RuleMatcher[] = [
   matchesDomainRules,
 ];
 
-export function ruleLabel(rule: PermissionRuleType): string {
+function ruleLabel(rule: PermissionRuleType): string {
   return RULE_LABELS[rule.kind](rule.value);
 }
 

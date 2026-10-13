@@ -22,7 +22,7 @@ import type { CodexFileChange } from "./adapter.js";
 import type { CodexServerRequest } from "./client.js";
 import { resolveModePolicy } from "./config.js";
 
-export interface CodexApprovalDecisionResponse {
+interface CodexApprovalDecisionResponse {
   decision: string;
 }
 

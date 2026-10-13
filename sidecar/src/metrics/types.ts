@@ -34,19 +34,6 @@ export interface ChartCardPayload {
   comparisonSeries?: NamedSeries[];
 }
 
-export interface TopListItem {
-  id: string;
-  title: string;
-  description?: string;
-  value: number;
-  delta?: number | null;
-  sparkline?: number[];
-}
-
-export interface TopListPayload {
-  items: TopListItem[];
-}
-
 // Metric keys exposed at /metrics/kpi/:metric.
 // - "actions": every tool call — raw volume.
 // - "change-sets": change sets recorded.
@@ -65,7 +52,7 @@ export const KPI_METRICS = [
 ] as const;
 export type KpiMetric = (typeof KPI_METRICS)[number];
 
-export interface AllowedItem {
+interface AllowedItem {
   id: AllowedBy;
   value: number;
 }
@@ -76,7 +63,7 @@ export interface AllowedPayload {
   deletions: number;
 }
 
-export interface TopToolItem {
+interface TopToolItem {
   id: string;
   value: number;
   source: ToolSource;
@@ -91,7 +78,7 @@ export interface UsageDay {
   totalTokens: number;
 }
 
-export interface UsageTop {
+interface UsageTop {
   conversationId: string;
   title: string;
   totalTokens: number;

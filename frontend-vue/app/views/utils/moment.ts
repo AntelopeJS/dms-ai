@@ -1,4 +1,4 @@
-export type DateTimeFormatter = (
+type DateTimeFormatter = (
 	options: Intl.DateTimeFormatOptions,
 ) => Intl.DateTimeFormat;
 
@@ -53,7 +53,8 @@ function daysAgo(ms: number, options: MomentOptions): number {
 	return match ?? WEEK_DAYS;
 }
 
-function formatTime(ms: number, options: MomentOptions): string {
+/** Only the clock part ("09:58"), for a moment already placed in its day. */
+export function formatClock(ms: number, options: MomentOptions): string {
 	const timeOptions = options.withSeconds
 		? TIME_WITH_SECONDS_OPTIONS
 		: TIME_OPTIONS;
@@ -80,7 +81,7 @@ const RECENT_DAY_KEYS: Record<number, string> = {
  */
 export function formatMoment(ms: number, options: MomentOptions): string {
 	const days = daysAgo(ms, options);
-	const time = formatTime(ms, options);
+	const time = formatClock(ms, options);
 	const recentKey = RECENT_DAY_KEYS[days];
 	if (recentKey !== undefined) return options.t(recentKey, { time });
 	if (days < WEEK_DAYS) {
@@ -88,9 +89,4 @@ export function formatMoment(ms: number, options: MomentOptions): string {
 		return `${weekday} ${time}`;
 	}
 	return formatDay(ms, options);
-}
-
-/** Only the clock part ("09:58"), for a moment already placed in its day. */
-export function formatClock(ms: number, options: MomentOptions): string {
-	return formatTime(ms, options);
 }

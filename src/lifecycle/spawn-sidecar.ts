@@ -99,7 +99,8 @@ export function hasSidecarGivenUp(): boolean {
 // env flag); the client uses it to skip injecting the assistant entirely rather
 // than show a perpetually-reconnecting icon.
 export function isSidecarDisabled(): boolean {
-  return mustSkipSpawn();
+  if (process.env.NODE_ENV === PRODUCTION_NODE_ENV) return true;
+  return process.env[SIDECAR_ENV_DISABLE_KEY] === SIDECAR_DISABLED_FLAG;
 }
 
 // The sidecar is a child of this process, owned process-wide so a hot reload of
@@ -107,7 +108,7 @@ export function isSidecarDisabled(): boolean {
 // processes on shutdown.
 export async function spawnSidecar(opts: SpawnOptions): Promise<void> {
   state.options = opts;
-  if (mustSkipSpawn()) return;
+  if (isSidecarDisabled()) return;
   await getSidecarOwner().attach(createLaunch(opts));
 }
 
@@ -118,7 +119,7 @@ export async function spawnSidecar(opts: SpawnOptions): Promise<void> {
 // exhausted, so probe traffic can't re-arm a sidecar that has deliberately
 // given up — recovery then requires a restart/reload.
 export async function ensureSidecarRunning(): Promise<void> {
-  if (mustSkipSpawn()) return;
+  if (isSidecarDisabled()) return;
   await getSidecarOwner().revive();
 }
 
@@ -127,16 +128,8 @@ export async function ensureSidecarRunning(): Promise<void> {
  * from a crash loop or a wedged agent. A no-op where spawning is turned off.
  */
 export async function restartSidecar(): Promise<void> {
-  if (mustSkipSpawn()) return;
+  if (isSidecarDisabled()) return;
   await getSidecarOwner().restart();
-}
-
-function mustSkipSpawn(): boolean {
-  if (process.env.NODE_ENV === PRODUCTION_NODE_ENV) return true;
-  if (process.env[SIDECAR_ENV_DISABLE_KEY] === SIDECAR_DISABLED_FLAG) {
-    return true;
-  }
-  return false;
 }
 
 function resolveSidecarBin(): string {

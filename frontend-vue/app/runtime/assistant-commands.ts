@@ -47,7 +47,7 @@ export interface LauncherAction {
 }
 
 /** One entry of the command palette. */
-export interface PaletteItem {
+interface PaletteItem {
 	id: string;
 	label: string;
 	icon: string;
@@ -55,7 +55,7 @@ export interface PaletteItem {
 	onSelect: () => void;
 }
 
-export interface PaletteGroup {
+interface PaletteGroup {
 	id: string;
 	label: string;
 	items: PaletteItem[];
@@ -69,7 +69,7 @@ export interface PaletteSource {
 }
 
 /** A first prompt the palette's assistant mode offers. */
-export interface PaletteSuggestion {
+interface PaletteSuggestion {
 	label: string;
 	icon: string;
 }

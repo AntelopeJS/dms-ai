@@ -25,7 +25,7 @@ export interface ConversationModesPatch {
   generationMode?: GenerationMode;
 }
 
-export type StoredMessagePatch = Partial<StoredMessage>;
+type StoredMessagePatch = Partial<StoredMessage>;
 
 export interface ConversationStore {
   get(conversationId: string): StoredConversation | null;
@@ -189,7 +189,7 @@ function setModes(
   persistCache(state);
 }
 
-export function deriveTitle(conversation: StoredConversation): string {
+function deriveTitle(conversation: StoredConversation): string {
   const firstUser = conversation.messages.find((m) => m.role === "user");
   if (firstUser === undefined) return TITLE_FALLBACK;
   return truncateTitle(firstUser.content);

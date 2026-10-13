@@ -20,7 +20,7 @@ interface UndoPreview {
 }
 
 /** An undo waiting on the user: later sets touch the same files. */
-export interface PendingUndo {
+interface PendingUndo {
 	changeSetId: string;
 	number: number;
 	conflicts: UndoConflict[];

@@ -9,7 +9,7 @@ import type {
 } from "../constants/audit.js";
 import type { ChatMode, GenerationMode } from "./settings-types.js";
 
-export const STORED_MESSAGE_ROLES = [
+const STORED_MESSAGE_ROLES = [
   "user",
   "assistant",
   "tool_use",
@@ -29,22 +29,21 @@ export const STORED_MESSAGE_ROLES = [
   "question_answer",
 ] as const;
 
-export type StoredMessageRole = (typeof STORED_MESSAGE_ROLES)[number];
+type StoredMessageRole = (typeof STORED_MESSAGE_ROLES)[number];
 
-export const STORED_MESSAGE_STATUSES = ["success", "error"] as const;
-export type StoredMessageStatus = (typeof STORED_MESSAGE_STATUSES)[number];
+const STORED_MESSAGE_STATUSES = ["success", "error"] as const;
+type StoredMessageStatus = (typeof STORED_MESSAGE_STATUSES)[number];
 
 // Normalized outcome of a permission decision: the sidecar's three
 // PERMISSION_DECISIONS values collapse to approved (allow_once /
 // allow_session) vs denied (deny / timeout).
-export const STORED_PERMISSION_DECISIONS = ["approved", "denied"] as const;
-export type StoredPermissionDecision =
-  (typeof STORED_PERMISSION_DECISIONS)[number];
+const STORED_PERMISSION_DECISIONS = ["approved", "denied"] as const;
+type StoredPermissionDecision = (typeof STORED_PERMISSION_DECISIONS)[number];
 
 // Lightweight record of a file the user attached, kept for redisplay on
 // reload. Deliberately excludes the base64 payload so the transcript store
 // stays small — the file itself lives inline in the live turn or on disk.
-export interface StoredAttachmentMeta {
+interface StoredAttachmentMeta {
   name: string;
   mimeType: string;
   size: number;
@@ -141,7 +140,7 @@ export const EMPTY_TOKEN_USAGE: TokenUsage = {
 };
 
 /** One turn's token cost, with its time, so per-day totals are exact. */
-export interface UsageEntry extends TokenUsage {
+interface UsageEntry extends TokenUsage {
   timestampMs: number;
 }
 
@@ -149,14 +148,14 @@ export interface StoredConversation {
   messages: StoredMessage[];
   createdAtMs: number;
   updatedAtMs: number;
-  // Absent on transcripts written before providers became selectable; readers
-  // fall back to DEFAULT_PROVIDER_NAME.
+  // Set when its first turn runs; until then readers fall back to
+  // DEFAULT_PROVIDER_NAME.
   provider?: ProviderName;
   // Absent until a provider reports usage at least once.
   tokenUsage?: TokenUsage;
   usageLog?: UsageEntry[];
   // The conversation's own approval mode and scope, set from the defaults when
-  // its first turn runs. Absent on older transcripts: the defaults apply.
+  // its first turn runs. Absent before then: the defaults apply.
   mode?: ChatMode;
   generationMode?: GenerationMode;
 }
@@ -221,7 +220,7 @@ export interface ChangeSetSummary {
 }
 
 /** One undo or redo of a change set, for the audit log. */
-export interface ChangeSetStateChange {
+interface ChangeSetStateChange {
   state: ChangeSetState;
   atMs: number;
   by?: string;

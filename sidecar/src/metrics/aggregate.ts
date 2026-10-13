@@ -12,7 +12,6 @@ import type {
   MetricWindow,
   NamedSeries,
   SeriesPoint,
-  TopListPayload,
   TopToolsPayload,
   UsagePayload,
 } from "./types.js";
@@ -264,23 +263,6 @@ export function buildTopTools(
       id,
       value,
       source: toolSourceOf(id),
-    })),
-  };
-}
-
-/** The pre-v2 top list shape, kept for clients that still read it. */
-export function buildTopSkills(
-  sources: MetricSources,
-  window: MetricWindow,
-  limit: number,
-): TopListPayload {
-  return {
-    items: topCounts(sources, window, limit).map(([name, value]) => ({
-      id: name,
-      title: name,
-      description: `${value} run${value === 1 ? "" : "s"}`,
-      value,
-      delta: null,
     })),
   };
 }

@@ -1,7 +1,7 @@
 import type { Tone } from "@antelopejs/interface-dms/base/types";
 
 /** How one value of an enumeration is drawn: its icon and the tone of its pill. */
-export interface VocabularyEntry {
+interface VocabularyEntry {
   icon: string;
   tone: Tone;
 }

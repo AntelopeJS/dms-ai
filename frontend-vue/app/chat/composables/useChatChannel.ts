@@ -19,7 +19,7 @@ export interface UseChatChannelOptions {
 	isFollowing?: boolean;
 }
 
-export type ChannelMessageHandler = (msg: unknown) => void;
+type ChannelMessageHandler = (msg: unknown) => void;
 
 export interface UseChatChannelResult {
 	/** False when the message was dropped: the stream is not connected. */

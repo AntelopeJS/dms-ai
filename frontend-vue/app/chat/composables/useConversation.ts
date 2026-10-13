@@ -85,7 +85,7 @@ export interface ConversationState {
 }
 
 /** When a call started and, once it did, ended, in sidecar time. */
-export interface CallTimes {
+interface CallTimes {
 	startedAtMs: number;
 	endedAtMs?: number;
 }
