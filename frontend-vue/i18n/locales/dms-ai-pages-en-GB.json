@@ -53,10 +53,10 @@
 					"caption": "Tool calls, Builder operations included"
 				},
 				"kpi_change_sets": {
-					"name": "Change sets applied",
+					"name": "Change sets",
 					"description": "Turns that changed the project over the period",
-					"title": "Change sets applied",
-					"caption": "Turns that changed files"
+					"title": "Change sets",
+					"caption": "Turns that changed files, undone ones included"
 				},
 				"kpi_approved": {
 					"name": "Approved by you",

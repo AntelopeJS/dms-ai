@@ -53,10 +53,10 @@
 					"caption": "Appels d'outils, opérations du Builder comprises"
 				},
 				"kpi_change_sets": {
-					"name": "Lots appliqués",
+					"name": "Lots de modifications",
 					"description": "Tours qui ont modifié le projet sur la période",
-					"title": "Lots appliqués",
-					"caption": "Tours qui ont modifié des fichiers"
+					"title": "Lots de modifications",
+					"caption": "Tours qui ont modifié des fichiers, lots annulés compris"
 				},
 				"kpi_approved": {
 					"name": "Autorisées par vous",
