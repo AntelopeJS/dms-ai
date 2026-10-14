@@ -1,55 +1,34 @@
 import { describe, expect, it } from "vitest";
 import {
-  createPermissionBus,
-  type PendingRequest,
-} from "../../src/agent/permission-bus.js";
-import {
   PERMISSION_DECISIONS,
   PERMISSION_DENIED_MESSAGE,
+  PERMISSION_DENY_ALL_MESSAGE,
   SDK_PERMISSION_BEHAVIOR,
 } from "../../src/constants/permissions.js";
 import { bridgeCanUseTool } from "../../src/providers/claude/provider.js";
+import { createTestBus } from "../helpers/permission-bus.js";
 
 const CONVERSATION_ID = "conv-bridge-1";
 const TOOL_NAME = "Bash";
 const TOOL_INPUT = { command: "ls" } satisfies Record<string, unknown>;
-const FAST_TIMEOUT_MS = 50;
-
-interface Capture {
-  prompts: PendingRequest[];
-}
-
-function makeCapture(): Capture {
-  return { prompts: [] };
-}
-
-function makeBus(capture: Capture, timeoutMs = FAST_TIMEOUT_MS) {
-  return createPermissionBus({
-    onPromptChat: (event) => {
-      capture.prompts.push(event);
-    },
-    timeoutMs,
-  });
-}
-
-async function settleNextTick(): Promise<void> {
-  await new Promise((resolve) => setImmediate(resolve));
-}
+const CALL_ID = "toolu_1";
 
 describe("bridgeCanUseTool", () => {
   it("maps allow_once to an SDK allow result with original input", async () => {
-    const capture = makeCapture();
-    const bus = makeBus(capture);
+    const t = createTestBus();
     const pending = bridgeCanUseTool(
-      bus,
+      t.bus,
       CONVERSATION_ID,
       TOOL_NAME,
       TOOL_INPUT,
+      CALL_ID,
     );
-    await settleNextTick();
-    expect(capture.prompts).toHaveLength(1);
-    const requestId = capture.prompts[0]?.requestId as string;
-    bus.resolvePermission(requestId, PERMISSION_DECISIONS.ALLOW_ONCE);
+    const [prompt] = await t.waitForPrompts(1);
+    expect(prompt?.callId).toBe(CALL_ID);
+    t.bus.resolvePermission({
+      requestId: prompt?.requestId as string,
+      decision: PERMISSION_DECISIONS.ALLOW_ONCE,
+    });
     const result = await pending;
     expect(result.behavior).toBe(SDK_PERMISSION_BEHAVIOR.ALLOW);
     if (result.behavior === SDK_PERMISSION_BEHAVIOR.ALLOW) {
@@ -58,17 +37,18 @@ describe("bridgeCanUseTool", () => {
   });
 
   it("maps deny to an SDK deny result with the canned message", async () => {
-    const capture = makeCapture();
-    const bus = makeBus(capture);
+    const t = createTestBus();
     const pending = bridgeCanUseTool(
-      bus,
+      t.bus,
       CONVERSATION_ID,
       TOOL_NAME,
       TOOL_INPUT,
     );
-    await settleNextTick();
-    const requestId = capture.prompts[0]?.requestId as string;
-    bus.resolvePermission(requestId, PERMISSION_DECISIONS.DENY);
+    const [prompt] = await t.waitForPrompts(1);
+    t.bus.resolvePermission({
+      requestId: prompt?.requestId as string,
+      decision: PERMISSION_DECISIONS.DENY,
+    });
     const result = await pending;
     expect(result.behavior).toBe(SDK_PERMISSION_BEHAVIOR.DENY);
     if (result.behavior === SDK_PERMISSION_BEHAVIOR.DENY) {
@@ -76,23 +56,24 @@ describe("bridgeCanUseTool", () => {
     }
   });
 
-  it("auto-allows after a session decision without re-prompting the chat", async () => {
-    const capture = makeCapture();
-    const bus = makeBus(capture);
-    const first = bridgeCanUseTool(bus, CONVERSATION_ID, TOOL_NAME, TOOL_INPUT);
-    await settleNextTick();
-    const requestId = capture.prompts[0]?.requestId as string;
-    bus.resolvePermission(requestId, PERMISSION_DECISIONS.ALLOW_SESSION);
-    const firstResult = await first;
-    expect(firstResult.behavior).toBe(SDK_PERMISSION_BEHAVIOR.ALLOW);
-
-    const second = await bridgeCanUseTool(
-      bus,
+  it("asks the SDK to stop the turn on deny_all", async () => {
+    const t = createTestBus();
+    const pending = bridgeCanUseTool(
+      t.bus,
       CONVERSATION_ID,
       TOOL_NAME,
       TOOL_INPUT,
     );
-    expect(second.behavior).toBe(SDK_PERMISSION_BEHAVIOR.ALLOW);
-    expect(capture.prompts).toHaveLength(1);
+    const [prompt] = await t.waitForPrompts(1);
+    t.bus.resolvePermission({
+      requestId: prompt?.requestId as string,
+      decision: PERMISSION_DECISIONS.DENY_ALL,
+    });
+    const result = await pending;
+    expect(result).toMatchObject({
+      behavior: SDK_PERMISSION_BEHAVIOR.DENY,
+      message: PERMISSION_DENY_ALL_MESSAGE,
+      interrupt: true,
+    });
   });
 });

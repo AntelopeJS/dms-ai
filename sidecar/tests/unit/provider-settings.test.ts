@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
-import { AppSettingsSchema } from "../../src/protocol/events.js";
 import { SetSettingsMsg } from "../../src/protocol/messages.js";
 import { getProviderAvailability } from "../../src/providers/registry.js";
 import type { ProviderAvailability } from "../../src/providers/types.js";
@@ -20,9 +19,9 @@ describe("provider setting", () => {
     expect(parseSettings(STORED_CODEX).provider).toBe("codex");
   });
 
-  it("falls back to the default on a transcript written before it existed", () => {
-    const legacy = JSON.stringify({ mode: "plan", thinking: "low" });
-    expect(parseSettings(legacy).provider).toBe(DEFAULT_SETTINGS.provider);
+  it("falls back to the default when the stored file omits it", () => {
+    const partial = JSON.stringify({ mode: "plan", thinking: "low" });
+    expect(parseSettings(partial).provider).toBe(DEFAULT_SETTINGS.provider);
   });
 
   it("rejects an unknown provider name in the stored file", () => {
@@ -30,14 +29,8 @@ describe("provider setting", () => {
     expect(parseSettings(bogus).provider).toBe(DEFAULT_SETTINGS.provider);
   });
 
-  // An older client omitting the field must not silently downgrade the choice,
-  // so the schemas leave it undefined instead of defaulting it.
-  it("leaves the field undefined when a client omits it", () => {
-    const parsed = AppSettingsSchema.parse({
-      mode: "normal",
-      thinking: "medium",
-    });
-    expect(parsed.provider).toBeUndefined();
+  // A settings patch omitting the field must leave the stored choice alone.
+  it("leaves the field undefined when a patch omits it", () => {
     const msg = SetSettingsMsg.parse({
       type: "set_settings",
       mode: "normal",

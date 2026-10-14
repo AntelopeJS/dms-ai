@@ -8,7 +8,7 @@ export interface CurrentPage {
 }
 
 /** What the browser reports about the page it displays. */
-export interface ReportedPage {
+interface ReportedPage {
   path: string;
   title?: string;
 }

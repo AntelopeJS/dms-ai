@@ -23,7 +23,7 @@ export function buildSkillExtraRoots(
   return [...seen];
 }
 
-export function collectListedSkills(
+function collectListedSkills(
   entries: readonly v2.SkillsListEntry[],
 ): v2.SkillMetadata[] {
   return entries.flatMap((entry) => entry.skills);

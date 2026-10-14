@@ -24,9 +24,11 @@ export interface RunnerToolResult {
   callId: string;
   result: unknown;
   isError: boolean;
+  // The call was cut short by an interrupted turn, not failed by the tool.
+  isStopped?: boolean;
 }
 
-export interface RunnerDone {
+interface RunnerDone {
   type: "done";
 }
 

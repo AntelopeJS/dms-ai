@@ -1,7 +1,7 @@
-export type ChatMode = "normal" | "acceptEdits" | "plan" | "auto";
+import type { ApprovalMode, ProviderName, Scope } from "./protocol";
+
 export type ThinkingLevel = "off" | "low" | "medium" | "high";
-export type GenerationMode = "safe" | "vibe";
-export type ProviderName = "claude" | "codex";
+export type { ProviderName };
 
 export interface ProviderAvailability {
 	available: boolean;
@@ -11,10 +11,14 @@ export interface ProviderAvailability {
 
 export interface AppSettings {
 	provider: ProviderName;
-	mode: ChatMode;
+	/** The default approval mode of new chats. */
+	mode: ApprovalMode;
 	thinking: ThinkingLevel;
-	generationMode: GenerationMode;
+	/** The default scope of new chats. */
+	generationMode: Scope;
 	allowLocalSkills: boolean;
+	notifyRequests: boolean;
+	requestTimeoutMinutes: number;
 	/**
 	 * Read-only capability pushed by the sidecar: whether the Builder is present.
 	 */

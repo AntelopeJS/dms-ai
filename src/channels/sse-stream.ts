@@ -10,14 +10,14 @@ import {
 const LINE_BREAK = /\r\n|\r|\n/;
 
 /** Where the frames of one long-lived response are written. */
-export interface SseSink {
+interface SseSink {
   write(chunk: string): boolean;
   end(): void;
   once(event: "drain", listener: () => void): unknown;
 }
 
 /** The response stream plus the signal that its client went away. */
-export interface SseSource {
+interface SseSource {
   sink: SseSink;
   onClientGone: (listener: () => void) => void;
 }

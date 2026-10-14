@@ -107,5 +107,5 @@ GET wrapper isn't the `return { value: await model.m(...) }` shape) or `unparsea
 model method isn't a chain any template accepts — hand-written differently, edited out of the
 grammar, or emitted by a newer builder). `BuilderConfigureQuery` refuses an opaque query with
 `opaque_target`, but it stays visible and `BuilderRemoveQuery` still works: the builder can
-always remove what it cannot edit. To reshape an opaque query, edit it in vibe mode — or bring
+always remove what it cannot edit. To reshape an opaque query, edit it in Code mode — or bring
 its body back within the chain grammar and the builder picks it up again.

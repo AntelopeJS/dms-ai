@@ -26,13 +26,10 @@ export type ChannelStatus =
 	| typeof CHANNEL_STATUS_RECONNECTING;
 
 /** Posts one message as JSON; `$authFetch` in the dashboard refreshes a stale session. */
-export type PostMessage = (path: string, body: unknown) => Promise<unknown>;
+type PostMessage = (path: string, body: unknown) => Promise<unknown>;
 
 /** Opens the tab's event stream. */
-export type OpenStream = (
-	path: string,
-	signal: AbortSignal,
-) => Promise<Response>;
+type OpenStream = (path: string, signal: AbortSignal) => Promise<Response>;
 
 export interface ChannelClientOptions {
 	post: PostMessage;
@@ -80,7 +77,7 @@ interface ClientState {
 	backoff: BackoffState;
 }
 
-export function channelMessagesPath(connectionId: string): string {
+function channelMessagesPath(connectionId: string): string {
 	return `${CHANNEL_PATH}/${encodeURIComponent(connectionId)}/${CHANNEL_MESSAGES_SEGMENT}`;
 }
 

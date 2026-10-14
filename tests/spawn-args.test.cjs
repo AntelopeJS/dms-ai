@@ -79,7 +79,6 @@ void test("passes the configured backend origin to the sidecar", async () => {
   });
   assert.equal(spawns.length, 1);
   assert.equal(valueAfter(spawns[0], "--backend-url"), BACKEND_URL);
-  assert.equal(spawns[0].includes("--host-origin"), false);
 });
 
 void test("omits the backend flag when the project did not configure it", async () => {

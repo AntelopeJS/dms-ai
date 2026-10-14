@@ -52,6 +52,8 @@ jobs:
       # The browser's way to the sidecar: the tab's event stream, posted
       # messages and their teardown, against a stand-in sidecar.
       - run: pnpm test:channels
+      # The /ai routes against a stand-in sidecar: list queries, 503s and shapes.
+      - run: pnpm test:routes
       # Pins the flags the launcher hands the sidecar, with the child process
       # and the lock file stubbed.
       - run: pnpm test:spawn-args

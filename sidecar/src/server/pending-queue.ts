@@ -4,6 +4,10 @@ import { MAX_QUEUED_MESSAGES } from "../protocol/messages.js";
 export interface PendingQueueStore {
   enqueue: (conversationId: string, item: QueuedItemType) => void;
   cancel: (conversationId: string, id: string) => void;
+  /** Rewrites a not-yet-started item; false when it is gone already. */
+  update: (conversationId: string, id: string, content: string) => boolean;
+  /** Moves a not-yet-started item to `toIndex` (clamped). */
+  move: (conversationId: string, id: string, toIndex: number) => boolean;
   shift: (conversationId: string) => QueuedItemType | null;
   get: (conversationId: string) => QueuedItemType[];
   clear: (conversationId: string) => void;
@@ -40,6 +44,20 @@ export function createPendingQueueStore(): PendingQueueStore {
       const next = items.filter((item) => item.id !== id);
       if (next.length === 0) byConversation.delete(conversationId);
       else byConversation.set(conversationId, next);
+    },
+    update: (conversationId, id, content) => {
+      const item = byConversation.get(conversationId)?.find((i) => i.id === id);
+      if (item === undefined) return false;
+      item.content = content;
+      return true;
+    },
+    move: (conversationId, id, toIndex) => {
+      const items = byConversation.get(conversationId);
+      const from = items?.findIndex((item) => item.id === id) ?? -1;
+      if (items === undefined || from < 0) return false;
+      const [item] = items.splice(from, 1);
+      items.splice(Math.min(toIndex, items.length), 0, item as QueuedItemType);
+      return true;
     },
     shift: (conversationId) => {
       const items = byConversation.get(conversationId);

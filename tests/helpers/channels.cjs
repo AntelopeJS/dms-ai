@@ -17,6 +17,20 @@ const SIDECAR_SOCKET_PATH = "/ws";
 const WAIT_TIMEOUT_MS = 2_000;
 const WAIT_STEP_MS = 10;
 const byText = (a, b) => a.localeCompare(b);
+const ACTOR_FRAME_TYPE = "actor";
+
+/** The signed-in user a stream is opened for, as the channel route passes it. */
+function actorOf(userId) {
+  return { userId, name: `Name of ${userId}` };
+}
+
+function isActorFrame(text) {
+  try {
+    return JSON.parse(text).type === ACTOR_FRAME_TYPE;
+  } catch {
+    return false;
+  }
+}
 
 const sidecars = [];
 
@@ -56,6 +70,7 @@ async function startSidecar(onConnection = () => undefined) {
   await new Promise((resolve) => server.once("listening", resolve));
   const sidecar = {
     received: [],
+    actors: [],
     paths: [],
     sockets: [],
     closed: 0,
@@ -68,9 +83,11 @@ async function startSidecar(onConnection = () => undefined) {
   server.on("connection", (socket, request) => {
     sidecar.sockets.push(socket);
     sidecar.paths.push(request.url);
-    socket.on("message", (data) =>
-      sidecar.received.push(Buffer.concat([data].flat()).toString("utf8")),
-    );
+    socket.on("message", (data) => {
+      const text = Buffer.concat([data].flat()).toString("utf8");
+      if (isActorFrame(text)) sidecar.actors.push(JSON.parse(text));
+      else sidecar.received.push(text);
+    });
     socket.on("close", () => {
       sidecar.closed += 1;
     });
@@ -126,7 +143,11 @@ function parseEvents(text) {
 
 async function openOn(sidecar, userId = OWNER) {
   const context = fakeContext();
-  const result = await openChannel(context.ctx, userId, sidecar.connect);
+  const result = await openChannel(
+    context.ctx,
+    actorOf(userId),
+    sidecar.connect,
+  );
   assert.equal(result, undefined);
   context.capture();
   await waitFor(() => parseEvents(context.output.text).length > 0, "ready");
@@ -144,6 +165,7 @@ module.exports = {
   OWNER,
   INTRUDER,
   SIDECAR_SOCKET_PATH,
+  actorOf,
   byText,
   closeEverything,
   delay,

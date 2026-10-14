@@ -23,7 +23,7 @@ describe("host context block", () => {
         "page: /form/form-simple\n" +
         "title: Simple form\n" +
         "file: /project/modules/demo/form-simple/page.ts\n" +
-        "mode: vibe\n" +
+        "mode: code\n" +
         HOST_CONTEXT_CLOSE,
     );
   });
@@ -49,6 +49,6 @@ describe("host context block", () => {
     expect(grounded.startsWith(HOST_CONTEXT_OPEN)).toBe(true);
     expect(grounded.endsWith("add a chart")).toBe(true);
     expect(grounded).toContain("page: /overview");
-    expect(grounded).toContain("mode: vibe");
+    expect(grounded).toContain("mode: code");
   });
 });

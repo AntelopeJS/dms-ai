@@ -33,7 +33,7 @@ success it returns the file changes; on `typecheck_failed` **nothing is written*
   Never pass a raw `$expr`; safe mode refuses it.
 - Config fields the catalog marks `x-component` hold a nested component (e.g. a
   ChartCard's `chart`), which safe mode cannot construct — there is no `$expr` escape
-  hatch. Treat them like `opaque_target`: explain and ask to switch to Vibe mode.
+  hatch. Treat them like `opaque_target`: explain and ask to switch to Code mode.
 - To name a builder-generated resource class inside config — e.g. a relation column's
   `dataApiController` — pass a **reference value**
   `{ $ref: { resource: "<ref>", as?: "dataApi" | "table" | "model" } }` (default `as`
@@ -42,9 +42,13 @@ success it returns the file changes; on `typecheck_failed` **nothing is written*
 
 ## Workflow
 
-1. **Discover the catalog first.** `BuilderCatalog` lists the valid block `type`s
-   (Grid, GridRow, KpiCard, Form, Tab, Tree, ChartCard, TableView, …), their config
-   schemas, and the DataTypes. Only use types it lists.
+1. **Discover the catalog first.** `BuilderCatalog` with no arguments returns a
+   compact index: every valid block `type` (Grid, GridRow, KpiCard, Form, Tab,
+   ChartCard, TableView, …) with a one-line description and its `container` /
+   `controllerArg` flags, every DataType id with its config keys, and
+   `reservedFieldNames`. Only use types it lists. Then call it again with
+   `blocks: ["TableView", …]` and/or `dataTypes: ["select", …]` for the full config
+   schema of just the entries you will use — never ask for everything at once.
 2. **Read before you write.** `BuilderListPages` to find a page/category;
    `BuilderPageStructure <pageRef>` for the block tree, `editable` flags, and
    `version` hash. Model new blocks on an existing page.
@@ -100,15 +104,16 @@ template catalog, route-bound params, opaque read-back, and the full query workf
   or doesn't implement the op (`request_failed` with `HTTP 400` = the host answered
   `unknown_op`). Explain the limitation; don't retry.
 - `opaque_target` / `unsupported` → **safe mode cannot do this**. Explain the
-  limitation and ask permission to switch to **Vibe mode** for that one step; do not
-  force it. After any vibe-mode excursion, call `BuilderRefresh` (optionally scoped
+  limitation and ask permission to switch to **Code mode** for that one step; do not
+  force it. After any Code mode excursion, call `BuilderRefresh` (optionally scoped
   to the page) so the builder's source index reconciles with disk before further
   safe-mode ops.
 - `stale` → the page changed under you; re-read with `BuilderPageStructure`, retry.
 
 ## Guardrails
 
-- Always `BuilderCatalog` before adding blocks; use only listed types + config keys.
+- Always `BuilderCatalog` before adding blocks, then fetch the full schema of each
+  type you use (`blocks: [...]`); use only listed types + config keys.
   Likewise `BuilderQueryTemplates` before adding a query.
 - Block/child names are mandatory and unique among siblings.
 - A card showing an aggregate needs a query behind it — don't point a `fetchUrl` at a

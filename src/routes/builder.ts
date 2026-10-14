@@ -50,15 +50,8 @@ const OP_NAMES = [
   "RemoveQuery",
 ] as const;
 
-// Resolved dynamically: installed dms-builder versions may not export every
-// op yet; missing ones fall through to the unknown_op response.
-const BUILDER_EXPORTS = Builder as Record<string, unknown>;
-
 const OPS: Record<string, BuilderOp> = Object.fromEntries(
-  OP_NAMES.flatMap((name) => {
-    const fn = BUILDER_EXPORTS[name];
-    return typeof fn === "function" ? [[name, fn as BuilderOp]] : [];
-  }),
+  OP_NAMES.map((name) => [name, Builder[name] as BuilderOp]),
 );
 
 interface BuilderOpBody {

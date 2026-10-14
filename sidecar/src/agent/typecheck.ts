@@ -19,13 +19,13 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-export interface ExecFailure {
+interface ExecFailure {
   stdout?: string | Buffer;
   stderr?: string | Buffer;
   code?: number | string;
 }
 
-export type ExecFn = (
+type ExecFn = (
   command: string,
   args: readonly string[],
   options: { cwd: string; timeout: number; maxBuffer: number },

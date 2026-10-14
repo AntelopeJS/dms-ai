@@ -21,7 +21,7 @@ const WS_PATH = "/ws";
 const RETIRED_WS_PATHS = ["/ws/host", "/ws/iframe"];
 const CHAT_DOCUMENT_PATHS = ["/", "/index.html", "/assets/index.js"];
 const NEXT_SETTINGS = {
-  mode: "auto",
+  mode: "plan",
   thinking: "medium",
   generationMode: "vibe",
   allowLocalSkills: false,
@@ -152,7 +152,28 @@ describe("sidecar client authentication", () => {
       body: JSON.stringify(NEXT_SETTINGS),
     });
     expect(response.status).toBe(200);
-    expect(server.settingsStore.get().mode).toBe("auto");
+    expect(server.settingsStore.get().mode).toBe("plan");
+  });
+
+  it("refuses a stored Full auto and merges a partial body", async () => {
+    const put = (body: unknown) =>
+      fetch(`http://127.0.0.1:${server.port}/settings`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${CLIENT_TOKEN}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    const refused = await put({ mode: "auto" });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toHaveProperty("message");
+    const merged = await put({ requestTimeoutMinutes: 15 });
+    expect(merged.status).toBe(200);
+    const payload = (await merged.json()) as Record<string, unknown>;
+    expect(payload.requestTimeoutMinutes).toBe(15);
+    expect(payload.mode).toBe("normal");
+    expect(payload.checkpointRetentionDays).toBe(30);
   });
 
   it("rejects the socket without the Bearer credential, even with cookies, query tokens or the retired subprotocol", async () => {

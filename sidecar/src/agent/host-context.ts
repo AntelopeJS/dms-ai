@@ -1,4 +1,5 @@
 import {
+  GENERATION_MODE_AGENT_NAMES,
   HOST_CONTEXT_CLOSE,
   HOST_CONTEXT_FILE_LABEL,
   HOST_CONTEXT_MODE_LABEL,
@@ -18,7 +19,7 @@ export function formatHostContext(
     `${HOST_CONTEXT_PAGE_LABEL}${page.path}`,
     `${HOST_CONTEXT_TITLE_LABEL}${page.title ?? HOST_CONTEXT_UNKNOWN_VALUE}`,
     `${HOST_CONTEXT_FILE_LABEL}${page.filepath ?? HOST_CONTEXT_UNKNOWN_VALUE}`,
-    `${HOST_CONTEXT_MODE_LABEL}${mode}`,
+    `${HOST_CONTEXT_MODE_LABEL}${GENERATION_MODE_AGENT_NAMES[mode]}`,
   ];
   return `${HOST_CONTEXT_OPEN}\n${lines.join("\n")}\n${HOST_CONTEXT_CLOSE}`;
 }

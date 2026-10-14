@@ -57,10 +57,12 @@ describe("mode mapping", () => {
     ).toBe(false);
   });
 
-  it("maps auto to full access with no approvals", () => {
-    const overrides = buildTurnOverrides(settings({ mode: "auto" }), WORKSPACE);
-    expect(overrides.approvalPolicy).toBe("never");
-    expect(overrides.sandboxPolicy).toEqual({ type: "dangerFullAccess" });
+  it("never grants full access: Full auto runs as normal, the bus answering", () => {
+    for (const mode of CHAT_MODES) {
+      const overrides = buildTurnOverrides(settings({ mode }), WORKSPACE);
+      expect(overrides.approvalPolicy).toBe("on-request");
+      expect(overrides.sandboxPolicy).not.toEqual({ type: "dangerFullAccess" });
+    }
   });
 
   it("declines every escalation in plan mode", () => {

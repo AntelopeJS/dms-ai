@@ -63,7 +63,7 @@ function buildDeps(
     conversationId,
     requestQuestion: async (req: QuestionRequest) => {
       asked.push({ conversationId: req.conversationId });
-      return [ANSWER];
+      return { answers: [ANSWER], skipped: [] };
     },
     getLastEditedFile: () => undefined,
   };

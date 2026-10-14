@@ -109,7 +109,7 @@ onBeforeUnmount(cancelStreamed);
 	margin: 12px 0 6px;
 	line-height: 1.3;
 	font-weight: 600;
-	color: var(--fg);
+	color: var(--ui-text-highlighted);
 }
 
 .chat-markdown :deep(h1) {
@@ -131,17 +131,17 @@ onBeforeUnmount(cancelStreamed);
 }
 
 .chat-markdown :deep(a) {
-	color: var(--accent);
+	color: var(--dms-accent);
 	text-decoration: underline;
 	text-underline-offset: 2px;
 }
 
 .chat-markdown :deep(code) {
-	font-family: var(--font-code);
+	font-family: var(--ai-font-mono);
 	font-size: 0.9em;
-	background: var(--surface-inset);
-	border: 1px solid var(--hair);
-	border-radius: var(--corner-sm);
+	background: var(--ui-bg-accented);
+	border: 1px solid var(--ui-border);
+	border-radius: 6px;
 	padding: 1px 4px;
 }
 
@@ -149,9 +149,9 @@ onBeforeUnmount(cancelStreamed);
 	margin: 0 0 8px;
 	padding: 10px 12px;
 	overflow-x: auto;
-	background: var(--surface-inset);
-	border: 1px solid var(--hair);
-	border-radius: var(--corner-md);
+	background: var(--ui-bg-accented);
+	border: 1px solid var(--ui-border);
+	border-radius: var(--ai-radius-sm);
 }
 
 .chat-markdown :deep(pre code) {
@@ -163,8 +163,8 @@ onBeforeUnmount(cancelStreamed);
 .chat-markdown :deep(blockquote) {
 	margin: 0 0 8px;
 	padding: 2px 0 2px 12px;
-	border-left: 3px solid var(--hair-strong);
-	color: var(--fg-tertiary);
+	border-left: 3px solid var(--ui-border-accented);
+	color: var(--ui-text-muted);
 }
 
 .chat-markdown :deep(table) {
@@ -177,20 +177,20 @@ onBeforeUnmount(cancelStreamed);
 
 .chat-markdown :deep(th),
 .chat-markdown :deep(td) {
-	border: 1px solid var(--hair);
+	border: 1px solid var(--ui-border);
 	padding: 4px 8px;
 	text-align: left;
 }
 
 .chat-markdown :deep(th) {
-	background: var(--surface-inset);
+	background: var(--ui-bg-accented);
 	font-weight: 600;
-	color: var(--fg);
+	color: var(--ui-text-highlighted);
 }
 
 .chat-markdown :deep(hr) {
 	border: 0;
-	border-top: 1px solid var(--hair);
+	border-top: 1px solid var(--ui-border);
 	margin: 12px 0;
 }
 </style>

@@ -5,6 +5,7 @@ const { HTTPResult } = require("@antelopejs/interface-api");
 const {
   INTRUDER,
   OWNER,
+  actorOf,
   closeEverything,
   delay,
   dist,
@@ -29,7 +30,11 @@ void test("refuses a user more sidecar sockets than the cap, not another user", 
   const sidecar = await startSidecar();
   for (let i = 0; i < CHANNEL_MAX_SOCKETS_PER_USER; i += 1)
     await openOn(sidecar);
-  const refused = await openChannel(fakeContext().ctx, OWNER, sidecar.connect);
+  const refused = await openChannel(
+    fakeContext().ctx,
+    actorOf(OWNER),
+    sidecar.connect,
+  );
   assert.ok(refused instanceof HTTPResult);
   assert.equal(refused.getStatus(), 429);
   assert.equal(sidecar.paths.length, CHANNEL_MAX_SOCKETS_PER_USER);
@@ -48,17 +53,25 @@ void test("counts a stream still connecting against the cap", async () => {
     await held;
     return sidecar.connect();
   };
-  const pending = openChannel(fakeContext().ctx, OWNER, slowConnect);
-  const refused = await openChannel(fakeContext().ctx, OWNER, sidecar.connect);
+  const pending = openChannel(fakeContext().ctx, actorOf(OWNER), slowConnect);
+  const refused = await openChannel(
+    fakeContext().ctx,
+    actorOf(OWNER),
+    sidecar.connect,
+  );
   assert.equal(refused.getStatus(), 429);
   release();
   assert.equal(await pending, undefined);
 });
 
 void test("answers 503 with the shared sidecar_unavailable body", async () => {
-  const result = await openChannel(fakeContext().ctx, OWNER, async () => {
-    throw new Error("down");
-  });
+  const result = await openChannel(
+    fakeContext().ctx,
+    actorOf(OWNER),
+    async () => {
+      throw new Error("down");
+    },
+  );
   assert.equal(result.getStatus(), 503);
   assert.deepEqual(result.getBody(), JSON.stringify(SIDECAR_UNAVAILABLE_BODY));
 });
@@ -100,7 +113,7 @@ void test("pauses a sidecar socket once per full sink, however many frames arriv
     isClosed: () => false,
   };
   openBridge({
-    userId: OWNER,
+    actor: actorOf(OWNER),
     socket,
     stream,
     onOpened: () => undefined,

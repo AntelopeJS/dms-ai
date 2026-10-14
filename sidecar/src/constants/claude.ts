@@ -17,6 +17,9 @@ export const MOCK_CLAUDE_FLAG_ENABLED = "1";
 export const MOCK_CLAUDE_SDK_RELATIVE =
   "../../../tests/fixtures/mock-claude/index.js";
 
+/** The CLI's per-call MCP tool timeout, in milliseconds. */
+export const CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR = "MCP_TOOL_TIMEOUT";
+
 export const SYSTEM_PROMPT_PRESET_TYPE = "preset" as const;
 export const SYSTEM_PROMPT_PRESET_NAME = "claude_code" as const;
 export const SDK_SETTING_SOURCES_ISOLATED: SettingSource[] = [];

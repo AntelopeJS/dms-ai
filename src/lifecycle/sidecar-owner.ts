@@ -27,6 +27,11 @@ export interface SidecarOwner {
   attach(launch: SidecarLaunch): Promise<void>;
   /** Starts the sidecar again after an idle exit, unless it gave up after crashing. */
   revive(): Promise<void>;
+  /**
+   * Stops the running sidecar and starts a fresh one of the current build,
+   * even after it gave up: the crash budget starts over.
+   */
+  restart(): Promise<void>;
   getPort(): number | null;
   hasGivenUp(): boolean;
 }
@@ -68,6 +73,7 @@ function createSidecarOwner(): SidecarOwner {
   return {
     attach: (launch) => attach(state, launch),
     revive: () => ensureRunning(state),
+    restart: () => restart(state),
     getPort: () => state.current?.port ?? null,
     hasGivenUp: () => state.hasGivenUp,
   };
@@ -88,6 +94,18 @@ function ensureRunning(state: OwnerState): Promise<void> {
     state.inFlight = null;
   });
   return state.inFlight;
+}
+
+async function restart(state: OwnerState): Promise<void> {
+  const launch = state.launch;
+  if (launch === null) return;
+  await state.inFlight;
+  state.hasGivenUp = false;
+  state.respawnTracker = createRespawnTracker();
+  state.inFlight = replaceSidecar(state, launch).finally(() => {
+    state.inFlight = null;
+  });
+  await state.inFlight;
 }
 
 async function replaceSidecar(

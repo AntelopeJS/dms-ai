@@ -13,7 +13,10 @@ export function buildToolDefinitions(
   deps: AiMcpServerDeps,
 ): AnyMcpToolDefinition[] {
   const builderTools = deps.builderEnabled
-    ? buildBuilderTools({ builderClient: deps.builderClient })
+    ? buildBuilderTools({
+        builderClient: deps.builderClient,
+        gate: deps.gateBuilderOp,
+      })
     : [];
   return [
     ...builderTools,

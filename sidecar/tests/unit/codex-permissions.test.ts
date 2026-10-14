@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { PermissionBus } from "../../src/agent/permission-bus.js";
+import type {
+  PermissionBus,
+  PermissionOutcome,
+} from "../../src/agent/permission-bus.js";
+import type { ToolDecision } from "../../src/agent/provider.js";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import {
   CODEX_COMMAND_APPROVAL_METHOD,
   CODEX_FILE_CHANGE_APPROVAL_METHOD,
 } from "../../src/constants/codex.js";
-import {
-  PERMISSION_DECISIONS,
-  type PermissionDecision,
-} from "../../src/constants/permissions.js";
 import {
   DEFAULT_SETTINGS,
   SAFE_MODE_DENIED_MESSAGE,
@@ -32,24 +32,30 @@ function settings(overrides: Partial<AppSettings>): AppSettings {
   return { ...DEFAULT_SETTINGS, generationMode: "vibe", ...overrides };
 }
 
-function buildBus(decision: PermissionDecision) {
-  const requestPermission = vi.fn(async () => decision);
+const APPROVED: PermissionOutcome = { isAllowed: true, allowedBy: "approved" };
+const DENIED: PermissionOutcome = { isAllowed: false, allowedBy: "denied" };
+const PATCH_DIFF = "@@ -1 +1 @@\n-a\n+b\n";
+
+function buildBus(outcome: PermissionOutcome) {
+  const requestPermission = vi.fn(async () => outcome);
   const bus = { requestPermission } as unknown as PermissionBus;
   return { bus, requestPermission };
 }
 
-function buildHandler(
-  current: AppSettings,
-  decision: PermissionDecision = PERMISSION_DECISIONS.ALLOW_ONCE,
-) {
-  const { bus, requestPermission } = buildBus(decision);
-  const decisions: [string, PermissionDecision][] = [];
+function changesOf(itemId: string) {
+  if (itemId !== ITEM_ID) return [];
+  return [{ path: CHANGED_PATH, kind: "update", diff: PATCH_DIFF }];
+}
+
+function buildHandler(current: AppSettings, outcome = APPROVED) {
+  const { bus, requestPermission } = buildBus(outcome);
+  const decisions: ToolDecision[] = [];
   const handler = createCodexPermissionHandler({
     conversationId: CONVERSATION,
     permissionBus: bus,
     getSettings: () => current,
-    getChangedPaths: (itemId) => (itemId === ITEM_ID ? [CHANGED_PATH] : []),
-    onPermissionDecision: (tool, taken) => decisions.push([tool, taken]),
+    getChanges: changesOf,
+    onToolDecision: (decision) => decisions.push(decision),
   });
   return { handler, requestPermission, decisions };
 }
@@ -75,6 +81,7 @@ describe("approval routing", () => {
       conversationId: CONVERSATION,
       toolName: "Bash",
       args: { command: COMMAND },
+      callId: ITEM_ID,
     });
   });
 
@@ -84,22 +91,28 @@ describe("approval routing", () => {
     expect(requestPermission).toHaveBeenCalledWith({
       conversationId: CONVERSATION,
       toolName: "Edit",
-      args: { file_path: CHANGED_PATH },
+      args: {
+        file_path: CHANGED_PATH,
+        file_paths: [CHANGED_PATH],
+        change_kind: "update",
+        diff: PATCH_DIFF,
+      },
+      callId: ITEM_ID,
     });
   });
 
   it("declines when the user denies", async () => {
-    const { handler } = buildHandler(settings({}), PERMISSION_DECISIONS.DENY);
+    const { handler } = buildHandler(settings({}), DENIED);
     expect(await handler.handle(COMMAND_REQUEST)).toEqual({
       decision: "decline",
     });
   });
 
-  it("accepts a session-wide allowance", async () => {
-    const { handler } = buildHandler(
-      settings({}),
-      PERMISSION_DECISIONS.ALLOW_SESSION,
-    );
+  it("accepts a call a rule allowed", async () => {
+    const { handler } = buildHandler(settings({}), {
+      isAllowed: true,
+      allowedBy: "rule",
+    });
     expect(await handler.handle(COMMAND_REQUEST)).toEqual({
       decision: "accept",
     });
@@ -146,14 +159,12 @@ describe("auto-decline modes", () => {
 
   it("reads the mode live, so a safe/vibe flip applies at once", async () => {
     const current = settings({ generationMode: "safe" });
-    const { bus, requestPermission } = buildBus(
-      PERMISSION_DECISIONS.ALLOW_ONCE,
-    );
+    const { bus, requestPermission } = buildBus(APPROVED);
     const handler = createCodexPermissionHandler({
       conversationId: CONVERSATION,
       permissionBus: bus,
       getSettings: () => current,
-      getChangedPaths: () => [CHANGED_PATH],
+      getChanges: changesOf,
     });
     await handler.handle(COMMAND_REQUEST);
     expect(requestPermission).not.toHaveBeenCalled();
@@ -185,10 +196,14 @@ describe("consecutive denials", () => {
     expect(handler.consecutiveDenials()).toBe(0);
   });
 
-  it("reports each decision to the metrics hook", async () => {
-    const { handler, decisions } = buildHandler(settings({}));
+  it("records a mode refusal as blocked, by the item's id", async () => {
+    const { handler, decisions } = buildHandler(
+      settings({ generationMode: "safe" }),
+    );
     await handler.handle(COMMAND_REQUEST);
-    expect(decisions).toEqual([["Bash", PERMISSION_DECISIONS.ALLOW_ONCE]]);
+    expect(decisions).toEqual([
+      { callId: ITEM_ID, toolName: "Bash", allowedBy: "blocked" },
+    ]);
   });
 });
 

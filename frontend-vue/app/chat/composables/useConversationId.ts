@@ -9,7 +9,7 @@ function readPersisted(): string | null {
 	}
 }
 
-function persist(id: string): void {
+export function persistConversationId(id: string): void {
 	try {
 		window.localStorage.setItem(STORAGE_CONVERSATION_ID_KEY, id);
 	} catch {
@@ -21,14 +21,6 @@ export function resolveConversationId(): string {
 	const existing = readPersisted();
 	if (existing !== null && existing.length > 0) return existing;
 	const next = newUuid();
-	persist(next);
+	persistConversationId(next);
 	return next;
-}
-
-export function persistConversationId(id: string): void {
-	persist(id);
-}
-
-export function newConversationId(): string {
-	return newUuid();
 }

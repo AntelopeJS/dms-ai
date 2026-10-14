@@ -10,7 +10,7 @@ import {
   interruptTurn,
   openChat,
   sendHello,
-  sendSettings,
+  sendWire,
   sendUserMessage,
   startWsHarness,
   type WireCollector,
@@ -150,7 +150,7 @@ describe.each(PROVIDER_FIXTURES)(
     );
 
     it(
-      "4 — allow_session spares the second occurrence a prompt",
+      "4 — a command rule spares the second occurrence a prompt",
       async () => {
         fixture.use("permission-twice");
         const collector = await connect();
@@ -161,7 +161,8 @@ describe.each(PROVIDER_FIXTURES)(
         answerPermission(
           client as WebSocket,
           prompt,
-          PERMISSION_DECISIONS.ALLOW_SESSION,
+          PERMISSION_DECISIONS.ALLOW_RULE,
+          (prompt.ruleOptions as unknown[])[0],
         );
         await collector.next(isTerminalEvent);
 
@@ -247,7 +248,7 @@ describe.each(PROVIDER_FIXTURES)(
     );
 
     it(
-      "9 — a settings change mid-conversation takes effect on the next turn",
+      "9 — a scope change mid-conversation takes effect on the next turn",
       async () => {
         setBuilderAvailable(true);
         fixture.use("permission-twice");
@@ -272,12 +273,13 @@ describe.each(PROVIDER_FIXTURES)(
 
         // Safe mode now declines escalations outright, so the same turn must no
         // longer reach the user as a prompt.
-        sendSettings(client as WebSocket, { generationMode: "safe" });
+        sendWire(client as WebSocket, {
+          type: "set_conversation_mode",
+          conversationId: CONVERSATION_ID,
+          generationMode: "safe",
+        });
         await collector.next(
-          (e) =>
-            e.type === "settings_update" &&
-            (e.settings as { generationMode?: string }).generationMode ===
-              "safe",
+          (e) => e.type === "conversation_mode" && e.generationMode === "safe",
         );
         sendUserMessage(client as WebSocket, CONVERSATION_ID, "again");
         await collector.next(

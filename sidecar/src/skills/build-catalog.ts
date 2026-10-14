@@ -68,10 +68,31 @@ export function findDuplicateSkillNames(
   return [...duplicated];
 }
 
+function sameSkillKey(item: SkillCatalogItem): string {
+  return `${item.name}\u0000${item.body}`;
+}
+
+/**
+ * Drops the copies of a skill that another source already declared word for
+ * word: a package installed both as a module and as a dependency ships the same
+ * SKILL.md twice, which is not a conflict the user can act on.
+ */
+export function withoutIdenticalCopies(
+  items: readonly SkillCatalogItem[],
+): SkillCatalogItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = sameSkillKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function buildSkillCatalog(
   sources: readonly SkillSource[],
 ): Promise<SkillCatalog> {
   const nested = await Promise.all(sources.map(scanDir));
-  const items = nested.flat();
+  const items = withoutIdenticalCopies(nested.flat());
   return { items, duplicateNames: findDuplicateSkillNames(items) };
 }

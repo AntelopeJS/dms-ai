@@ -35,4 +35,3 @@ export const SIDECAR_AUTH_HEADER = "x-dms-ai-token";
 /** Answer of a route that needs the sidecar while it cannot be reached. */
 export const SIDECAR_UNAVAILABLE_STATUS = 503;
 export const SIDECAR_UNAVAILABLE_BODY = { error: "sidecar_unavailable" };
-export const HOST_ORIGIN_DEPRECATION_WARNING = `${SIDECAR_LOG_PREFIX} the "hostOrigin" config option is deprecated and ignored: remove it from the module config.`;

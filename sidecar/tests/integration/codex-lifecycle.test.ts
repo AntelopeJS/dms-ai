@@ -26,11 +26,7 @@ import {
   codexFailOn,
   codexOnSigterm,
 } from "../helpers/provider-fixtures.js";
-import {
-  readPidRecords,
-  readRecordedPids,
-  writePidRegistry,
-} from "../helpers/codex-pids.js";
+import { readPidRecords, readRecordedPids } from "../helpers/codex-pids.js";
 
 const TEST_TIMEOUT_MS = 30_000;
 // One process per conversation, capped: opening past the cap disposes the
@@ -192,23 +188,6 @@ describe("codex process lifecycle", () => {
       expect(await readPids()).toEqual([]);
       expect(existsSync(home)).toBe(false);
       expect(existsSync(stray)).toBe(false);
-    },
-    TEST_TIMEOUT_MS,
-  );
-
-  it(
-    "reaps an orphan recorded in the registry's former, pid-only format",
-    async () => {
-      const pid = await leaveOrphan("conv-life-legacy");
-      await writePidRegistry(stateDir, [pid]);
-
-      expect(await reapOrphanCodexProcesses(stateDir)).toEqual([pid]);
-      await settle();
-      expect(isAlive(pid)).toBe(false);
-      expect(await readPids()).toEqual([]);
-      expect(existsSync(codexHomeFor(stateDir, "conv-life-legacy"))).toBe(
-        false,
-      );
     },
     TEST_TIMEOUT_MS,
   );

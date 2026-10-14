@@ -32,7 +32,22 @@ import { createPageFilepathResolver } from "./pages/page-filepath.js";
 import { createRegistryClient } from "./pages/registry-client.js";
 import { reapOrphanProviders } from "./providers/registry.js";
 import { createHostSocketRegistry } from "./server/host-socket-registry.js";
-import { createHttpServer, type SettingsApplier } from "./server/http.js";
+import {
+  checkpointExcludes,
+  type Checkpoints,
+  createCheckpoints,
+} from "./checkpoints/checkpoints.js";
+import { createShadowGit } from "./checkpoints/shadow-git.js";
+import {
+  CHANGE_SETS_FILE_NAME,
+  CHECKPOINTS_GIT_DIR,
+} from "./constants/checkpoints.js";
+import {
+  createHttpServer,
+  type SettingsApplier,
+  type SidecarBridge,
+} from "./server/http.js";
+import { createChangeSetStore } from "./state/change-sets.js";
 import {
   createIdleShutdownController,
   type IdleShutdownController,
@@ -185,6 +200,7 @@ interface ShutdownDeps {
   ws: { close: () => Promise<void> };
   conversationStore: ConversationStore;
   settingsStore: SettingsStore;
+  checkpoints: Checkpoints;
   root: string;
 }
 
@@ -205,6 +221,7 @@ async function gracefulShutdown(
   await deps.ws.close().catch(() => undefined);
   await deps.conversationStore.flush().catch(() => undefined);
   await deps.settingsStore.flush().catch(() => undefined);
+  await deps.checkpoints.flush().catch(() => undefined);
   await removeLock(deps.root);
   deps.server.close(() => process.exit(GRACEFUL_EXIT_CODE));
 }
@@ -266,6 +283,30 @@ interface WsStackDeps {
   clientToken: string;
   mcpHttpRegistry: McpHttpRegistry;
   port: number;
+  checkpoints: Checkpoints;
+  bridge: SidecarBridge;
+}
+
+/**
+ * The shadow repository that records change sets: in the state directory,
+ * over the project's work tree. Started (git found, old sets pruned) before the
+ * first turn can run.
+ */
+async function startCheckpoints(
+  root: string,
+  retentionDays: number,
+): Promise<Checkpoints> {
+  const stateDir = stateDirFor(root);
+  const checkpoints = createCheckpoints({
+    git: createShadowGit({
+      gitDir: path.join(stateDir, CHECKPOINTS_GIT_DIR),
+      workTree: root,
+      extraExcludes: checkpointExcludes(stateDir, root),
+    }),
+    store: createChangeSetStore(path.join(stateDir, CHANGE_SETS_FILE_NAME)),
+  });
+  await checkpoints.start(retentionDays);
+  return checkpoints;
 }
 
 function buildWsStack({
@@ -279,6 +320,8 @@ function buildWsStack({
   clientToken,
   mcpHttpRegistry,
   port,
+  checkpoints,
+  bridge,
 }: WsStackDeps): { close: () => Promise<void> } {
   const registry = createRegistryClient({
     backendBaseUrl: args.backendUrl,
@@ -323,6 +366,8 @@ function buildWsStack({
     navigationCompleter,
     idleController,
     settingsApplier,
+    checkpoints,
+    bridge,
     providerRuntime: {
       stateDir: stateDirFor(args.root),
       mcpHttpRegistry,
@@ -369,7 +414,13 @@ async function main(): Promise<void> {
   // anything new starts.
   await reapOrphanProviders(stateDirFor(args.root));
   const mcpHttpRegistry = createMcpHttpRegistry();
+  const checkpoints = await startCheckpoints(
+    args.root,
+    settingsStore.get().checkpointRetentionDays,
+  );
+  const bridge: SidecarBridge = {};
   const { server, port } = await createHttpServer({
+    bridge,
     clientToken,
     mcpHttpRegistry,
     port: args.port,
@@ -398,6 +449,8 @@ async function main(): Promise<void> {
     clientToken,
     mcpHttpRegistry,
     port,
+    checkpoints,
+    bridge,
   });
   const guard: ShutdownGuard = { done: false };
   const deps: ShutdownDeps = {
@@ -405,6 +458,7 @@ async function main(): Promise<void> {
     ws,
     conversationStore,
     settingsStore,
+    checkpoints,
     root: args.root,
   };
   holder.run = () => void gracefulShutdown(deps, guard);

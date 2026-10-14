@@ -21,14 +21,6 @@ async function terminateWindows(pid: number): Promise<void> {
   ).catch(() => undefined);
 }
 
-function sendSignal(pid: number, signal: NodeJS.Signals): void {
-  try {
-    process.kill(pid, signal);
-  } catch {
-    // Already gone.
-  }
-}
-
 function signalGroup(pid: number, signal: NodeJS.Signals): boolean {
   try {
     process.kill(-pid, signal);
@@ -40,12 +32,10 @@ function signalGroup(pid: number, signal: NodeJS.Signals): boolean {
 
 /**
  * Signals the app-server's process group, which takes whatever it started with
- * it. The pid alone is the fallback for an app-server that does not lead a
- * group, as one spawned by an older sidecar does not.
+ * it.
  */
 function signalTree(pid: number, signal: NodeJS.Signals): void {
-  if (signalGroup(pid, signal)) return;
-  sendSignal(pid, signal);
+  signalGroup(pid, signal);
 }
 
 /** Kills what is left of an app-server's group once its leader is gone. */

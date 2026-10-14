@@ -7,6 +7,7 @@ const {
   INTRUDER,
   OWNER,
   SIDECAR_SOCKET_PATH,
+  actorOf,
   byText,
   closeEverything,
   dist,
@@ -66,6 +67,33 @@ void test("posts the host's and the chat's messages to the same socket, in order
   assert.equal(sidecar.sockets.length, 1);
 });
 
+void test("names the signed-in user to the sidecar before any browser frame", async () => {
+  const sidecar = await startSidecar();
+  const { connectionId } = await openOn(sidecar);
+  await post(connectionId, '{"type":"hello","role":"host"}');
+  await waitFor(() => sidecar.received.length === 1, "posted frame");
+  assert.deepEqual(sidecar.actors, [
+    { type: "actor", userId: OWNER, name: actorOf(OWNER).name },
+  ]);
+});
+
+void test("drops an actor frame posted by the browser, even escaped", async () => {
+  const sidecar = await startSidecar();
+  const { connectionId } = await openOn(sidecar);
+  const forged = [
+    '{"type":"actor","userId":"x","name":"Mallory"}',
+    '{"type":"\\u0061ctor","userId":"x","name":"Mallory"}',
+    '{ "type" : "actor" }',
+  ];
+  for (const frame of forged) {
+    assert.equal((await post(connectionId, frame)).getStatus(), 204);
+  }
+  await post(connectionId, '{"type":"hello","content":"actor"}');
+  await waitFor(() => sidecar.received.length === 1, "the allowed frame");
+  assert.deepEqual(sidecar.received, ['{"type":"hello","content":"actor"}']);
+  assert.equal(sidecar.actors.length, 1);
+});
+
 void test("answers 404 to another user's connection id and to an unknown one", async () => {
   const sidecar = await startSidecar();
   const { connectionId } = await openOn(sidecar);
@@ -115,13 +143,13 @@ void test("leaves nothing open when the browser left during the sidecar handshak
     context.leave();
     return socket;
   };
-  await openChannel(context.ctx, OWNER, slowConnect);
+  await openChannel(context.ctx, actorOf(OWNER), slowConnect);
   await waitFor(() => sidecar.closed === 1, "sidecar socket closes");
 });
 
 void test("answers 503 without streaming when the sidecar cannot be reached", async () => {
   const context = fakeContext();
-  const result = await openChannel(context.ctx, OWNER, async () => {
+  const result = await openChannel(context.ctx, actorOf(OWNER), async () => {
     throw new Error("down");
   });
   assert.equal(result.getStatus(), 503);
@@ -143,7 +171,7 @@ void test("pauses the sidecar socket while the stream is full and resumes it on 
     isClosed: () => false,
   };
   openBridge({
-    userId: OWNER,
+    actor: actorOf(OWNER),
     socket,
     stream,
     onOpened: () => undefined,

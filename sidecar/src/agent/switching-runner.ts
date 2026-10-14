@@ -112,6 +112,8 @@ export function createSwitchingRunner(
     disposeSession: (conversationId) =>
       state.active?.runner.disposeSession(conversationId) ?? Promise.resolve(),
     applySettings: (next) => applySettings(state, next),
+    refreshSession: (conversationId) =>
+      state.active?.runner.refreshSession(conversationId),
     dispose: (reason) => retireActive(state, reason),
   };
 }

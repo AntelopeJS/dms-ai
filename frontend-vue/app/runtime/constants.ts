@@ -1,12 +1,3 @@
-export const OVERLAY_DEFAULT_WIDTH_PX = 460;
-/**
- * Above the dashboard's header and the builder's overlay (z-50), below what the
- * dashboard portals out of the app: the DMS paints its popovers, modals and
- * toasts in an isolated layer after the app, whatever this value is.
- */
-export const OVERLAY_Z_INDEX = 55;
-export const OVERLAY_DOM_ID = "dms-ai-overlay-root";
-export const DMS_OVERLAYS_DOM_ID = "dms-overlays";
 export const SIDECAR_INFO_PATH = "/ai/sidecar-info";
 /** Event stream to receive, POST to send: HTTP the DMS frontend server relays. */
 export const CHANNEL_PATH = "/ai/channel";
@@ -39,10 +30,6 @@ export const SIDECAR_STATUS_UNAVAILABLE = "unavailable";
 // side, so this doubles as the respawn heartbeat; capped so a genuinely stuck
 // sidecar is polled sparingly rather than hammered.
 export const SIDECAR_POLL_DELAYS_MS = [500, 1000, 2000, 4000, 8000] as const;
-export const PLACEHOLDER_CONNECTING_TEXT = "Connecting the assistant…";
-export const PLACEHOLDER_REVIVING_TEXT = "Reconnecting the assistant…";
-export const PLACEHOLDER_UNAVAILABLE_TITLE = "Assistant unavailable";
-export const PLACEHOLDER_UNAVAILABLE_TEXT = "Reload the page to try again.";
 
 export const CHANNEL_STATUS_CONNECTING = "connecting";
 export const CHANNEL_STATUS_CONNECTED = "connected";
@@ -58,34 +45,41 @@ export const HOST_COMMAND_NAVIGATE_TYPE = "host_command_navigate";
 export const HOST_COMMAND_TYPES: ReadonlySet<string> = new Set([
 	HOST_COMMAND_NAVIGATE_TYPE,
 ]);
-export const OVERLAY_MIN_WIDTH_PX = 320;
-export const OVERLAY_PREFS_STORAGE_KEY = "dms-ai:overlay-prefs";
-export const OVERLAY_OUTSIDE_TOGGLE_SUPPRESS_MS = 300;
-export const OVERLAY_PREFS_DEBOUNCE_MS = 300;
 export const TOGGLE_SHORTCUT_KEY = "k";
 export const MODAL_OPEN_SELECTOR = '[role="dialog"][aria-modal="true"]';
 
-// Generic header-action registry exposed by the DMS core (dms-back). Any module
-// can push a button by writing to this shared `useDmsState` key; the core renders
-// it with no knowledge of who registered it.
-export const HEADER_ACTIONS_STATE_KEY = "dms:header-actions";
-/**
- * The DMS's persistent overlays: components rendered on every page, inside the
- * app but outside the routed page, so they live through Inertia navigations.
- * The state key and the component name are the whole contract.
- */
-export const APP_OVERLAYS_STATE_KEY = "dms-app-overlays";
 export const CHAT_PANEL_COMPONENT_NAME = "DmsAiChatPanel";
+/** The panel's id among the dashboard's docked side panels. */
+export const SIDE_PANEL_ID = "dms-ai:assistant";
+export const PANEL_DEFAULT_WIDTH_PX = 460;
+export const PANEL_MIN_WIDTH_PX = 360;
+/** Wide enough for a diff side by side; the DMS caps it at 60% of the window too. */
+export const PANEL_MAX_WIDTH_PX = 820;
+export const COMMAND_PALETTE_ASSISTANT_ID = "dms-ai:assistant";
+export const PALETTE_ANSWER_COMPONENT_NAME = "DmsAiPaletteAnswer";
+export const PALETTE_ASSISTANT_LABEL = "$dms_ai.panel.palette.assistant";
+export const PALETTE_ASSISTANT_PLACEHOLDER =
+	"$dms_ai.panel.palette.placeholder";
 export const LAUNCHER_ACTION_ID = "dms-ai-launcher";
 /**
  * The chat panel's header shows the same icon, which is what gets it into the
- * renderer's icon bundle: it only scans `.vue` files for icon names.
+ * renderer's icon bundle.
  */
-export const LAUNCHER_ICON = "i-ph-robot";
-export const LAUNCHER_LABEL = "AI assistant";
-export const PANEL_LABEL = LAUNCHER_LABEL;
+export const LAUNCHER_ICON = "i-ph-sparkle";
 export const LAUNCHER_ORDER = 50;
-// Toggle shortcut, shown in the launcher tooltip. The combo is meta/ctrl + shift
-// + k, so render it the way each platform expects.
-export const TOGGLE_SHORTCUT_LABEL_MAC = "⌘⇧K";
-export const TOGGLE_SHORTCUT_LABEL_OTHER = "Ctrl+Shift+K";
+export const LAUNCHER_LABEL_KEY = "dms_ai.panel.launcher";
+/** The panel landmark's name, as an i18n key the DMS resolves. */
+export const PANEL_ARIA_LABEL = `$${LAUNCHER_LABEL_KEY}`;
+export const COMMAND_PALETTE_SOURCE_ID = "dms-ai";
+export const COMMAND_PALETTE_ORDER = 60;
+/** The backend's view of the sidecar: pending approvals, last start error. */
+export const STATUS_PATH = "/ai/status";
+export const RESTART_PATH = "/ai/sidecar/restart";
+export const CHANGES_PATH = "/modules/ai/changes";
+/**
+ * How often a closed panel re-reads the pending approvals, so a request that
+ * arrives while no stream is open still gets its toast.
+ */
+export const STATUS_POLL_MS = 15_000;
+/** How long the panel's toasts stay up. */
+export const TOAST_DURATION_MS = 8_000;

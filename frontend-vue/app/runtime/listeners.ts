@@ -1,6 +1,6 @@
 import { LOG_PREFIX } from "./constants";
 
-export type Listener<T> = (value: T) => void;
+type Listener<T> = (value: T) => void;
 
 export interface Listeners<T> {
 	add: (listener: Listener<T>) => () => void;

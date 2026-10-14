@@ -26,13 +26,15 @@ export interface SidecarStatusController {
 	init: () => Promise<boolean>;
 	getStatus: () => SidecarStatus;
 	// Subscribe to status changes; fires immediately with the current status so a
-	// late subscriber (overlay/icon injected after init) reflects it right away.
+	// late subscriber (the panel or launcher registered after init) reflects it right away.
 	subscribe: (cb: (status: SidecarStatus) => void) => () => void;
 	/**
 	 * The host channel dropped: re-probe now, which also revives an idle-exited
 	 * sidecar, and report `connected` again once it answers.
 	 */
 	reportChannelDown: () => void;
+	/** Probes again from scratch, even after giving up: a restart was asked. */
+	retry: () => void;
 	dispose: () => void;
 }
 
@@ -132,6 +134,12 @@ export function createSidecarStatusController(
 			// the re-probe: that probe awaits a respawn and can take a second or two,
 			// during which the icon would otherwise look healthy. poll() flips back
 			// to connected once the sidecar answers again.
+			resetBackoff(backoff);
+			setStatus(SIDECAR_STATUS_REVIVING);
+			void poll();
+		},
+		retry: () => {
+			if (disposed) return;
 			resetBackoff(backoff);
 			setStatus(SIDECAR_STATUS_REVIVING);
 			void poll();

@@ -19,6 +19,7 @@ import {
   CHANNEL_ROUTE_PREFIX,
   CONNECTION_ID_PARAM,
 } from "../constants/channels";
+import { actorName } from "./actor";
 
 /**
  * The browser's way to the sidecar: one event stream per tab to receive, a
@@ -33,7 +34,7 @@ export class AIChannelController extends Controller(CHANNEL_ROUTE_PREFIX) {
     @Context() ctx: RequestContext,
     @AuthRawUser() user: User,
   ): Promise<HTTPResult | undefined> {
-    return openChannel(ctx, user._id);
+    return openChannel(ctx, { userId: user._id, name: actorName(user) });
   }
 
   @Post(CHANNEL_MESSAGES_ROUTE)

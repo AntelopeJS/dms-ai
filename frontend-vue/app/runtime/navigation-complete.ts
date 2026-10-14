@@ -1,7 +1,7 @@
 import { router } from "@inertiajs/vue3";
 import { HOST_NAVIGATION_COMPLETE_TYPE } from "./constants";
 
-export interface HostNavigationCompleteMessage {
+interface HostNavigationCompleteMessage {
 	type: typeof HOST_NAVIGATION_COMPLETE_TYPE;
 	path: string;
 }

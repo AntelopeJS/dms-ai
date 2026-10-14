@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { rawDataToText } from "../../src/server/raw-data.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,7 +13,18 @@ import type { AiMcpServerStaticDeps } from "../../src/mcp/types.js";
 import { isProviderAvailable } from "../../src/providers/registry.js";
 import type { ProviderHostRuntime } from "../../src/providers/types.js";
 import { createHostSocketRegistry } from "../../src/server/host-socket-registry.js";
-import { createHttpServer } from "../../src/server/http.js";
+import {
+  checkpointExcludes,
+  type Checkpoints,
+  createCheckpoints,
+} from "../../src/checkpoints/checkpoints.js";
+import { createShadowGit } from "../../src/checkpoints/shadow-git.js";
+import { createChangeSetStore } from "../../src/state/change-sets.js";
+import {
+  createHttpServer,
+  type SettingsApplier,
+  type SidecarBridge,
+} from "../../src/server/http.js";
 import type { ChatSocketRegistry } from "../../src/server/chat-socket-registry.js";
 import { createNavigationCompleter } from "../../src/server/navigation-completer.js";
 import { attachWsServer } from "../../src/server/ws.js";
@@ -39,6 +50,9 @@ export const HOST_ROOT = "/tmp";
 
 export interface HarnessOptions {
   provider: ProviderName;
+  // A fresh project directory under the harness's temp dir, with change sets
+  // recorded in a shadow repository; the shared HOST_ROOT otherwise.
+  withProject?: boolean;
   settings?: Partial<AppSettings>;
   permissionBus?: PermissionBus;
   chatSocketRegistry?: ChatSocketRegistry;
@@ -49,6 +63,8 @@ export interface HarnessOptions {
 export interface WsHarness {
   port: number;
   tmpDir: string;
+  projectRoot: string;
+  bridge: SidecarBridge;
   conversationStore: ConversationStore;
   settingsStore: SettingsStore;
   /** Stops the stack the way the sidecar's graceful shutdown does, files kept. */
@@ -123,32 +139,66 @@ function assertProviderReachable(provider: ProviderName): void {
   );
 }
 
+const PROJECT_DIR = "project";
+const PROJECT_STATE_SEGMENTS = ["node_modules", ".cache", "dms-ai"];
+const RETENTION_DAYS = 30;
+
+async function startProjectCheckpoints(root: string): Promise<Checkpoints> {
+  await mkdir(root, { recursive: true });
+  const stateDir = join(root, ...PROJECT_STATE_SEGMENTS);
+  const checkpoints = createCheckpoints({
+    git: createShadowGit({
+      gitDir: join(stateDir, "checkpoints.git"),
+      workTree: root,
+      extraExcludes: checkpointExcludes(stateDir, root),
+    }),
+    store: createChangeSetStore(join(stateDir, "change-sets.json")),
+  });
+  await checkpoints.start(RETENTION_DAYS);
+  return checkpoints;
+}
+
 export async function startWsHarness(
   options: HarnessOptions,
 ): Promise<WsHarness> {
   assertProviderReachable(options.provider);
   const tmpDir = await mkdtemp(join(tmpdir(), TMP_PREFIX));
+  const projectRoot =
+    options.withProject === true ? join(tmpDir, PROJECT_DIR) : HOST_ROOT;
+  const checkpoints =
+    options.withProject === true
+      ? await startProjectCheckpoints(projectRoot)
+      : undefined;
   const conversationStore = createConversationStore({
     store: createStore({ filePath: join(tmpDir, STATE_FILE) }),
   });
   await conversationStore.loadFromDisk();
   const mcpHttpRegistry = createMcpHttpRegistry();
-  const { server, port } = await createHttpServer({
-    clientToken: CLIENT_TOKEN,
-    port: ARBITRARY_PORT,
-    mcpHttpRegistry,
-  });
-  const hostState = createHostState();
-  const hostSocketRegistry = createHostSocketRegistry();
-  const navigationCompleter = createNavigationCompleter();
   const settingsStore = buildSettingsStore({
     ...DEFAULT_SETTINGS,
     provider: options.provider,
     ...options.settings,
   });
+  const bridge: SidecarBridge = {};
+  const settingsApplier: SettingsApplier = { apply: settingsStore.set };
+  const { server, port } = await createHttpServer({
+    clientToken: CLIENT_TOKEN,
+    port: ARBITRARY_PORT,
+    mcpHttpRegistry,
+    conversationStore,
+    settingsStore,
+    settingsApplier,
+    bridge,
+  });
+  const hostState = createHostState();
+  const hostSocketRegistry = createHostSocketRegistry();
+  const navigationCompleter = createNavigationCompleter();
   const ws = attachWsServer(server, {
     clientToken: CLIENT_TOKEN,
-    hostProjectRoot: HOST_ROOT,
+    hostProjectRoot: projectRoot,
+    checkpoints,
+    bridge,
+    settingsApplier,
     moduleRoots: options.moduleRoots,
     skillDirs: options.skillDirs,
     conversationStore,
@@ -168,6 +218,8 @@ export async function startWsHarness(
   return {
     port,
     tmpDir,
+    projectRoot,
+    bridge,
     conversationStore,
     settingsStore,
     shutdown: async () => {
@@ -231,6 +283,7 @@ export function answerPermission(
   socket: WebSocket,
   msg: WireMessage,
   decision: string,
+  rule?: unknown,
 ): void {
   socket.send(
     JSON.stringify({
@@ -238,6 +291,7 @@ export function answerPermission(
       conversationId: msg.conversationId,
       requestId: msg.requestId,
       decision,
+      rule,
     }),
   );
 }
@@ -361,5 +415,21 @@ export function sendUserMessageWithAttachment(
     conversationId,
     content,
     attachments: [attachment],
+  });
+}
+
+/** Calls one of the sidecar's HTTP routes the way the DMS backend does. */
+export async function callApi(
+  port: number,
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  return fetch(`http://${WS_HOST}:${port}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${CLIENT_TOKEN}`,
+      "content-type": "application/json",
+      ...init.headers,
+    },
   });
 }

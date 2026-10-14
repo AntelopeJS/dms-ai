@@ -6,7 +6,7 @@ interface RouterLike {
 }
 
 /**
- * The slice of the host's `useDmsDevReload()` composable this module needs:
+ * The slice of the host's `useDevReload()` composable this module needs:
  * resolve `true` once the committed site layout serves `path`, `false` on
  * timeout.
  */
@@ -19,12 +19,12 @@ export interface HostCommandContext {
 	devReload: DevReloadWaiter;
 }
 
-export interface HostCommandNavigateMessage {
+interface HostCommandNavigateMessage {
 	type: typeof HOST_COMMAND_NAVIGATE_TYPE;
 	path: string;
 }
 
-export type HostCommandMessage = HostCommandNavigateMessage;
+type HostCommandMessage = HostCommandNavigateMessage;
 
 /** Takes a sidecar message already parsed; anything that is not a host command is ignored. */
 export type HostCommandDispatcher = (msg: unknown) => void;
@@ -84,7 +84,7 @@ async function runNavigate(state: DispatcherState): Promise<void> {
  * Whether the agent may send the dashboard to `path`. What it asks for comes
  * from model output, so it may only ever lead to a page of this origin.
  */
-export function isInAppPath(path: unknown): path is string {
+function isInAppPath(path: unknown): path is string {
 	if (typeof path !== "string" || !IN_APP_PATH.test(path)) return false;
 	try {
 		const origin = globalThis.location.origin;

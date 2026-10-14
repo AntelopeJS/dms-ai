@@ -2,11 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ref } from "vue";
 import { useConversation } from "../../app/chat/composables/useConversation";
 import {
+	LOCAL_ERROR_KEYS,
 	MESSAGE_ROLES,
-	NOT_SENT_MESSAGE,
-	RETRY_NEEDS_FILES_MESSAGE,
-	STOP_NOT_DELIVERED_MESSAGE,
-	TOOL_CUT_SHORT_RESULT,
 	TOOL_STATUS,
 } from "../../app/chat/constants/conversation";
 import {
@@ -20,6 +17,8 @@ import {
 import type { RunProgress } from "../../app/chat/types/conversation";
 import type { PendingAttachment } from "../../app/chat/utils/attachments";
 import { isAgentQuiet } from "../../app/chat/utils/run-status";
+import { toolRowState } from "../../app/chat/utils/tool-state";
+import type { ToolCallMessage } from "../../app/chat/types/conversation";
 
 const CONVERSATION_ID = "conv-chat-1";
 const FILE_DATA = "PGh0bWw+PC9odG1sPg==";
@@ -96,7 +95,7 @@ describe("a run that fails reaches the user", () => {
 		});
 		expect(messages.find((m) => m.role === MESSAGE_ROLES.TOOL)).toMatchObject({
 			status: TOOL_STATUS.ERROR,
-			result: TOOL_CUT_SHORT_RESULT,
+			outcome: "stopped",
 		});
 	});
 
@@ -107,26 +106,38 @@ describe("a run that fails reaches the user", () => {
 		expect(h.conversation.isRunning.value).toBe(false);
 		expect(h.conversation.messages.value.at(-1)).toMatchObject({
 			role: MESSAGE_ROLES.ERROR,
-			content: NOT_SENT_MESSAGE,
+			contentKey: LOCAL_ERROR_KEYS.NOT_SENT,
 		});
 	});
 
-	it("retries the last message with its file", () => {
+	it("asks the sidecar to run a failed turn again", () => {
 		const h = harness();
 		h.conversation.sendUserMessage("reproduire sans casser le design", [
 			attachment(),
 		]);
 		h.receive({ type: SERVER_EVENT_TYPES.RUN_ERROR, error: "API Error: 529" });
 		h.conversation.retry();
-		const resent = h.sent.filter(
-			(msg) => msg.type === CLIENT_MESSAGE_TYPES.USER_MESSAGE,
-		);
-		expect(resent).toHaveLength(2);
-		expect(resent[1]).toMatchObject({
-			content: "reproduire sans casser le design",
-			attachments: [{ name: "OP_Manager_v176.html", data: FILE_DATA }],
+		expect(
+			h.sent.filter((msg) => msg.type === CLIENT_MESSAGE_TYPES.USER_MESSAGE),
+		).toHaveLength(1);
+		expect(h.sent.at(-1)).toEqual({
+			type: CLIENT_MESSAGE_TYPES.RETRY_TURN,
+			conversationId: CONVERSATION_ID,
 		});
 		expect(h.conversation.isRunning.value).toBe(true);
+	});
+
+	it("resends a message that never left, with its file", () => {
+		const h = harness();
+		h.setConnected(false);
+		h.conversation.sendUserMessage("reproduire", [attachment()]);
+		h.setConnected(true);
+		h.conversation.retry();
+		expect(h.sent.at(-1)).toMatchObject({
+			type: CLIENT_MESSAGE_TYPES.USER_MESSAGE,
+			content: "reproduire",
+			attachments: [{ name: "OP_Manager_v176.html", data: FILE_DATA }],
+		});
 	});
 
 	it("shows an unsent message once, even after a retry", () => {
@@ -169,30 +180,22 @@ describe("a run that fails reaches the user", () => {
 		expect(overloaded).toMatchObject({ isRetryable: true });
 	});
 
-	it("asks for the files again when a reload dropped them", () => {
+	it("asks for the files again when an unsent message lost them", () => {
 		const h = harness();
-		h.receive({
-			type: SERVER_EVENT_TYPES.CONVERSATION_SNAPSHOT,
-			messages: [
-				{
-					role: "user",
-					content: "reproduire sans casser le design",
-					attachments: [
-						{ name: "OP_Manager_v176.html", mimeType: "text/html", size: 13 },
-					],
-					timestampMs: 1,
-				},
-				{ role: "error", content: "The run was stopped.", timestampMs: 2 },
-			],
-		});
+		h.setConnected(false);
+		h.conversation.sendUserMessage("reproduire", [attachment()]);
+		const unsent = h.conversation.messages.value[0];
+		if (unsent.role !== MESSAGE_ROLES.USER) throw new Error("no user message");
+		unsent.attachments = [{ name: "a.html", mimeType: "text/html", size: 1 }];
+		h.setConnected(true);
 		h.conversation.retry();
 		expect(h.sent).toEqual([]);
 		expect(h.conversation.messages.value.at(-1)).toMatchObject({
-			content: RETRY_NEEDS_FILES_MESSAGE,
+			contentKey: LOCAL_ERROR_KEYS.RETRY_NEEDS_FILES,
 		});
 	});
 
-	it("shows a stored error and settles tools left open after a reload", () => {
+	it("shows a stored error, and a tool left open as stopped after a reload", () => {
 		const h = harness();
 		h.receive({
 			type: SERVER_EVENT_TYPES.CONVERSATION_SNAPSHOT,
@@ -209,7 +212,7 @@ describe("a run that fails reaches the user", () => {
 			],
 		});
 		const [, tool, error] = h.conversation.messages.value;
-		expect(tool).toMatchObject({ status: TOOL_STATUS.ERROR });
+		expect(toolRowState(tool as ToolCallMessage, false, null)).toBe("stopped");
 		expect(error).toMatchObject({
 			role: MESSAGE_ROLES.ERROR,
 			content: "The run was stopped.",
@@ -223,7 +226,7 @@ describe("a run that fails reaches the user", () => {
 		h.conversation.interrupt();
 		expect(h.conversation.isRunning.value).toBe(false);
 		expect(h.conversation.messages.value.at(-1)).toMatchObject({
-			content: STOP_NOT_DELIVERED_MESSAGE,
+			contentKey: LOCAL_ERROR_KEYS.STOP_NOT_DELIVERED,
 		});
 	});
 });
