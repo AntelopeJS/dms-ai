@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.2.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.6...v0.2.0)
+
+### 🚀 Enhancements
+
+- ⚠️  Port dms-ai to the v2 DMS design ([#62](https://github.com/AntelopeJS/dms-ai/pull/62))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Port dms-ai to the v2 DMS design ([#62](https://github.com/AntelopeJS/dms-ai/pull/62))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.1.6
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.5...v0.1.6)
