@@ -4,7 +4,7 @@ import type { Tone } from "#dms-ui/app/types/tone";
 export const AI_ROUTES = {
 	status: "/ai/status",
 	changes: "/ai/changes",
-	changeUndoConfirm: "/ai/changes/{id}/undo-confirm",
+	changeUndoConfirm: "/ai/changes/{{row.id}}/undo-confirm",
 	activity: "/ai/activity",
 } as const;
 
