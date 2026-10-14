@@ -16,56 +16,91 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# The checks run as parallel jobs: a pull request waits for the slowest one,
+# not for their sum.
 jobs:
-  ubuntu:
+  lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      COREPACK_DEFAULT_TO_LATEST: 0
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      # `pnpm lint` also lints frontend-vue and the sidecar.
+      - uses: ./.github/actions/setup
         with:
-          # .nvmrc is the version of record. oxlint needs at least 22.18 to
-          # read a TypeScript config, which every value there clears.
-          node-version-file: .nvmrc
-      # Node's bundled corepack predates the pnpm version pinned in
-      # packageManager. Pinned so a corepack release cannot break every
-      # build at once.
-      - run: npm i -g --force corepack@0.34.0 && corepack enable
-      # The sidecar is a sub-project with its own manifest, and `pnpm test`
-      # runs its suite.
-      - run:
-          pnpm install --frozen-lockfile && cd frontend-vue && pnpm install --frozen-lockfile && cd ../sidecar &&
-          pnpm install
+          frontend: "true"
+          sidecar: "true"
       - run: pnpm lint
-      # oxlint's type-aware pass degrades to `any` on a broken tsconfig
-      # without failing, so the typecheck is what catches it.
-      - run: pnpm exec tsc --noEmit
       # Unused dependencies only. `pnpm knip:all` also reports dead files and
       # exports, which need a human to confirm, so they stay out of the gate.
       - run: pnpm knip
-      - run: cd sidecar && pnpm knip
+      - run: pnpm --dir sidecar knip
+
+  types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          frontend: "true"
+          sidecar: "true"
+      # oxlint's type-aware pass degrades to `any` on a broken tsconfig
+      # without failing, so a typecheck is what catches it. The build compiles
+      # the same tsconfig, so it is that typecheck; a separate
+      # `tsc --noEmit` would only repeat it.
       - run: pnpm build
-      - run: pnpm test:frontend-registration
-      # The browser's way to the sidecar: the tab's event stream, posted
-      # messages and their teardown, against a stand-in sidecar.
-      - run: pnpm test:channels
-      # The /ai routes against a stand-in sidecar: list queries, 503s and shapes.
-      - run: pnpm test:routes
-      # Pins the flags the launcher hands the sidecar, with the child process
-      # and the lock file stubbed.
-      - run: pnpm test:spawn-args
-      # Starts a stand-in sidecar for real: a hot reload keeps it, a leftover
-      # from an earlier run is stopped, and Ctrl+C on the backend stops it.
-      - run: pnpm test:sidecar-lifecycle
-      # Pins that the build id follows the sidecar's compiled code, not its
-      # mtimes, so a rebuild with the same output keeps the running sidecar.
-      - run: pnpm test:build-id
-      - run: pnpm test:release-script
-      - run: pnpm test
       - run: pnpm --dir sidecar typecheck
       # The chat needs nothing from the generated dashboard workspace, so it is
       # typechecked on its own; the rest of frontend-vue needs that workspace.
       - run: pnpm --dir frontend-vue typecheck:chat
+
+  node-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      # Every node:test suite against that one build, in parallel processes:
+      # the module's registration, the browser's channels to the sidecar, the
+      # /ai routes against a stand-in sidecar, the flags the launcher hands the
+      # sidecar, its lifecycle across hot reloads, restarts and Ctrl+C, and a
+      # build id that follows the compiled code rather than mtimes.
+      - run: pnpm test:node
+        env:
+          DMS_PREBUILT: "1"
+
+  sidecar-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The longest suite, split in two so it stops being the critical path.
+    strategy:
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          sidecar: "true"
+      - run: pnpm --dir sidecar test --shard=${{ matrix.shard }}/2
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          frontend: "true"
+      - run: pnpm --dir frontend-vue test
+
+  # Branch protection requires the check of the single job this workflow used
+  # to have: it now stands for all of them, and fails if any did not pass.
+  ubuntu:
+    if: always()
+    needs: [lint, types, node-tests, sidecar-tests, frontend-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1

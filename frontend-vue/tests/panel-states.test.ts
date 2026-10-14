@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
@@ -334,6 +335,10 @@ describe("tool rows and change sets", () => {
 
 describe("the approvals dock", () => {
 	it("previews a diff with line numbers and allows a scope with ↵", async () => {
+		// The countdown reads the clock: frozen at the request's creation, it
+		// shows the full grace period however slow the run is.
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(DIFF_REQUEST.createdAtMs);
 		const harness = createHarness();
 		const panel = await openPanel(harness);
 		deliver(harness, DIFF_REQUEST);
@@ -342,7 +347,7 @@ describe("the approvals dock", () => {
 		const dock = panel.find(".cb-approve");
 		expect(dock.attributes("role")).toBe("alertdialog");
 		expect(dock.text()).toContain("Needs your approval · 1 of 2");
-		expect(dock.text()).toMatch(/denies in 4:1\d/);
+		expect(dock.text()).toContain("denies in 4:12");
 		expect(panel.find(".perm.is-focused .perm__title").text()).toBe(
 			"Edit customer.form.ts",
 		);
