@@ -1,4 +1,5 @@
 import { MESSAGE_ROLES } from "../constants/conversation";
+import { lastMatching } from "./arrays";
 import {
 	BLOCK_PREVIEW_MAIN_TAB,
 	BLOCK_PREVIEW_VARIANT_TAB_PREFIX,
@@ -101,8 +102,10 @@ function findAttachedImage(
 	const attachments = messages
 		.filter(isUser)
 		.flatMap((message) => message.attachments ?? []);
-	const match = attachments.findLast(
-		(attachment) => attachment.name === name && attachment.dataUrl,
+	const match = lastMatching(
+		attachments,
+		(attachment) =>
+			attachment.name === name && attachment.dataUrl !== undefined,
 	);
 	return match?.dataUrl ?? null;
 }
