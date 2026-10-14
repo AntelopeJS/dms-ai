@@ -9,6 +9,7 @@ import {
   PREVIEW_ERROR_NO_ATTACHMENTS,
   PREVIEW_ERROR_NO_TYPE,
   PREVIEW_ERROR_NODES,
+  PREVIEW_ERROR_OPTION_URL,
   PREVIEW_ERROR_UNKNOWN_ATTACHMENT,
   PREVIEW_ERROR_URL,
   PREVIEW_LATEST_ATTACHMENT_ID,
@@ -23,6 +24,7 @@ import {
   PREVIEW_REMOTE_URL,
   PREVIEW_RESULT_SHOWN,
   PREVIEW_SAME_ORIGIN_PATH,
+  PREVIEW_URL_OPTION_KEY,
 } from "../../constants/preview.js";
 import {
   type BlockPreviewReferenceType,
@@ -113,6 +115,20 @@ function rootsOf(tree: PreviewTreeType): PreviewNodeType[] {
   return Array.isArray(tree) ? tree : [tree];
 }
 
+function checkOptionUrls(node: PreviewNodeType): void {
+  const offending = Object.entries(node.options ?? {}).find(
+    ([key, value]) =>
+      PREVIEW_URL_OPTION_KEY.test(key) &&
+      typeof value === "string" &&
+      !PREVIEW_SAME_ORIGIN_PATH.test(value),
+  );
+  if (offending === undefined) return;
+  throw new PreviewInputError(
+    PREVIEW_ERROR_CODES.INVALID_TREE,
+    `${PREVIEW_ERROR_OPTION_URL}${offending[0]}`,
+  );
+}
+
 function checkNode(node: PreviewNodeType, depth: number, stats: TreeStats) {
   if (depth > PREVIEW_MAX_DEPTH)
     throw new PreviewInputError(
@@ -124,6 +140,7 @@ function checkNode(node: PreviewNodeType, depth: number, stats: TreeStats) {
       PREVIEW_ERROR_CODES.INVALID_TREE,
       PREVIEW_ERROR_NO_TYPE,
     );
+  checkOptionUrls(node);
   stats.nodes += 1;
   if (stats.nodes > PREVIEW_MAX_NODES)
     throw new PreviewInputError(

@@ -23,6 +23,9 @@ export const PREVIEW_REMOTE_URL = /^https?:\/\//i;
 
 export const PREVIEW_IMAGE_MIME_PREFIX = "image/";
 
+/** Option keys the DMS loads from: they must name a path of the site. */
+export const PREVIEW_URL_OPTION_KEY = /(?:Url|^location)$/;
+
 export const PREVIEW_ERROR_CODES = {
   INVALID_TREE: "invalid_tree",
   TOO_LARGE: "too_large",
@@ -41,5 +44,7 @@ export const PREVIEW_ERROR_NO_ATTACHMENTS =
   "The user attached no image in this conversation; leave `reference.attachmentId` out.";
 export const PREVIEW_ERROR_UNKNOWN_ATTACHMENT =
   "No image of that name was attached in this conversation. Attached images: ";
+export const PREVIEW_ERROR_OPTION_URL =
+  "Options ending in `Url` (and `location`) must be same-origin paths such as `/api/orders`, or the preview refuses the block. Offending option: ";
 export const PREVIEW_ERROR_URL =
   "`reference.url` must be a same-origin path (`/media/...`) or an http(s) URL.";

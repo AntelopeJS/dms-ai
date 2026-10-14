@@ -36,6 +36,12 @@ export const PreviewNodeSchema = z.object({
     .string()
     .optional()
     .describe("Slot of the parent the child renders in, when it has several."),
+  colSpan: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Columns a GridRow child spans."),
   get children() {
     return z
       .array(PreviewNodeSchema)

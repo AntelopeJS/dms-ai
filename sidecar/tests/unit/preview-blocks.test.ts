@@ -140,6 +140,36 @@ describe("PreviewBlocks tool", () => {
     expect(shown).toHaveLength(0);
   });
 
+  it("refuses a block loading from another origin", async () => {
+    const { shown, tool } = buildHarness();
+    const result = await tool.handler(
+      {
+        title: "Remote",
+        tree: {
+          type: "KpiCard",
+          options: { fetchUrl: "https://x.example/kpi" },
+        },
+      },
+      {},
+    );
+    const body = parse(result);
+    expect(body.error.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
+    expect(body.message).toContain("fetchUrl");
+    expect(shown).toHaveLength(0);
+  });
+
+  it("keeps a same-origin fetchUrl and a child's colSpan", async () => {
+    const { shown, tool } = buildHarness();
+    const tree = {
+      type: "GridRow",
+      children: [
+        { type: "KpiCard", colSpan: 2, options: { fetchUrl: "/api/kpi" } },
+      ],
+    };
+    await tool.handler({ title: "Local", tree }, {});
+    expect(shown[0]?.tree).toEqual(tree);
+  });
+
   it("refuses a tree nested too deep", async () => {
     const { tool } = buildHarness();
     const result = await tool.handler(

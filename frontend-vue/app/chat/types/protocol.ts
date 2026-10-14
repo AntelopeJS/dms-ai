@@ -210,6 +210,7 @@ export interface PreviewNode {
 	options?: Record<string, unknown>;
 	id?: string;
 	slot?: string;
+	colSpan?: number;
 	children?: PreviewNode[];
 }
 
