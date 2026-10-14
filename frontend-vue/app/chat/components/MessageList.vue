@@ -5,6 +5,7 @@ import { ACTIVITY_KINDS } from "../constants/run-status";
 import { MESSAGE_ROLES } from "../constants/conversation";
 import type {
 	ConversationMessage,
+	BlockPreviewMessage,
 	ErrorMessage,
 	MessageAttachment,
 	RunProgress,
@@ -14,6 +15,7 @@ import type { PermissionRequestData } from "../types/permission";
 import type { ChangeSetSummary } from "../types/protocol";
 import { lastMatching } from "../utils/arrays";
 import { formatBytes, isInlineImage } from "../utils/attachments";
+import { type ReferenceView, referenceView } from "../utils/block-preview";
 import { formatTimeOfDay } from "../utils/format";
 import { buildRenderItems, type RenderItem } from "../utils/render-items";
 import {
@@ -24,6 +26,7 @@ import {
 	runElapsedMs,
 } from "../utils/run-status";
 import AnswerRecord from "./AnswerRecord.vue";
+import BlockPreviewCard from "./BlockPreviewCard.vue";
 import ChangeSetCard from "./ChangeSetCard.vue";
 import MarkdownContent from "./MarkdownContent.vue";
 import NoticeCard from "./NoticeCard.vue";
@@ -133,6 +136,10 @@ function userMeta(message: UserMessage): string {
 
 function attachmentsOf(message: UserMessage): MessageAttachment[] {
 	return message.attachments ?? [];
+}
+
+function referenceOf(message: BlockPreviewMessage): ReferenceView | null {
+	return referenceView(message.preview.reference, props.messages);
 }
 
 function canRetry(error: ErrorMessage): boolean {
@@ -306,6 +313,19 @@ async function copyAnswer(content: string): Promise<void> {
 				data-role="answers"
 			>
 				<AnswerRecord :answers="item.message.answers" />
+			</li>
+
+			<li
+				v-else-if="
+					item.kind === 'preview' && item.message.role === 'block_preview'
+				"
+				class="message-item"
+				data-role="preview"
+			>
+				<BlockPreviewCard
+					:preview="item.message.preview"
+					:reference="referenceOf(item.message)"
+				/>
 			</li>
 		</template>
 

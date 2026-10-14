@@ -368,6 +368,23 @@
 					"close": "Close",
 					"not_running": "The assistant isn't running in this tab."
 				}
+			},
+			"preview": {
+				"eyebrow": "Block preview",
+				"open": "Preview",
+				"open_aria": "Open the block preview: {title}",
+				"blocks": "{count} block | {count} blocks",
+				"variants": "{count} variant | {count} variants",
+				"with_mockup": "vs your mockup",
+				"proposed": "Proposed",
+				"variants_aria": "Variants",
+				"mockup": "Your mockup",
+				"dms_blocks": "DMS blocks",
+				"mockup_missing": "{name} was attached before the chat reloaded, so it can no longer be shown. Attach it again to compare side by side.",
+				"mockup_external": "External image, not loaded in the dashboard.",
+				"mockup_open": "Open the mockup",
+				"fallback_title": "This DMS version cannot draw block previews",
+				"fallback_body": "Update the DMS to see the real blocks. Here is the tree the assistant sent."
 			}
 		},
 		"tools": {
@@ -419,7 +436,8 @@
 			"add_query": "Add query",
 			"configure_query": "Configure query",
 			"remove_query": "Remove query",
-			"search_tools": "Load tools"
+			"search_tools": "Load tools",
+			"show_preview": "Show a preview"
 		}
 	}
 }

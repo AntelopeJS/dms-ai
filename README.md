@@ -104,6 +104,22 @@ carry a prompt injection read from a file or a page. So nothing the agent writes
   to its address.
 - The agent can only navigate the dashboard to one of its own pages.
 
+## Block previews
+
+To settle a visual choice, the agent calls its `PreviewBlocks` tool with a tree of DMS blocks
+(`{ type, options, children }`), a title, an optional description, the user's mockup as `reference`
+and alternative trees as `variants`. The tool does not wait: the chat shows the preview as an
+attachment, a card with a thumbnail, and the agent asks the decision with `AskUser`. The card opens a
+dialog that renders the real blocks with the DMS's `DmsBlockPreview`, beside the mockup, one tab per
+variant. A DMS without that component shows the tree as JSON instead.
+
+- A tree is capped at 8 levels, 200 blocks across its variants and 64 KB of JSON; a block names a
+  registry type, never an arbitrary component.
+- The mockup is an image the user attached in the conversation (`attachmentId`: its file name, or
+  `latest`) or a same-origin path. An external URL is shown as a link, never loaded. Attached images
+  are not kept on the server, so after a reload the dialog asks to attach the mockup again.
+- The preview is stored in the transcript and comes back with the conversation.
+
 ## Sidecar
 
 The sidecar is an agent server only: `/health`, the settings, metrics and skills routes the backend

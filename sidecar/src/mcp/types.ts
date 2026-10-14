@@ -9,6 +9,7 @@ import type { LogsClient } from "../logs/logs-client.js";
 import type { ImportsScanner } from "../pages/imports-scanner.js";
 import type { RegistryClient } from "../pages/registry-client.js";
 import type { AnyServerEventType } from "../protocol/events.js";
+import type { BlockPreviewType } from "../protocol/preview.js";
 import type { NavigationCompleter } from "../server/navigation-completer.js";
 import type { CurrentPage } from "../state/host-state.js";
 
@@ -33,6 +34,8 @@ export interface AiMcpServerDeps extends AiMcpServerStaticDeps {
   sendToHost: (event: AnyServerEventType) => void;
   requestQuestion: (req: QuestionRequest) => Promise<QuestionAnswers>;
   getLastEditedFile: () => string | undefined;
+  showPreview: (preview: BlockPreviewType) => void;
+  listAttachedImages: () => string[];
   // Absent in tests and tools-only boots: every Builder op then runs as is.
   gateBuilderOp?: BuilderGate;
 }

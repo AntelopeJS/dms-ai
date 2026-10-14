@@ -6,6 +6,7 @@ export const MESSAGE_ROLES = {
 	NOTICE: "notice",
 	CHANGE_SET: "change_set",
 	QUESTION_ANSWER: "question_answer",
+	BLOCK_PREVIEW: "block_preview",
 } as const;
 
 export const STORED_TOOL_USE_ROLE = "tool_use";
