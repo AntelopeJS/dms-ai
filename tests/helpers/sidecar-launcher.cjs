@@ -5,6 +5,9 @@ const DIST_DIR = path.resolve(__dirname, "../../dist");
 const FAKE_SIDECAR_PATH = path.resolve(__dirname, "fake-sidecar.cjs");
 const SIDECAR_BIN_REQUEST = "@antelopejs/dms-ai-sidecar/dist/index.js";
 const SILENT_LOGGING = { Logging: { Info() {}, Warn() {}, Error() {} } };
+// The launcher's five-second grace before SIGKILL, shortened: the case of a
+// sidecar that ignores SIGTERM would otherwise sit through all of it.
+const TEST_STOP_TIMEOUT_MS = 500;
 
 /** Build id the launcher computes; a test changes it to simulate a rebuild. */
 const build = { id: "build-1" };
@@ -37,6 +40,8 @@ function loadLauncherGeneration() {
   for (const file of Object.keys(require.cache)) {
     if (file.startsWith(DIST_DIR)) delete require.cache[file];
   }
+  const constants = require(path.join(DIST_DIR, "constants/sidecar.js"));
+  constants.SIDECAR_STOP_TIMEOUT_MS = TEST_STOP_TIMEOUT_MS;
   return require(path.join(DIST_DIR, "lifecycle/spawn-sidecar.js"));
 }
 

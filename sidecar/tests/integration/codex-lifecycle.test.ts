@@ -28,6 +28,14 @@ import {
 } from "../helpers/provider-fixtures.js";
 import { readPidRecords, readRecordedPids } from "../helpers/codex-pids.js";
 
+// The real graces only matter against a wedged app-server in the field; the
+// cases that outwait them here would otherwise sit through seconds each.
+vi.mock("../../src/constants/codex.js", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  CODEX_TERMINATE_GRACE_MS: 300,
+  CODEX_KILL_GRACE_MS: 300,
+}));
+
 const TEST_TIMEOUT_MS = 30_000;
 // One process per conversation, capped: opening past the cap disposes the
 // oldest rather than piling up model connections.
