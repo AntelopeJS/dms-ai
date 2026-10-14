@@ -1,6 +1,6 @@
 ---
 name: dms-builder-page
-description: Builds or modifies an AntelopeJS DMS admin page (dashboard screen). Use when the user wants to add, edit, or compose an admin page, dashboard, table, form, or chart in a dms-* module.
+description: Builds or modifies an AntelopeJS DMS admin page (dashboard screen) by editing code, in Code mode. Use when the user wants to add, edit, or compose an admin page, dashboard, table, form, or chart and the Builder tools cannot do it or are not loaded.
 icon: i-ph-layout
 category: Builder
 tags: [Pages, Dashboard, DMS]
@@ -9,15 +9,22 @@ tags: [Pages, Dashboard, DMS]
 # Building an AntelopeJS DMS admin page
 
 Use this when adding or reshaping an admin page (a dashboard screen) in a DMS
-module. A page is a `@RegisterPage()` controller composed of DMS components bound
-to backend routes.
+module by editing code (Code mode). A page is a `@RegisterPage()` controller
+composed of DMS components bound to backend routes. When the Builder tools are
+available and the job fits them, use `dms-builder-safe` instead.
+
+Load the core `dms-best-practices` skill first and follow it: it owns the page
+rules (blocks described backend-side, custom code only for a missing block,
+`.meta()` on every custom block) and the design-fidelity protocol to run when the
+user brings a mockup. This skill only adds the code-mode workflow.
 
 ## Workflow
 
 1. **Locate the module.** Pages belong to a module registered with
-   `RegisterModule({ id, title, description, icon, landingPage })`. Find the existing
-   `pages/module.ts` and the `pages/all.ts` barrel — every page file must be
-   re-exported from `all.ts` or it will not load.
+   `RegisterModule({ id, title, description, icon, landingPage })`. Find where the
+   module calls it and the barrel its page files are re-exported from (for example
+   `pages/index.ts` or `pages/all.ts`): a page file the barrel does not import never
+   loads.
 
 2. **Declare the page.** Create `pages/<name>/page.ts`:
    ```ts
@@ -32,10 +39,10 @@ to backend routes.
    ```
    `order` controls sidebar position. Keep one page per file.
 
-3. **Compose with shared components, not raw HTML.** Build the screen from the
-   dms-base components (`KpiCard`, `ChartCard`, `TopListCard`, `TableView`,
-   `Form`, `PeriodSelector`, `Grid`/`GridRow`). Lay them out with
-   `Grid({ gap }).child(...)`.
+3. **Compose with DMS blocks.** Build the screen from the blocks of
+   `@antelopejs/interface-dms/base/*` (`KpiCard`, `ChartCard`, `TopListCard`,
+   `TableView`, `Form`, `PeriodSelector`, `Grid`/`GridRow`…), laid out with
+   `Grid({ gap }).child(...)`, as `dms-best-practices` requires.
 
 4. **Bind to data via `fetchUrl`.** Components fetch from backend routes
    (e.g. `fetchUrl: "/<module>/metrics/kpi/actions"`). Each route is a
@@ -49,7 +56,10 @@ to backend routes.
    An aggregate route can live **on the page controller itself**, which is
    simpler than a separate controller and inherits the page's auth gate for free:
    a `@Get("/stats/…")` method taking `@Model(XModel)` and returning
-   `{ value: await model.someCount() }`. If the data comes from a builder-managed
+   `{ value: await model.someCount() }`. Since DMS 0.9 a page controller's
+   routes are served under `/dms/pages<page slug>`, not at the page's own path:
+   build the block's `fetchUrl` with `pageRoutePath(slug, "/stats/…")` from
+   `@antelopejs/interface-dms/page` (`/dms/pages/shop/board/stats/revenue`). If the data comes from a builder-managed
    resource, prefer generating it — `BuilderAddQuery` emits exactly that shape and
    keeps the AQL chain typechecked. The Builder recognizes a query by its shape
    alone (a scalar route over a resource model calling a `this.table…` chain), so
@@ -70,7 +80,7 @@ to backend routes.
 
 ## Guardrails
 
-- Re-export every new page from `pages/all.ts`.
+- Re-export every new page from the module's pages barrel.
 - A page's `module` must match an `id` passed to `RegisterModule`.
 - Prefer adding fields to an existing route payload over inventing new routes.
 - Before editing a page, make sure the host is displaying it (`NavigateToPage` —

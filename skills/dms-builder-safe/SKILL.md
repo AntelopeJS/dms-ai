@@ -12,6 +12,11 @@ In safe mode you act **only through the `Builder*` MCP tools** — raw file edit
 (`Write`/`Edit`/`Bash`) are blocked. Every op is **atomic and typecheck-gated**: on
 success it returns the file changes; on `typecheck_failed` **nothing is written**.
 
+Load the core `dms-best-practices` skill first and follow it: it decides what a
+page is made of (DMS blocks, custom only for a missing block, `.meta()` on custom
+blocks) and runs the design-fidelity protocol when the user brings a mockup. This
+skill only covers driving the Builder tools.
+
 ## Addressing
 
 - **PageRef** = the page's route, e.g. `/charts/revenue`.
