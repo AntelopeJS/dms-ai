@@ -114,7 +114,8 @@ dialog that renders the real blocks with the DMS's `DmsBlockPreview`, beside the
 variant. A DMS without that component shows the tree as JSON instead.
 
 - A tree is capped at 8 levels, 200 blocks across its variants and 64 KB of JSON; a block names a
-  registry type, never an arbitrary component.
+  registry type, never an arbitrary component, and an option it loads from (`fetchUrl`…) must be a
+  path of the site.
 - The mockup is an image the user attached in the conversation (`attachmentId`: its file name, or
   `latest`) or a same-origin path. An external URL is shown as a link, never loaded. Attached images
   are not kept on the server, so after a reload the dialog asks to attach the mockup again.
