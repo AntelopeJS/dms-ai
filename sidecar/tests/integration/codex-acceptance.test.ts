@@ -26,7 +26,8 @@ import { createNavigationCompleter } from "../../src/server/navigation-completer
 import type { AppSettings } from "../../src/state/settings-types.js";
 import { readRecordedPids } from "../helpers/codex-pids.js";
 
-// Real model turns cost money, so this suite is opt-in.
+// Real model turns cost money, so this suite is opt-in and kept out of
+// `pnpm test`: run it with `CODEX_ACCEPTANCE=1 pnpm test:acceptance`.
 const ENABLED =
   process.env.CODEX_ACCEPTANCE === "1" &&
   process.env.OPENAI_API_KEY !== undefined &&
