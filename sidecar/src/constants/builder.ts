@@ -32,7 +32,12 @@ export const BUILDER_TOOL_NAMES = [
   "BuilderAddQuery",
   "BuilderConfigureQuery",
   "BuilderRemoveQuery",
+  "BuilderConfigureProject",
+  "BuilderMapResources",
 ] as const;
+
+export const BUILDER_CONFIGURE_PROJECT_TOOL_NAME = "BuilderConfigureProject";
+export const BUILDER_MAP_RESOURCES_TOOL_NAME = "BuilderMapResources";
 
 // The catalog's sections listed one line per entry by default; the agent names
 // the entries whose full schema it needs.

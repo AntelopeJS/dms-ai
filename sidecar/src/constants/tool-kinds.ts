@@ -1,4 +1,5 @@
 import { BUILDER_TOOL_NAMES } from "./builder.js";
+import { DATABASE_TOOL_NAMES } from "./database.js";
 import { QUERY_LOGS_TOOL_NAME } from "./logs.js";
 import {
   ASK_USER_TOOL_NAME,
@@ -61,6 +62,14 @@ export const BUILDER_BLOCK_REMOVAL_TOOL_NAMES: readonly string[] = [
 
 export const BUILDER_DELETE_RESOURCE_TOOL_NAME = "BuilderDeleteResource";
 
+/**
+ * Builder edits of antelope.config.ts: they always ask, in every mode, Full auto included, and
+ * they ask from inside their own handler, after a dry run, so the card shows the real diff.
+ */
+export const BUILDER_CONFIG_TOOL_NAMES: readonly string[] = [
+  "BuilderConfigureProject",
+];
+
 /** The module's own tools that read or talk to the user, never mutate. */
 export const PROJECT_READ_TOOL_NAMES: readonly string[] = [
   GET_CURRENT_PAGE_TOOL_NAME,
@@ -69,6 +78,7 @@ export const PROJECT_READ_TOOL_NAMES: readonly string[] = [
   LIST_PAGES_TOOL_NAME,
   TYPECHECK_TOOL_NAME,
   QUERY_LOGS_TOOL_NAME,
+  ...DATABASE_TOOL_NAMES,
 ];
 
 export const ASSISTANT_TOOL_NAMES: readonly string[] = [

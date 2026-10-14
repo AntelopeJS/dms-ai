@@ -57,6 +57,7 @@ function buildMcpDeps(conversationId: string): AiMcpServerDeps {
     moduleRoots: [],
     logsClient: { getLogs: async () => [] },
     builderClient: { call: async () => undefined },
+    databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     sendToHost: () => {},
     navigationCompleter: createNavigationCompleter(),
