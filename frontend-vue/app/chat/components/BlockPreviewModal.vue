@@ -150,6 +150,7 @@ watch(open, (isOpen) => {
 
 .bp-modal__panes.is-split {
 	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	align-items: start;
 }
 
 .bp-pane {

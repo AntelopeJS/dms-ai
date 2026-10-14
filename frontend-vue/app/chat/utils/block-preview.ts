@@ -53,6 +53,13 @@ function countIn(node: PreviewNode): number {
 	return 1 + (node.children ?? []).reduce((sum, c) => sum + countIn(c), 0);
 }
 
+/** The blocks with no children under the node: what a row actually shows. */
+export function countLeaves(node: PreviewNode): number {
+	const children = node.children ?? [];
+	if (children.length === 0) return 1;
+	return children.reduce((sum, child) => sum + countLeaves(child), 0);
+}
+
 /** Every block of the tree, nested ones included. */
 export function countBlocks(tree: PreviewTree): number {
 	return rootsOf(tree).reduce((sum, node) => sum + countIn(node), 0);

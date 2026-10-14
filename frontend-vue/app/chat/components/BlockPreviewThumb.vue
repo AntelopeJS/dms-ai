@@ -8,7 +8,7 @@ import {
 	THUMBNAIL_SCALE,
 } from "../constants/block-preview";
 import type { PreviewNode, PreviewTree } from "../types/protocol";
-import { rootsOf } from "../utils/block-preview";
+import { countLeaves, rootsOf } from "../utils/block-preview";
 
 interface Props {
 	tree: PreviewTree;
@@ -27,7 +27,7 @@ const roots = computed<PreviewNode[]>(() =>
 );
 
 function cellCount(node: PreviewNode): number {
-	return Math.min(Math.max(node.children?.length ?? 0, 1), PLAN_MAX_CELLS);
+	return Math.min(countLeaves(node), PLAN_MAX_CELLS);
 }
 </script>
 

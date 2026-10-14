@@ -139,11 +139,8 @@ const meta = computed<string>(() => {
 }
 
 .bp-card__meta {
-	overflow: hidden;
-	font: 500 10.5px var(--ai-font-mono);
+	font: 500 10.5px/1.45 var(--ai-font-mono);
 	color: var(--ui-text-dimmed);
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .bp-card__open {
