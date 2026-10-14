@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.2.1
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.2.0...v0.2.1)
+
+### 🩹 Fixes
+
+- **changes:** Name change set ids with scoped {{row.X}} tokens ([#67](https://github.com/AntelopeJS/dms-ai/pull/67))
+
+### 💅 Refactors
+
+- **skills:** Drop tableDisplay from the skills catalogue ([#65](https://github.com/AntelopeJS/dms-ai/pull/65))
+
+### 🤖 CI
+
+- Speed up pipeline ([#66](https://github.com/AntelopeJS/dms-ai/pull/66))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.2.0
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.1.6...v0.2.0)
