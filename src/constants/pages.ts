@@ -52,9 +52,9 @@ export const PAGE_ROUTES = {
   USAGE_SUMMARY: `${ROUTE_PREFIX}/metrics/usage/summary?days=${USAGE_DAYS}`,
   CHANGES: `${ROUTE_PREFIX}/changes`,
   RECENT_CHANGES: `${ROUTE_PREFIX}/recent-changes`,
-  CHANGE_UNDO: `${ROUTE_PREFIX}/changes/{_id}/undo`,
-  CHANGE_UNDO_CONFIRM: `${ROUTE_PREFIX}/changes/{id}/undo-confirm`,
-  CHANGE_REDO: `${ROUTE_PREFIX}/changes/{_id}/redo`,
+  CHANGE_UNDO: `${ROUTE_PREFIX}/changes/{{row._id}}/undo`,
+  CHANGE_UNDO_CONFIRM: `${ROUTE_PREFIX}/changes/{{row._id}}/undo-confirm`,
+  CHANGE_REDO: `${ROUTE_PREFIX}/changes/{{row._id}}/redo`,
   ACTIVITY: `${ROUTE_PREFIX}/activity`,
   ACTIVITY_EXPORT: `${ROUTE_PREFIX}/activity/export.csv`,
   SKILLS_CATALOG: `${ROUTE_PREFIX}/skills/catalog`,
@@ -65,7 +65,7 @@ export const PAGE_ROUTES = {
 /** Dashboard links between the pages. */
 export const PAGE_LINKS = {
   CHANGES: `${MODULE_PAGES_PATH}/${PAGE_IDS.CHANGES}`,
-  CHANGE_SET: `${MODULE_PAGES_PATH}/${PAGE_IDS.CHANGES}?set={_id}`,
+  CHANGE_SET: `${MODULE_PAGES_PATH}/${PAGE_IDS.CHANGES}?set={{row._id}}`,
   ACTIVITY: `${MODULE_PAGES_PATH}/${PAGE_IDS.ACTIVITY}`,
   SETTINGS: `${MODULE_PAGES_PATH}/${PAGE_IDS.SETTINGS}`,
   SKILL_SETTINGS: `${MODULE_PAGES_PATH}/${PAGE_IDS.SETTINGS}#dms-form-${SETTINGS_FORM_KEY}-section-${SETTINGS_SKILLS_SECTION}`,
