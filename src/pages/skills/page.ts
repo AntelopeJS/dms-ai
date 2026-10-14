@@ -108,8 +108,6 @@ export class AISkillsPage extends PageController(
     labelKey: "name",
     searchPlaceholder: text("search"),
     displays: [{ id: CARDS_DISPLAY }],
-    tableDisplay: false,
-    defaultDisplay: CARDS_DISPLAY,
     pageSize: CARDS_PAGE_SIZE,
     defaultSort: { field: "uses30d", desc: true },
     card: {
