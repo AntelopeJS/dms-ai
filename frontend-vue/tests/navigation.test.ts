@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import { installCurrentPageTracker } from "../app/runtime/current-page";
 import { installNavigationCompleteEmitter } from "../app/runtime/navigation-complete";
