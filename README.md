@@ -234,6 +234,8 @@ pnpm --dir frontend-vue build
 pnpm --dir frontend-vue typecheck
 ```
 
+`pnpm test:node` runs every backend suite below in one go, after a single build (`DMS_PREBUILT=1` skips the build when `dist/` is already fresh, as in CI). The sidecar's opt-in Codex acceptance suite runs on its own with `CODEX_ACCEPTANCE=1 pnpm --dir sidecar test:acceptance`.
+
 `pnpm test:frontend-registration` checks backend registration and sidecar inputs with the sidecar launcher mocked, and that every page, block and child of the Assistant module is titled with `$dms_ai` keys present in both locales.
 `pnpm test:routes` drives the `/ai/*` routes against a stand-in sidecar: query translation, `503` while it is down, settings conversions, Undo stamping and the CSV export.
 `pnpm test:sidecar-lifecycle` starts a stand-in sidecar to check that a hot reload keeps it, a restart replaces it, a sidecar left by an earlier run is stopped, and Ctrl+C on the backend stops it.
