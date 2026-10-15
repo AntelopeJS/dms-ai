@@ -38,10 +38,20 @@ type Backend = (read: Read) => unknown;
 let backend: Backend;
 const reads: Read[] = [];
 const authFetch = vi.fn();
+/** The reads the page's refreshes read again, as the DMS's `refreshPageBlocks()` does. */
+const pageReads = new Set<() => Promise<void>>();
+const refreshPageBlocks = vi.fn(() => {
+	for (const refresh of pageReads) void refresh();
+});
+
+interface FakeApiDataOptions {
+	query?: MaybeRefOrGetter<Record<string, unknown>>;
+	refreshOnPageRefresh?: boolean;
+}
 
 function useApiData<T>(
 	url: MaybeRefOrGetter<string | null | undefined>,
-	options: { query?: MaybeRefOrGetter<Record<string, unknown>> } = {},
+	options: FakeApiDataOptions = {},
 ) {
 	const data = ref<T | null>(null);
 	const error = ref<unknown>(null);
@@ -64,6 +74,7 @@ function useApiData<T>(
 		}
 	}
 	watch(request, () => void refresh(), { deep: true, immediate: true });
+	if (options.refreshOnPageRefresh !== false) pageReads.add(refresh);
 	return {
 		data,
 		error,
@@ -143,7 +154,10 @@ beforeEach(() => {
 	reads.length = 0;
 	authFetch.mockReset();
 	route.query = {};
+	pageReads.clear();
+	refreshPageBlocks.mockClear();
 	vi.stubGlobal("useApiData", useApiData);
+	vi.stubGlobal("refreshPageBlocks", refreshPageBlocks);
 	vi.stubGlobal("useAuthFetch", () => ({ $authFetch: authFetch }));
 	vi.stubGlobal("useI18n", () => ({
 		t: (key: string) => key,
@@ -250,8 +264,9 @@ describe("changes view", () => {
 			).map((item) => item.value);
 		expect(items()).toEqual(["cs-1", "cs-2", "cs-3"]);
 
-		// A change set undone in the panel reads the first page again.
-		wrapper.findComponent(ChangeSetPanel).vm.$emit("changed");
+		// A change set undone in the panel refreshes the page, which reads the
+		// first page again.
+		refreshPageBlocks();
 		await flushPromises();
 		expect(items()).toEqual(["cs-1", "cs-2"]);
 	});
@@ -268,5 +283,32 @@ describe("changes view", () => {
 			url: "/ai/changes",
 			query: { offset: 0, limit: 30, scope: "vibe", filter_scope: "is:vibe" },
 		});
+	});
+});
+
+describe("change set panel", () => {
+	it("refreshes the page once a set is redone, instead of reading on its own", async () => {
+		backend = () => ({
+			changeSet: { ...summary("cs-1", 1), state: "undone" },
+			files: [],
+		});
+		authFetch.mockResolvedValue({});
+		const wrapper = mount(ChangeSetPanel, { changeSetId: "cs-1" });
+		await flushPromises();
+		expect(reads).toEqual([{ url: "/ai/changes/cs-1" }]);
+		const redo = wrapper
+			.findAllComponents({ name: "UButton" })
+			.find((button) => button.vm.$attrs.label === "dms_ai.views.changes.redo");
+		redo!.vm.$emit("click");
+		await flushPromises();
+		expect(authFetch).toHaveBeenCalledWith("/ai/changes/cs-1/redo", {
+			method: "POST",
+			body: {},
+		});
+		expect(refreshPageBlocks).toHaveBeenCalledTimes(1);
+		expect(reads).toEqual([
+			{ url: "/ai/changes/cs-1" },
+			{ url: "/ai/changes/cs-1" },
+		]);
 	});
 });

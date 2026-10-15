@@ -17,7 +17,7 @@ Codex is selectable once its CLI is installed.
 
 ## Installation
 
-Add the module to a project that already uses `@antelopejs/dms` (0.8.4 or later, with `@antelopejs/dms-frontend` 0.5.7 or later: the views read their data with its `useApiData`):
+Add the module to a project that already uses `@antelopejs/dms` 0.9 (with `@antelopejs/interface-dms` 0.7 and `@antelopejs/dms-frontend` 0.6: the views read their data with its `useApiData`, and the module's routes under `/ai/**` reach the backend through the frontend server, which the module declares as a backend prefix with the session):
 
 ```bash
 ajs project modules add @antelopejs/dms-ai

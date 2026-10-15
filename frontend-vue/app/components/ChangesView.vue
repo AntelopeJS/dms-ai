@@ -240,7 +240,6 @@ const emptyActions = computed(() =>
 					v-if="selectedId"
 					:key="selectedId"
 					:change-set-id="selectedId"
-					@changed="reload"
 				/>
 			</DmsMasterDetail>
 			<div v-if="hasMore" class="flex lg:w-[380px] lg:justify-center">

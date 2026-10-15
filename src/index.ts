@@ -5,6 +5,7 @@ import { isBuilderAvailable } from "./builder/presence";
 import { closeAllBridges } from "./channels/registry";
 import { getConfig, parseConfig, setConfig } from "./config";
 import {
+  FRONTEND_BACKEND_PROXY,
   FRONTEND_MODULE_DIR,
   FRONTEND_MODULE_NAME,
   FRONTEND_MODULE_PRIORITY,
@@ -28,6 +29,7 @@ export async function start() {
     sourcePath: path.join(__dirname, FRONTEND_MODULE_DIR),
     renderer: { name: "vue", version: "3" },
     priority: FRONTEND_MODULE_PRIORITY,
+    backendProxies: [FRONTEND_BACKEND_PROXY],
   });
   // Spawn from start(), not module load: by now every module is loaded, so
   // interface-core can report their on-disk roots and declared skills

@@ -20,20 +20,18 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits<{ changed: [] }>();
 
 const { t } = useI18n();
 const { moment } = useViewFormat();
 const assistant = useAssistant();
-// A set picked again reads again: it may have been undone or redone since.
+// A set picked again shows what was read before and reads again: it may have
+// been undone or redone since.
 const detail = useAiData<ChangeSetDetail>(
 	() => `${AI_ROUTES.changes}/${encodeURIComponent(props.changeSetId)}`,
-	{ refreshOnMount: true },
 );
-const actions = useChangeSetActions(() => {
-	void load();
-	emit("changed");
-});
+// Once a set is undone or redone, the page reads its data again: this panel,
+// the list and the assistant's status.
+const actions = useChangeSetActions(refreshPageBlocks);
 
 function load(): Promise<void> {
 	return detail.refresh();
