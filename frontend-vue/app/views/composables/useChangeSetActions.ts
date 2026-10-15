@@ -1,7 +1,7 @@
 import { ref, type Ref } from "vue";
 import { AI_ROUTES } from "../constants";
 import type { ChangeSetSummary } from "../types";
-import { classifyFailure, errorMessage } from "./useAiRequest";
+import { classifyFailure, errorMessage } from "./useAiData";
 
 export interface ChangeSetActions {
 	isBusy: Ref<boolean>;

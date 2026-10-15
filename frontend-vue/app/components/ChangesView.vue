@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useDmsRoute } from "#dms/frontend-module";
 import ChangeSetPanel from "../views/ChangeSetPanel.vue";
 import UnavailableState from "../views/UnavailableState.vue";
-import { useAiRequest } from "../views/composables/useAiRequest";
+import { useAiData } from "../views/composables/useAiData";
 import { useAssistant } from "../views/composables/useAssistant";
 import { useViewFormat } from "../views/composables/useViewFormat";
 import {
@@ -20,7 +20,6 @@ import type {
 import {
 	changeSetIcon,
 	matchesSearch,
-	readSelectedSet,
 	writeSelectedSet,
 } from "../views/utils/change-sets";
 
@@ -32,22 +31,8 @@ const { moment } = useViewFormat();
 const assistant = useAssistant();
 const route = useDmsRoute();
 
-const list = useAiRequest<ListPayload<ChangeSetSummary>>();
-const status = useAiRequest<AssistantStatus>();
-const changeSets = ref<ChangeSetSummary[]>([]);
-const total = ref(0);
 const scope = ref<ScopeFilter>("all");
 const search = ref("");
-const selectedId = ref<string | undefined>(readSelectedSet());
-// The list loads on the client only: until its first answer the server and
-// the hydrating client both draw the skeleton, never a premature empty state.
-const hasLoaded = ref(false);
-
-const SCOPE_ITEMS = computed(() => [
-	{ value: "all", label: t("dms_ai.views.changes.filter_all") },
-	{ value: "safe", label: t("dms_ai.views.changes.filter_safe") },
-	{ value: "vibe", label: t("dms_ai.views.changes.filter_code") },
-]);
 
 function listQuery(offset: number): Record<string, string | number> {
 	const query: Record<string, string | number> = {
@@ -58,46 +43,70 @@ function listQuery(offset: number): Record<string, string | number> {
 	return { ...query, scope: scope.value, filter_scope: `is:${scope.value}` };
 }
 
-async function loadPage(offset: number): Promise<void> {
-	const page = await list.run(() =>
-		$authFetch<ListPayload<ChangeSetSummary>>(AI_ROUTES.changes, {
-			query: listQuery(offset),
-		}),
-	);
-	hasLoaded.value = true;
-	if (!page) return;
-	changeSets.value =
-		offset === 0 ? page.results : [...changeSets.value, ...page.results];
-	total.value = page.total;
-	if (selectedId.value === undefined) selectedId.value = page.results[0]?.id;
-}
+// The status and the list's first page are read with the page: a server
+// render shows them, and the selected set's panel, at once.
+const status = useAiData<AssistantStatus>(AI_ROUTES.status);
+const list = useAiData<ListPayload<ChangeSetSummary>>(AI_ROUTES.changes, {
+	query: () => listQuery(0),
+});
+/** The pages "Load more" read after the first; a new first page drops them. */
+const more = ref<ChangeSetSummary[]>([]);
+const isLoadingMore = ref(false);
+const changeSets = computed(() => [
+	...(list.data.value?.results ?? []),
+	...more.value,
+]);
+const total = computed(() => list.data.value?.total ?? 0);
 
-function reload(): Promise<void> {
-	return loadPage(0);
-}
-
-function loadMore(): Promise<void> {
-	return loadPage(changeSets.value.length);
-}
-
-onMounted(() => {
-	void status.run(() => $authFetch<AssistantStatus>(AI_ROUTES.status));
-	void reload();
+watch(list.data, () => {
+	more.value = [];
 });
 
-watch(scope, reload);
+function selectedFromRoute(): string | undefined {
+	const id = route.query[CHANGE_SET_QUERY_KEY];
+	return typeof id === "string" && id ? id : undefined;
+}
 
-watch(
-	() => route.query[CHANGE_SET_QUERY_KEY],
-	(id) => {
-		if (id) selectedId.value = id;
-	},
-);
+/** The set picked here or named by the URL (`?set=`); the first one until then. */
+const pickedId = ref<string | undefined>(selectedFromRoute());
+const selectedId = computed(() => pickedId.value ?? changeSets.value[0]?.id);
+
+const SCOPE_ITEMS = computed(() => [
+	{ value: "all", label: t("dms_ai.views.changes.filter_all") },
+	{ value: "safe", label: t("dms_ai.views.changes.filter_safe") },
+	{ value: "vibe", label: t("dms_ai.views.changes.filter_code") },
+]);
+
+function reload(): Promise<void> {
+	return list.refresh();
+}
+
+/** Appends the next page; one read after a newer first page is dropped. */
+async function loadMore(): Promise<void> {
+	const first = list.data.value;
+	isLoadingMore.value = true;
+	try {
+		const page = await $authFetch<ListPayload<ChangeSetSummary>>(
+			AI_ROUTES.changes,
+			{ query: listQuery(changeSets.value.length) },
+		);
+		if (list.data.value === first)
+			more.value = [...more.value, ...page.results];
+	} catch {
+		// The list stays as it is; the button reads the page again.
+	} finally {
+		isLoadingMore.value = false;
+	}
+}
+
+watch(selectedFromRoute, (id) => {
+	if (id) pickedId.value = id;
+});
 
 function select(id: string | number | undefined): void {
 	if (id === undefined) return;
-	selectedId.value = String(id);
-	writeSelectedSet(selectedId.value);
+	pickedId.value = String(id);
+	writeSelectedSet(pickedId.value);
 }
 
 function sublabel(set: ChangeSetSummary): string {
@@ -134,7 +143,8 @@ const isCheckpointOff = computed(
 );
 const isFirstLoad = computed(
 	() =>
-		(!hasLoaded.value || list.isLoading.value) && changeSets.value.length === 0,
+		changeSets.value.length === 0 &&
+		(list.pending.value || list.status.value === "idle"),
 );
 const hasMore = computed(() => changeSets.value.length < total.value);
 const listLabel = computed(() =>
@@ -239,7 +249,7 @@ const emptyActions = computed(() =>
 					variant="outline"
 					size="sm"
 					icon="i-ph-caret-down"
-					:loading="list.isLoading.value"
+					:loading="isLoadingMore"
 					:label="t('dms_ai.views.common.load_more')"
 					@click="loadMore"
 				/>
