@@ -8,6 +8,7 @@ import {
 import type { PendingQuestion, QuestionReply } from "../agent/question-bus.js";
 import {
   isBlockRemovalTool,
+  isConfigBuilderTool,
   isDestructiveBuilderTool,
 } from "../agent/tool-kinds.js";
 import { MS_PER_MINUTE } from "../constants/settings.js";
@@ -229,6 +230,7 @@ export function onQuestionExpired(
 
 function needsUser(services: SidecarServices, toolName: string): boolean {
   if (isDestructiveBuilderTool(toolName)) return true;
+  if (isConfigBuilderTool(toolName)) return true;
   return (
     services.settingsStore.get().alwaysAskBlockRemoval &&
     isBlockRemovalTool(toolName)

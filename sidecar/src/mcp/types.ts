@@ -3,6 +3,7 @@ import type {
   QuestionRequest,
 } from "../agent/question-bus.js";
 import type { BuilderClient } from "../builder/builder-client.js";
+import type { DatabaseClient } from "../database/database-client.js";
 import type { BuilderGate } from "./tools/builder-gate.js";
 import type { MCP_SERVER_TYPE_SDK } from "../constants/mcp.js";
 import type { LogsClient } from "../logs/logs-client.js";
@@ -22,6 +23,7 @@ export interface AiMcpServerStaticDeps {
   logsClient: LogsClient;
   builderClient: BuilderClient;
   builderEnabled: boolean;
+  databaseClient: DatabaseClient;
   navigationCompleter: NavigationCompleter;
 }
 

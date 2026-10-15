@@ -297,6 +297,30 @@ const ASSISTANT_TOOLS: Record<string, ToolLexiconEntry> = {
 		target: firstOf("query", "search", "level"),
 		isReadOnly: true,
 	},
+	DatabaseConnections: {
+		verb: "list_databases",
+		icon: ICONS.DATA,
+		target: none,
+		isReadOnly: true,
+	},
+	DatabaseRelations: {
+		verb: "list_relations",
+		icon: ICONS.DATA,
+		target: firstOf("connection"),
+		isReadOnly: true,
+	},
+	DatabaseDescribe: {
+		verb: "describe_relations",
+		icon: ICONS.TABLE,
+		target: countOf("relations"),
+		isReadOnly: true,
+	},
+	DatabaseProfile: {
+		verb: "profile_relation",
+		icon: ICONS.TABLE,
+		target: firstOf("relation", "connection"),
+		isReadOnly: true,
+	},
 };
 
 const BUILDER_TOOLS: Record<string, ToolLexiconEntry> = {
@@ -385,6 +409,16 @@ const BUILDER_TOOLS: Record<string, ToolLexiconEntry> = {
 		icon: ICONS.TABLE,
 		target: firstOf("ref"),
 		isReadOnly: true,
+	},
+	BuilderConfigureProject: {
+		verb: "configure_project",
+		icon: ICONS.DATA,
+		target: countOf("steps"),
+	},
+	BuilderMapResources: {
+		verb: "map_tables",
+		icon: ICONS.TABLE,
+		target: firstOf("connection", "module"),
 	},
 	BuilderCreateResource: {
 		verb: "create_table",

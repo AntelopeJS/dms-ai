@@ -57,6 +57,7 @@ function buildContext(directory: string) {
       },
     },
     builderEnabled: false,
+    databaseClient: { get: async () => [], post: async () => ({}) },
     navigationCompleter,
   };
   return {

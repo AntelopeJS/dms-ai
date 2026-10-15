@@ -7,27 +7,16 @@ import {
 } from "../../prompts/builder.js";
 import { defineTool, type McpToolResult } from "../define-tool.js";
 import { type BuilderGate, gateBuilderTools } from "./builder-gate.js";
+import {
+  buildProjectTools,
+  opResult,
+  TARGET_MODULE,
+} from "./builder-project.js";
 import { type CatalogSelection, shapeCatalog } from "./builder-catalog.js";
 
 export interface BuilderToolsDeps {
   builderClient: BuilderClient;
   gate?: BuilderGate;
-}
-
-function isFailedOp(value: unknown): boolean {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    (value as Record<string, unknown>).ok === false
-  );
-}
-
-// An `{ ok: false }` answer is a failed call, so the provider and the activity
-// record it as one rather than as a success carrying an error.
-function opResult(value: unknown): McpToolResult {
-  const text = JSON.stringify(value);
-  if (!isFailedOp(value)) return { content: [{ type: "text", text }] };
-  return { content: [{ type: "text", text }], isError: true };
 }
 
 function note(description: string): string {
@@ -180,6 +169,7 @@ function buildUngatedBuilderTools(deps: BuilderToolsDeps) {
     ...buildBlockTools(run),
     ...buildResourceTools(run),
     ...buildQueryTools(run),
+    ...buildProjectTools(deps.builderClient, deps.gate),
   ];
 }
 
@@ -234,6 +224,7 @@ function buildPageTools(run: BuilderRun) {
         icon: z.string().optional(),
         order: z.number().optional(),
         description: z.string().optional(),
+        module: TARGET_MODULE,
       },
       (input: Record<string, unknown>) => run("CreatePage", [input]),
     ),
@@ -341,6 +332,7 @@ function buildBlockTools(run: BuilderRun) {
         parent: z.string().optional(),
         icon: z.string().optional(),
         order: z.number().optional(),
+        module: TARGET_MODULE,
       },
       (input: Record<string, unknown>) => run("CreateCategory", [input]),
     ),
@@ -404,6 +396,7 @@ function buildResourceTools(run: BuilderRun) {
         seeds: z.array(z.record(z.string(), z.unknown())).optional(),
         location: RESOURCE_LOCATION.optional(),
         routes: z.array(RESOURCE_ROUTE).min(1).optional(),
+        module: TARGET_MODULE,
       },
       async (input: Record<string, unknown>) =>
         hasExprSentinel(input) ? exprRefusal() : run("CreateResource", [input]),
