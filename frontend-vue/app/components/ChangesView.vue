@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { useDmsRoute } from "#dms/frontend-module";
 import ChangeSetPanel from "../views/ChangeSetPanel.vue";
 import UnavailableState from "../views/UnavailableState.vue";
-import { useAiData } from "../views/composables/useAiData";
+import { useAiData, useAiPagedData } from "../views/composables/useAiData";
 import { useAssistant } from "../views/composables/useAssistant";
 import { useViewFormat } from "../views/composables/useViewFormat";
 import {
@@ -26,7 +26,6 @@ import {
 type ScopeFilter = ScopeId | "all";
 
 const { t } = useI18n();
-const { $authFetch } = useAuthFetch();
 const { moment } = useViewFormat();
 const assistant = useAssistant();
 const route = useDmsRoute();
@@ -43,24 +42,36 @@ function listQuery(offset: number): Record<string, string | number> {
 	return { ...query, scope: scope.value, filter_scope: `is:${scope.value}` };
 }
 
-// The status and the list's first page are read with the page: a server
-// render shows them, and the selected set's panel, at once.
-const status = useAiData<AssistantStatus>(AI_ROUTES.status);
-const list = useAiData<ListPayload<ChangeSetSummary>>(AI_ROUTES.changes, {
-	query: () => listQuery(0),
-});
-/** The pages "Load more" read after the first; a new first page drops them. */
-const more = ref<ChangeSetSummary[]>([]);
-const isLoadingMore = ref(false);
-const changeSets = computed(() => [
-	...(list.data.value?.results ?? []),
-	...more.value,
-]);
-const total = computed(() => list.data.value?.total ?? 0);
+type ChangesPage = ListPayload<ChangeSetSummary>;
 
-watch(list.data, () => {
-	more.value = [];
-});
+/** The sets the pages hold, in order. */
+function loadedCount(pages: ChangesPage[]): number {
+	return pages.reduce((count, page) => count + page.results.length, 0);
+}
+
+// The status and the list's first page are read with the page: a server
+// render shows them, and the selected set's panel, at once. "Load more"
+// appends a page under the scope's key; the page's refreshes read every
+// page loaded again.
+const status = useAiData<AssistantStatus>(AI_ROUTES.status);
+const list = useAiPagedData<ChangesPage, number>(
+	() => `dms-ai:changes:${scope.value}`,
+	({ $authFetch, cursor, signal }) =>
+		$authFetch<ChangesPage>(AI_ROUTES.changes, {
+			query: listQuery(cursor ?? 0),
+			signal,
+		}),
+	{
+		nextCursor: (page, pages) => {
+			const loaded = loadedCount(pages);
+			return page.results.length > 0 && loaded < page.total ? loaded : null;
+		},
+	},
+);
+const changeSets = computed(() =>
+	list.pages.value.flatMap((page) => page.results),
+);
+const total = computed(() => list.pages.value.at(-1)?.total ?? 0);
 
 function selectedFromRoute(): string | undefined {
 	const id = route.query[CHANGE_SET_QUERY_KEY];
@@ -81,22 +92,9 @@ function reload(): Promise<void> {
 	return list.refresh();
 }
 
-/** Appends the next page; one read after a newer first page is dropped. */
-async function loadMore(): Promise<void> {
-	const first = list.data.value;
-	isLoadingMore.value = true;
-	try {
-		const page = await $authFetch<ListPayload<ChangeSetSummary>>(
-			AI_ROUTES.changes,
-			{ query: listQuery(changeSets.value.length) },
-		);
-		if (list.data.value === first)
-			more.value = [...more.value, ...page.results];
-	} catch {
-		// The list stays as it is; the button reads the page again.
-	} finally {
-		isLoadingMore.value = false;
-	}
+/** Appends the next page; a failure keeps the sets listed and the button. */
+function loadMore(): Promise<void> {
+	return list.loadMore();
 }
 
 watch(selectedFromRoute, (id) => {
@@ -146,7 +144,7 @@ const isFirstLoad = computed(
 		changeSets.value.length === 0 &&
 		(list.pending.value || list.status.value === "idle"),
 );
-const hasMore = computed(() => changeSets.value.length < total.value);
+const hasMore = computed(() => list.hasMore.value);
 const listLabel = computed(() =>
 	t("dms_ai.views.changes.list_label", { count: total.value }),
 );
@@ -248,7 +246,7 @@ const emptyActions = computed(() =>
 					variant="outline"
 					size="sm"
 					icon="i-ph-caret-down"
-					:loading="isLoadingMore"
+					:loading="list.loadingMore.value"
 					:label="t('dms_ai.views.common.load_more')"
 					@click="loadMore"
 				/>

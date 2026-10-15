@@ -1,3 +1,4 @@
+import { type Ref, readonly, ref, watch } from "vue";
 import { createBackoff, nextDelay, resetBackoff } from "./backoff";
 import {
 	SIDECAR_POLL_DELAYS_MS,
@@ -38,31 +39,52 @@ export interface SidecarStatusController {
 	dispose: () => void;
 }
 
-export type FetchSidecarInfo = () => Promise<Partial<SidecarInfo>>;
+/**
+ * The read of the sidecar's info the controller follows: `useApiData` in the
+ * dashboard, opened with `immediate: false` and polled every `interval`.
+ */
+/** The backend's sidecar info, as far as the tab reads it. */
+export type SidecarInfoPayload = Partial<SidecarInfo>;
 
-async function fetchInfo(
-	fetchDetails: FetchSidecarInfo,
-): Promise<SidecarInfo | null> {
-	try {
-		const body = await fetchDetails();
-		return {
-			isRunning: body.isRunning === true,
-			hasGivenUp: body.hasGivenUp === true,
-			disabled: body.disabled === true,
-		};
-	} catch {
-		return null;
-	}
+export interface SidecarInfoRead {
+	data: Readonly<Ref<SidecarInfoPayload | null>>;
+	error: Readonly<Ref<unknown>>;
+	pending: Readonly<Ref<boolean>>;
+	/** The first read. */
+	execute: () => Promise<void>;
+	/** Reads the info again now. */
+	refresh: () => Promise<void>;
+}
+
+/**
+ * Opens the info read, polled every `interval` ms while it is above 0: the
+ * controller raises it while the sidecar comes back, and sets it to 0 once
+ * the sidecar answers or gives up.
+ */
+export type OpenSidecarInfoRead = (
+	interval: Readonly<Ref<number>>,
+) => SidecarInfoRead;
+
+/** The info of the read's last answer, or null when it failed. */
+function readInfo(read: SidecarInfoRead): SidecarInfo | null {
+	const body = read.data.value;
+	if (read.error.value || !body) return null;
+	return {
+		isRunning: body.isRunning === true,
+		hasGivenUp: body.hasGivenUp === true,
+		disabled: body.disabled === true,
+	};
 }
 
 export function createSidecarStatusController(
-	fetchDetails: FetchSidecarInfo,
+	openRead: OpenSidecarInfoRead,
 ): SidecarStatusController {
 	const backoff = createBackoff();
 	const subscribers = new Set<(status: SidecarStatus) => void>();
+	const pollInterval = ref(0);
 	let status: SidecarStatus = SIDECAR_STATUS_CONNECTING;
-	let pollTimer: ReturnType<typeof setTimeout> | null = null;
 	let disposed = false;
+	const read = openRead(readonly(pollInterval));
 
 	function notify(): void {
 		for (const cb of subscribers) cb(status);
@@ -74,18 +96,8 @@ export function createSidecarStatusController(
 		notify();
 	}
 
-	function schedulePoll(): void {
-		if (disposed || pollTimer !== null) return;
-		const delay = nextDelay(backoff, SIDECAR_POLL_DELAYS_MS);
-		pollTimer = setTimeout(() => {
-			pollTimer = null;
-			void poll();
-		}, delay);
-	}
-
-	async function poll(): Promise<void> {
-		if (disposed) return;
-		handleInfo(await fetchInfo(fetchDetails));
+	function keepPolling(): void {
+		pollInterval.value = nextDelay(backoff, SIDECAR_POLL_DELAYS_MS);
 	}
 
 	function handleInfo(info: SidecarInfo | null): void {
@@ -93,31 +105,56 @@ export function createSidecarStatusController(
 		// Probe itself failed (backend momentarily unreachable): keep waiting.
 		if (info === null) {
 			setStatus(SIDECAR_STATUS_REVIVING);
-			schedulePoll();
+			keepPolling();
 			return;
 		}
 		if (info.hasGivenUp) {
+			pollInterval.value = 0;
 			setStatus(SIDECAR_STATUS_UNAVAILABLE);
 			return;
 		}
 		if (info.isRunning) {
 			resetBackoff(backoff);
+			pollInterval.value = 0;
 			setStatus(SIDECAR_STATUS_CONNECTED);
 			return;
 		}
 		// Down but not terminal — the probe already asked the backend to respawn;
 		// keep polling until it reports the sidecar running.
 		setStatus(SIDECAR_STATUS_REVIVING);
-		schedulePoll();
+		keepPolling();
+	}
+
+	// Each answer, a probe's or the polling's, moves the status.
+	const stopFollowing = watch(
+		read.pending,
+		(isPending, wasPending) => {
+			if (wasPending && !isPending) handleInfo(readInfo(read));
+		},
+		{ flush: "sync" },
+	);
+
+	function dispose(): void {
+		disposed = true;
+		pollInterval.value = 0;
+		stopFollowing();
+		subscribers.clear();
+	}
+
+	function probeAgain(): void {
+		if (disposed) return;
+		resetBackoff(backoff);
+		setStatus(SIDECAR_STATUS_REVIVING);
+		void read.refresh();
 	}
 
 	return {
 		init: async (): Promise<boolean> => {
-			const info = await fetchInfo(fetchDetails);
-			if (info === null) return false;
-			if (info.disabled) return false;
-			handleInfo(info);
-			return true;
+			await read.execute();
+			const info = readInfo(read);
+			if (info !== null && !info.disabled) return true;
+			dispose();
+			return false;
 		},
 		getStatus: () => status,
 		subscribe: (cb) => {
@@ -128,29 +165,14 @@ export function createSidecarStatusController(
 			};
 		},
 		reportChannelDown: () => {
-			if (disposed) return;
 			if (status !== SIDECAR_STATUS_CONNECTED) return;
 			// Surface the drop right away (amber dot + spinner) instead of waiting on
 			// the re-probe: that probe awaits a respawn and can take a second or two,
-			// during which the icon would otherwise look healthy. poll() flips back
-			// to connected once the sidecar answers again.
-			resetBackoff(backoff);
-			setStatus(SIDECAR_STATUS_REVIVING);
-			void poll();
+			// during which the icon would otherwise look healthy. The answer flips
+			// back to connected once the sidecar answers again.
+			probeAgain();
 		},
-		retry: () => {
-			if (disposed) return;
-			resetBackoff(backoff);
-			setStatus(SIDECAR_STATUS_REVIVING);
-			void poll();
-		},
-		dispose: () => {
-			disposed = true;
-			if (pollTimer !== null) {
-				clearTimeout(pollTimer);
-				pollTimer = null;
-			}
-			subscribers.clear();
-		},
+		retry: probeAgain,
+		dispose,
 	};
 }

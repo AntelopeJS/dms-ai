@@ -70,6 +70,7 @@ import { runWhenLoggedIn } from "../runtime/session-gate";
 import { installToggleShortcut } from "../runtime/shortcuts";
 import {
 	createSidecarStatusController,
+	type SidecarInfoPayload,
 	type SidecarStatus,
 	type SidecarStatusController,
 } from "../runtime/sidecar-status";
@@ -395,8 +396,13 @@ function createRuntime(
 	const holds = createStreamHolds();
 	const sidecarStatus = followSidecarStatus(controller, client);
 	const activity = createAssistantActivity({
-		fetchStatus: () =>
-			deps.$authFetch(STATUS_PATH) as Promise<AssistantStatusPayload>,
+		// The application's read: polled for as long as the app runs, while
+		// the interval says so.
+		readStatus: (interval) =>
+			useApiData<AssistantStatusPayload>(STATUS_PATH, {
+				refreshInterval: interval,
+				refreshOnPageRefresh: false,
+			}),
 		chat: chat.transport,
 		shouldPoll: () =>
 			!panel.isOpen.value ||
@@ -413,7 +419,6 @@ function createRuntime(
 		activity,
 		currentPage,
 	});
-	void activity.refresh();
 	const stops = [
 		installToggleShortcut({ onToggle: panel.toggle }),
 		followPanel({ panel, activity, holds }, client),
@@ -462,8 +467,13 @@ async function startAssistant(
 		devReload: useDevReload(),
 		router: useDmsRouter(),
 	};
-	const controller = createSidecarStatusController(() =>
-		deps.$authFetch(SIDECAR_INFO_PATH),
+	// Read once the gate opens, then polled while the sidecar comes back.
+	const controller = createSidecarStatusController((interval) =>
+		useApiData<SidecarInfoPayload>(SIDECAR_INFO_PATH, {
+			immediate: false,
+			refreshInterval: interval,
+			refreshOnPageRefresh: false,
+		}),
 	);
 	if (!(await controller.init())) {
 		context.runWithContext(() => unregisterSidePanel(SIDE_PANEL_ID));

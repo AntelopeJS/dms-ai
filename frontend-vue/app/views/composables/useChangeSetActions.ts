@@ -22,9 +22,12 @@ function changeSetPath(changeSetId: string, action: string): string {
 
 /**
  * Undo and redo of a change set, each confirmed by a toast; `onChanged` runs
- * once the sidecar has restored the files.
+ * once the sidecar has restored the files, and the action stays busy until
+ * it resolves: the set shows its new state before it can be acted on again.
  */
-export function useChangeSetActions(onChanged: () => void): ChangeSetActions {
+export function useChangeSetActions(
+	onChanged: () => Promise<void>,
+): ChangeSetActions {
 	const { t } = useI18n();
 	const toast = useToast();
 	const { $authFetch } = useAuthFetch();
@@ -56,7 +59,7 @@ export function useChangeSetActions(onChanged: () => void): ChangeSetActions {
 				color: AI_COLOR,
 				icon: "i-ph-arrow-clockwise",
 			});
-			onChanged();
+			await onChanged();
 		} catch (error) {
 			failureToast(error);
 		} finally {
@@ -88,7 +91,7 @@ export function useChangeSetActions(onChanged: () => void): ChangeSetActions {
 				},
 			],
 		});
-		onChanged();
+		await onChanged();
 	}
 
 	async function undo(changeSet: ChangeSetSummary): Promise<void> {
