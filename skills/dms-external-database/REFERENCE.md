@@ -81,5 +81,10 @@ erp · postgresql 17.5 · role erp_reader (read only) · 42 relations, 31 mappab
   declaration.
 - Key columns are added for you.
 - A relation column's target must be in the same call, with a `label`.
-- Resource refs are `<connection>/<schema>/<relation>` in kebab case, for example
-  `erp/sales/audit-log`. Stats queries use them.
+- Two spellings, never mixed:
+  - a relation is `schema.name` (`erp.audit_log`) in `relation` fields;
+  - a resource ref is `<connection>/<schema>/<relation>` in kebab case (`erp/erp/audit-log`) in
+    `BuilderAddQuery`'s `resource`.
+
+  Every mapped relation has a ref, `tableView: false` ones included. MapResources answers each
+  one's ref.

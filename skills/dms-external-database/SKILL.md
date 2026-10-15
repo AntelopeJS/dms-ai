@@ -96,16 +96,26 @@ again. Generate nothing before Run.
 
 1. One `BuilderMapResources` call for every relation in the proposal, TableViews and stats-only
    relations alike, with the module and connection of step 1 (REFERENCE.md *Mapping*).
-   - It answers `leftOut`: carry those into your report.
-   - On `invalid_config`, fix the choice it names and call again.
-2. Per stats page, `BuilderCreatePage` with `module` set to the generated module, under the
-   connection's category. Then `BuilderAddQuery` per query, and `BuilderAddBlock` per block with
+   - In a field's `relation`, name the target as `schema.name` (`erp.customers`).
+   - It answers:
+     - each relation's `ref`, which queries name it by: stats-only relations have one too;
+     - `category`, the connection's category ref (`pages.<connection>`);
+     - `leftOut`: carry those into your report.
+   - On `invalid_config`, fix the choice it names and call again with the same relations: a
+     refused call writes nothing.
+   - A relation that was mapped is refused if sent again. To add relations later, send only the
+     new ones.
+2. Per stats page, `BuilderCreatePage` with `module` set to the generated module and `category`
+   set to the `category` MapResources answered. Then `BuilderAddQuery` per query, and `BuilderAddBlock` per block with
    the query's route as its `fetchUrl`, as in the `dms-builder-safe` skill's *Queries*.
    - Queries read the mapped resources by their refs (`<connection>/<schema>/<relation>`).
 
 ## 7. Check
 
 - `NavigateToPage` to each page.
+  - The generated module reloads after it is written. If a page is not there yet
+    (`unknown_route`), read `QueryLogs` once for the reload or its error, then report what you saw.
+  - Do not retry in a loop.
 - `QueryLogs` for registration warnings (lossy fields, unserved indexes) and for the errors of
   the routes the pages called.
 
