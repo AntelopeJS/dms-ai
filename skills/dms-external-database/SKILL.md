@@ -26,7 +26,9 @@ Call `DatabaseConnections`.
 - **Nothing is listed**: the project is not connected yet. Propose one
   `BuilderConfigureProject` call with the four steps in REFERENCE.md *Connecting*. Pick the
   names with the integrator, for example connection `erp`, provider module `postgres-erp`,
-  generated module `erp-tables`, variable `ERP_DATABASE_URL`. The user approves the diff.
+  generated module `erp-tables`, variable `ERP_DATABASE_URL`. Ask the integrator for the version
+  of `@antelopejs-private/postgres` to install: you cannot look it up, and the project does not
+  use the module yet. The user approves the diff.
   - Then tell the integrator to put the URL in `.env` (`ERP_DATABASE_URL=postgres://…`) and
     restart the project. Every deployed environment needs the same variable, set where that
     environment keeps its secrets, never in git.
