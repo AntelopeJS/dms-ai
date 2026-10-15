@@ -97,6 +97,8 @@ again. Generate nothing before Run.
 1. One `BuilderMapResources` call for every relation in the proposal, TableViews and stats-only
    relations alike, with the module and connection of step 1 (REFERENCE.md *Mapping*).
    - In a field's `relation`, name the target as `schema.name` (`erp.customers`).
+   - The target needs a `label`, the column relation columns show: its name or title column, or
+     its key column when it has no text column worth showing.
    - It answers:
      - each relation's `ref`, which queries name it by: stats-only relations have one too;
      - `category`, the connection's category ref (`pages.<connection>`);
@@ -112,10 +114,12 @@ again. Generate nothing before Run.
 
 ## 7. Check
 
-- `NavigateToPage` to each page.
-  - The generated module reloads after it is written. If a page is not there yet
-    (`unknown_route`), read `QueryLogs` once for the reload or its error, then report what you saw.
-  - Do not retry in a loop.
+- Navigate only once every page is written. Pages register when the host reloads the generated
+  module: under `ajs project dev` its watcher rebuilds the module after your writes.
+- `NavigateToPage` to each page. If it answers `unknown_route`, the reload has not happened.
+  - Read `QueryLogs` once, for a reload error.
+  - Then tell the integrator the pages appear once the module reloads. Do not wait, retry or
+    investigate further.
 - `QueryLogs` for registration warnings (lossy fields, unserved indexes) and for the errors of
   the routes the pages called.
 
