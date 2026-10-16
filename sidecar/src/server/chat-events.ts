@@ -1,6 +1,7 @@
 import type { PendingRequest } from "../agent/permission-bus.js";
 import type { PendingQuestion } from "../agent/question-bus.js";
 import { getBuilderAvailable } from "../builder/capability.js";
+import { PREVIEW_IMAGE_MIME_PREFIX } from "../constants/preview.js";
 import {
   type AskQuestionEventType,
   type ConversationListEventType,
@@ -10,6 +11,7 @@ import {
   type PermissionRequestEventType,
   type SettingsUpdateEventType,
 } from "../protocol/events.js";
+import type { BlockPreviewType } from "../protocol/preview.js";
 import { getProviderAvailability } from "../providers/registry.js";
 import type {
   Notice,
@@ -151,6 +153,40 @@ export function emitNotice(
     conversationId,
     notice,
   });
+}
+
+/** Stores a block preview in the transcript and shows it live. */
+export function emitBlockPreview(
+  services: SidecarServices,
+  conversationId: string,
+  preview: BlockPreviewType,
+): void {
+  services.conversationStore.appendMessage(conversationId, {
+    role: "block_preview",
+    content: "",
+    preview,
+    timestampMs: preview.timestampMs,
+  });
+  services.chatSocketRegistry.send(conversationId, {
+    type: EVENT_TYPES.BLOCK_PREVIEW,
+    conversationId,
+    preview,
+  });
+}
+
+/** Names of the images the user attached in the conversation, oldest first. */
+export function listAttachedImages(
+  services: SidecarServices,
+  conversationId: string,
+): string[] {
+  const messages =
+    services.conversationStore.get(conversationId)?.messages ?? [];
+  return messages
+    .flatMap((message) => message.attachments ?? [])
+    .filter((attachment) =>
+      attachment.mimeType.startsWith(PREVIEW_IMAGE_MIME_PREFIX),
+    )
+    .map((attachment) => attachment.name);
 }
 
 export function buildPermissionRequestEvent(

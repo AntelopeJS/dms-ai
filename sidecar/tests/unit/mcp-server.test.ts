@@ -13,6 +13,7 @@ import {
   FIND_PAGES_TOOL_NAME,
   LIST_PAGES_TOOL_NAME,
 } from "../../src/constants/pages.js";
+import { PREVIEW_BLOCKS_TOOL_NAME } from "../../src/constants/preview.js";
 import { TYPECHECK_TOOL_NAME } from "../../src/constants/typecheck.js";
 import type { LogsClient } from "../../src/logs/logs-client.js";
 import { createAiMcpServer } from "../../src/mcp/sdk-binding.js";
@@ -54,6 +55,8 @@ function buildDeps() {
     conversationId: "conv-test",
     requestQuestion: async () => null,
     getLastEditedFile: () => undefined,
+    showPreview: () => {},
+    listAttachedImages: () => [],
   };
 }
 
@@ -93,6 +96,12 @@ describe("createAiMcpServer", () => {
     const server = createAiMcpServer(buildDeps());
     const listed = await listRegisteredTools(server);
     expect(listed).toContain(ASK_USER_TOOL_NAME);
+  });
+
+  it("registers the preview_blocks tool", async () => {
+    const server = createAiMcpServer(buildDeps());
+    const listed = await listRegisteredTools(server);
+    expect(listed).toContain(PREVIEW_BLOCKS_TOOL_NAME);
   });
 
   it("registers the typecheck tool", async () => {

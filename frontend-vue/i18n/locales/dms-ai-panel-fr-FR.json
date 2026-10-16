@@ -368,6 +368,27 @@
 					"close": "Fermer",
 					"not_running": "L'assistant ne tourne pas dans cet onglet."
 				}
+			},
+			"preview": {
+				"eyebrow": "Aperçu de blocs",
+				"open": "Aperçu",
+				"open_aria": "Ouvrir l'aperçu des blocs : {title}",
+				"blocks": "{count} bloc | {count} blocs",
+				"variants": "{count} variante | {count} variantes",
+				"with_mockup": "face à votre maquette",
+				"proposed": "Proposé",
+				"variants_aria": "Variantes",
+				"mockup": "Votre maquette",
+				"dms_blocks": "Blocs DMS",
+				"mockup_missing": "{name} a été jointe avant le rechargement du chat et ne peut plus être affichée. Joignez-la à nouveau pour comparer côte à côte.",
+				"mockup_external": "Image externe, non chargée dans le tableau de bord.",
+				"mockup_open": "Ouvrir la maquette",
+				"fallback_title": "Cette version du DMS ne sait pas afficher d'aperçu de blocs",
+				"fallback_body": "Mettez à jour le DMS pour voir les vrais blocs. Voici l'arbre envoyé par l'assistant.",
+				"custom_sketch": "Esquisse sur mesure — pas un bloc DMS",
+				"sketch_badge": "Esquisse",
+				"with_sketch": "esquisse sur mesure",
+				"sketch_frame": "Esquisse statique d'un composant sur mesure : {caption}"
 			}
 		},
 		"tools": {
@@ -419,7 +440,8 @@
 			"add_query": "Ajouter une requête",
 			"configure_query": "Configurer la requête",
 			"remove_query": "Retirer la requête",
-			"search_tools": "Charger des outils"
+			"search_tools": "Charger des outils",
+			"show_preview": "Montrer un aperçu"
 		}
 	}
 }

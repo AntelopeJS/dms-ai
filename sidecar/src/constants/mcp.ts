@@ -1,6 +1,7 @@
 import { BUILDER_TOOL_NAMES } from "./builder.js";
 import { QUERY_LOGS_TOOL_NAME } from "./logs.js";
 import { FIND_PAGES_TOOL_NAME, LIST_PAGES_TOOL_NAME } from "./pages.js";
+import { PREVIEW_BLOCKS_TOOL_NAME } from "./preview.js";
 import { REQUEST_TIMEOUT_MINUTES } from "../state/settings-types.js";
 import { QUESTION_TIMEOUT_MS } from "./questions.js";
 import { MS_PER_MINUTE } from "./settings.js";
@@ -57,7 +58,7 @@ export const ASK_USER_QUESTION_REDIRECT_MESSAGE = `AskUserQuestion is not availa
 
 // Explicit allowlist of the module's own MCP tools that are safe to auto-allow
 // without a permission prompt: none of them mutate host state (page reads and
-// navigation, listing pages, asking the user, running tsc for a typecheck,
+// navigation, listing pages, asking the user, showing a preview, running tsc for a typecheck,
 // querying logs). Keyed by the fully qualified name the SDK presents to the
 // model. Any new dms-ai tool is NOT auto-allowed until it is added here
 // deliberately.
@@ -68,6 +69,7 @@ export const FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES: ReadonlySet<string> = new Set(
     FIND_PAGES_TOOL_NAME,
     LIST_PAGES_TOOL_NAME,
     ASK_USER_TOOL_NAME,
+    PREVIEW_BLOCKS_TOOL_NAME,
     TYPECHECK_TOOL_NAME,
     QUERY_LOGS_TOOL_NAME,
     ...BUILDER_TOOL_NAMES,
