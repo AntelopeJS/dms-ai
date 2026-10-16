@@ -13,13 +13,13 @@ import type {
 	BlockPreviewReference,
 	PreviewNode,
 	PreviewTree,
+	PreviewView,
 } from "../types/protocol";
 
-export interface BlockPreviewTab {
+export interface BlockPreviewTab extends PreviewView {
 	value: string;
-	/** The variant's own label; null for the main tree, labelled by the chat. */
+	/** The view's own label; null for an unlabelled main view, named by the chat. */
 	label: string | null;
-	tree: PreviewTree;
 }
 
 /**
@@ -61,13 +61,15 @@ export function countLeaves(node: PreviewNode): number {
 	return children.reduce((sum, child) => sum + countLeaves(child), 0);
 }
 
-/** Every block of the tree, nested ones included. */
-export function countBlocks(tree: PreviewTree): number {
+/** Every block of the tree, nested ones included; none without a tree. */
+export function countBlocks(tree: PreviewTree | undefined): number {
+	if (tree === undefined) return 0;
 	return rootsOf(tree).reduce((sum, node) => sum + countIn(node), 0);
 }
 
 /** The block types at the top of the tree, for the card's subtitle. */
-export function topBlockTypes(tree: PreviewTree): string[] {
+export function topBlockTypes(tree: PreviewTree | undefined): string[] {
+	if (tree === undefined) return [];
 	const names = rootsOf(tree).map(
 		(node) => node.type ?? node.componentName ?? "",
 	);
@@ -79,11 +81,22 @@ export function previewTabs(preview: BlockPreview): BlockPreviewTab[] {
 		value: `${BLOCK_PREVIEW_VARIANT_TAB_PREFIX}${index}`,
 		label: variant.label,
 		tree: variant.tree,
+		sketch: variant.sketch,
 	}));
-	return [
-		{ value: BLOCK_PREVIEW_MAIN_TAB, label: null, tree: preview.tree },
-		...variants,
-	];
+	const main = {
+		value: BLOCK_PREVIEW_MAIN_TAB,
+		label: preview.label ?? null,
+		tree: preview.tree,
+		sketch: preview.sketch,
+	};
+	return [main, ...variants];
+}
+
+/** Whether any view of the preview proposes a custom sketch. */
+export function hasSketch(preview: BlockPreview): boolean {
+	return [preview, ...(preview.variants ?? [])].some(
+		(view) => view.sketch !== undefined,
+	);
 }
 
 export function formatTree(tree: PreviewTree): string {

@@ -16,6 +16,8 @@ export const REMOTE_URL = /^https?:\/\//i;
 /** Width the card's live thumbnail is laid out at before it is scaled down. */
 export const THUMBNAIL_CANVAS_WIDTH_PX = 560;
 export const THUMBNAIL_SCALE = 0.2;
+/** Height a sketch is drawn at in the thumbnail, before the scale. */
+export const THUMBNAIL_SKETCH_HEIGHT_PX = 360;
 
 /** Most block types the card names before it counts the rest. */
 export const CARD_TYPE_LIMIT = 2;

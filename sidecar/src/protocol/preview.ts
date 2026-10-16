@@ -2,11 +2,15 @@ import { z } from "zod";
 import {
   PREVIEW_MAX_CAPTION_CHARS,
   PREVIEW_MAX_DESCRIPTION_CHARS,
+  PREVIEW_MAX_JSON_BYTES,
   PREVIEW_MAX_LABEL_CHARS,
   PREVIEW_MAX_ROOTS,
   PREVIEW_MAX_TITLE_CHARS,
   PREVIEW_MAX_URL_CHARS,
   PREVIEW_MAX_VARIANTS,
+  PREVIEW_SKETCH_DEFAULT_HEIGHT_PX,
+  PREVIEW_SKETCH_MAX_HEIGHT_PX,
+  PREVIEW_SKETCH_MIN_HEIGHT_PX,
 } from "../constants/preview.js";
 
 /**
@@ -57,13 +61,55 @@ export const PreviewTreeSchema = z
   ])
   .describe("One block, or a list of blocks stacked in order.");
 
+/**
+ * A custom component the agent proposes, drawn as static HTML and CSS in a
+ * sandboxed frame next to the DMS option. Never a DMS block.
+ */
+export const PreviewSketchSchema = z
+  .object({
+    html: z
+      .string()
+      .min(1)
+      .max(PREVIEW_MAX_JSON_BYTES)
+      .describe(
+        "Body markup of the component. Static only: no script, event handler or external resource; images and fonts as data: URLs.",
+      ),
+    css: z
+      .string()
+      .max(PREVIEW_MAX_JSON_BYTES)
+      .optional()
+      .describe(
+        "Styles for the markup. The `--sketch-*` variables (surface, text, border, accent, radius, font) follow the dashboard's light or dark theme.",
+      ),
+    caption: z
+      .string()
+      .max(PREVIEW_MAX_CAPTION_CHARS)
+      .optional()
+      .describe(
+        "One line on what the sketch shows, e.g. `Revenue card with a sparkline`.",
+      ),
+    height: z
+      .number()
+      .int()
+      .min(PREVIEW_SKETCH_MIN_HEIGHT_PX)
+      .max(PREVIEW_SKETCH_MAX_HEIGHT_PX)
+      .optional()
+      .describe(
+        `Frame height in pixels; the sketch scrolls past it. Default ${PREVIEW_SKETCH_DEFAULT_HEIGHT_PX}.`,
+      ),
+  })
+  .describe(
+    "A proposed custom component as static HTML and CSS, shown beside the DMS option and labelled as not a DMS block.",
+  );
+
 export const PreviewVariantSchema = z.object({
   label: z
     .string()
     .min(1)
     .max(PREVIEW_MAX_LABEL_CHARS)
-    .describe("Tab label, e.g. `Compact` or `With chart`."),
-  tree: PreviewTreeSchema,
+    .describe("Tab label, e.g. `Compact` or `Custom sketch`."),
+  tree: PreviewTreeSchema.optional(),
+  sketch: PreviewSketchSchema.optional(),
 });
 
 export const BlockPreviewReferenceSchema = z.object({
@@ -76,7 +122,9 @@ export const BlockPreviewSchema = z.object({
   id: z.string(),
   title: z.string().max(PREVIEW_MAX_TITLE_CHARS),
   description: z.string().max(PREVIEW_MAX_DESCRIPTION_CHARS).optional(),
-  tree: PreviewTreeSchema,
+  label: z.string().max(PREVIEW_MAX_LABEL_CHARS).optional(),
+  tree: PreviewTreeSchema.optional(),
+  sketch: PreviewSketchSchema.optional(),
   reference: BlockPreviewReferenceSchema.optional(),
   variants: z.array(PreviewVariantSchema).max(PREVIEW_MAX_VARIANTS).optional(),
   timestampMs: z.number(),
@@ -84,6 +132,7 @@ export const BlockPreviewSchema = z.object({
 
 export type PreviewNodeType = z.infer<typeof PreviewNodeSchema>;
 export type PreviewTreeType = z.infer<typeof PreviewTreeSchema>;
+export type PreviewSketchType = z.infer<typeof PreviewSketchSchema>;
 export type BlockPreviewType = z.infer<typeof BlockPreviewSchema>;
 export type BlockPreviewReferenceType = z.infer<
   typeof BlockPreviewReferenceSchema

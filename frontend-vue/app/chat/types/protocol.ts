@@ -216,9 +216,25 @@ export interface PreviewNode {
 
 export type PreviewTree = PreviewNode | PreviewNode[];
 
-export interface BlockPreviewVariant {
+/**
+ * A custom component the agent proposes as static HTML and CSS, drawn in a
+ * sandboxed frame. Never a DMS block.
+ */
+export interface PreviewSketch {
+	html: string;
+	css?: string;
+	caption?: string;
+	height?: number;
+}
+
+/** What one tab of a preview draws: DMS blocks, a sketch, or both. */
+export interface PreviewView {
+	tree?: PreviewTree;
+	sketch?: PreviewSketch;
+}
+
+export interface BlockPreviewVariant extends PreviewView {
 	label: string;
-	tree: PreviewTree;
 }
 
 /**
@@ -232,11 +248,11 @@ export interface BlockPreviewReference {
 }
 
 /** A block preview the agent shared with its PreviewBlocks tool. */
-export interface BlockPreview {
+export interface BlockPreview extends PreviewView {
 	id: string;
 	title: string;
 	description?: string;
-	tree: PreviewTree;
+	label?: string;
 	reference?: BlockPreviewReference;
 	variants?: BlockPreviewVariant[];
 	timestampMs: number;

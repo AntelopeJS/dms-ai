@@ -5,6 +5,7 @@ import { CARD_TYPE_LIMIT } from "../constants/block-preview";
 import type { BlockPreview } from "../types/protocol";
 import {
 	countBlocks,
+	hasSketch,
 	type ReferenceView,
 	topBlockTypes,
 } from "../utils/block-preview";
@@ -22,6 +23,8 @@ const isOpen = ref(false);
 
 const META_SEPARATOR = " · ";
 
+const isSketched = computed<boolean>(() => hasSketch(props.preview));
+
 const typesLabel = computed<string>(() => {
 	const types = topBlockTypes(props.preview.tree);
 	const shown = types.slice(0, CARD_TYPE_LIMIT).join(", ");
@@ -34,7 +37,9 @@ const meta = computed<string>(() => {
 	const variants = props.preview.variants?.length ?? 0;
 	const parts = [
 		typesLabel.value,
-		t("dms_ai.panel.preview.blocks", { count: blocks }, blocks),
+		blocks > 0
+			? t("dms_ai.panel.preview.blocks", { count: blocks }, blocks)
+			: "",
 		variants > 0
 			? t(
 					"dms_ai.panel.preview.variants",
@@ -42,6 +47,7 @@ const meta = computed<string>(() => {
 					variants + 1,
 				)
 			: "",
+		isSketched.value ? t("dms_ai.panel.preview.with_sketch") : "",
 		props.reference ? t("dms_ai.panel.preview.with_mockup") : "",
 	];
 	return parts.filter((part) => part !== "").join(META_SEPARATOR);
@@ -61,7 +67,7 @@ const meta = computed<string>(() => {
 			"
 			@click="isOpen = true"
 		>
-			<BlockPreviewThumb :tree="preview.tree" />
+			<BlockPreviewThumb :view="preview" :is-sketched="isSketched" />
 			<span class="bp-card__body">
 				<span class="bp-card__title">{{ preview.title }}</span>
 				<span class="bp-card__meta">{{ meta }}</span>

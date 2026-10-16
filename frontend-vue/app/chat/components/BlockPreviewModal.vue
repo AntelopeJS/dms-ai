@@ -3,13 +3,14 @@ import { computed, ref, watch } from "vue";
 import { useBlockPreviewComponent } from "../composables/useBlockPreviewComponent";
 import { useChatI18n } from "../composables/useChatI18n";
 import { BLOCK_PREVIEW_MAIN_TAB } from "../constants/block-preview";
-import type { BlockPreview, PreviewTree } from "../types/protocol";
+import type { BlockPreview } from "../types/protocol";
 import {
 	type BlockPreviewTab,
 	formatTree,
 	previewTabs,
 	type ReferenceView,
 } from "../utils/block-preview";
+import SketchFrame from "./SketchFrame.vue";
 
 interface Props {
 	preview: BlockPreview;
@@ -36,10 +37,20 @@ const tabItems = computed<TabItem[]>(() =>
 		label: tab.label ?? t("dms_ai.panel.preview.proposed"),
 	})),
 );
-const activeTree = computed<PreviewTree>(
+const activeView = computed<BlockPreviewTab>(
 	() =>
-		tabs.value.find((tab) => tab.value === activeTab.value)?.tree ??
-		props.preview.tree,
+		tabs.value.find((tab) => tab.value === activeTab.value) ?? tabs.value[0],
+);
+const paneCount = computed<number>(
+	() =>
+		[props.reference, activeView.value.tree, activeView.value.sketch].filter(
+			(pane) => pane !== null && pane !== undefined,
+		).length,
+);
+const sketchTitle = computed<string>(() =>
+	t("dms_ai.panel.preview.sketch_frame", {
+		caption: activeView.value.sketch?.caption ?? props.preview.title,
+	}),
 );
 const mockupLabel = computed<string>(
 	() => props.preview.reference?.caption ?? t("dms_ai.panel.preview.mockup"),
@@ -68,7 +79,7 @@ watch(open, (isOpen) => {
 					size="sm"
 					:aria-label="t('dms_ai.panel.preview.variants_aria')"
 				/>
-				<div class="bp-modal__panes" :class="{ 'is-split': reference }">
+				<div class="bp-modal__panes" :class="{ 'is-split': paneCount > 1 }">
 					<figure v-if="reference" class="bp-pane">
 						<figcaption class="bp-pane__label">{{ mockupLabel }}</figcaption>
 						<div class="bp-pane__paper">
@@ -104,6 +115,7 @@ watch(open, (isOpen) => {
 						</div>
 					</figure>
 					<section
+						v-if="activeView.tree"
 						class="bp-pane"
 						:aria-label="t('dms_ai.panel.preview.dms_blocks')"
 					>
@@ -115,7 +127,7 @@ watch(open, (isOpen) => {
 								:is="previewComponent"
 								v-if="previewComponent"
 								:key="activeTab"
-								:tree="activeTree"
+								:tree="activeView.tree"
 							/>
 							<div v-else class="bp-fallback">
 								<p class="bp-fallback__title">
@@ -127,8 +139,28 @@ watch(open, (isOpen) => {
 								</p>
 								<pre
 									class="bp-fallback__json"
-								><code>{{ formatTree(activeTree) }}</code></pre>
+								><code>{{ formatTree(activeView.tree) }}</code></pre>
 							</div>
+						</div>
+					</section>
+					<section
+						v-if="activeView.sketch"
+						class="bp-pane bp-pane--sketch"
+						:aria-label="t('dms_ai.panel.preview.custom_sketch')"
+					>
+						<span class="bp-pane__label bp-pane__label--sketch">
+							<UIcon name="i-ph-pencil-simple-line" />
+							{{ t("dms_ai.panel.preview.custom_sketch") }}
+						</span>
+						<div class="bp-pane__sketch">
+							<SketchFrame
+								:key="activeTab"
+								:sketch="activeView.sketch"
+								:title="sketchTitle"
+							/>
+							<p v-if="activeView.sketch.caption" class="bp-pane__caption">
+								{{ activeView.sketch.caption }}
+							</p>
 						</div>
 					</section>
 				</div>
@@ -189,6 +221,36 @@ watch(open, (isOpen) => {
 	background-color: var(--ui-bg);
 	background-image: radial-gradient(var(--ui-border) 1px, transparent 1px);
 	background-size: 14px 14px;
+}
+
+.bp-pane__label--sketch {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	color: var(--ai);
+}
+
+.bp-pane__sketch {
+	min-height: 220px;
+	max-height: 64vh;
+	overflow: auto;
+	border: 1px dashed var(--ai-line);
+	border-radius: var(--ai-radius-md);
+	background: var(--ai-tint);
+}
+
+.bp-pane__sketch :deep(.sketch-frame__doc) {
+	border-radius: calc(var(--ai-radius-md) - 1px) calc(var(--ai-radius-md) - 1px)
+		0 0;
+}
+
+.bp-pane__caption {
+	margin: 0;
+	padding: 8px 12px;
+	border-top: 1px dashed var(--ai-line);
+	font-size: 12px;
+	line-height: 1.45;
+	color: var(--ui-text-muted);
 }
 
 .bp-pane__image {
