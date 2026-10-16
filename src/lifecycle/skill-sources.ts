@@ -21,8 +21,14 @@ interface PackageManifest {
   name?: unknown;
   antelopeJs?: AntelopeJsManifest;
   dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
 }
+
+type DependencyField =
+  | "dependencies"
+  | "devDependencies"
+  | "optionalDependencies";
 
 type DependencyScanMap = Map<string, Promise<SkillSource[]>>;
 
@@ -31,6 +37,19 @@ type SkillSourceKey = (source: SkillSource) => string;
 const PACKAGE_JSON_FILE = "package.json";
 const NODE_MODULES_DIR = "node_modules";
 const FALLBACK_PLUGIN_NAME = "skills";
+const MODULE_DEPENDENCY_FIELDS: DependencyField[] = [
+  "dependencies",
+  "optionalDependencies",
+];
+/**
+ * The project root also lends its devDependencies: a project keeps its
+ * toolchain there (the core and its `ajs` CLI, the frontend renderer), and
+ * those packages ship the skills about that toolchain.
+ */
+const PROJECT_DEPENDENCY_FIELDS: DependencyField[] = [
+  ...MODULE_DEPENDENCY_FIELDS,
+  "devDependencies",
+];
 
 function sanitizePluginName(name: string): string {
   const cleaned = name.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
@@ -88,13 +107,13 @@ function skillSourcesFromPackage(
   }));
 }
 
-function listDependencyNames(pkg: unknown): string[] {
+function listDependencyNames(
+  pkg: unknown,
+  fields: DependencyField[],
+): string[] {
   if (pkg === null || typeof pkg !== "object") return [];
   const manifest = pkg as PackageManifest;
-  return [
-    ...Object.keys(manifest.dependencies ?? {}),
-    ...Object.keys(manifest.optionalDependencies ?? {}),
-  ];
+  return fields.flatMap((field) => Object.keys(manifest[field] ?? {}));
 }
 
 async function toRealDir(dir: string): Promise<string> {
@@ -206,13 +225,11 @@ function scanDependencyOnce(
  */
 async function readAllDependencySkillSources(
   localPath: string,
-  pkg: unknown,
+  dependencies: string[],
   scans: DependencyScanMap,
 ): Promise<SkillSource[]> {
   const nested = await Promise.all(
-    listDependencyNames(pkg).map((dep) =>
-      scanDependencyOnce(dep, localPath, scans),
-    ),
+    dependencies.map((dep) => scanDependencyOnce(dep, localPath, scans)),
   );
   return nested.flat();
 }
@@ -237,10 +254,31 @@ async function readModuleSkillSources(
   const own = skillSourcesFromPackage(pkg, localPath, toPluginName(moduleName));
   const fromDependencies = await readAllDependencySkillSources(
     localPath,
-    pkg,
+    listDependencyNames(pkg, MODULE_DEPENDENCY_FIELDS),
     scans,
   );
   return [...own, ...fromDependencies];
+}
+
+/**
+ * Packages the project itself depends on (the core with its framework skills,
+ * the frontend renderer) are not loaded modules, and an embedded runtime's
+ * host app is not a module at all, so the project root's manifest is scanned
+ * too. It runs once every loaded module has registered its name in the scan
+ * map, so a module the project also installs from npm is not loaded twice
+ * under a second plugin name.
+ */
+async function readProjectSkillSources(
+  projectRoot: string,
+  scans: DependencyScanMap,
+): Promise<SkillSource[]> {
+  const pkg = await readPackageJson(projectRoot);
+  if (pkg === null) return [];
+  return readAllDependencySkillSources(
+    projectRoot,
+    listDependencyNames(pkg, PROJECT_DEPENDENCY_FIELDS),
+    scans,
+  );
 }
 
 function dedupeBy(
@@ -267,7 +305,9 @@ function dedupeBy(
  * a distinct dir is a real loss (only the first declared dir survives), so it
  * is logged instead of discarded silently.
  */
-async function gather(): Promise<SkillSource[]> {
+async function readLoadedModulesSkillSources(
+  scans: DependencyScanMap,
+): Promise<SkillSource[]> {
   const ids = await ListModules();
   const infos = await Promise.all(
     ids.map((id) =>
@@ -276,7 +316,6 @@ async function gather(): Promise<SkillSource[]> {
         .catch(() => null),
     ),
   );
-  const scans: DependencyScanMap = new Map();
   const nested = await Promise.all(
     infos.map((entry) =>
       entry &&
@@ -286,7 +325,17 @@ async function gather(): Promise<SkillSource[]> {
         : Promise.resolve([] as SkillSource[]),
     ),
   );
-  const byDir = dedupeBy(nested.flat(), (source) => source.dir);
+  return nested.flat();
+}
+
+async function gather(projectRoot: string): Promise<SkillSource[]> {
+  const scans: DependencyScanMap = new Map();
+  const fromModules = await readLoadedModulesSkillSources(scans);
+  const fromProject = await readProjectSkillSources(projectRoot, scans);
+  const byDir = dedupeBy(
+    [...fromModules, ...fromProject],
+    (source) => source.dir,
+  );
   return dedupeBy(
     byDir,
     (source) => source.module,
@@ -302,11 +351,13 @@ async function gather(): Promise<SkillSource[]> {
  * answerable yet degrades to no skill sources rather than wedging module
  * start().
  */
-export async function collectSkillSources(): Promise<SkillSource[]> {
+export async function collectSkillSources(
+  projectRoot: string,
+): Promise<SkillSource[]> {
   try {
     return await new Promise<SkillSource[]>((resolve) => {
       const timer = setTimeout(() => resolve([]), MODULE_ROOTS_TIMEOUT_MS);
-      gather().then(
+      gather(projectRoot).then(
         (v) => {
           clearTimeout(timer);
           resolve(v);
