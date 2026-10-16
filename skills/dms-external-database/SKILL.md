@@ -110,8 +110,9 @@ again. Write nothing before Run.
    `dms-builder-safe` skill's *Queries*.
    - Queries read the mapped resources by their refs (`<connection>/<schema>/<relation>`).
 
-To change a relation later, call `BuilderMapResources` with that relation alone: a mapped relation
-is rewritten from the new choices, and its page follows.
+To change a relation later, read its current choices with `BuilderMapping`, then call
+`BuilderMapResources` with that relation alone, its included columns as they are and only your
+change made: a mapped relation is rewritten from the choices sent, and its page follows.
 
 ## 6. Check
 
