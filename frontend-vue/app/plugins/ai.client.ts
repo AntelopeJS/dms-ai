@@ -506,7 +506,7 @@ export default defineDmsPlugin((context) => {
 	const appMounted = new Promise<void>((resolve) =>
 		context.hook("app:mounted", resolve),
 	);
-	const { loggedIn } = useUserSession();
+	const { loggedIn } = useDmsUserSession();
 	const stopGate = runWhenLoggedIn(
 		() => loggedIn.value,
 		() =>
