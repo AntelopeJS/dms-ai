@@ -420,6 +420,12 @@ const BUILDER_TOOLS: Record<string, ToolLexiconEntry> = {
 		icon: ICONS.TABLE,
 		target: firstOf("connection", "module"),
 	},
+	BuilderAnalyseDatabase: {
+		verb: "analyse_database",
+		icon: ICONS.TABLE,
+		target: firstOf("connection", "job"),
+		isReadOnly: true,
+	},
 	BuilderCreateResource: {
 		verb: "create_table",
 		icon: ICONS.TABLE,

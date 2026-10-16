@@ -401,6 +401,7 @@
 			"profile_relation": "Profiler la relation",
 			"configure_project": "Configurer le projet",
 			"map_tables": "Associer les tables de la base",
+			"analyse_database": "Analyser la base",
 			"browse_blocks": "Parcourir les blocs",
 			"read_page": "Lire la page",
 			"create_page": "Créer la page",

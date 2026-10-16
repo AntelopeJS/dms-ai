@@ -57,8 +57,8 @@ function loadRoutes() {
     },
     [CATALOG_PATH]: catalog,
     "@antelopejs/interface-dms-builder": {
-      MapResources: async (input, descriptions) => {
-        calls.mapResources.push({ input, descriptions });
+      MapResources: async (input) => {
+        calls.mapResources.push({ input });
         return { ok: true, data: {}, changes: [] };
       },
     },
@@ -98,14 +98,9 @@ void test("an unknown connection answers 404, naming the connections the project
   assert.deepEqual(JSON.parse(missing.getBody()).known, ["erp"]);
 });
 
-void test("MapResources reaches the Builder with the catalog's descriptions, never the caller's", async () => {
+void test("MapResources reaches the Builder as the agent's choices, without dms-ai reading the catalog", async () => {
   calls.mapResources = [];
-  const forged = {
-    schema: "sales",
-    name: "accounts",
-    key: null,
-    columns: [{ name: "password" }],
-  };
+  calls.describe = [];
   const input = {
     module: "erp-tables",
     connection: "erp",
@@ -119,11 +114,8 @@ void test("MapResources reaches the Builder with the catalog's descriptions, nev
     ],
   };
   const controller = new routes.AIBuilderController();
-  await controller.op(SIDECAR_TOKEN, {
-    op: "MapResources",
-    args: [input, [forged]],
-  });
+  await controller.op(SIDECAR_TOKEN, { op: "MapResources", args: [input] });
   assert.equal(calls.mapResources.length, 1);
   assert.deepEqual(calls.mapResources[0].input, input);
-  assert.deepEqual(calls.mapResources[0].descriptions, [ACCOUNTS]);
+  assert.deepEqual(calls.describe, []);
 });

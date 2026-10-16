@@ -16,7 +16,6 @@ import {
   HTTP_OK,
 } from "../constants/builder";
 import { ROUTE_PREFIX } from "../constants/module";
-import { catalogOf, listConnections } from "../database/catalog";
 import { SIDECAR_AUTH_HEADER } from "../constants/sidecar";
 import { isSidecarRequest, sidecarForbidden } from "./sidecar-auth";
 
@@ -53,40 +52,14 @@ const OP_NAMES = [
   "AddModule",
   "ConfigureModule",
   "CreateLocalModule",
+  "MapResources",
+  "AnalyseDatabase",
+  "GetAnalysis",
 ] as const;
 
-/**
- * `MapResources` takes the relations' descriptions from the connection's catalog here, so the
- * agent sends only its choices and never a description the builder would have to trust.
- */
-async function mapResources(input: unknown): Promise<unknown> {
-  const mapping = input as Builder.MapResourcesInput;
-  const catalog = catalogOf(mapping.connection);
-  if (!catalog) {
-    return {
-      ok: false,
-      error: {
-        code: "not_found",
-        ref: `connection "${mapping.connection}"; the project declares ${listConnections().join(", ") || "none"}`,
-      },
-    };
-  }
-  const descriptions = await catalog.DescribeRelations(
-    mapping.resources.map((resource) => resource.relation),
-  );
-  return Builder.MapResources(mapping, descriptions);
-}
-
-const COMPOSED_OPS: Record<string, BuilderOp> = {
-  MapResources: (input) => mapResources(input),
-};
-
-const OPS: Record<string, BuilderOp> = {
-  ...Object.fromEntries(
-    OP_NAMES.map((name) => [name, Builder[name] as BuilderOp]),
-  ),
-  ...COMPOSED_OPS,
-};
+const OPS: Record<string, BuilderOp> = Object.fromEntries(
+  OP_NAMES.map((name) => [name, Builder[name] as BuilderOp]),
+);
 
 interface BuilderOpBody {
   op?: string;

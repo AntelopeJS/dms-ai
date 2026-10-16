@@ -43,6 +43,7 @@ export const BUILDER_READ_TOOL_NAMES: readonly string[] = [
   "BuilderResourceStructure",
   "BuilderQueryTemplates",
   "BuilderRefresh",
+  "BuilderAnalyseDatabase",
 ];
 
 /** Builder deletions: they always ask, in every mode, Full auto included. */

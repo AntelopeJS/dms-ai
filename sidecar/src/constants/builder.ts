@@ -34,10 +34,15 @@ export const BUILDER_TOOL_NAMES = [
   "BuilderRemoveQuery",
   "BuilderConfigureProject",
   "BuilderMapResources",
+  "BuilderAnalyseDatabase",
 ] as const;
 
 export const BUILDER_CONFIGURE_PROJECT_TOOL_NAME = "BuilderConfigureProject";
 export const BUILDER_MAP_RESOURCES_TOOL_NAME = "BuilderMapResources";
+export const BUILDER_ANALYSE_DATABASE_TOOL_NAME = "BuilderAnalyseDatabase";
+/** How long BuilderAnalyseDatabase waits for the analysis before answering its progress. */
+export const BUILDER_ANALYSIS_WAIT_MS = 60_000;
+export const BUILDER_ANALYSIS_POLL_MS = 1_000;
 
 // The catalog's sections listed one line per entry by default; the agent names
 // the entries whose full schema it needs.

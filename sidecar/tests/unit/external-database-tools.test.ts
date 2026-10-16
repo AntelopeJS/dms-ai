@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { describeRequest } from "../../src/agent/permission-preview.js";
 import { isReadOnlyTool } from "../../src/agent/tool-kinds.js";
 import type { BuilderClient } from "../../src/builder/builder-client.js";
@@ -114,6 +114,79 @@ describe("the external-database tools", () => {
     expect(calls).toEqual([
       { op: "ConfigureProject", args: [STEPS, { dryRun: true }] },
     ]);
+  });
+});
+
+describe("the Builder's analysis tool", () => {
+  function analyse(client: BuilderClient) {
+    const tool = buildProjectTools(client, undefined).find(
+      (definition) => definition.name === "BuilderAnalyseDatabase",
+    );
+    if (!tool) throw new Error("BuilderAnalyseDatabase is missing");
+    return (args: Record<string, unknown>) =>
+      tool.handler(args as never, {} as never);
+  }
+
+  it("reads without a prompt and in plan mode", () => {
+    expect(
+      FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES.has(
+        `${MCP_TOOL_NAME_PREFIX}BuilderAnalyseDatabase`,
+      ),
+    ).toBe(true);
+    expect(isReadOnlyTool("BuilderAnalyseDatabase")).toBe(true);
+  });
+
+  it("starts the analysis, then reads its job until the proposal is in", async () => {
+    vi.useFakeTimers();
+    try {
+      const calls: Recorded[] = [];
+      let reads = 0;
+      const client: BuilderClient = {
+        call: async (op, args) => {
+          calls.push({ op, args });
+          const status =
+            op === "GetAnalysis" && ++reads > 1 ? "done" : "running";
+          return {
+            ok: true,
+            data: {
+              id: "job-1",
+              status,
+              proposal: status === "done" ? { resources: [] } : undefined,
+            },
+            changes: [],
+          };
+        },
+      };
+      const answered = analyse(client)({
+        connection: "erp",
+        module: "erp-tables",
+      });
+      await vi.advanceTimersByTimeAsync(5_000);
+      const result = await answered;
+      expect(calls.map((call) => call.op)).toEqual([
+        "AnalyseDatabase",
+        "GetAnalysis",
+        "GetAnalysis",
+      ]);
+      expect(calls[0]?.args).toEqual([
+        { connection: "erp", module: "erp-tables", schemas: undefined },
+      ]);
+      expect(JSON.stringify(result.content)).toContain("done");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reads a running job instead of starting another", async () => {
+    const calls: Recorded[] = [];
+    const client: BuilderClient = {
+      call: async (op, args) => {
+        calls.push({ op, args });
+        return { ok: true, data: { id: "job-1", status: "done" }, changes: [] };
+      },
+    };
+    await analyse(client)({ job: "job-1" });
+    expect(calls).toEqual([{ op: "GetAnalysis", args: ["job-1"] }]);
   });
 });
 
