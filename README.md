@@ -103,6 +103,14 @@ carry a prompt injection read from a file or a page. So nothing the agent writes
 - An image the model writes is shown as a link: loading it on its own could send what the agent read
   to its address.
 - The agent can only navigate the dashboard to one of its own pages.
+- A block preview's custom sketch is the agent's own HTML and CSS, so it is drawn in an
+  `<iframe sandbox="">` through `srcdoc`: no scripts, an opaque origin, no forms, popups or top
+  navigation. A Content-Security-Policy that comes first in the frame's head (`default-src 'none';
+  style-src 'unsafe-inline'; img-src data:; font-src data:`) keeps it from loading anything. The
+  sidecar also refuses a sketch with a script, an event handler, a `javascript:` URL, an embedding or
+  linking element, a `<meta http-equiv>`, an `@import` or a URL that is not `data:`, so the agent
+  gets a clear error, but the frame is the boundary. A dashboard whose own CSP forbids inline styles
+  applies it to the frame too, and the sketch then draws unstyled.
 
 ## Block previews
 
@@ -113,13 +121,20 @@ attachment, a card with a thumbnail, and the agent asks the decision with `AskUs
 dialog that renders the real blocks with the DMS's `DmsBlockPreview`, beside the mockup, one tab per
 variant. A DMS without that component shows the tree as JSON instead.
 
-- A tree is capped at 8 levels, 200 blocks across its variants and 64 KB of JSON; a block names a
-  registry type, never an arbitrary component, and an option it loads from (`fetchUrl`…) must be a
-  path of the site.
+- A tree is capped at 8 levels, 200 blocks across its variants and, with the sketches, 64 KB of
+  JSON; a block names a registry type, never an arbitrary component, and an option it loads from
+  (`fetchUrl`…) must be a path of the site.
 - The mockup is an image the user attached in the conversation (`attachmentId`: its file name, or
   `latest`) or a same-origin path. An external URL is shown as a link, never loaded. Attached images
   are not kept on the server, so after a reload the dialog asks to attach the mockup again.
 - The preview is stored in the transcript and comes back with the conversation.
+
+A view (the preview or a variant) can carry a `sketch` instead of a tree, or beside it: static HTML
+and CSS (`{ html, css?, caption?, height? }`) of a custom component the agent proposes. The dialog
+draws it in a sandboxed frame labelled "Custom sketch — not a DMS block", so the user compares the
+DMS option with the custom one before any code is written; the card's thumbnail carries the same
+label. The sketch's CSS can use `--sketch-*` variables that follow the dashboard's light or dark
+theme, and images and fonts must be inline `data:` URLs.
 
 ## Sidecar
 
