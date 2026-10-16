@@ -14,6 +14,8 @@ fidelity) and **dms-pages** (`PageController`, blocks, the routes that feed them
 what dms-ai changes: its host tools and the live overlay the user is watching. Without the
 `NavigateToPage` tool you are not inside dms-ai, and this skill does not apply.
 
+Before writing any custom block, run the path *Before any custom block* of **dms-best-practices**.
+
 ## The loop, one page at a time
 
 1. **Map the edit.** Call `FindPagesUsing` on every file you intend to edit to get the pages that

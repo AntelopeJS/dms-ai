@@ -15,7 +15,9 @@ success it returns the file changes; on `typecheck_failed` **nothing is written*
 Load the core `dms-best-practices` skill first and follow it: it decides what a
 page is made of (DMS blocks, custom only for a missing block, `.meta()` on custom
 blocks) and runs the design-fidelity protocol when the user brings a mockup. This
-skill only covers driving the Builder tools.
+skill only covers driving the Builder tools. Safe mode cannot write a custom block:
+when the path *Before any custom block* of dms-best-practices leads to one, follow
+its safe-mode branch.
 
 ## Addressing
 
@@ -109,8 +111,8 @@ template catalog, route-bound params, opaque read-back, and the full query workf
   or doesn't implement the op (`request_failed` with `HTTP 400` = the host answered
   `unknown_op`). Explain the limitation; don't retry.
 - `opaque_target` / `unsupported` → **safe mode cannot do this**. Explain the
-  limitation and ask permission to switch to **Code mode** for that one step; do not
-  force it. After any Code mode excursion, call `BuilderRefresh` (optionally scoped
+  limitation and ask with `AskUser` to switch to **Code mode** for that one step; do
+  not force it. After any Code mode excursion, call `BuilderRefresh` (optionally scoped
   to the page) so the builder's source index reconciles with disk before further
   safe-mode ops.
 - `stale` → the page changed under you; re-read with `BuilderPageStructure`, retry.
