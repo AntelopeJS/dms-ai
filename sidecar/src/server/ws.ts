@@ -60,7 +60,9 @@ import type { AppSettings } from "../state/settings-types.js";
 import { PROVIDER_NAMES, type ProviderName } from "../state/types.js";
 import {
   broadcastConversationList,
+  emitBlockPreview,
   emitNotice,
+  listAttachedImages,
   sendConversationMode,
 } from "./chat-events.js";
 import { isClientAuthorized } from "./client-auth.js";
@@ -224,6 +226,10 @@ function buildMcpDepsFactory(
     requestQuestion: (req) => askUser(services(holder), req),
     getLastEditedFile: () =>
       services(holder).editTracker.getLastEditedFile(conversationId),
+    showPreview: (preview) =>
+      emitBlockPreview(services(holder), conversationId, preview),
+    listAttachedImages: () =>
+      listAttachedImages(services(holder), conversationId),
     gateBuilderOp: (toolName, args) =>
       buildBuilderGate(services(holder), conversationId)(toolName, args),
   });

@@ -45,6 +45,8 @@ function buildDeps(conversationId: string): AiMcpServerDeps {
     conversationId,
     requestQuestion: async () => null,
     getLastEditedFile: () => undefined,
+    showPreview: () => {},
+    listAttachedImages: () => [],
   };
 }
 

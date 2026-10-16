@@ -4,6 +4,7 @@ import {
 } from "../constants/conversation";
 import type {
 	AssistantMessage,
+	BlockPreviewMessage,
 	ChangeSetMessage,
 	ConversationMessage,
 	ErrorMessage,
@@ -29,7 +30,14 @@ interface WhoItem {
 }
 
 interface MessageItem {
-	kind: "user" | "assistant" | "error" | "notice" | "change" | "answers";
+	kind:
+		| "user"
+		| "assistant"
+		| "error"
+		| "notice"
+		| "change"
+		| "answers"
+		| "preview";
 	key: string;
 	message:
 		| UserMessage
@@ -37,7 +45,8 @@ interface MessageItem {
 		| ErrorMessage
 		| NoticeMessage
 		| ChangeSetMessage
-		| QuestionAnswerMessage;
+		| QuestionAnswerMessage
+		| BlockPreviewMessage;
 }
 
 interface ToolsItem {
@@ -66,6 +75,7 @@ const KIND_BY_ROLE: Record<string, MessageItem["kind"]> = {
 	[MESSAGE_ROLES.NOTICE]: "notice",
 	[MESSAGE_ROLES.CHANGE_SET]: "change",
 	[MESSAGE_ROLES.QUESTION_ANSWER]: "answers",
+	[MESSAGE_ROLES.BLOCK_PREVIEW]: "preview",
 };
 
 /** Roles drawn on the agent's side, under one "✦ Assistant" line per turn. */
@@ -73,6 +83,7 @@ const AGENT_ROLES: ReadonlySet<string> = new Set([
 	MESSAGE_ROLES.ASSISTANT,
 	MESSAGE_ROLES.TOOL,
 	MESSAGE_ROLES.CHANGE_SET,
+	MESSAGE_ROLES.BLOCK_PREVIEW,
 ]);
 
 function startOfDay(ms: number): number {
