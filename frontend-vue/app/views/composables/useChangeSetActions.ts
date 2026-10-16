@@ -1,7 +1,7 @@
 import { ref, type Ref } from "vue";
 import { AI_ROUTES } from "../constants";
 import type { ChangeSetSummary } from "../types";
-import { classifyFailure, errorMessage } from "./useAiRequest";
+import { classifyFailure, errorMessage } from "./useAiData";
 
 export interface ChangeSetActions {
 	isBusy: Ref<boolean>;
@@ -21,10 +21,11 @@ function changeSetPath(changeSetId: string, action: string): string {
 }
 
 /**
- * Undo and redo of a change set, each confirmed by a toast; `onChanged` runs
- * once the sidecar has restored the files.
+ * Undo and redo of a change set, each confirmed by a toast; the page is read
+ * again once the sidecar has restored the files, and the action stays busy
+ * until it is: the set shows its new state before it can be acted on again.
  */
-export function useChangeSetActions(onChanged: () => void): ChangeSetActions {
+export function useChangeSetActions(): ChangeSetActions {
 	const { t } = useI18n();
 	const toast = useToast();
 	const { $authFetch } = useAuthFetch();
@@ -56,7 +57,7 @@ export function useChangeSetActions(onChanged: () => void): ChangeSetActions {
 				color: AI_COLOR,
 				icon: "i-ph-arrow-clockwise",
 			});
-			onChanged();
+			await refreshPageBlocks();
 		} catch (error) {
 			failureToast(error);
 		} finally {
@@ -88,7 +89,7 @@ export function useChangeSetActions(onChanged: () => void): ChangeSetActions {
 				},
 			],
 		});
-		onChanged();
+		await refreshPageBlocks();
 	}
 
 	async function undo(changeSet: ChangeSetSummary): Promise<void> {

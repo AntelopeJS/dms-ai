@@ -57,7 +57,7 @@ function loadPlugin(loggedIn: Ref<boolean>): PluginHarness {
 	new Function(
 		"require",
 		"exports",
-		"useUserSession",
+		"useDmsUserSession",
 		"useAuthFetch",
 		"useToast",
 		"useDevReload",

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { RequestFailure } from "./composables/useAiRequest";
+import type { RequestFailure } from "./composables/useAiData";
 import { useViewFormat } from "./composables/useViewFormat";
 
 type UnavailableStateSize = "sm" | "md" | "lg";

@@ -27,11 +27,9 @@ function loadModule(registrations, sidecars) {
       },
     },
     "./logging/log-buffer": { startLogCapture() {} },
-    "./constants/frontend-module": {
-      FRONTEND_MODULE_DIR: "../frontend-vue",
-      FRONTEND_MODULE_NAME: "@antelopejs/dms-ai-frontend-vue",
-      FRONTEND_MODULE_PRIORITY: 100,
-    },
+    "./constants/frontend-module": require(
+      path.resolve(__dirname, "../dist/constants/frontend-module.js"),
+    ),
     "node:path": path,
     "./constants/sidecar": require(
       path.resolve(__dirname, "../dist/constants/sidecar.js"),
@@ -50,7 +48,7 @@ function loadModule(registrations, sidecars) {
   }
 }
 
-void test("registers Vue and preserves sidecar inputs without launching an agent", async () => {
+void test("registers Vue with its /ai backend prefix and preserves sidecar inputs without launching an agent", async () => {
   const registrations = [];
   const sidecars = [];
   const loaded = loadModule(registrations, sidecars);
@@ -62,6 +60,7 @@ void test("registers Vue and preserves sidecar inputs without launching an agent
       sourcePath: path.resolve(__dirname, "../frontend-vue"),
       renderer: { name: "vue", version: "3" },
       priority: 100,
+      backendProxies: [{ path: "/ai/**", auth: "session" }],
     },
   ]);
   assert.deepEqual(sidecars, [
