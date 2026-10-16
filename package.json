@@ -1,6 +1,20 @@
 {
   "name": "@antelopejs/dms-ai",
   "version": "0.3.0",
+  "description": "AI development assistant for the AntelopeJS DMS: a chat panel next to every page and a coding agent that edits the project in reviewable, undoable change sets.",
+  "keywords": [
+    "ai",
+    "antelopejs",
+    "assistant",
+    "claude-code",
+    "codex",
+    "dms",
+    "dms-module"
+  ],
+  "homepage": "https://dms.antelopejs.com/docs/modules/ai",
+  "bugs": {
+    "url": "https://github.com/AntelopeJS/dms-ai/issues"
+  },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
