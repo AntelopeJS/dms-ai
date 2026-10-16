@@ -31,7 +31,7 @@ const detail = useAiData<ChangeSetDetail>(
 );
 // Once a set is undone or redone, the page reads its data again: this panel,
 // the list and the assistant's status.
-const actions = useChangeSetActions(refreshPageBlocks);
+const actions = useChangeSetActions();
 
 function load(): Promise<void> {
 	return detail.refresh();
