@@ -1,273 +1,100 @@
+<div align="center">
+
 # @antelopejs/dms-ai
 
-<div align="center">
-<a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue?style=for-the-badge&labelColor=000000"></a>
-<a href="https://discord.gg/sjK28QHrA7"><img src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000" alt="Discord"></a>
-<a href="https://antelopejs.com"><img src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000" alt="Documentation"></a>
+<a href="https://www.npmjs.com/package/@antelopejs/dms-ai"><img alt="npm" src="https://img.shields.io/npm/v/@antelopejs/dms-ai?style=for-the-badge&labelColor=000000&color=000000"></a>
+<a href="./LICENSE"><img alt="License" src="https://img.shields.io/npm/l/@antelopejs/dms-ai?style=for-the-badge&labelColor=000000&color=000000"></a>
+<a href="https://discord.gg/sjK28QHrA7"><img alt="Discord" src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000"></a>
+<a href="https://dms.antelopejs.com/docs/modules/ai"><img alt="Documentation" src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000"></a>
+
+An AI development assistant inside the AntelopeJS DMS dashboard.
+
 </div>
 
-An AntelopeJS DMS development assistant. It adds an owner-only AI workspace to the dashboard and
-runs a coding agent in a local sidecar that can inspect the loaded modules and their declared skills,
-edit the host project, and stream activity back to the dashboard. The chat is a panel docked next to
-the page, which shrinks to make room: it stays open across page navigations and reloads, follows the
-dashboard's theme, and is toggled from the header or with Ctrl+Shift+K (⌘⇧K on macOS). In the
-command palette (Ctrl+K, ⌘K on macOS), Tab switches to the assistant, which answers a question
-read-only and hands the conversation over to the panel. Claude Code drives it by default; OpenAI's
-Codex is selectable once its CLI is installed.
+![A conversation in the chat panel: two applied checkpoints with their files, an auto-fix turn and the assistant's summary](./docs/images/chat-conversation.webp)
 
-## Installation
+## What it does
 
-Add the module to a project that already uses `@antelopejs/dms` 0.9 (with `@antelopejs/interface-dms` 0.7 and `@antelopejs/dms-frontend` 0.6: the views read their data with its `useApiData`, and the module's routes under `/ai/**` reach the backend through the frontend server, which the module declares as a backend prefix with the session):
+- Docks a chat panel next to any page (`Ctrl` `Shift` `K`), with the page as context.
+- Runs a coding agent (Claude Code by default, or OpenAI's Codex) in a local sidecar that reads the project, its loaded modules and their skills.
+- Edits pages through the [Builder](https://github.com/AntelopeJS/dms-builder) in Safe mode, or writes code, then typechecks and shows the result live.
+- Saves every turn that touches the project as a change set you can review, undo and redo.
+- Adds an owner-only **Assistant** module: Overview, Changes, Activity, Skills and Settings.
+
+The assistant is a development tool: the backend and the sidecar refuse to run with `NODE_ENV=production`.
+
+## Install
+
+Run the AntelopeJS CLI from the root of a project that already loads `@antelopejs/dms`:
 
 ```bash
 ajs project modules add @antelopejs/dms-ai
+ajs project modules add @antelopejs/dms-builder   # recommended: enables Safe mode
 ```
 
-The module starts its bundled sidecar with the project as its working directory. In development,
-set `DMS_AI=0` before starting the backend to disable the sidecar. If
-`@antelopejs/dms-builder` is installed, the assistant also exposes its builder integration.
+## Quick start
 
-The sidecar is a child process of the backend. A hot reload of the module keeps it running, unless
-its build changed. Stopping the project stops it: Ctrl+C reaches it through the terminal's process
-group, and `@antelopejs/core` 1.13.2 or later terminates it on shutdown (Linux only). A sidecar left
-running by a backend that crashed or was killed is stopped when the next run starts; otherwise it
-exits on its own after 15 idle minutes.
+Point the sidecar at the origin the `api` module reserved:
 
-The assistant is a development tool, on purpose: the backend and the sidecar refuse to run with
-`NODE_ENV=production`, and the chat is reserved to owners. Remote *development* is supported (see
-below); a hosted use would be a separate product with its own design.
-
-## Remote access
-
-The sidecar only listens on `127.0.0.1`, and the browser never talks to it: everything goes through
-the DMS frontend server, over the same HTTP relay as the rest of the dashboard. The assistant
-therefore works wherever the dashboard does — another machine on the LAN, Tailscale, an SSH tunnel to
-the frontend port, a reverse proxy or a gateway — and the sidecar's port and client credential stay on
-the server.
-
-| Route (owner only)                        | Purpose                                                                     |
-| ----------------------------------------- | --------------------------------------------------------------------------- |
-| `GET /ai/channel/events`                  | The tab's one event stream: the sidecar frames for the dashboard and chat. |
-| `POST /ai/channel/:connectionId/messages` | One client message, relayed to that stream's sidecar socket.                |
-
-Each stream is bridged to a single sidecar socket, which the dashboard identifies as the host (the
-current page, the agent's navigation requests) and as the chat. The backend opens each socket with
-an `actor` frame naming the signed-in user, which the sidecar records on change sets and undos; a
-browser cannot send that frame, the backend drops it. Browsers keep at most six HTTP/1.1
-connections per origin, and every dashboard tab already holds two long-lived ones for the DMS. The
-assistant adds its stream only in the visible tab whose panel is open, which leaves two dashboard tabs
-usable side by side; over HTTPS with HTTP/2 the limit goes away. Over plain HTTP on an address other
-than `localhost`, start the frontend server with `DMS_COOKIE_SECURE=false`, or the browser drops the
-`Secure` session cookie.
-
-## Pages
-
-The module adds an **Assistant** module to the dashboard (`/modules/ai`), owner-only, with five
-pages. They are built from DMS blocks; a custom component is used only where no block draws the
-screen. Every page, block and child carries `$dms_ai.*` metadata, so the role editor lists them with
-translated names (English and French, in `frontend-vue/i18n/locales/dms-ai-pages-*.json`).
-
-| Page     | What it shows                                                                                                   |
-| -------- | --------------------------------------------------------------------------------------------------------------- |
-| Overview | Period selector, a banner when the assistant needs you (offline with Restart, a failed turn, requests waiting), its status rows, four KPIs, the activity chart, how actions were allowed, the latest change sets with Undo / Redo, and the top tools. |
-| Changes  | Every turn that touched the project as a change set: its diff, Undo with a conflict preview, Redo. `?set=<id>` opens one. |
-| Activity | The audit log: tabs (changed files, asked you, denied or blocked, failed), quick filters, a detail drawer per call (`?record=<id>`), and a CSV export. |
-| Skills   | The skills loaded into the agent as cards (those `antelopeJs.skills` declares in the loaded modules, their dependencies, and the project's own dependencies and devDependencies), a detail drawer per skill, and a warning when two skills share a name. |
-| Settings | The defaults of new conversations, saved as you change them: agent, thinking, approval mode, what always asks, request timeout, scope, local skills, checkpoint retention; then the tokens used over 14 days. |
-
-Every route below is owner-only. Lists and settings answer `503 { message }` while the sidecar is
-down, so tables show their error state and a setting says "Not saved"; charts answer empty.
-
-| Route                                                  | Purpose                                                        |
-| ------------------------------------------------------ | -------------------------------------------------------------- |
-| `GET /ai/status`, `POST /ai/sidecar/restart`           | The assistant's live status (`offline` when it does not answer), and a restart. |
-| `GET /ai/status/facts`, `/ai/status/banner`            | The Overview's status rows (a `KeyValueList`) and its banner (`BannerContent`, or 204 when all is well). |
-| `GET /ai/metrics/kpi/:metric`, `series`, `allowed`, `top-tools`, `usage`, `usage/summary` | The Overview's and Settings › Usage figures. |
-| `GET /ai/activity`, `/ai/activity/:id`, `/ai/activity/export.csv` | The audit log as a source table, one call's detail, the CSV export. |
-| `GET /ai/changes`, `/ai/changes/:id`, `/ai/changes/:id/undo-preview`, `/ai/changes/:id/undo-confirm` | Change sets, a set's diff, what Undo restores, and the dialog it asks in. |
-| `POST /ai/changes/:id/undo`, `/ai/changes/:id/redo`    | Undo (`{ includeLater? }`) and Redo, recorded with the signed-in user's name. |
-| `GET /ai/skills/catalog`, `/ai/skills/conflicts`       | The skills as table rows, and the banner about names several skills share (204 when none). |
-| `GET` / `PUT /ai/settings`                             | The settings form; `PUT` takes the one field an instant save sends. |
-
-## Model output in the dashboard
-
-The chat renders model output inside the dashboard, next to the owner's session, and that output can
-carry a prompt injection read from a file or a page. So nothing the agent writes is trusted as markup:
-
-- Markdown is rendered with raw HTML off, then sanitized by a DOMPurify instance of the chat's own
-  (hooks do not leak to the dashboard's), against an allowlist: text formatting, lists, quotes, code,
-  tables and links, and no attribute but `href`, `title`, `target`, `rel` and `start` — no `style`,
-  `class`, `id` or event handler.
-- Links only go to `http`, `https`, `mailto` or a page of the dashboard, never `javascript:` or
-  `data:`, and open in a new tab with `rel="noopener noreferrer"`.
-- An image the model writes is shown as a link: loading it on its own could send what the agent read
-  to its address.
-- The agent can only navigate the dashboard to one of its own pages.
-- A block preview's custom sketch is the agent's own HTML and CSS, so it is drawn in an
-  `<iframe sandbox="">` through `srcdoc`: no scripts, an opaque origin, no forms, popups or top
-  navigation. A Content-Security-Policy that comes first in the frame's head (`default-src 'none';
-  style-src 'unsafe-inline'; img-src data:; font-src data:`) keeps it from loading anything. The
-  sidecar also refuses a sketch with a script, an event handler, a `javascript:` URL, an embedding or
-  linking element, a `<meta http-equiv>`, an `@import` or a URL that is not `data:`, so the agent
-  gets a clear error, but the frame is the boundary. A dashboard whose own CSP forbids inline styles
-  applies it to the frame too, and the sketch then draws unstyled.
-
-## Block previews
-
-To settle a visual choice, the agent calls its `PreviewBlocks` tool with a tree of DMS blocks
-(`{ type, options, children }`), a title, an optional description, the user's mockup as `reference`
-and alternative trees as `variants`. The tool does not wait: the chat shows the preview as an
-attachment, a card with a thumbnail, and the agent asks the decision with `AskUser`. The card opens a
-dialog that renders the real blocks with the DMS's `DmsBlockPreview`, beside the mockup, one tab per
-variant. A DMS without that component shows the tree as JSON instead.
-
-- A tree is capped at 8 levels, 200 blocks across its variants and, with the sketches, 64 KB of
-  JSON; a block names a registry type, never an arbitrary component, and an option it loads from
-  (`fetchUrl`…) must be a path of the site.
-- The mockup is an image the user attached in the conversation (`attachmentId`: its file name, or
-  `latest`) or a same-origin path. An external URL is shown as a link, never loaded. Attached images
-  are not kept on the server, so after a reload the dialog asks to attach the mockup again.
-- The preview is stored in the transcript and comes back with the conversation.
-
-A view (the preview or a variant) can carry a `sketch` instead of a tree, or beside it: static HTML
-and CSS (`{ html, css?, caption?, height? }`) of a custom component the agent proposes. The dialog
-draws it in a sandboxed frame labelled "Custom sketch — not a DMS block", so the user compares the
-DMS option with the custom one before any code is written; the card's thumbnail carries the same
-label. The sketch's CSS can use `--sketch-*` variables that follow the dashboard's light or dark
-theme, and images and fonts must be inline `data:` URLs.
-
-## Sidecar
-
-The sidecar is an agent server only: `/health`, the settings, metrics and skills routes the backend
-proxies, the MCP endpoint of its agents, and one WebSocket endpoint, `/ws`, which only accepts the
-client credential as a `Bearer` header. It serves no page or asset. Run by hand (`node
-sidecar/dist/index.js --port 0 --root <dir>`), it keeps its standalone default for the backend
-origin, which is how its tests drive it.
-
-## Configuration
-
-The key is optional. Left out, the sidecar keeps the default it uses when run standalone
-(`http://localhost:5010`), which is the behaviour every existing project already has.
-
-| Key          | What it is                                                                     |
-| ------------ | ------------------------------------------------------------------------------ |
-| `backendUrl` | Origin the sidecar calls the DMS backend on — its pages registry, logs and builder clients. |
-
-The api module publishes the origin it actually reserved, so `backendUrl` should reference it rather
-than repeat a port that may already be taken:
-
-```typescript [antelope.config.ts]
-export default defineConfig({
-  modules: {
-    "dms-ai": {
-      source: { type: "package", package: "@antelopejs/dms-ai" },
-      config: {
-        backendUrl: "${@api.API_LOCAL_BASE_URL}",
-      },
-    },
+```ts
+// antelope.config.ts
+"dms-ai": {
+  source: { type: "package", package: "@antelopejs/dms-ai" },
+  config: {
+    backendUrl: "${@api.API_LOCAL_BASE_URL}",
   },
-});
+},
 ```
 
-## Agent providers
+Claude Code runs with its own credentials (its login, or `ANTHROPIC_API_KEY` in the backend's environment). Restart the backend, then the frontend, sign in as an owner and press `Ctrl` `Shift` `K` (`⌘` `⇧` `K` on macOS). Set `DMS_AI=0` to start the backend without the sidecar.
 
-The assistant runs on either Claude Code or Codex, picked on the Assistant's Settings page. Both go through
-the same seam, so the chat, the tool calls, the permission prompts and the file-change animation
-behave the same either way. `GET /settings` reports which ones this install can actually drive:
+## Compatibility
 
-```json
-{ "provider": "claude", "providers": { "claude": { "available": true }, "codex": { "available": false, "reason": "Install @openai/codex, at the exact version dms-ai pins, to enable this provider." } } }
-```
+| Package | Version |
+| --- | --- |
+| `@antelopejs/dms` | `>=0.9.0 <1.0.0` |
+| `@antelopejs/interface-dms` | `>=0.7.0 <1.0.0` |
+| `@antelopejs/dms-frontend` (renderer) | `>=0.6.0 <0.7.0` |
+| `@antelopejs/dms-builder` (optional, Safe mode) | `>=0.4.0` |
 
-`claude` is the default *choice*, not a fallback. A provider that this install cannot drive — its
-package uninstalled, its API key gone from the environment — fails the turn with that reason in the
-chat, and the conversation is never quietly handed to the other backend: someone who picked OpenAI
-may have picked it precisely so their code does not reach Anthropic.
+On DMS 0.8, use `@antelopejs/dms-ai` 0.2.
 
-Switching provider disposes the live sessions of the previous one — an open conversation loses its
-in-agent context, its transcript is kept.
+## Documentation
 
-### Safe mode and permission modes
+- [Introduction](https://dms.antelopejs.com/docs/modules/ai/introduction)
+- [Installation](https://dms.antelopejs.com/docs/modules/ai/installation)
+- [Configuration](https://dms.antelopejs.com/docs/modules/ai/configuration): agent providers, Codex, Safe mode, remote access
+- [Usage](https://dms.antelopejs.com/docs/modules/ai/usage/chat)
+- [Extending](https://dms.antelopejs.com/docs/modules/ai/extending)
+- [FAQ](https://dms.antelopejs.com/docs/modules/ai/faq)
 
-Safe mode, the default whenever `@antelopejs/dms-builder` is loaded, lets the agent change the
-project only through the Builder tools. It holds whatever permission mode is selected:
+The guide's sources live in [`docs/`](./docs). The package ships the `dms-ai`, `dms-builder-safe` and `dms-ai-code-mode` Claude Code skills in [`skills/`](./skills), declared under `antelopeJs.skills` and loaded into the assistant's agent.
 
-- On Claude, a `PreToolUse` hook refuses `Write`, `Edit`, `MultiEdit`, `NotebookEdit` and `Bash`.
-  The CLI runs hooks before it applies the permission mode, whereas `acceptEdits` and
-  `bypassPermissions` approve those tools without consulting the permission prompt, and every
-  mode, *Normal* included, runs the shell commands the CLI deems read-only (`ls`, `wc`, `cat`,
-  `grep`, `git log`…) without asking. Reading, listing and searching stay available through
-  `Read`, `Glob` and `Grep`, allowed inside the workspace and asked outside it.
-- On Codex, the sandbox stays read-only, without network, and every escalation is declined.
-- Safe mode caps *Auto* at *Accept edits*: the sidecar stops approving prompts on its own, and the
-  Claude CLI never runs in `bypassPermissions`, so the prompts that remain (reads outside the
-  workspace, web access) still reach you.
+## Contributing
 
-A switch between safe and vibe mode applies from the next tool call on Claude and from the next
-turn on Codex, without discarding the conversation.
-
-### Enabling Codex
-
-1. **Install the `codex` CLI.** It is an *optional* peer dependency, so it is never installed for
-   you: the platform packages weigh ~324 MB unpacked, and only the installs that want Codex should
-   pay for them. Use the exact version this module pins, in `peerDependencies["@openai/codex"]`:
-
-   ```bash
-   pnpm add @openai/codex@0.154.0
-   ```
-
-   The app-server protocol is versioned by binary and OpenAI publishes roughly ten versions a
-   month. The sidecar ships protocol types generated from the pinned version and checks
-   `codex --version` against it at spawn, refusing to start on a mismatch rather than speaking a
-   protocol its types do not describe. The refusal names both versions, so an upgrade says what to
-   pin back to. To run a newer binary anyway — at the risk of a protocol its types do not
-   describe — set `DMS_AI_CODEX_ALLOW_VERSION_MISMATCH=1`; the drift is then logged once, at startup, instead of
-   blocking the provider.
-
-2. **Provide an API key.** Export `OPENAI_API_KEY` in the host process environment. The binary does
-   not read that variable itself: the sidecar writes it into an `auth.json` (mode `0600`) inside a
-   `CODEX_HOME` dedicated to the conversation. On Windows that mode is not enforced by the
-   filesystem, so the file is only as private as the directory it sits in. ChatGPT login is not
-   supported here — it shares a token refresh with the user's own `codex` install.
-
-3. **Restart the sidecar**, then pick *Codex* on the Assistant's Settings page.
-
-Linux, macOS and Windows are all supported. One app-server process runs per conversation, and the
-sidecar records its pid so a previous run's orphans are killed at startup — through procfs on
-Linux, `ps` on macOS and `taskkill /T` on Windows, which is also what takes the sandboxed children
-of the app-server with it.
-
-## Vue frontend
-
-The module registers `frontend-vue` through `AddFrontendModule` with the Vue 3 renderer. The host DMS
-supplies authentication, shared state, Nuxt UI and the icons. The chat panel, `DmsAiChatPanel`, is a
-docked side panel of the dashboard (`registerSidePanel`): the DMS renders it once for the whole app,
-so it lives through Inertia navigations, and keeps its open state and width in a cookie. The command
-palette's assistant mode answers with `DmsAiPaletteAnswer` (`registerCommandPaletteAssistant`). The
-chat's code is under `frontend-vue/app/chat`. The renderer bundles the icons it finds in
-`.vue` files, so an icon name belongs in the component that shows it.
-
-## Development
-
-Install dependencies and run the backend, sidecar and dashboard checks from the repository root:
+Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request.
 
 ```bash
 pnpm install
 pnpm --dir frontend-vue install
 pnpm build
 pnpm build:sidecar
+pnpm dev            # playground backend
+pnpm frontend:dev   # dashboard, in a second terminal
+pnpm lint
 pnpm test
+pnpm test:node      # every backend suite, after a single build
 ```
 
-Build and typecheck the Vue source against a generated Inertia workspace that includes this module. Set `DMS_FRONTEND_WORKSPACE` to that workspace's absolute path, then run:
+<details>
+<summary>Repository notes</summary>
 
-```bash
-pnpm --dir frontend-vue build
-pnpm --dir frontend-vue typecheck
-```
+- The module registers `frontend-vue` through `AddFrontendModule` with the Vue 3 renderer. The chat panel, `DmsAiChatPanel`, is a docked side panel (`registerSidePanel`): the DMS renders it once for the whole app, so it lives through Inertia navigations and keeps its open state and width in a cookie. The command palette's assistant mode answers with `DmsAiPaletteAnswer` (`registerCommandPaletteAssistant`). The chat's code is under `frontend-vue/app/chat`. The renderer bundles the icons it finds in `.vue` files, so an icon name belongs in the component that shows it.
+- To build and typecheck the Vue source, set `DMS_FRONTEND_WORKSPACE` to the absolute path of a generated Inertia workspace that includes this module, then run `pnpm --dir frontend-vue build` and `pnpm --dir frontend-vue typecheck`.
+- `pnpm test:node` runs every backend suite after one build (`DMS_PREBUILT=1` skips the build when `dist/` is fresh, as in CI): `test:frontend-registration` (backend registration, sidecar inputs, `$dms_ai` keys in both locales), `test:routes` (the `/ai/*` routes against a stand-in sidecar) and `test:sidecar-lifecycle` (hot reload, restart, stale sidecar, Ctrl+C). The opt-in Codex acceptance suite runs with `CODEX_ACCEPTANCE=1 pnpm --dir sidecar test:acceptance`.
 
-`pnpm test:node` runs every backend suite below in one go, after a single build (`DMS_PREBUILT=1` skips the build when `dist/` is already fresh, as in CI). The sidecar's opt-in Codex acceptance suite runs on its own with `CODEX_ACCEPTANCE=1 pnpm --dir sidecar test:acceptance`.
+</details>
 
-`pnpm test:frontend-registration` checks backend registration and sidecar inputs with the sidecar launcher mocked, and that every page, block and child of the Assistant module is titled with `$dms_ai` keys present in both locales.
-`pnpm test:routes` drives the `/ai/*` routes against a stand-in sidecar: query translation, `503` while it is down, settings conversions, Undo stamping and the CSV export.
-`pnpm test:sidecar-lifecycle` starts a stand-in sidecar to check that a hot reload keeps it, a restart replaces it, a sidecar left by an earlier run is stopped, and Ctrl+C on the backend stops it.
+## License
+
+[Apache-2.0](./LICENSE)
