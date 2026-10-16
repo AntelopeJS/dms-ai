@@ -6,6 +6,7 @@ import {
   BUILDER_ANALYSIS_WAIT_MS,
   BUILDER_CONFIGURE_PROJECT_TOOL_NAME,
   BUILDER_MAP_RESOURCES_TOOL_NAME,
+  BUILDER_MAPPING_TOOL_NAME,
 } from "../../constants/builder.js";
 import {
   type AnyMcpToolDefinition,
@@ -133,6 +134,9 @@ const MAP_RESOURCES_DESCRIPTION =
 const ANALYSE_DATABASE_DESCRIPTION =
   "Runs the Builder's analysis of a connected database: it reads the catalog and the profiles and proposes a mapping by fixed rules, writing nothing. Answers the proposal: resources in the shape BuilderMapResources takes, each choice with its rule and `kind` (`fact` from the catalog, or `default`, a judgement to check), the relations excluded and why, and `open`: what the rules could not decide, each with its options. Profiling is slow: when the analysis is still running after a minute this answers its progress and `job`; call again with that `job` to read on.";
 
+const MAPPING_DESCRIPTION =
+  "The relations a module maps for a connection, read back from its code as their current choices, in the proposal's shape (every rule `mapped`), with `included`: the columns the module declares. Read it before mapping a relation again with BuilderMapResources, so you send its current choices with only what you change.";
+
 interface AnalysisAnswer {
   ok?: boolean;
   data?: { id?: string; status?: string };
@@ -258,6 +262,22 @@ export function buildProjectTools(
           ),
       },
       (args: Record<string, unknown>) => analysis(client, args),
+    ),
+    defineTool(
+      BUILDER_MAPPING_TOOL_NAME,
+      MAPPING_DESCRIPTION,
+      {
+        connection: z
+          .string()
+          .describe("A connection id from DatabaseConnections."),
+        module: z
+          .string()
+          .describe("The project module bound to the connection's database."),
+      },
+      async (args: Record<string, unknown>) =>
+        opResult(
+          await client.call("GetMapping", [args.connection, args.module]),
+        ),
     ),
   ];
 }

@@ -55,6 +55,7 @@ const OP_NAMES = [
   "MapResources",
   "AnalyseDatabase",
   "GetAnalysis",
+  "GetMapping",
 ] as const;
 
 const OPS: Record<string, BuilderOp> = Object.fromEntries(

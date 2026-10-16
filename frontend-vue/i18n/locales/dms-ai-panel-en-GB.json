@@ -402,6 +402,7 @@
 			"configure_project": "Configure project",
 			"map_tables": "Map database tables",
 			"analyse_database": "Analyse the database",
+			"read_mapping": "Read the mapping",
 			"browse_blocks": "Browse blocks",
 			"read_page": "Read page",
 			"create_page": "Create page",

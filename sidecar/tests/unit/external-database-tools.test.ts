@@ -177,6 +177,19 @@ describe("the Builder's analysis tool", () => {
     }
   });
 
+  it("reads the module's mapping without a prompt, through GetMapping", async () => {
+    expect(isReadOnlyTool("BuilderMapping")).toBe(true);
+    const calls: Recorded[] = [];
+    const tool = buildProjectTools(recordingClient(calls), undefined).find(
+      (definition) => definition.name === "BuilderMapping",
+    );
+    await tool?.handler(
+      { connection: "erp", module: "erp-tables" } as never,
+      {} as never,
+    );
+    expect(calls).toEqual([{ op: "GetMapping", args: ["erp", "erp-tables"] }]);
+  });
+
   it("reads a running job instead of starting another", async () => {
     const calls: Recorded[] = [];
     const client: BuilderClient = {

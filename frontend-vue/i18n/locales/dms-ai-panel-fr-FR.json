@@ -402,6 +402,7 @@
 			"configure_project": "Configurer le projet",
 			"map_tables": "Associer les tables de la base",
 			"analyse_database": "Analyser la base",
+			"read_mapping": "Lire l'association",
 			"browse_blocks": "Parcourir les blocs",
 			"read_page": "Lire la page",
 			"create_page": "Créer la page",
