@@ -72,7 +72,7 @@ translated names (English and French, in `frontend-vue/i18n/locales/dms-ai-pages
 | Overview | Period selector, a banner when the assistant needs you (offline with Restart, a failed turn, requests waiting), its status rows, four KPIs, the activity chart, how actions were allowed, the latest change sets with Undo / Redo, and the top tools. |
 | Changes  | Every turn that touched the project as a change set: its diff, Undo with a conflict preview, Redo. `?set=<id>` opens one. |
 | Activity | The audit log: tabs (changed files, asked you, denied or blocked, failed), quick filters, a detail drawer per call (`?record=<id>`), and a CSV export. |
-| Skills   | The skills loaded into the agent as cards, a detail drawer per skill, and a warning when two skills share a name. |
+| Skills   | The skills loaded into the agent as cards (those `antelopeJs.skills` declares in the loaded modules, their dependencies, and the project's own dependencies and devDependencies), a detail drawer per skill, and a warning when two skills share a name. |
 | Settings | The defaults of new conversations, saved as you change them: agent, thinking, approval mode, what always asks, request timeout, scope, local skills, checkpoint retention; then the tokens used over 14 days. |
 
 Every route below is owner-only. Lists and settings answer `503 { message }` while the sidecar is

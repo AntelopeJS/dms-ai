@@ -34,13 +34,14 @@ export async function start() {
   // Spawn from start(), not module load: by now every module is loaded, so
   // interface-core can report their on-disk roots and declared skills
   // authoritatively.
+  const hostProjectRoot = process.cwd();
   const [moduleRoots, skillDirs, builderEnabled] = await Promise.all([
     collectModuleRoots(),
-    collectSkillSources(),
+    collectSkillSources(hostProjectRoot),
     isBuilderAvailable(),
   ]);
   void spawnSidecar({
-    hostProjectRoot: process.cwd(),
+    hostProjectRoot,
     ...getConfig(),
     moduleRoots,
     skillDirs,
