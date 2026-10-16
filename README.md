@@ -30,7 +30,7 @@ sidecar refuse to run with `NODE_ENV=production`, and `DMS_AI=0` disables the si
 [configuration](https://dms.antelopejs.com/docs/modules/ai/configuration) for agent providers,
 Codex, safe mode and remote access.
 
-The package ships Claude Code skills (`skills/dms-ai`, `dms-builder-safe`, `dms-builder-page`),
+The package ships Claude Code skills (`skills/dms-ai`, `dms-builder-safe`, `dms-ai-code-mode`),
 declared in `antelopeJs.skills` and loaded into the assistant's agent.
 
 ## Vue frontend
