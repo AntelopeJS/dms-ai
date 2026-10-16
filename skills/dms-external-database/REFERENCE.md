@@ -15,6 +15,8 @@ integrator gave you:
       "importOverrides": [{ "interface": "@antelopejs/interface-database", "source": "postgres-erp" }] } },
   { "op": "ConfigureModule", "id": "mongodb", "entry": {
       "exportPriority": { "@antelopejs/interface-database": 1 } } },
+  { "op": "ConfigureModule", "id": "dms-builder", "entry": {
+      "importOverrides": [{ "interface": "@antelopejs/interface-database-catalog", "source": "postgres-erp", "id": "erp" }] } },
   { "op": "ConfigureModule", "id": "dms-ai", "entry": {
       "importOverrides": [{ "interface": "@antelopejs/interface-database-catalog", "source": "postgres-erp", "id": "erp" }] } }
 ] }
@@ -25,21 +27,63 @@ integrator gave you:
 - **Step 2** is the module the tables are generated into. It is bound to that instance.
 - **Step 3** keeps the DMS and its modules on the project's own database. Leave it out if the
   project already pins them.
-- **Step 4** gives you the connection `erp`.
+- **Steps 4 and 5** give the Builder and you the connection `erp`, the same id for both.
 
-## Proposal
+## The proposal
+
+`BuilderAnalyseDatabase` answers it once the job is done:
+
+```json
+{ "connection": "erp", "module": "erp-tables",
+  "database": { "engine": "postgresql 17.5", "role": "erp_reader", "writes": "none" },
+  "resources": [
+    { "relation": "sales.customers",
+      "tableView": { "value": true, "rule": "R6", "kind": "default" },
+      "writable": { "value": false, "rule": "W1", "kind": "default" },
+      "label": { "value": "name", "rule": "L1", "kind": "default" },
+      "title": { "value": "Customers", "rule": "L2", "kind": "default" },
+      "fields": [
+        { "column": "segment", "native": "sales.segment", "accepts": ["string"],
+          "declared": { "value": "string", "rule": "F3", "kind": "fact" },
+          "filterable": { "value": true, "rule": "FL", "kind": "default" },
+          "profile": { "traits": ["enum-like"], "distinct": 4 } } ],
+      "leftOut": [ { "column": "password_hash", "reason": "named like a secret", "rule": "F2" } ],
+      "writes": { "insert": false, "update": false, "delete": false } } ],
+  "excluded": [ { "relation": "sales.people", "reason": "SELECT is granted on some columns only", "rule": "R1" } ],
+  "open": [
+    { "id": "purpose:legacy.t_cst", "kind": "purpose", "relation": "legacy.t_cst",
+      "question": "What does legacy.t_cst hold?", "options": ["…"], "proposed": null,
+      "resource": { "relation": "legacy.t_cst", "…": "…" } } ] }
+```
+
+The rules, in the order they apply to a relation:
+
+| Rule | When | Then |
+|---|---|---|
+| R1 | the catalog says unmappable | excluded |
+| R4 | a framework's or a migration tool's table | excluded |
+| R3 | no rows | excluded |
+| R2 | no key | stats only |
+| R5 | keyed by its two foreign keys | stats only: a link table |
+| R6 | keyed, with a label candidate | TableView |
+| R7 | keyed, no label, referenced | TableView labelled by its key, and a `label` item |
+| R8 | keyed, no label, not referenced, with a time axis | stats only: events or a log |
+| R9 | anything else | a `purpose` item |
+
+For columns: F1 and F2 leave out a column no type reads and one named like a secret, F3 proposes
+the first accepted declaration, F4 makes a declared foreign key a relation column, F5 one found
+whole by `CheckReference`. L1 chooses labels, L2 titles, FL the four flags, W1 read-only.
+
+## Plan
 
 ```markdown
 ## Database
-erp · postgresql 17.5 · role erp_reader (read only) · 42 relations, 31 mappable, 9 proposed
+erp · postgresql 17.5 · role erp_reader (read only) · 42 relations: 9 TableViews, 6 stats only, 18 excluded, 3 open
 
-## Pages
-### Customers (sales.customers, 12 400 rows) · editable (role: read only here)
-- Columns: Name (label, search, sort) · Segment (filter) · Email · Created (sort)
-- Relations: —
-### Orders (sales.orders, 210 000 rows) · read only
-- Columns: Status (filter) · Ordered (sort) · Total (generated, read only)
-- Relations: Customer → sales.customers (shows Name) · Invoice → billing.invoices (implied, 100 %)
+## Changes to the Builder's proposal
+- legacy.t_cst (purpose) → TableView "Customers": its comment says "clients"; label `c02`, a short unique text
+- sales.events (R8, stats only) → TableView: named and commented as calendar events people edit
+- sales.orders: editable, as asked; the role here writes nothing
 
 ## Stats pages
 ### Sales
@@ -47,14 +91,8 @@ erp · postgresql 17.5 · role erp_reader (read only) · 42 relations, 31 mappab
 - Chart: orders per month over ordered_at, Europe/Paris
 - Top list: orders by status
 
-## Declared types
-- sales.orders.legacy_id: number (lossy beyond 2^53) or string — proposed: number
-
-## Left out
-- sales.audit_log: a log (time axis, no label) — stats only
-- sales.v_monthly: a view, no key — stats only
-- sales.people: SELECT granted on some columns only
-- sales.products.count: named like a controller member — on the table, not the TableView
+## Left open
+- label:legacy.t_ord — no column names an order; the integrator picks one in the Builder
 
 ## Not possible yet
 - Revenue per customer name: needs the customer's name beside each order
@@ -62,9 +100,11 @@ erp · postgresql 17.5 · role erp_reader (read only) · 42 relations, 31 mappab
 
 ## Mapping
 
+The proposal's values, without their rules, plus what you changed:
+
 ```json
 { "module": "erp-tables", "connection": "erp", "resources": [
-  { "relation": "sales.customers", "label": "name", "tableView": true, "writable": true,
+  { "relation": "sales.customers", "label": "name", "title": "Customers", "tableView": true, "writable": true,
     "fields": [ { "column": "name", "searchable": true, "sortable": true },
                 { "column": "segment", "filterable": true },
                 { "column": "email" }, { "column": "created_at", "sortable": true } ] },
@@ -74,13 +114,15 @@ erp · postgresql 17.5 · role erp_reader (read only) · 42 relations, 31 mappab
                 { "column": "customer_code", "relation": "sales.customers", "label": "Customer" } ] },
   { "relation": "sales.audit_log", "tableView": false, "writable": false,
     "fields": [ { "column": "at" }, { "column": "action" } ] }
-] }
+],
+  "excluded": [ { "relation": "sales.people", "reason": "SELECT is granted on some columns only" } ] }
 ```
 
 - `declared` defaults to the column's `accepts[0]`. Set it only to take another accepted
   declaration.
 - Key columns are added for you.
-- A relation column's target must be in the same call, with a `label`.
+- A relation column's target must be in the same call, with a `label`, or mapped in the module
+  before.
 - Two spellings, never mixed:
   - a relation is `schema.name` (`erp.audit_log`) in `relation` fields;
   - a resource ref is `<connection>/<schema>/<relation>` in kebab case (`erp/erp/audit-log`) in
