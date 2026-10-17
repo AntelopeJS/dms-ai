@@ -14,7 +14,7 @@ runs:
   steps:
     # Installs the pnpm version pinned in the root `packageManager`, and puts
     # it on PATH before setup-node, which needs it to read the pnpm store.
-    # frontend-vue pins its own version, which pnpm switches to by itself.
+    # Root installs use that version for every workspace member.
     - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
 
     - uses: actions/setup-node@v4
@@ -29,11 +29,16 @@ runs:
           frontend-vue/pnpm-lock.yaml
           sidecar/pnpm-lock.yaml
 
-    - run: pnpm install --frozen-lockfile
+    - run: |
+        filters=(--filter "{.}")
+        if [ "$INSTALL_FRONTEND" = true ]; then
+          filters+=(--filter @antelopejs/dms-ai-frontend-vue)
+        fi
+        if [ "$INSTALL_SIDECAR" = true ]; then
+          filters+=(--filter @antelopejs/dms-ai-sidecar)
+        fi
+        pnpm install "${filters[@]}" --frozen-lockfile
       shell: bash
-    - if: inputs.frontend == 'true'
-      run: pnpm --dir frontend-vue install --frozen-lockfile
-      shell: bash
-    - if: inputs.sidecar == 'true'
-      run: pnpm --dir sidecar install
-      shell: bash
+      env:
+        INSTALL_FRONTEND: ${{ inputs.frontend }}
+        INSTALL_SIDECAR: ${{ inputs.sidecar }}

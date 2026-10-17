@@ -43,7 +43,7 @@
   },
   "scripts": {
     "build": "rimraf dist && tsc",
-    "build:sidecar": "cd sidecar && pnpm install && pnpm run build",
+    "build:sidecar": "pnpm --dir sidecar run build",
     "prepack": "pnpm run build && pnpm run build:sidecar",
     "frontend:dev": "cd playground && pnpm frontend:dev",
     "dev": "cd playground && pnpm dev",
@@ -60,7 +60,7 @@
     "test:sidecar-lifecycle": "node --test tests/sidecar-lifecycle.test.cjs",
     "test:build-id": "node --test tests/build-id.test.cjs",
     "test:e2e": "cd sidecar && pnpm test:e2e",
-    "release": "pnpm --dir frontend-vue install --frozen-lockfile && pnpm --dir sidecar install --frozen-lockfile && release-it",
+    "release": "pnpm install --frozen-lockfile && release-it",
     "format": "oxfmt --disable-nested-config . && cd frontend-vue && pnpm format",
     "knip": "knip --dependencies",
     "knip:all": "knip"

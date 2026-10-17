@@ -74,9 +74,11 @@ The guide's sources live in [`docs/`](./docs). The package ships the `dms-ai`, `
 
 Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request.
 
+One install from the repository root includes the backend, shipped Vue frontend and sidecar. Each keeps its own lockfile. The playground remains independent and needs its own install for local development. Builds use the installed dependencies and do not install them again.
+
 ```bash
-pnpm install
-pnpm --dir frontend-vue install
+pnpm install --frozen-lockfile
+pnpm --dir playground install --frozen-lockfile --ignore-workspace
 pnpm build
 pnpm build:sidecar
 pnpm dev            # playground backend
