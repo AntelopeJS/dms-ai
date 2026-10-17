@@ -1,4 +1,4 @@
-import { nextTick, ref } from "vue";
+import { nextTick, ref, watch } from "vue";
 import { describe, expect, it, vi } from "vitest";
 import { runWhenLoggedIn } from "../app/runtime/session-gate";
 
@@ -24,6 +24,33 @@ describe("session gate", () => {
 		loggedIn.value = true;
 		await nextTick();
 		expect(start).toHaveBeenCalledTimes(1);
+	});
+
+	it("starts in the new session scope after login watchers settle", async () => {
+		const loggedIn = ref(false);
+		const session = ref("guest");
+		let scope = session.value;
+		let probe: AbortController | undefined;
+		let probeScope: string | undefined;
+		runWhenLoggedIn(
+			() => loggedIn.value,
+			() => {
+				probeScope = scope;
+				probe = new AbortController();
+			},
+		);
+		// DMS hydrates the user before the session. Its scope watcher clears
+		// outstanding reads, including an AI probe started in the old scope.
+		const stopScope = watch(session, (next) => {
+			probe?.abort();
+			scope = next;
+		});
+		loggedIn.value = true;
+		session.value = "owner";
+		await nextTick();
+		stopScope();
+		expect(probeScope).toBe("owner");
+		expect(probe?.signal.aborted).toBe(false);
 	});
 
 	it("never starts once the gate is stopped", async () => {

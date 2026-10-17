@@ -13,10 +13,16 @@ export function runWhenLoggedIn(
 		start();
 		return () => undefined;
 	}
-	const stop = watch(isLoggedIn, (loggedIn) => {
-		if (!loggedIn) return;
-		stop();
-		start();
-	});
+	const stop = watch(
+		isLoggedIn,
+		(loggedIn) => {
+			if (!loggedIn) return;
+			stop();
+			start();
+		},
+		// Login also changes DMS's async-data scope. Let its watchers clear
+		// the old scope before starting the probe, or they abort that read.
+		{ flush: "post" },
+	);
 	return stop;
 }
