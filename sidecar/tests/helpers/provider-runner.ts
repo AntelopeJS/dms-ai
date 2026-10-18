@@ -9,7 +9,6 @@ import type { AppSettings } from "../../src/state/settings-types.js";
 import type { ProviderName } from "../../src/state/types.js";
 
 const UNREACHABLE_MCP_URL = "http://127.0.0.1:1/mcp";
-const MOCK_API_KEY = "sk-mock";
 
 export interface RunnerHandle {
   runner: AgentRunner;
@@ -51,7 +50,6 @@ const BUILDERS: Record<ProviderName, ProviderBuilder> = {
         mcpHttpRegistry: registry,
         createMcpDeps: () => ({}) as unknown as AiMcpServerDeps,
         getMcpUrl: () => UNREACHABLE_MCP_URL,
-        getApiKey: () => MOCK_API_KEY,
       }),
       dispose: () => registry.dispose(),
     };

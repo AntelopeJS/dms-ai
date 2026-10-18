@@ -100,7 +100,6 @@ describe("two live Codex conversations stay isolated", () => {
         mcpHttpRegistry: registry,
         createMcpDeps: buildDeps,
         getMcpUrl: () => `http://127.0.0.1:${started.port}/mcp`,
-        getApiKey: () => "sk-mock",
       });
 
       const open = async (conversationId: string): Promise<ProviderSession> => {

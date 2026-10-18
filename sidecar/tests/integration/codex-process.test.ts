@@ -38,7 +38,6 @@ vi.mock("../../src/constants/codex.js", async (importOriginal) => ({
 
 const installation = resolveCodexInstallation();
 const TMP_PREFIX = "dms-ai-codex-";
-const FAKE_API_KEY = "sk-not-a-real-key";
 const MCP_URL = "http://127.0.0.1:1/mcp";
 const FAKE_TOKEN = "0123456789abcdef";
 const CONVERSATION = "conv-codex-proc";
@@ -87,7 +86,7 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
         mcpUrl: MCP_URL,
         mcpToken: FAKE_TOKEN,
         hostProjectRoot: stateDir,
-        apiKey: FAKE_API_KEY,
+        accessTokenUrl: "http://127.0.0.1:1/codex/access-token",
         handlers: {
           onNotification: () => {},
           onServerRequest: async () => ({}),
@@ -132,7 +131,7 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
         mcpUrl: MCP_URL,
         mcpToken: FAKE_TOKEN,
         hostProjectRoot: stateDir,
-        apiKey: FAKE_API_KEY,
+        accessTokenUrl: "http://127.0.0.1:1/codex/access-token",
         handlers: {
           onNotification: () => {},
           onServerRequest: async () => ({}),
@@ -205,7 +204,7 @@ describe("codex app-server spawn failure", () => {
           mcpUrl: MCP_URL,
           mcpToken: FAKE_TOKEN,
           hostProjectRoot: stateDir,
-          apiKey: FAKE_API_KEY,
+          accessTokenUrl: "http://127.0.0.1:1/codex/access-token",
           handlers: {
             onNotification: () => {},
             onServerRequest: async () => ({}),
@@ -268,7 +267,7 @@ describe("codex app-server teardown", () => {
       mcpUrl: MCP_URL,
       mcpToken: FAKE_TOKEN,
       hostProjectRoot: dir,
-      apiKey: FAKE_API_KEY,
+      accessTokenUrl: "http://127.0.0.1:1/codex/access-token",
       handlers: {
         onNotification: () => {},
         onServerRequest: async () => ({}),

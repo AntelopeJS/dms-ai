@@ -678,7 +678,7 @@ describe("notices and errors", () => {
 			},
 			providers: {
 				claude: { available: true },
-				codex: { available: false, reason: "Set OPENAI_API_KEY." },
+				codex: { available: false, reason: "Sign in with ChatGPT." },
 			},
 		});
 		await nextTick();

@@ -1,3 +1,5 @@
+import { writeAuthRecord } from "../../src/providers/codex/chatgpt/store.js";
+import { signedInRecord, signInForTests } from "../helpers/chatgpt-auth.js";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CODEX_VERSION_WAIVER_ENABLED,
@@ -72,17 +74,16 @@ describe("codex binary version gate", () => {
     expect(isCodexInstallationUsable(installation())).toBe(true);
   });
 
-  it("reports a missing API key as its own reason", () => {
+  it("reports a missing ChatGPT sign-in as its own reason", async () => {
     CODEX_FIXTURE.use("plain");
-    const key = process.env.OPENAI_API_KEY;
-    delete process.env.OPENAI_API_KEY;
+    await writeAuthRecord({ hostId: signedInRecord().hostId });
     try {
       expect(getProviderAvailability().codex).toEqual({
         available: false,
-        reason: PROVIDER_UNAVAILABLE_REASONS.CODEX_API_KEY_MISSING,
+        reason: PROVIDER_UNAVAILABLE_REASONS.CODEX_NOT_SIGNED_IN,
       });
     } finally {
-      if (key !== undefined) process.env.OPENAI_API_KEY = key;
+      await signInForTests();
     }
   });
 });

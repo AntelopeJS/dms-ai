@@ -1,12 +1,21 @@
 import path from "node:path";
 import { effectiveGenerationMode } from "../../builder/capability.js";
 import {
-  CODEX_AUTH_MODE_API_KEY,
+  CHATGPT_TOKEN_SECRET_ENV,
+  CHATGPT_TOKEN_URL_ENV,
+  CODEX_AUTH_COMMAND_TIMEOUT_MS,
+  CODEX_AUTH_REFRESH_INTERVAL_MS,
+} from "../../constants/chatgpt.js";
+import {
   CODEX_DENIAL_REMINDER_COUNT_TOKEN,
   CODEX_DENIAL_REMINDER_TEMPLATE,
   CODEX_DENIAL_REMINDER_THRESHOLD,
   CODEX_MCP_SERVER_ID,
   CODEX_MCP_TOKEN_ENV_VAR,
+  CODEX_MODEL_PROVIDER_BASE_URL,
+  CODEX_MODEL_PROVIDER_ID,
+  CODEX_MODEL_PROVIDER_NAME,
+  CODEX_MODEL_PROVIDER_WIRE_API,
 } from "../../constants/codex.js";
 import { MCP_TOOL_TIMEOUT_SEC } from "../../constants/mcp.js";
 import { SAFE_MODE_DENIED_MESSAGE } from "../../constants/settings.js";
@@ -146,6 +155,25 @@ function tomlString(value: string): string {
 export interface CodexConfigInput {
   mcpUrl: string;
   hostProjectRoot: string;
+  /** The Node binary the auth command runs on: the sidecar's own. */
+  nodePath: string;
+}
+
+// Run by Codex whenever it needs a bearer token: asks the sidecar for the
+// current one and prints it. Inline, so it runs the same from `src` under the
+// tests as from `dist`; the URL and secret come from the app-server's
+// environment, so nothing secret is written into the file.
+const AUTH_COMMAND_SCRIPT = [
+  `const response = await fetch(process.env.${CHATGPT_TOKEN_URL_ENV}, {`,
+  `  headers: { authorization: "Bearer " + process.env.${CHATGPT_TOKEN_SECRET_ENV} },`,
+  "});",
+  "const body = await response.text();",
+  "if (!response.ok) { process.stderr.write(body); process.exit(1); }",
+  "process.stdout.write(body);",
+].join("\n");
+
+function tomlArray(values: readonly string[]): string {
+  return `[${values.map(tomlString).join(", ")}]`;
 }
 
 /**
@@ -153,6 +181,11 @@ export interface CodexConfigInput {
  * at process level: placed in `thread/start.config` it is silently ignored.
  * The bearer token travels through an environment variable, never the file,
  * which is world-readable within the user's account.
+ *
+ * The model provider is the user's ChatGPT plan. Codex runs the auth command
+ * for a token at most every CODEX_AUTH_REFRESH_INTERVAL_MS and again after a
+ * 401, so a token refreshed by the sidecar reaches a running app-server without
+ * restarting it, even in the middle of a turn.
  */
 export function buildConfigToml(input: CodexConfigInput): string {
   return [
@@ -160,6 +193,20 @@ export function buildConfigToml(input: CodexConfigInput): string {
     // that table, and --strict-config rejects the misplacement outright.
     // The host project's AGENTS.md is not ours to inject.
     "project_doc_max_bytes = 0",
+    `model_provider = ${tomlString(CODEX_MODEL_PROVIDER_ID)}`,
+    "",
+    `[model_providers.${CODEX_MODEL_PROVIDER_ID}]`,
+    `name = ${tomlString(CODEX_MODEL_PROVIDER_NAME)}`,
+    `base_url = ${tomlString(CODEX_MODEL_PROVIDER_BASE_URL)}`,
+    `wire_api = ${tomlString(CODEX_MODEL_PROVIDER_WIRE_API)}`,
+    "requires_openai_auth = false",
+    "supports_websockets = false",
+    "",
+    `[model_providers.${CODEX_MODEL_PROVIDER_ID}.auth]`,
+    `command = ${tomlString(input.nodePath)}`,
+    `args = ${tomlArray(["--input-type=module", "-e", AUTH_COMMAND_SCRIPT])}`,
+    `timeout_ms = ${CODEX_AUTH_COMMAND_TIMEOUT_MS}`,
+    `refresh_interval_ms = ${CODEX_AUTH_REFRESH_INTERVAL_MS}`,
     "",
     `[mcp_servers.${CODEX_MCP_SERVER_ID}]`,
     `url = ${tomlString(input.mcpUrl)}`,
@@ -174,15 +221,6 @@ export function buildConfigToml(input: CodexConfigInput): string {
     'trust_level = "untrusted"',
     "",
   ].join("\n");
-}
-
-export interface CodexAuthFile {
-  auth_mode: string;
-  OPENAI_API_KEY: string;
-}
-
-export function buildAuthFile(apiKey: string): CodexAuthFile {
-  return { auth_mode: CODEX_AUTH_MODE_API_KEY, OPENAI_API_KEY: apiKey };
 }
 
 /** Whether a turn runs in safe mode: requested, and the Builder is present. */
