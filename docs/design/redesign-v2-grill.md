@@ -604,6 +604,8 @@ the tone pills of dms#181 (`StatusPillDisplay` with `toneField`, `PillsDisplay` 
 table cells: on a card the source would be a bare label, the tags an unrendered list, and a
 shadowed skill would look like the copy used. It also cannot dim an ignored copy or show the
 description. Revisit when the cards display renders fields through the column renderer.
+While the custom cards load, their placeholders hold `card.skeletonHeight: "250px"` (dms#354),
+the height of a real card at 1440 px, so the footer does not move on a client navigation.
 
 ### Q52. How do the row drawers open, and what do they draw with?
 

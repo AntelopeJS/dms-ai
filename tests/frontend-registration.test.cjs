@@ -305,3 +305,29 @@ void test("opens the skill detail as a 3xl reading panel on the right", async ()
   assert.equal(detail[0].size, SKILL_DRAWER_SIZE);
   assert.equal(detail[0].direction, "right");
 });
+
+/** The height of a real skill card, held by its placeholders while the cards load. */
+const CARD_SKELETON_HEIGHT = "250px";
+
+function findCards(value, cards) {
+  if (!value || typeof value !== "object") return cards;
+  if (value.card) cards.push(value.card);
+  for (const entry of Object.values(value)) findCards(entry, cards);
+  return cards;
+}
+
+void test("holds the skill card placeholders at the height of a real card", async () => {
+  const { pages } = loadPages();
+  const skills = pages.find((page) => page.pageId === "skills");
+  const cards = [];
+  for (const [, component] of staticComponents(skills)) {
+    findCards(await component.serialize(), cards);
+  }
+  const skillCards = cards.filter((card) =>
+    JSON.stringify(card).includes('"DmsAiSkillCard"'),
+  );
+  assert.ok(skillCards.length > 0);
+  for (const card of skillCards) {
+    assert.equal(card.skeletonHeight, CARD_SKELETON_HEIGHT);
+  }
+});
