@@ -28,6 +28,10 @@
 		},
 		"blocks": {
 			"overview": {
+				"toolbar": {
+					"name": "Barre d'outils",
+					"description": "Quand la vue d'ensemble a lu ses chiffres, un rafraîchissement et la période"
+				},
 				"period": {
 					"name": "Période",
 					"description": "Choisit la période couverte par les chiffres de la vue d'ensemble"
@@ -133,6 +137,14 @@
 				}
 			},
 			"activity": {
+				"toolbar": {
+					"name": "Barre d'outils",
+					"description": "Quand le journal d'audit a été lu, un rafraîchissement et la période"
+				},
+				"period": {
+					"name": "Période",
+					"description": "Choisit la période couverte par le journal d'audit"
+				},
 				"log": {
 					"name": "Journal d'audit",
 					"description": "Chaque appel d'outil, comment il a été autorisé et son résultat"

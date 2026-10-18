@@ -52,6 +52,20 @@ void test("translates the Activity table's query and keys each row by its id", a
   assert.equal(page.results[0].timestamp, "2026-10-07T14:02:00.000Z");
 });
 
+void test("filters the audit log on the period of its toolbar", async () => {
+  reset();
+  answer("GET", "/activity", 200, { results: [], total: 0 });
+  const from = "2026-10-11T00:00:00.000Z";
+  const to = "2026-10-18T09:30:00.000Z";
+  await new harness.routes.AIActivityController().list(
+    context(
+      `offset=0&limit=25&from=${from}&to=${to}&preset=last-7-days&comparison=none`,
+    ),
+  );
+  const [request] = sidecar.requests;
+  assert.deepEqual(request.query, { offset: "0", limit: "25", from, to });
+});
+
 void test("draws the action's target under its name, in red for a destructive tool", async () => {
   reset();
   const deletion = {

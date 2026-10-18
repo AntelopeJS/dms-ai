@@ -2,6 +2,8 @@ import type { QueryParams } from "../sidecar";
 
 /** The list query a source table sends that the sidecar reads under the same name. */
 const PASSED_PARAMS = ["offset", "limit", "search"] as const;
+/** The bounds of the period a `periodScope` table sends, as the sidecar reads them. */
+const PERIOD_PARAMS = ["from", "to"] as const;
 const FILTER_PARAM_PREFIX = "filter_";
 /** The only filter mode the sidecar answers: tabs and quick filters send it. */
 const EQUALS_MODE_PREFIX = "is:";
@@ -49,6 +51,18 @@ export function sidecarListParams(
     params[name] = search.get(name) ?? undefined;
   }
   return { ...params, ...filterParams(search, mappings) };
+}
+
+/**
+ * The bounds of the period a source table with a `periodScope` sends, ISO
+ * dates the sidecar reads under the same names; none under "All time".
+ */
+export function periodParams(search: URLSearchParams): QueryParams {
+  const params: QueryParams = {};
+  for (const name of PERIOD_PARAMS) {
+    params[name] = search.get(name) ?? undefined;
+  }
+  return params;
 }
 
 /** The value a column is filtered on, `is:` mode only. */

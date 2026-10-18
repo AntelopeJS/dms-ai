@@ -6,16 +6,22 @@ import { PageController, RegisterPage } from "@antelopejs/interface-dms/page";
 import { I18N_SECTIONS } from "../../constants/i18n";
 import {
   ACTIVITY_PAGE_SIZE,
+  ACTIVITY_PERIOD_SCOPE,
   PAGE_IDS,
   PAGE_ORDER,
   PAGE_ROUTES,
 } from "../../constants/pages";
 import { ACTIVITY_CATEGORIES, i18nKey } from "../../vocabulary";
 import { blockMeta, pageMenu, ROW_DRAWER_DIRECTION } from "../meta";
+import { periodToolbar } from "../toolbar";
 import { ACTIVITY_COLUMNS } from "./columns";
 
 const SECTION = I18N_SECTIONS.ACTIVITY;
 const TABLE_PATH = "activity.log";
+const TOOLBAR_PATHS = {
+  toolbar: "activity.toolbar",
+  period: "activity.period",
+};
 
 function text(...segments: string[]): string {
   return i18nKey(SECTION, ...segments);
@@ -37,9 +43,10 @@ const DETAIL_DRAWER = CustomComponent("DmsAiActivityDetail").meta(
 
 /**
  * AI Activity — the audit log: every tool the assistant used, how it was
- * allowed and what came out, from `/ai/activity`. Tabs and quick filters are
- * column filters the route forwards to the sidecar; a row opens its detail in
- * a drawer, deep-linked as `?record=<id>`.
+ * allowed and what came out, from `/ai/activity`, over the period of the page
+ * toolbar. Tabs and quick filters are column filters the route forwards to
+ * the sidecar, as is the period; a row opens its detail in a drawer,
+ * deep-linked as `?record=<id>`.
  */
 @RegisterPage()
 export class AIActivityPage extends PageController(
@@ -59,8 +66,18 @@ export class AIActivityPage extends PageController(
     ],
   }),
 ) {
+  static toolbar = periodToolbar(TOOLBAR_PATHS, {
+    id: ACTIVITY_PERIOD_SCOPE,
+    // The whole log by default, as before the page had a period; an audit
+    // log has nothing to compare against.
+    defaultPreset: "all",
+    presets: ["last-24h", "last-7-days", "last-30-days", "all"],
+    comparisons: ["none"],
+  });
+
   static log = TableView.fromSource({
     fetchUrl: PAGE_ROUTES.ACTIVITY,
+    periodScope: ACTIVITY_PERIOD_SCOPE,
     capabilities: { search: true, paginate: true, filter: true },
     columns: ACTIVITY_COLUMNS,
     searchPlaceholder: text("search"),
