@@ -24,6 +24,7 @@ The sidecar loads every directory a loaded module declares in `package.json` `an
 ## Gotchas
 
 - Refuses to run with `NODE_ENV=production`; `DMS_AI=0` starts the backend without the sidecar.
+- Overview and Activity open with the DMS `PageToolbar` (period only, no live: "updated" + refresh); their selectors share `rememberKey: "ai"`. `/ai/activity` filters on the `from` / `to` the table sends; the CSV export ignores them.
 - Offline assistant: Restart on the Overview; lists and settings answer `503` while the sidecar is down.
 - Remote over plain HTTP: start the frontend with `DMS_COOKIE_SECURE=false`.
 - Deleting pages, tables, fields or queries asks in every mode, Full auto included.
