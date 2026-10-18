@@ -42,7 +42,12 @@ function stubFetch(answer: (call: FormCall) => Response, jwks?: unknown) {
   const calls: FormCall[] = [];
   vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
     if (url === CHATGPT_JWKS_URL) return Response.json(jwks ?? { keys: [] });
-    const call = { url, form: new URLSearchParams(typeof init?.body === "string" ? init.body : "") };
+    const call = {
+      url,
+      form: new URLSearchParams(
+        typeof init?.body === "string" ? init.body : "",
+      ),
+    };
     calls.push(call);
     return answer(call);
   });
