@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { renderMarkdown } from "../chat/utils/markdown";
+import { renderDocument } from "../chat/utils/markdown";
 import RowStepper from "../views/RowStepper.vue";
 import { useAssistant } from "../views/composables/useAssistant";
 import { useViewFormat } from "../views/composables/useViewFormat";
@@ -20,7 +20,7 @@ const assistant = useAssistant();
 
 const skill = computed(() => props.rowData);
 const look = computed(() => (skill.value ? skillLook(skill.value) : null));
-const html = computed(() => renderMarkdown(skill.value?.body ?? ""));
+const html = computed(() => renderDocument(skill.value?.body ?? ""));
 
 const facts = computed(() => {
 	const current = skill.value;
@@ -66,7 +66,10 @@ function openLastConversation(): void {
 </script>
 
 <template>
-	<div v-if="skill && look" class="flex min-h-full flex-col gap-5">
+	<div
+		v-if="skill && look"
+		class="dms-ai-skill-detail flex min-h-full flex-col gap-5"
+	>
 		<RowStepper v-if="props.navigation" :navigation="props.navigation" />
 
 		<header class="flex items-start gap-3">
@@ -97,7 +100,7 @@ function openLastConversation(): void {
 
 		<DmsKeyValueList :items="facts" />
 
-		<p class="text-muted text-[13px] leading-relaxed">
+		<p class="text-muted max-w-[76ch] text-[13px] leading-relaxed">
 			{{ skill.description }}
 		</p>
 
@@ -184,5 +187,40 @@ function openLastConversation(): void {
 .dms-ai-skill-doc :deep(a) {
 	color: var(--ui-primary);
 	text-decoration: underline;
+}
+/* Running text keeps a readable measure in the wide sheet; code and tables
+   may use the whole width. */
+.dms-ai-skill-doc :deep(:is(p, ul, ol, blockquote, h1, h2, h3, h4, h5, h6)) {
+	max-width: 76ch;
+}
+.dms-ai-skill-doc :deep(table) {
+	margin: 0 0 8px;
+	border-collapse: collapse;
+	display: block;
+	overflow-x: auto;
+}
+.dms-ai-skill-doc :deep(:is(th, td)) {
+	padding: 4px 8px;
+	border: 1px solid var(--ui-border);
+	text-align: start;
+}
+</style>
+
+<style>
+/*
+ * The DMS draws a side drawer 440px wide and its `drawer` action target takes
+ * no width option, so this sheet widens the drawer holding it: a SKILL.md
+ * reads as a document, not a sidebar. Capped to the window less its gutter,
+ * and the whole screen on a phone.
+ */
+[data-vaul-drawer][data-vaul-drawer-direction]:has(.dms-ai-skill-detail) {
+	width: 820px;
+}
+@media (max-width: 639px) {
+	[data-vaul-drawer][data-vaul-drawer-direction]:has(.dms-ai-skill-detail) {
+		width: 100%;
+		max-width: 100%;
+		border-radius: 0;
+	}
 }
 </style>
