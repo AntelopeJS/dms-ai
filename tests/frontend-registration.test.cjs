@@ -313,7 +313,7 @@ void test("opens the Overview and Activity with the DMS page toolbar, its period
   }
 });
 
-void test("compares the Overview with the period before, over whole days", async () => {
+void test("offers the Overview's comparisons in a menu, the period before by default", async () => {
   const { pages } = loadPages();
   const { period } = await toolbarPeriod(findPage(pages, "overview"));
   assert.equal(period.options.id, "ai-overview");
@@ -323,8 +323,13 @@ void test("compares the Overview with the period before, over whole days", async
     "last-30-days",
   ]);
   assert.equal(period.options.defaultPreset, "last-7-days");
-  assert.deepEqual(period.options.comparisons, ["previous-period"]);
+  assert.deepEqual(period.options.comparisons, [
+    "previous-period",
+    "previous-year",
+    "none",
+  ]);
   assert.equal(period.options.defaultComparison, "previous-period");
+  assert.equal(period.options.comparisonControl, "menu");
 });
 
 void test("scopes the audit log to the Activity period, the whole log by default", async () => {

@@ -34,7 +34,10 @@ export class AIOverviewPage extends PageController(
     defaultComparison: "previous-period",
     // The activity chart has one point per day: an hour would draw one point.
     presets: ["last-24h", "last-7-days", "last-30-days"],
-    comparisons: ["previous-period"],
+    comparisons: ["previous-period", "previous-year", "none"],
+    // A menu, not the toolbar's hidden comparison: the owner picks what the
+    // deltas and the chart's dashed line measure against, or none at all.
+    comparisonControl: "menu",
   });
 
   static attention = overviewStatusBanner();

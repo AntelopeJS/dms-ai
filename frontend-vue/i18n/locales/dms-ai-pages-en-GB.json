@@ -84,11 +84,11 @@
 				},
 				"activity_chart": {
 					"name": "Activity chart",
-					"description": "Actions per day, compared with the previous period",
+					"description": "Actions per day, against the chosen comparison",
 					"title": "Activity",
 					"caption": "Actions over the selected period",
 					"primary": "Actions",
-					"comparison": "Previous period"
+					"comparison": "Comparison"
 				},
 				"allowed": {
 					"name": "How actions were allowed",

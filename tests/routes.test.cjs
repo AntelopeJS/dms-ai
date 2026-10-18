@@ -194,6 +194,28 @@ void test("shapes the approved KPI's caption from the sidecar's totals", async (
   assert.equal(kpi.caption, "21 / 25 · 84%");
 });
 
+void test("forwards each comparison window of the Overview, none without one", async () => {
+  const metrics = new harness.routes.AIMetricsController();
+  const from = "2026-10-11T00:00:00.000Z";
+  const to = "2026-10-18T09:30:00.000Z";
+  const compareFrom = "2025-10-11T00:00:00.000Z";
+  const compareTo = "2025-10-18T09:30:00.000Z";
+  reset();
+  answer("GET", "/metrics/kpi/actions", 200, { value: 4, sparkline: [] });
+  answer("GET", "/metrics/series", 200, { value: 4, series: [] });
+  await metrics.kpi("actions", from, to, compareFrom, compareTo);
+  await metrics.series(from, to, compareFrom, compareTo);
+  for (const request of sidecar.requests) {
+    assert.deepEqual(request.query, { from, to, compareFrom, compareTo });
+  }
+  reset();
+  answer("GET", "/metrics/kpi/actions", 200, { value: 4, sparkline: [] });
+  const kpi = await metrics.kpi("actions", from, to);
+  assert.deepEqual(sidecar.requests[0].query, { from, to });
+  assert.equal(kpi.delta, undefined);
+  assert.equal(kpi.previousValue, undefined);
+});
+
 void test("serves the settings flat, numbers as text, deletions locked on", async () => {
   reset();
   answer("GET", "/settings", 200, {
