@@ -27,13 +27,13 @@ export const CHATGPT_SCOPES = [
 
 // The redirect has to be an HTTP loopback URI on 127.0.0.1 (never
 // `localhost`) whose only varying part is the port: the sidecar's own server.
-export const CHATGPT_LOGIN_START_PATH = "/auth/chatgpt/start";
 export const CHATGPT_CALLBACK_PATH = "/auth/chatgpt/callback";
-export const CHATGPT_LOGIN_TICKET_PARAM = "ticket";
 
 // Long enough to read the consent screen and pick an account, short enough
 // that a stale link or a half-finished attempt does not linger.
 export const CHATGPT_LOGIN_TTL_MS = 10 * 60_000;
+// Each Settings page load opens an attempt; the oldest go first past this.
+export const CHATGPT_MAX_PENDING_ATTEMPTS = 50;
 export const CHATGPT_RANDOM_BYTES = 32;
 
 // Refreshed this long before expiry: an access token lasts an hour, and Codex

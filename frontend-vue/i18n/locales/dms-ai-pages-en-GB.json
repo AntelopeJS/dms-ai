@@ -418,7 +418,7 @@
 			"chatgpt": {
 				"signed_out": {
 					"title": "Run Codex on your ChatGPT plan",
-					"description": "Sign in with ChatGPT to use your plan's Codex usage here, with no API key. Opens on this machine's browser.",
+					"description": "Sign in with ChatGPT to use your plan's Codex usage here, with no API key. If the DMS runs on another machine, the page OpenAI sends you back to won't load: paste its address with “Paste the return address”.",
 					"action": "Sign in with ChatGPT"
 				},
 				"signed_in": {
@@ -430,7 +430,15 @@
 					"title": "Sign out of ChatGPT?",
 					"description": "Codex stops working on every DMS project of this machine until you sign in again. To remove dms-ai from your ChatGPT account entirely, disconnect it in ChatGPT's settings."
 				},
-				"signed_out_toast": "Signed out of ChatGPT"
+				"signed_out_toast": "Signed out of ChatGPT",
+				"paste": {
+					"action": "Paste the return address",
+					"title": "Finish signing in with ChatGPT",
+					"description": "After you allowed access, OpenAI sent you to an address starting with http://127.0.0.1 that could not load. Copy that whole address from the address bar and paste it here. It works once, within 10 minutes.",
+					"field": "Return address",
+					"confirm": "Finish signing in",
+					"success": "Signed in with ChatGPT"
+				}
 			},
 			"thinking": {
 				"label": "Thinking",

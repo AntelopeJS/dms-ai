@@ -1,9 +1,17 @@
-import { Controller, Get, HTTPResult, Post } from "@antelopejs/interface-api";
+import {
+  Controller,
+  Get,
+  HTTPResult,
+  JSONBody,
+  Post,
+} from "@antelopejs/interface-api";
 import type {
   BannerButtonAction,
   BannerContent,
 } from "@antelopejs/interface-dms/base";
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
+import { serializeConfirmDialog } from "@antelopejs/interface-dms/base/confirm-dialog";
+import { DefaultDataTypes } from "@antelopejs/interface-dms/base/data-types";
 import { I18N_SECTIONS } from "../constants/i18n";
 import { ROUTE_PREFIX } from "../constants/module";
 import { PAGE_ROUTES } from "../constants/pages";
@@ -14,13 +22,16 @@ import { relay } from "./sidecar-results";
 
 const ACCOUNT_PATH = "/codex/account";
 const LOGOUT_PATH = "/codex/logout";
+const CALLBACK_PATH = "/codex/callback";
+/** Field of the paste dialog, sent as the request body. */
+const PASTED_URL_FIELD = "url";
 const NO_STORE = { "Cache-Control": "no-store" };
 
 /** What the sidecar says about the ChatGPT account Codex runs on. */
 interface CodexAccount {
   isSignedIn: boolean;
   email?: string;
-  /** The sidecar's loopback sign-in link, when no account is signed in. */
+  /** OpenAI's authorization URL for a new attempt, when no account is signed in. */
   loginUrl?: string;
 }
 
@@ -60,8 +71,37 @@ function signedInBanner(account: CodexAccount): BannerContent {
   };
 }
 
-// The link is the sidecar's own loopback server: OpenAI only redirects back
-// to 127.0.0.1, so it works from a browser on the machine running the DMS.
+// OpenAI only redirects back to 127.0.0.1. On the machine running the DMS that
+// is the sidecar, and the sign-in completes by itself; anywhere else the page
+// fails to load, and its address is pasted here instead.
+const PASTE_ACTION: BannerButtonAction = {
+  label: text("paste", "action"),
+  icon: "i-ph-clipboard-text",
+  color: "neutral",
+  confirm: serializeConfirmDialog({
+    title: text("paste", "title"),
+    description: text("paste", "description"),
+    icon: "i-ph-clipboard-text",
+    confirmLabel: text("paste", "confirm"),
+    fields: [
+      {
+        id: PASTED_URL_FIELD,
+        label: text("paste", "field"),
+        type: new DefaultDataTypes.StringType({
+          placeholder: "http://127.0.0.1:…/auth/chatgpt/callback?code=…",
+        }),
+        required: true,
+      },
+    ],
+  }),
+  target: {
+    type: "api",
+    url: PAGE_ROUTES.CODEX_CALLBACK,
+    method: "POST",
+    successMessage: text("paste", "success"),
+  },
+};
+
 function signedOutBanner(loginUrl: string): BannerContent {
   return {
     tone: "info",
@@ -75,6 +115,7 @@ function signedOutBanner(loginUrl: string): BannerContent {
         icon: "i-ph-sign-in",
         target: { type: "external", url: loginUrl, newTab: true },
       },
+      PASTE_ACTION,
     ],
   };
 }
@@ -87,8 +128,8 @@ function accountBanner(account: CodexAccount): BannerContent | null {
 }
 
 /**
- * Settings' ChatGPT account: the banner offering to sign in or out, and the
- * sign-out it runs. No banner while the sidecar does not answer: the Overview
+ * Settings' ChatGPT account: the banner offering to sign in or out, the
+ * pasted return address that completes a remote sign-in, and the sign-out. No banner while the sidecar does not answer: the Overview
  * already says it is down.
  */
 @AuthOwnerOnly()
@@ -104,6 +145,14 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
     } catch {
       return HTTPResult.withHeaders(bannerAnswer(null), NO_STORE);
     }
+  }
+
+  @Post(CALLBACK_PATH)
+  finishSignIn(@JSONBody() body?: Record<string, unknown>): Promise<unknown> {
+    return relay(CALLBACK_PATH, (answer: unknown) => answer, {
+      method: "POST",
+      body: { url: body?.[PASTED_URL_FIELD] },
+    });
   }
 
   @Post(LOGOUT_PATH)

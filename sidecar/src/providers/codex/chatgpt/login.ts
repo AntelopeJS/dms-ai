@@ -2,9 +2,8 @@ import {
   CHATGPT_CALLBACK_PATH,
   CHATGPT_DYNAMIC_CLIENT_ID,
   CHATGPT_LOG_PREFIX,
-  CHATGPT_LOGIN_START_PATH,
-  CHATGPT_LOGIN_TICKET_PARAM,
   CHATGPT_LOGIN_TTL_MS,
+  CHATGPT_MAX_PENDING_ATTEMPTS,
   CHATGPT_PLAN_SCOPE,
 } from "../../../constants/chatgpt.js";
 import { HTTP_STATUS } from "../../../constants/http.js";
@@ -33,46 +32,30 @@ interface PendingAttempt {
   expiresAt: number;
 }
 
-/** What the loopback routes answer: a redirect, or a page for the user. */
-export type LoginResponse =
-  | { kind: "redirect"; location: string }
-  | { kind: "page"; status: number; title: string; message: string };
+/** What the callback answers: a page for the user, or the same as JSON. */
+export interface LoginResponse {
+  status: number;
+  title: string;
+  message: string;
+}
 
-// A ticket makes the start link unguessable: without it, any page the user
-// visits could send their browser to the sidecar and open a consent screen.
-const tickets = new Map<string, number>();
 const attempts = new Map<string, PendingAttempt>();
 
 function sweepExpired(): void {
   const now = Date.now();
-  for (const [ticket, expiresAt] of tickets) {
-    if (expiresAt <= now) tickets.delete(ticket);
-  }
   for (const [state, attempt] of attempts) {
     if (attempt.expiresAt <= now) attempts.delete(state);
   }
-}
-
-function loopbackUrl(port: number, pathname: string): URL {
-  return new URL(`http://${LOOPBACK_HOST}:${port}${pathname}`);
-}
-
-/**
- * The link the Settings page offers to sign in: the sidecar's own loopback
- * server, which then sends the browser to OpenAI. It only works from a browser
- * on the sidecar's machine, as OpenAI's loopback redirect requires.
- */
-export function createLoginUrl(port: number): string {
-  sweepExpired();
-  const ticket = randomUrlSafe();
-  tickets.set(ticket, Date.now() + CHATGPT_LOGIN_TTL_MS);
-  const url = loopbackUrl(port, CHATGPT_LOGIN_START_PATH);
-  url.searchParams.set(CHATGPT_LOGIN_TICKET_PARAM, ticket);
-  return url.toString();
+  // Oldest first: a Map keeps insertion order.
+  while (attempts.size > CHATGPT_MAX_PENDING_ATTEMPTS) {
+    const oldest = attempts.keys().next();
+    if (oldest.done === true) return;
+    attempts.delete(oldest.value);
+  }
 }
 
 function page(status: number, title: string, message: string): LoginResponse {
-  return { kind: "page", status, title, message };
+  return { status, title, message };
 }
 
 const EXPIRED_LINK = page(
@@ -91,33 +74,33 @@ async function ensureRecord(): Promise<ChatGptAuthRecord> {
   return created;
 }
 
-/** GET /auth/chatgpt/start: opens an attempt and sends the browser to OpenAI. */
-export async function startLogin(
-  query: URLSearchParams,
-  port: number,
-): Promise<LoginResponse> {
+/**
+ * Opens a sign-in attempt and answers OpenAI's authorization URL, which the
+ * Settings page links to directly: the browser reaches OpenAI wherever the
+ * dashboard runs. The way back is the sidecar's loopback callback, which only
+ * a browser on the sidecar's machine reaches; anywhere else, the user pastes
+ * the address it could not load (see `finishPastedLogin`).
+ */
+export async function createLoginUrl(port: number): Promise<string> {
   sweepExpired();
-  const ticket = query.get(CHATGPT_LOGIN_TICKET_PARAM);
-  if (ticket === null || !tickets.has(ticket)) return EXPIRED_LINK;
   const record = await withAuthLock(ensureRecord);
   const state = randomUrlSafe();
   const attempt: PendingAttempt = {
     clientId: record.clientId,
     hostId: record.hostId,
-    redirectUri: loopbackUrl(port, CHATGPT_CALLBACK_PATH).toString(),
+    redirectUri: `http://${LOOPBACK_HOST}:${port}${CHATGPT_CALLBACK_PATH}`,
     nonce: randomUrlSafe(),
     codeVerifier: randomUrlSafe(),
     expiresAt: Date.now() + CHATGPT_LOGIN_TTL_MS,
   };
   attempts.set(state, attempt);
-  const location = buildAuthorizeUrl({
+  return buildAuthorizeUrl({
     ...attempt,
     state,
     idTokenHint:
       record.clientId === undefined ? undefined : record.tokens?.idToken,
     loginHint: record.clientId === undefined ? undefined : record.email,
   });
-  return { kind: "redirect", location };
 }
 
 /**
@@ -231,4 +214,30 @@ export async function finishLogin(
       `${reason}. Try again from Assistant › Settings.`,
     );
   }
+}
+
+const NOT_A_CALLBACK = page(
+  HTTP_STATUS.BAD_REQUEST,
+  "Not the sign-in address",
+  "Paste the whole address of the page OpenAI sent you to, starting with http://127.0.0.1.",
+);
+
+/**
+ * The same as the callback, for an address the user pasted: OpenAI's redirect
+ * to 127.0.0.1 lands on the user's own machine when the DMS runs elsewhere, so
+ * the browser shows an error page whose address still carries the code. Only
+ * this sidecar holds the PKCE verifier the code is exchanged with, so the
+ * address is useless to anyone it leaks to once used or expired.
+ */
+export function finishPastedLogin(pasted: string): Promise<LoginResponse> {
+  let url: URL;
+  try {
+    url = new URL(pasted.trim());
+  } catch {
+    return Promise.resolve(NOT_A_CALLBACK);
+  }
+  if (url.pathname !== CHATGPT_CALLBACK_PATH) {
+    return Promise.resolve(NOT_A_CALLBACK);
+  }
+  return finishLogin(url.searchParams);
 }

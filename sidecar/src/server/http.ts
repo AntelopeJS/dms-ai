@@ -9,13 +9,17 @@ import { CONTENT_TYPE, HTTP_STATUS } from "../constants/http.js";
 import { MCP_HTTP_PATH } from "../constants/mcp.js";
 import { LOOPBACK_HOST } from "../constants/ports.js";
 import type { McpHttpRegistry } from "../mcp/http-binding.js";
+import { z } from "zod";
 import { SettingsPatchSchema } from "../protocol/messages.js";
 import {
   readAccountStatus,
   signOut,
 } from "../providers/codex/chatgpt/credentials.js";
 import { handleChatGptRequest } from "../providers/codex/chatgpt/http.js";
-import { createLoginUrl } from "../providers/codex/chatgpt/login.js";
+import {
+  createLoginUrl,
+  finishPastedLogin,
+} from "../providers/codex/chatgpt/login.js";
 import { getProviderAvailability } from "../providers/registry.js";
 import type { ProviderAvailabilityMap } from "../providers/types.js";
 import { isClientAuthorized } from "./client-auth.js";
@@ -119,6 +123,8 @@ async function putSettings(
   sendJson(res, HTTP_STATUS.OK, buildSettingsPayload(next));
 }
 
+const PastedCallbackSchema = z.object({ url: z.string().min(1) });
+
 const SETTINGS_ROUTES: readonly ApiRoute[] = [
   {
     method: "GET",
@@ -136,12 +142,29 @@ const SETTINGS_ROUTES: readonly ApiRoute[] = [
     // sign-in link when there is none.
     method: "GET",
     pattern: /^\/codex\/account$/,
-    handle: (_req, res, deps) => {
+    handle: async (_req, res, deps) => {
       const status = readAccountStatus();
-      sendJson(res, HTTP_STATUS.OK, {
-        ...status,
-        loginUrl: status.isSignedIn ? undefined : createLoginUrl(deps.port),
-      });
+      const loginUrl = status.isSignedIn
+        ? undefined
+        : await createLoginUrl(deps.port);
+      sendJson(res, HTTP_STATUS.OK, { ...status, loginUrl });
+    },
+  },
+  {
+    // The address of OpenAI's redirect, pasted by a user whose browser could
+    // not reach this sidecar's loopback callback (a DMS on another machine).
+    method: "POST",
+    pattern: /^\/codex\/callback$/,
+    handle: async (req, res) => {
+      const result = PastedCallbackSchema.safeParse(
+        parseJson(await readBody(req)),
+      );
+      if (!result.success) {
+        sendJson(res, HTTP_STATUS.BAD_REQUEST, { message: "Missing url." });
+        return;
+      }
+      const { status, message } = await finishPastedLogin(result.data.url);
+      sendJson(res, status, { message });
     },
   },
   {
@@ -233,7 +256,7 @@ async function handleRequest(
     await healthHandler(res, ctx);
     return;
   }
-  if (await handleChatGptRequest(req, res, ctx.listeningPort)) return;
+  if (await handleChatGptRequest(req, res)) return;
   await handleApiRoute(req, res, ctx);
 }
 

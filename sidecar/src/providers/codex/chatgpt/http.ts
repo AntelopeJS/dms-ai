@@ -3,12 +3,11 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   CHATGPT_ACCESS_TOKEN_PATH,
   CHATGPT_CALLBACK_PATH,
-  CHATGPT_LOGIN_START_PATH,
 } from "../../../constants/chatgpt.js";
 import { CONTENT_TYPE, HTTP_STATUS } from "../../../constants/http.js";
 import { sendResponse } from "../../../server/http-io.js";
 import { getAccessToken } from "./credentials.js";
-import { finishLogin, type LoginResponse, startLogin } from "./login.js";
+import { finishLogin, type LoginResponse } from "./login.js";
 import { randomUrlSafe } from "./oauth.js";
 
 const BEARER_PREFIX = "Bearer ";
@@ -39,15 +38,7 @@ function renderPage(title: string, message: string): string {
   ].join("");
 }
 
-function sendLoginResponse(res: ServerResponse, response: LoginResponse): void {
-  if (response.kind === "redirect") {
-    res.writeHead(HTTP_STATUS.FOUND, {
-      Location: response.location,
-      "Cache-Control": "no-store",
-    });
-    res.end();
-    return;
-  }
+function sendLoginPage(res: ServerResponse, response: LoginResponse): void {
   sendResponse(
     res,
     response.status,
@@ -85,21 +76,18 @@ async function sendAccessToken(
 
 /**
  * Serves the routes that cannot carry the backend's client credential: the
- * browser's sign-in round trip, and the app-servers' token reads. Resolves
+ * browser's return from OpenAI, and the app-servers' token reads. Resolves
  * whether it answered the request.
  */
 export async function handleChatGptRequest(
   req: IncomingMessage,
   res: ServerResponse,
-  port: number,
 ): Promise<boolean> {
   if (req.method !== "GET") return false;
   const url = new URL(req.url ?? "/", "http://localhost");
   const routes: Record<string, () => Promise<void>> = {
-    [CHATGPT_LOGIN_START_PATH]: async () =>
-      sendLoginResponse(res, await startLogin(url.searchParams, port)),
     [CHATGPT_CALLBACK_PATH]: async () =>
-      sendLoginResponse(res, await finishLogin(url.searchParams)),
+      sendLoginPage(res, await finishLogin(url.searchParams)),
     [CHATGPT_ACCESS_TOKEN_PATH]: () => sendAccessToken(req, res),
   };
   const route = routes[url.pathname];

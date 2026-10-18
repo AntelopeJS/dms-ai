@@ -46,7 +46,7 @@ Point the sidecar at the origin the `api` module reserved:
 },
 ```
 
-Claude Code runs with its own credentials (its login, or `ANTHROPIC_API_KEY` in the backend's environment). Codex runs on your ChatGPT plan: install `@openai/codex` at the pinned version, then press **Sign in with ChatGPT** in Assistant › Settings from a browser on the same machine. No OpenAI API key is used. Restart the backend, then the frontend, sign in as an owner and press `Ctrl` `Shift` `K` (`⌘` `⇧` `K` on macOS). Set `DMS_AI=0` to start the backend without the sidecar.
+Claude Code runs with its own credentials (its login, or `ANTHROPIC_API_KEY` in the backend's environment). Codex runs on your ChatGPT plan: install `@openai/codex` at the pinned version, then press **Sign in with ChatGPT** in Assistant › Settings (on a remote DMS, paste the address OpenAI sends you back to with **Paste the return address**). No OpenAI API key is used. Restart the backend, then the frontend, sign in as an owner and press `Ctrl` `Shift` `K` (`⌘` `⇧` `K` on macOS). Set `DMS_AI=0` to start the backend without the sidecar.
 
 ## Compatibility
 

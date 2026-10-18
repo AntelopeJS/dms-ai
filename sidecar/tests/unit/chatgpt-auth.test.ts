@@ -14,7 +14,7 @@ import {
 import {
   createLoginUrl,
   finishLogin,
-  startLogin,
+  finishPastedLogin,
 } from "../../src/providers/codex/chatgpt/login.js";
 import { pkceChallenge } from "../../src/providers/codex/chatgpt/oauth.js";
 import {
@@ -187,10 +187,7 @@ interface StartedLogin {
 }
 
 async function startFromSettings(): Promise<StartedLogin> {
-  const link = new URL(createLoginUrl(PORT));
-  const started = await startLogin(link.searchParams, PORT);
-  if (started.kind !== "redirect") throw new Error("expected a redirect");
-  const authorize = new URL(started.location);
+  const authorize = new URL(await createLoginUrl(PORT));
   return {
     authorize,
     state: authorize.searchParams.get("state") ?? "",
@@ -215,18 +212,11 @@ describe("sign-in", () => {
     expect(query.get("code_challenge")).toMatch(/^[\w-]{43}$/);
   });
 
-  it("refuses a start link without a valid ticket", async () => {
-    const response = await startLogin(
-      new URLSearchParams({ ticket: "forged" }),
-      PORT,
-    );
-    expect(response).toMatchObject({ kind: "page", status: 400 });
-    expect(readAuthRecord()).toBeUndefined();
-  });
-
-  it("stores the account once the code, the ID token and the plan scope check out", async () => {
+  // Pasted, as from a DMS on another machine: the loopback callback takes the
+  // same query, and goes through the same checks.
+  it("stores the account once the pasted code, the ID token and the plan scope check out", async () => {
     const key = createSigningKey();
-    const { state, nonce } = await startFromSettings();
+    const { state, nonce, authorize } = await startFromSettings();
     const idToken = signIdToken(key.privateKey, {
       iss: "https://auth.openai.com",
       aud: ISSUED_CLIENT_ID,
@@ -246,19 +236,21 @@ describe("sign-in", () => {
         }),
       key.jwks,
     );
-    const response = await finishLogin(
-      new URLSearchParams({
-        state,
-        code: "the-code",
-        client_id: ISSUED_CLIENT_ID,
-      }),
-    );
-    expect(response).toMatchObject({ kind: "page", status: 200 });
+    const pasted = new URL(`http://127.0.0.1:${PORT}/auth/chatgpt/callback`);
+    pasted.search = new URLSearchParams({
+      code: "the-code",
+      state,
+      client_id: ISSUED_CLIENT_ID,
+    }).toString();
+    const response = await finishPastedLogin(` ${pasted.toString()} `);
+    expect(response).toMatchObject({ status: 200 });
     const exchange = calls[0]?.form;
     expect(exchange?.get("grant_type")).toBe("authorization_code");
     expect(exchange?.get("client_id")).toBe(ISSUED_CLIENT_ID);
     // The verifier sent is the one the challenge was derived from.
-    expect(exchange?.get("code_verifier")).toBeTruthy();
+    expect(pkceChallenge(exchange?.get("code_verifier") ?? "")).toBe(
+      authorize.searchParams.get("code_challenge"),
+    );
     expect(readAccountStatus()).toEqual({
       isSignedIn: true,
       email: "dev@example.com",
@@ -293,7 +285,7 @@ describe("sign-in", () => {
     const response = await finishLogin(
       new URLSearchParams({ state, code: "c", client_id: ISSUED_CLIENT_ID }),
     );
-    expect(response).toMatchObject({ kind: "page", status: 502 });
+    expect(response).toMatchObject({ status: 502 });
     expect(readAccountStatus().isSignedIn).toBe(false);
   });
 
@@ -303,7 +295,7 @@ describe("sign-in", () => {
     const response = await finishLogin(
       new URLSearchParams({ state, code: "c", client_id: ISSUED_CLIENT_ID }),
     );
-    expect(response).toMatchObject({ kind: "page", status: 403 });
+    expect(response).toMatchObject({ status: 403 });
     expect(readAccountStatus().isSignedIn).toBe(false);
   });
 
@@ -313,7 +305,7 @@ describe("sign-in", () => {
     const response = await finishLogin(
       new URLSearchParams({ state, code: "c" }),
     );
-    expect(response).toMatchObject({ kind: "page", status: 400 });
+    expect(response).toMatchObject({ status: 400 });
     expect(calls).toEqual([]);
   });
 
@@ -323,10 +315,28 @@ describe("sign-in", () => {
     await finishLogin(new URLSearchParams({ state, error: "access_denied" }));
     const replay = await finishLogin(new URLSearchParams({ state, code: "c" }));
     expect(replay).toMatchObject({
-      kind: "page",
       status: 400,
       title: "This sign-in link has expired",
     });
+  });
+
+  it("refuses a pasted address that is not the return address, keeping the attempt open", async () => {
+    const { state } = await startFromSettings();
+    const calls = stubFetch(() => tokenAnswer("never"));
+    const wrong = await finishPastedLogin(
+      `https://chatgpt.com/?code=c&state=${state}`,
+    );
+    expect(wrong).toMatchObject({
+      status: 400,
+      title: "Not the sign-in address",
+    });
+    expect(await finishPastedLogin("not a url")).toMatchObject({ status: 400 });
+    expect(calls).toEqual([]);
+    // The real address still completes it.
+    const cancelled = await finishPastedLogin(
+      `http://127.0.0.1:${PORT}/auth/chatgpt/callback?error=access_denied&state=${state}`,
+    );
+    expect(cancelled.title).toBe("Sign-in cancelled");
   });
 
   it("derives the PKCE challenge as base64url SHA-256 without padding", () => {

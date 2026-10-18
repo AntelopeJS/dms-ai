@@ -46,6 +46,7 @@ export const PAGE_ROUTES = {
   SIDECAR_RESTART: `${ROUTE_PREFIX}/sidecar/restart`,
   CODEX_ACCOUNT_BANNER: `${ROUTE_PREFIX}/codex/account/banner`,
   CODEX_LOGOUT: `${ROUTE_PREFIX}/codex/logout`,
+  CODEX_CALLBACK: `${ROUTE_PREFIX}/codex/callback`,
   KPI: `${ROUTE_PREFIX}/metrics/kpi`,
   SERIES: `${ROUTE_PREFIX}/metrics/series`,
   ALLOWED: `${ROUTE_PREFIX}/metrics/allowed`,
