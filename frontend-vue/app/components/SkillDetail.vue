@@ -66,10 +66,7 @@ function openLastConversation(): void {
 </script>
 
 <template>
-	<div
-		v-if="skill && look"
-		class="dms-ai-skill-detail flex min-h-full flex-col gap-5"
-	>
+	<div v-if="skill && look" class="flex min-h-full flex-col gap-5">
 		<RowStepper v-if="props.navigation" :navigation="props.navigation" />
 
 		<header class="flex items-start gap-3">
@@ -203,24 +200,5 @@ function openLastConversation(): void {
 	padding: 4px 8px;
 	border: 1px solid var(--ui-border);
 	text-align: start;
-}
-</style>
-
-<style>
-/*
- * The DMS draws a side drawer 440px wide and its `drawer` action target takes
- * no width option, so this sheet widens the drawer holding it: a SKILL.md
- * reads as a document, not a sidebar. Capped to the window less its gutter,
- * and the whole screen on a phone.
- */
-[data-vaul-drawer][data-vaul-drawer-direction]:has(.dms-ai-skill-detail) {
-	width: 820px;
-}
-@media (max-width: 639px) {
-	[data-vaul-drawer][data-vaul-drawer-direction]:has(.dms-ai-skill-detail) {
-		width: 100%;
-		max-width: 100%;
-		border-radius: 0;
-	}
 }
 </style>

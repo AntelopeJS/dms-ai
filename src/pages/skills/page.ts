@@ -28,6 +28,8 @@ const CARDS_DISPLAY = "cards";
 const NAME_COLUMN_SIZE = 220;
 /** Six rows of four cards. */
 const CARDS_PAGE_SIZE = 24;
+/** A SKILL.md reads as a document: the widest side sheet short of full. */
+const SKILL_DRAWER_SIZE = "xl";
 
 function text(...segments: string[]): string {
   return i18nKey(SECTION, ...segments);
@@ -138,6 +140,7 @@ export class AISkillsPage extends PageController(
             ),
             title: text("detail", "title"),
             direction: ROW_DRAWER_DIRECTION,
+            size: SKILL_DRAWER_SIZE,
           },
         },
       ],
