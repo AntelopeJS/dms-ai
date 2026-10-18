@@ -280,3 +280,28 @@ void test("names only the custom components the frontend registers, where no DMS
     );
   }
 });
+
+/** The skill drawer is a reading panel: 768 px, the SKILL.md at a readable measure. */
+const SKILL_DRAWER_SIZE = "3xl";
+
+function findDrawers(value, drawers) {
+  if (!value || typeof value !== "object") return drawers;
+  if (value.type === "drawer") drawers.push(value);
+  for (const entry of Object.values(value)) findDrawers(entry, drawers);
+  return drawers;
+}
+
+void test("opens the skill detail as a 3xl reading panel on the right", async () => {
+  const { pages } = loadPages();
+  const skills = pages.find((page) => page.pageId === "skills");
+  const drawers = [];
+  for (const [, component] of staticComponents(skills)) {
+    findDrawers(await component.serialize(), drawers);
+  }
+  const detail = drawers.filter((drawer) =>
+    JSON.stringify(drawer).includes('"DmsAiSkillDetail"'),
+  );
+  assert.equal(detail.length, 1);
+  assert.equal(detail[0].size, SKILL_DRAWER_SIZE);
+  assert.equal(detail[0].direction, "right");
+});

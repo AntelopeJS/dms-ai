@@ -608,8 +608,10 @@ description. Revisit when the cards display renders fields through the column re
 ### Q52. How do the row drawers open, and what do they draw with?
 
 **Decision:** the Activity and Skill drawers open from the right (`direction: "right"`, a 440 px
-side sheet, dms#188), like the mockup's slideover; the direction is one constant of the pages. In
-`DmsAiActivityDetail` the output and the raw JSON are `DmsCodeSnippet`s (text, wrapped, 14 lines;
+side sheet, dms#188), like the mockup's slideover; the direction is one constant of the pages. The
+Skill drawer reads a SKILL.md as a document, so it opens at the `3xl` size (768 px, capped to the
+window, the whole screen on a phone), its running text kept to 76ch. In `DmsAiActivityDetail`
+the output and the raw JSON are `DmsCodeSnippet`s (text, wrapped, 14 lines;
 JSON, 20 lines) with their language label and copy button, the "Allowed" and "Result" facts a
 `DmsKeyValueList` with its value slot, and each argument row copies the whole value
 (`copyValue`) while showing it cut short. `DmsAiSkillDetail` lists source (a pill), origin (copy),

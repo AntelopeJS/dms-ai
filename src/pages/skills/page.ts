@@ -28,8 +28,11 @@ const CARDS_DISPLAY = "cards";
 const NAME_COLUMN_SIZE = 220;
 /** Six rows of four cards. */
 const CARDS_PAGE_SIZE = 24;
-/** A SKILL.md reads as a document: the widest side sheet short of full. */
-const SKILL_DRAWER_SIZE = "xl";
+/**
+ * A SKILL.md reads as a document: a 768 px reading panel, wide enough for its
+ * running text and code without covering the page it opens from.
+ */
+const SKILL_DRAWER_SIZE = "3xl";
 
 function text(...segments: string[]): string {
   return i18nKey(SECTION, ...segments);
