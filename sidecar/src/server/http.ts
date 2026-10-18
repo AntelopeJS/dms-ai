@@ -10,6 +10,12 @@ import { MCP_HTTP_PATH } from "../constants/mcp.js";
 import { LOOPBACK_HOST } from "../constants/ports.js";
 import type { McpHttpRegistry } from "../mcp/http-binding.js";
 import { SettingsPatchSchema } from "../protocol/messages.js";
+import {
+  readAccountStatus,
+  signOut,
+} from "../providers/codex/chatgpt/credentials.js";
+import { handleChatGptRequest } from "../providers/codex/chatgpt/http.js";
+import { createLoginUrl } from "../providers/codex/chatgpt/login.js";
 import { getProviderAvailability } from "../providers/registry.js";
 import type { ProviderAvailabilityMap } from "../providers/types.js";
 import { isClientAuthorized } from "./client-auth.js";
@@ -125,6 +131,26 @@ const SETTINGS_ROUTES: readonly ApiRoute[] = [
       ),
   },
   { method: "PUT", pattern: /^\/settings$/, handle: putSettings },
+  {
+    // What the Settings page shows about Codex's ChatGPT account, with a fresh
+    // sign-in link when there is none.
+    method: "GET",
+    pattern: /^\/codex\/account$/,
+    handle: (_req, res, deps) => {
+      const status = readAccountStatus();
+      sendJson(res, HTTP_STATUS.OK, {
+        ...status,
+        loginUrl: status.isSignedIn ? undefined : createLoginUrl(deps.port),
+      });
+    },
+  },
+  {
+    method: "POST",
+    pattern: /^\/codex\/logout$/,
+    handle: async (_req, res) => {
+      sendJson(res, HTTP_STATUS.OK, await signOut());
+    },
+  },
 ];
 
 function buildDeps(ctx: RouteContext): ApiDeps | null {
@@ -207,6 +233,7 @@ async function handleRequest(
     await healthHandler(res, ctx);
     return;
   }
+  if (await handleChatGptRequest(req, res, ctx.listeningPort)) return;
   await handleApiRoute(req, res, ctx);
 }
 

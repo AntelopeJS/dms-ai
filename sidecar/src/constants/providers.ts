@@ -10,8 +10,8 @@ export const PROVIDER_UNAVAILABLE_REASONS = {
   // Saying which version to pin back to is what makes it actionable.
   CODEX_VERSION_MISMATCH:
     "The installed codex binary (%installed%) does not match the protocol types the sidecar ships (%pinned%). Install @openai/codex@%pinned%.",
-  CODEX_API_KEY_MISSING:
-    "Set OPENAI_API_KEY in the host environment to enable this provider.",
+  CODEX_NOT_SIGNED_IN:
+    "Sign in with ChatGPT in Assistant › Settings to run Codex on your ChatGPT plan.",
 } as const;
 
 export const PROVIDER_LABELS = {

@@ -4,8 +4,6 @@ import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   CODEX_APP_SERVER_COMMAND,
-  CODEX_AUTH_FILE_MODE,
-  CODEX_AUTH_FILE_NAME,
   CODEX_BINARY_NAME,
   CODEX_CLIENT_ABORTED_MESSAGE,
   CODEX_CONFIG_FILE_NAME,
@@ -29,7 +27,12 @@ import {
 import { safeDirSegment } from "../../state/safe-segment.js";
 import type { CodexClient, CodexClientHandlers } from "./client.js";
 import { createCodexClient } from "./client.js";
-import { buildAuthFile, buildConfigToml } from "./config.js";
+import {
+  CHATGPT_TOKEN_SECRET_ENV,
+  CHATGPT_TOKEN_URL_ENV,
+} from "../../constants/chatgpt.js";
+import { ACCESS_TOKEN_SECRET } from "./chatgpt/http.js";
+import { buildConfigToml } from "./config.js";
 import type { CodexInstallation } from "./resolve-binary.js";
 import {
   isWindowsHost,
@@ -45,7 +48,8 @@ export interface CodexProcessOptions {
   mcpUrl: string;
   mcpToken: string;
   hostProjectRoot: string;
-  apiKey: string;
+  /** The sidecar route the app-server's auth command reads its token from. */
+  accessTokenUrl: string;
   handlers: CodexClientHandlers;
 }
 
@@ -63,7 +67,7 @@ export interface CodexProcess {
 /**
  * The isolated home for one conversation. The id is reduced to a safe segment
  * because this directory is removed recursively, twice: a raw id would let the
- * client choose what gets deleted, and what the auth file lands next to.
+ * client choose what gets deleted.
  */
 export function codexHomeFor(stateDir: string, conversationId: string): string {
   return path.join(
@@ -243,8 +247,7 @@ async function forgetReaped(
 
 /**
  * Kills app-server processes left behind by a previous sidecar that did not exit
- * cleanly, then removes the homes they left: each holds the API key and the
- * client's code. Resolves once both are done. A process that outlives its
+ * cleanly, then removes the homes they left: each holds the client's code. Resolves once both are done. A process that outlives its
  * termination stays recorded, and keeps its home, for the next start.
  */
 export async function reapOrphanCodexProcesses(
@@ -319,12 +322,8 @@ async function prepareCodexHome(options: CodexProcessOptions): Promise<string> {
     buildConfigToml({
       mcpUrl: options.mcpUrl,
       hostProjectRoot: options.hostProjectRoot,
+      nodePath: process.execPath,
     }),
-  );
-  await writeFile(
-    path.join(codexHome, CODEX_AUTH_FILE_NAME),
-    JSON.stringify(buildAuthFile(options.apiKey)),
-    { mode: CODEX_AUTH_FILE_MODE },
   );
   return codexHome;
 }
@@ -347,6 +346,8 @@ function spawnChild(
         ...process.env,
         [CODEX_HOME_ENV_VAR]: codexHome,
         [CODEX_MCP_TOKEN_ENV_VAR]: options.mcpToken,
+        [CHATGPT_TOKEN_URL_ENV]: options.accessTokenUrl,
+        [CHATGPT_TOKEN_SECRET_ENV]: ACCESS_TOKEN_SECRET,
       },
     },
   );

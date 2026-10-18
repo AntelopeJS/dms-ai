@@ -183,3 +183,27 @@ void test("draws no status banner while all is well", async () => {
   const result = await new harness.routes.AIStatusController().banner();
   assert.equal(result.getStatus(), 204);
 });
+
+void test("offers to sign in with ChatGPT through the sidecar's loopback link, or to sign out", async () => {
+  reset();
+  const account = new harness.routes.AICodexAccountController();
+  const loginUrl = "http://127.0.0.1:4123/auth/chatgpt/start?ticket=t";
+  answer("GET", "/codex/account", 200, { isSignedIn: false, loginUrl });
+  const signedOut = bodyOf(await account.banner());
+  assert.deepEqual(signedOut.actions[0].target, {
+    type: "external",
+    url: loginUrl,
+    newTab: true,
+  });
+  answer("GET", "/codex/account", 200, {
+    isSignedIn: true,
+    email: "dev@example.com",
+  });
+  const signedIn = bodyOf(await account.banner());
+  assert.deepEqual(signedIn.title.params, { email: "dev@example.com" });
+  assert.equal(signedIn.actions[0].target.url, "/ai/codex/logout");
+  assert.ok(signedIn.actions[0].confirm);
+  assert.deepEqual(untranslated([signedOut, signedIn]), []);
+  sidecar.isDown = true;
+  assert.equal((await account.banner()).getStatus(), 204);
+});
