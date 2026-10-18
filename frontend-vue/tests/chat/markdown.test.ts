@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	createIncrementalMarkdown,
+	renderDocument,
 	renderMarkdown,
 } from "../../app/chat/utils/markdown";
 
@@ -268,5 +269,73 @@ describe("a streaming answer renders incrementally", () => {
 			renderedChars += open.length;
 		}
 		expect(renderedChars).toBeLessThan(paragraphs.length * 5);
+	});
+});
+
+describe("a document reflows its hard-wrapped lines", () => {
+	const SKILL = [
+		"# Skill",
+		"",
+		"The DMS is a **backend-driven admin framework** built",
+		"on AntelopeJS. You add an",
+		"admin screen by writing TypeScript.",
+		"",
+		"Second paragraph.",
+		"",
+		"- one item",
+		"  wrapped",
+		"- two",
+		"",
+		"```ts",
+		"const a = 1;",
+		"const b = 2;",
+		"```",
+		"",
+		"| a | b |",
+		"|---|---|",
+		"| 1 | 2 |",
+	].join("\n");
+
+	function renderSkill(): HTMLElement {
+		const host = document.createElement("div");
+		host.innerHTML = renderDocument(SKILL);
+		return host;
+	}
+
+	it("joins a paragraph's lines with spaces, not line breaks", () => {
+		const host = renderSkill();
+		expect(host.querySelector("br")).toBeNull();
+		// A soft break stays a newline in the text, which HTML shows as a space.
+		const text = host.querySelector("p")?.textContent?.replace(/\s+/g, " ");
+		expect(text).toBe(
+			"The DMS is a backend-driven admin framework built on AntelopeJS. You add an admin screen by writing TypeScript.",
+		);
+	});
+
+	it("keeps paragraphs, lists, code blocks and tables", () => {
+		const host = renderSkill();
+		expect(host.querySelectorAll("p")).toHaveLength(2);
+		expect(host.querySelectorAll("li")).toHaveLength(2);
+		expect(host.querySelector("li")?.textContent).toBe("one item\nwrapped");
+		expect(host.querySelector("pre code")?.textContent).toBe(
+			"const a = 1;\nconst b = 2;\n",
+		);
+		expect(host.querySelectorAll("td")).toHaveLength(2);
+	});
+
+	it("still honours a hard break written in the source", () => {
+		const host = document.createElement("div");
+		host.innerHTML = renderDocument("first  \nsecond");
+		expect(host.querySelector("br")).not.toBeNull();
+	});
+
+	it("leaves chat messages breaking on every newline", () => {
+		expect(renderMarkdown("one\ntwo")).toContain("<br>");
+	});
+
+	it("sanitizes like a chat message", () => {
+		expectHarmless(
+			renderDocument("<img src=x onerror=alert(1)>\n[x](javascript:alert(1))"),
+		);
 	});
 });

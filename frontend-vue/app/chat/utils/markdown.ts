@@ -48,19 +48,27 @@ const LINK_REL = "noopener noreferrer";
 const NEWLINES = /\r\n?/g;
 const LINE_BREAK = "\n";
 
-const md = new MarkdownIt({
-	html: false,
-	linkify: true,
-	breaks: true,
-});
-
-md.validateLink = (url) => SAFE_URL.test(url.trim());
-
-md.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
-	tokens[idx].attrSet("target", LINK_TARGET);
-	tokens[idx].attrSet("rel", LINK_REL);
-	return self.renderToken(tokens, idx, options);
-};
+/**
+ * The parser shared by every renderer: no raw HTML, safe links opening in a
+ * new tab, images shown as links. `breaks` alone differs between them.
+ */
+function createParser(breaks: boolean): MarkdownIt {
+	const parser = new MarkdownIt({ html: false, linkify: true, breaks });
+	parser.validateLink = (url) => SAFE_URL.test(url.trim());
+	parser.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
+		tokens[idx].attrSet("target", LINK_TARGET);
+		tokens[idx].attrSet("rel", LINK_REL);
+		return self.renderToken(tokens, idx, options);
+	};
+	parser.renderer.rules.image = (tokens, idx, options, env, self) => {
+		const token = tokens[idx];
+		const src = token.attrGet("src") ?? "";
+		const alt = self.renderInlineAsText(token.children ?? [], options, env);
+		const label = parser.utils.escapeHtml(imageLinkLabel(alt, src));
+		return `<a href="${parser.utils.escapeHtml(src)}" target="${LINK_TARGET}" rel="${LINK_REL}">${label}</a>`;
+	};
+	return parser;
+}
 
 function imageDestination(src: string): string {
 	try {
@@ -75,13 +83,11 @@ function imageLinkLabel(alt: string, src: string): string {
 	return alt ? `${alt} (${destination})` : destination;
 }
 
-md.renderer.rules.image = (tokens, idx, options, env, self) => {
-	const token = tokens[idx];
-	const src = token.attrGet("src") ?? "";
-	const alt = self.renderInlineAsText(token.children ?? [], options, env);
-	const label = md.utils.escapeHtml(imageLinkLabel(alt, src));
-	return `<a href="${md.utils.escapeHtml(src)}" target="${LINK_TARGET}" rel="${LINK_REL}">${label}</a>`;
-};
+// A chat message keeps every newline the model wrote as a line break.
+const md = createParser(true);
+// A document (a SKILL.md) is hard-wrapped at a fixed column: a single newline
+// inside a paragraph is a CommonMark soft break, rendered as a space.
+const documentMd = createParser(false);
 
 let purifier: Purifier | null = null;
 
@@ -107,6 +113,16 @@ function normalize(source: string): string {
 /** Model output as sanitized HTML, whole. */
 export function renderMarkdown(source: string): string {
 	return sanitize(md.render(normalize(source)));
+}
+
+/**
+ * A Markdown document (a SKILL.md) as sanitized HTML. Unlike
+ * {@link renderMarkdown}, a single newline inside a paragraph is a space, so a
+ * hard-wrapped source reflows to the reader's width; a blank line still starts
+ * a new paragraph.
+ */
+export function renderDocument(source: string): string {
+	return sanitize(documentMd.render(normalize(source)));
 }
 
 interface TopLevelBlock {
