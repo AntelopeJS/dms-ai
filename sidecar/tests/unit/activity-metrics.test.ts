@@ -353,6 +353,21 @@ describe("metrics", () => {
       );
     });
 
+    it("measures each row of the breakdowns against the comparison window", () => {
+      const allowed = buildAllowed(twoYears, previousYear).items;
+      const tools = buildTopTools(twoYears, previousYear, 10).items;
+      for (const row of [...allowed, ...tools].filter((r) => r.value > 0)) {
+        expect(row.delta).toBe(0);
+      }
+      // Grown from nothing over the previous period: no trend to state.
+      for (const row of buildTopTools(twoYears, previousPeriod, 10).items) {
+        expect(row).not.toHaveProperty("delta");
+      }
+      for (const row of buildAllowed(twoYears, WINDOW).items) {
+        expect(row).not.toHaveProperty("delta");
+      }
+    });
+
     it("leaves out the delta, the previous figure and the dashed line without one", () => {
       for (const payload of [
         buildKpi(twoYears, "actions", WINDOW),

@@ -203,11 +203,29 @@ void test("forwards each comparison window of the Overview, none without one", a
   reset();
   answer("GET", "/metrics/kpi/actions", 200, { value: 4, sparkline: [] });
   answer("GET", "/metrics/series", 200, { value: 4, series: [] });
+  answer("GET", "/metrics/allowed", 200, {
+    items: [{ id: "approved", value: 3, delta: 50 }],
+    deletionsAsked: 0,
+    deletions: 0,
+  });
+  answer("GET", "/metrics/top-tools", 200, {
+    items: [{ id: "Edit", value: 2, delta: -50, source: "code" }],
+  });
   await metrics.kpi("actions", from, to, compareFrom, compareTo);
   await metrics.series(from, to, compareFrom, compareTo);
+  const allowed = await metrics.allowed(from, to, compareFrom, compareTo);
+  const tools = await metrics.topTools(
+    from,
+    to,
+    undefined,
+    compareFrom,
+    compareTo,
+  );
   for (const request of sidecar.requests) {
     assert.deepEqual(request.query, { from, to, compareFrom, compareTo });
   }
+  assert.equal(allowed.items[0].delta, 50);
+  assert.equal(tools.items[0].delta, -50);
   reset();
   answer("GET", "/metrics/kpi/actions", 200, { value: 4, sparkline: [] });
   const kpi = await metrics.kpi("actions", from, to);

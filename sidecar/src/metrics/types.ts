@@ -59,6 +59,8 @@ export type KpiMetric = (typeof KPI_METRICS)[number];
 interface AllowedItem {
   id: AllowedBy;
   value: number;
+  /** Absent without a comparison period, or when it counted zero. */
+  delta?: number;
 }
 
 export interface AllowedPayload {
@@ -70,6 +72,8 @@ export interface AllowedPayload {
 interface TopToolItem {
   id: string;
   value: number;
+  /** Absent without a comparison period, or when it counted zero. */
+  delta?: number;
   source: ToolSource;
 }
 

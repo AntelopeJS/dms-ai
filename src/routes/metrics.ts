@@ -87,8 +87,10 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
   allowed(
     @Parameter("from", "query") from?: string,
     @Parameter("to", "query") to?: string,
+    @Parameter("compareFrom", "query") compareFrom?: string,
+    @Parameter("compareTo", "query") compareTo?: string,
   ): Promise<TopListPayload> {
-    const period: PeriodParams = { from, to };
+    const period: PeriodParams = { from, to, compareFrom, compareTo };
     return readMetric(
       "/metrics/allowed",
       period,
@@ -102,8 +104,10 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
     @Parameter("from", "query") from?: string,
     @Parameter("to", "query") to?: string,
     @Parameter("limit", "query") limit?: string,
+    @Parameter("compareFrom", "query") compareFrom?: string,
+    @Parameter("compareTo", "query") compareTo?: string,
   ): Promise<TopListPayload> {
-    const params: QueryParams = { from, to, limit };
+    const params: PeriodParams = { from, to, compareFrom, compareTo, limit };
     return readMetric(
       "/metrics/top-tools",
       params,
