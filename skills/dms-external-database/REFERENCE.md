@@ -8,7 +8,7 @@ integrator gave you:
 ```json
 { "steps": [
   { "op": "AddModule", "id": "postgres-erp", "entry": {
-      "source": { "type": "package", "package": "@antelopejs-private/postgres", "version": "<version>" },
+      "source": { "type": "package", "package": "@antelopejs/postgres", "version": "<version>" },
       "config": { "mode": "external", "statementTimeoutMs": 30000 },
       "env": { "url": "ERP_DATABASE_URL" } } },
   { "op": "CreateLocalModule", "id": "erp-tables", "path": "modules/erp-tables", "entry": {
