@@ -48,6 +48,14 @@ const OP_NAMES = [
   "AddQuery",
   "ConfigureQuery",
   "RemoveQuery",
+  "ConfigureProject",
+  "AddModule",
+  "ConfigureModule",
+  "CreateLocalModule",
+  "MapResources",
+  "AnalyseDatabase",
+  "GetAnalysis",
+  "GetMapping",
 ] as const;
 
 const OPS: Record<string, BuilderOp> = Object.fromEntries(

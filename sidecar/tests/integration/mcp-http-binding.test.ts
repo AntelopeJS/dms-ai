@@ -57,6 +57,7 @@ function buildDeps(
     moduleRoots: [],
     logsClient,
     builderClient: { call: async () => undefined },
+    databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     sendToHost: () => {},
     navigationCompleter: createNavigationCompleter(),

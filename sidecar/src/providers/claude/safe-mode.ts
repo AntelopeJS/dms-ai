@@ -11,6 +11,8 @@ import {
   SAFE_MODE_DENIED_MESSAGE,
   SAFE_MODE_DISALLOWED_TOOLS,
 } from "../../constants/settings.js";
+import { homedir } from "node:os";
+import { isAbsolute, join, relative } from "node:path";
 import { isMutatingTool } from "../../agent/tool-kinds.js";
 import type { GenerationMode } from "../../state/settings-types.js";
 
@@ -29,9 +31,28 @@ const SAFE_MODE_DENIAL: SyncHookJSONOutput = {
 
 const NO_DECISION: SyncHookJSONOutput = { continue: true };
 
+// Where plan mode writes its plan before ExitPlanMode reads it back for the plan card.
+const PLANS_DIRECTORY = join(homedir(), ".claude", "plans");
+
+interface FileToolInput {
+  file_path?: unknown;
+}
+
+interface FileToolCall {
+  tool_input?: FileToolInput;
+}
+
+/** Plan mode's own plan file, which safe mode lets through: it is not a project file. */
+function isPlanFile(input: HookInput): boolean {
+  const filePath = ((input as FileToolCall).tool_input ?? {}).file_path;
+  if (typeof filePath !== "string" || !isAbsolute(filePath)) return false;
+  const inside = relative(PLANS_DIRECTORY, filePath);
+  return inside.length > 0 && !inside.startsWith("..") && !isAbsolute(inside);
+}
+
 function isBlockedTool(input: HookInput): boolean {
   if (input.hook_event_name !== PRE_TOOL_USE_HOOK_EVENT) return false;
-  return SAFE_MODE_BLOCKED_TOOLS.has(input.tool_name);
+  return SAFE_MODE_BLOCKED_TOOLS.has(input.tool_name) && !isPlanFile(input);
 }
 
 export interface PreToolUseDeps {

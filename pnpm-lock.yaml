@@ -70,9 +70,12 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
     optionalDependencies:
+      '@antelopejs/interface-database-catalog':
+        specifier: '>=0.0.1 <1.0.0'
+        version: 0.0.2(@antelopejs/interface-core@0.2.4)
       '@antelopejs/interface-dms-builder':
-        specifier: '>=0.2.1 <1.0.0'
-        version: 0.2.1(@antelopejs/interface-core@0.2.4)
+        specifier: '>=0.2.3 <1.0.0'
+        version: 0.2.3(@antelopejs/interface-core@0.2.4)
 
 packages:
 
@@ -105,6 +108,11 @@ packages:
       '@antelopejs/interface-database': '>=0.1.10 <1.0.0'
       '@antelopejs/interface-database-decorators': '>=0.1.9 <1.0.0'
 
+  '@antelopejs/interface-database-catalog@0.0.2':
+    resolution: {integrity: sha512-4dshziYBQpwalZhAFAQHZqxVP7zdr2sGQHzOO5VN30J13bwRGZ1W7UutgQkSVrS1uYFUoaMMm6cfLS84MRbMjw==}
+    peerDependencies:
+      '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
+
   '@antelopejs/interface-database-decorators@0.1.9':
     resolution: {integrity: sha512-EHMhUE9gCRy5yHbI5n7rRCYJXlLDCJine22184BXL/Q7e8dsdZrc/kzraRYlYOyuFbTzISf15/OwRx554XXjXw==}
     peerDependencies:
@@ -117,8 +125,8 @@ packages:
     peerDependencies:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
-  '@antelopejs/interface-dms-builder@0.2.1':
-    resolution: {integrity: sha512-/xG5VElLKO/20kdBB/jTMbnjSaTdWflAB+IYXoolBBBfrmW2pt52PnHLntrDSdGtd67TWVYt/ltVv01Fqu/ugQ==}
+  '@antelopejs/interface-dms-builder@0.2.3':
+    resolution: {integrity: sha512-EOmtv+rVIF580tr1ycwBpBVkMcHhbK4uzV6IVOK/N2srdoj1onBV+J1Vbyxpu+4RuNrpEsVc6O7Yh0ilyI5VKA==}
     peerDependencies:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
@@ -2316,6 +2324,11 @@ snapshots:
       '@antelopejs/interface-database': 0.1.10(@antelopejs/interface-core@0.2.4)
       '@antelopejs/interface-database-decorators': 0.1.9(@antelopejs/interface-api@0.0.15(@antelopejs/interface-core@0.2.4))(@antelopejs/interface-core@0.2.4)(@antelopejs/interface-database@0.1.10(@antelopejs/interface-core@0.2.4))
 
+  '@antelopejs/interface-database-catalog@0.0.2(@antelopejs/interface-core@0.2.4)':
+    dependencies:
+      '@antelopejs/interface-core': 0.2.4
+    optional: true
+
   '@antelopejs/interface-database-decorators@0.1.9(@antelopejs/interface-api@0.0.15(@antelopejs/interface-core@0.2.4))(@antelopejs/interface-core@0.2.4)(@antelopejs/interface-database@0.1.10(@antelopejs/interface-core@0.2.4))':
     dependencies:
       '@antelopejs/interface-api': 0.0.15(@antelopejs/interface-core@0.2.4)
@@ -2328,7 +2341,7 @@ snapshots:
     dependencies:
       '@antelopejs/interface-core': 0.2.4
 
-  '@antelopejs/interface-dms-builder@0.2.1(@antelopejs/interface-core@0.2.4)':
+  '@antelopejs/interface-dms-builder@0.2.3(@antelopejs/interface-core@0.2.4)':
     dependencies:
       '@antelopejs/interface-core': 0.2.4
     optional: true
