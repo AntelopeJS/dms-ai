@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.5.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.4.1...v0.5.0)
+
+### 🚀 Enhancements
+
+- **codex:** ⚠️  Run Codex on a ChatGPT sign-in instead of OPENAI_API_KEY ([#81](https://github.com/AntelopeJS/dms-ai/pull/81))
+- Settle and generate the Builder's mapping of an external database ([#71](https://github.com/AntelopeJS/dms-ai/pull/71))
+
+### 🩹 Fixes
+
+- **lint:** Clear the oxlint warnings that fail CI ([#82](https://github.com/AntelopeJS/dms-ai/pull/82))
+- **frontend:** Run on @antelopejs/dms-frontend 0.7 ([#84](https://github.com/AntelopeJS/dms-ai/pull/84))
+
+### 📖 Documentation
+
+- Clarify learning paths and illustrate real outcomes ([#79](https://github.com/AntelopeJS/dms-ai/pull/79))
+
+#### ⚠️ Breaking Changes
+
+- **codex:** ⚠️  Run Codex on a ChatGPT sign-in instead of OPENAI_API_KEY ([#81](https://github.com/AntelopeJS/dms-ai/pull/81))
+
+### ❤️ Contributors
+
+- Thomas 
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.4.1
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.4.0...v0.4.1)
