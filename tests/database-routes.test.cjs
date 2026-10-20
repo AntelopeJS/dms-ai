@@ -20,6 +20,12 @@ const ACCOUNTS = {
   indexes: [],
 };
 
+/**
+ * The async module context: dms-ai while its code is evaluated, and the module serving HTTP while
+ * a request is handled, as the runtime runs them.
+ */
+const context = { module: "dms-ai" };
+
 /** What the stand-in catalog and Builder were called with. */
 const calls = { describe: [], mapResources: [] };
 
@@ -51,9 +57,20 @@ function loadRoutes() {
       JSONBody: decorator,
     },
     "@antelopejs/interface-core": {
-      GetInterfaceInstances: () => [
-        { id: "erp", path: CATALOG_PATH, provider: "postgres-erp" },
-      ],
+      GetResponsibleModule: () => context.module,
+      RunWithResponsibleModule: (module, callback) => {
+        const previous = context.module;
+        context.module = module;
+        try {
+          return callback();
+        } finally {
+          context.module = previous;
+        }
+      },
+      GetInterfaceInstances: () =>
+        context.module === "dms-ai"
+          ? [{ id: "erp", path: CATALOG_PATH, provider: "postgres-erp" }]
+          : [],
     },
     [CATALOG_PATH]: catalog,
     "@antelopejs/interface-dms-builder": {
@@ -78,6 +95,7 @@ function loadRoutes() {
 }
 
 const routes = loadRoutes();
+context.module = "api";
 
 void test("database routes answer nothing to a caller without the sidecar's token", async () => {
   const controller = new routes.AIDatabaseController();
@@ -86,6 +104,16 @@ void test("database routes answer nothing to a caller without the sidecar's toke
   });
   assert.ok(forbidden instanceof HTTPResult);
   assert.equal(forbidden.getStatus(), 403);
+});
+
+void test("lists dms-ai's own connections while a request runs in the HTTP module's context", async () => {
+  const controller = new routes.AIDatabaseController();
+  const listed = await controller.connections(SIDECAR_TOKEN);
+  assert.deepEqual(
+    listed.map((entry) => entry.connection),
+    ["erp"],
+  );
+  assert.equal(context.module, "api");
 });
 
 void test("an unknown connection answers 404, naming the connections the project declares", async () => {
