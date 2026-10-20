@@ -51,14 +51,15 @@ export const CODEX_MCP_SERVER_ID = MCP_SERVER_KEY;
 export const CODEX_MCP_TOKEN_ENV_VAR = "DMS_AI_MCP_TOKEN";
 export const CODEX_HOME_ENV_VAR = "CODEX_HOME";
 export const CODEX_HOME_DIR_NAME = "codex-home";
-export const CODEX_AUTH_FILE_NAME = "auth.json";
 export const CODEX_CONFIG_FILE_NAME = "config.toml";
-// codex login --with-api-key writes exactly these two fields, 0600. The binary
-// never reads OPENAI_API_KEY from the environment, so the sidecar writes the
-// file itself.
-export const CODEX_AUTH_MODE_API_KEY = "apikey";
-export const CODEX_AUTH_FILE_MODE = 0o600;
-export const OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY";
+
+// The model provider every app-server runs on: the user's ChatGPT plan, through
+// the Responses API, with the bearer token coming from an auth command rather
+// than from any file. HTTP only: the plan route does not take WebSockets.
+export const CODEX_MODEL_PROVIDER_ID = "openai_chatgpt_plan";
+export const CODEX_MODEL_PROVIDER_NAME = "ChatGPT plan";
+export const CODEX_MODEL_PROVIDER_BASE_URL = "https://api.openai.com/v1";
+export const CODEX_MODEL_PROVIDER_WIRE_API = "responses";
 
 // Identifies this client in the thread's originator and user agent, and in
 // OpenAI's compliance logs.
@@ -196,8 +197,6 @@ export const CODEX_VERSION_MISMATCH_MESSAGE =
 // as the risk it is.
 export const CODEX_VERSION_WAIVER_ENV = "DMS_AI_CODEX_ALLOW_VERSION_MISMATCH";
 export const CODEX_VERSION_WAIVER_ENABLED = "1";
-export const CODEX_MISSING_API_KEY_MESSAGE =
-  "[dms-ai] the Codex provider needs an OpenAI API key";
 
 // Mirrors MOCK_CLAUDE=1 on the Claude path: the provider resolves a fake
 // binary that replays a recorded app-server dump instead of the real one. The

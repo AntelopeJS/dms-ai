@@ -203,6 +203,61 @@ export interface AttachmentMeta {
 	size: number;
 }
 
+/** One block of a preview tree, as the DMS `DmsBlockPreview` takes it. */
+export interface PreviewNode {
+	type?: string;
+	componentName?: string;
+	options?: Record<string, unknown>;
+	id?: string;
+	slot?: string;
+	colSpan?: number;
+	children?: PreviewNode[];
+}
+
+export type PreviewTree = PreviewNode | PreviewNode[];
+
+/**
+ * A custom component the agent proposes as static HTML and CSS, drawn in a
+ * sandboxed frame. Never a DMS block.
+ */
+export interface PreviewSketch {
+	html: string;
+	css?: string;
+	caption?: string;
+	height?: number;
+}
+
+/** What one tab of a preview draws: DMS blocks, a sketch, or both. */
+export interface PreviewView {
+	tree?: PreviewTree;
+	sketch?: PreviewSketch;
+}
+
+export interface BlockPreviewVariant extends PreviewView {
+	label: string;
+}
+
+/**
+ * The user's mockup a preview is compared with: an image they attached in the
+ * conversation (by name) or a URL.
+ */
+export interface BlockPreviewReference {
+	attachmentName?: string;
+	url?: string;
+	caption?: string;
+}
+
+/** A block preview the agent shared with its PreviewBlocks tool. */
+export interface BlockPreview extends PreviewView {
+	id: string;
+	title: string;
+	description?: string;
+	label?: string;
+	reference?: BlockPreviewReference;
+	variants?: BlockPreviewVariant[];
+	timestampMs: number;
+}
+
 export interface SnapshotMessage {
 	role: string;
 	content: string;
@@ -217,6 +272,7 @@ export interface SnapshotMessage {
 	changeSetId?: string;
 	notice?: Notice;
 	answers?: QuestionAnswerRecord[];
+	preview?: BlockPreview;
 }
 
 export interface QueuedItemWire {

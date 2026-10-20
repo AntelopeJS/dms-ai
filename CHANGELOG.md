@@ -1,5 +1,56 @@
 # Changelog
 
+## v0.4.1
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.4.0...v0.4.1)
+
+### 🩹 Fixes
+
+- **ai:** Wait for session scope before probing after login ([#78](https://github.com/AntelopeJS/dms-ai/pull/78))
+
+### 📦 Build
+
+- Unify backend frontend and sidecar installation ([#76](https://github.com/AntelopeJS/dms-ai/pull/76))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
+## v0.4.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.3.0...v0.4.0)
+
+### 🚀 Enhancements
+
+- **chat:** Show block previews as attachments with a PreviewBlocks tool ([#68](https://github.com/AntelopeJS/dms-ai/pull/68))
+- **skills:** Load the skills of the project root's dependencies ([#73](https://github.com/AntelopeJS/dms-ai/pull/73))
+
+### 📖 Documentation
+
+- Add user guide and module skill ([#69](https://github.com/AntelopeJS/dms-ai/pull/69))
+- Streamline agent guidance ([#74](https://github.com/AntelopeJS/dms-ai/pull/74))
+- Make dense guide sections easier to scan ([#75](https://github.com/AntelopeJS/dms-ai/pull/75))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
+## v0.3.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.2.1...v0.3.0)
+
+### 🚀 Enhancements
+
+- ⚠️  Migrate to DMS 0.9 and renderer 0.6 ([#72](https://github.com/AntelopeJS/dms-ai/pull/72))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Migrate to DMS 0.9 and renderer 0.6 ([#72](https://github.com/AntelopeJS/dms-ai/pull/72))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.2.1
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.2.0...v0.2.1)

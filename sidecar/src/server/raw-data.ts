@@ -1,5 +1,10 @@
 import type { RawData } from "ws";
 
+/** Whatever `toString()` the value carries: its own, or Object's. */
+interface Stringable {
+  toString(): string;
+}
+
 /**
  * A ws message as text.
  *
@@ -22,6 +27,6 @@ export function rawDataToText(data: RawData): string {
     return Buffer.from(data).toString("utf8");
   } catch {
     // A shape @types/ws does not model -- a Blob under `binaryType: "blob"`.
-    return String(data);
+    return (data as Stringable).toString();
   }
 }

@@ -106,6 +106,7 @@ function reset() {
 const ROUTE_FILES = [
   "routes/activity.js",
   "routes/changes.js",
+  "routes/codex-account.js",
   "routes/metrics.js",
   "routes/settings.js",
   "routes/skills.js",

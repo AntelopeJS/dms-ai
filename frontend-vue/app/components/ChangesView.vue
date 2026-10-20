@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useDmsRoute } from "#dms/frontend-module";
 import ChangeSetPanel from "../views/ChangeSetPanel.vue";
 import UnavailableState from "../views/UnavailableState.vue";
-import { useAiRequest } from "../views/composables/useAiRequest";
+import { useAiData, useAiPagedData } from "../views/composables/useAiData";
 import { useAssistant } from "../views/composables/useAssistant";
 import { useViewFormat } from "../views/composables/useViewFormat";
 import {
@@ -20,34 +20,18 @@ import type {
 import {
 	changeSetIcon,
 	matchesSearch,
-	readSelectedSet,
 	writeSelectedSet,
 } from "../views/utils/change-sets";
 
 type ScopeFilter = ScopeId | "all";
 
 const { t } = useI18n();
-const { $authFetch } = useAuthFetch();
 const { moment } = useViewFormat();
 const assistant = useAssistant();
 const route = useDmsRoute();
 
-const list = useAiRequest<ListPayload<ChangeSetSummary>>();
-const status = useAiRequest<AssistantStatus>();
-const changeSets = ref<ChangeSetSummary[]>([]);
-const total = ref(0);
 const scope = ref<ScopeFilter>("all");
 const search = ref("");
-const selectedId = ref<string | undefined>(readSelectedSet());
-// The list loads on the client only: until its first answer the server and
-// the hydrating client both draw the skeleton, never a premature empty state.
-const hasLoaded = ref(false);
-
-const SCOPE_ITEMS = computed(() => [
-	{ value: "all", label: t("dms_ai.views.changes.filter_all") },
-	{ value: "safe", label: t("dms_ai.views.changes.filter_safe") },
-	{ value: "vibe", label: t("dms_ai.views.changes.filter_code") },
-]);
 
 function listQuery(offset: number): Record<string, string | number> {
 	const query: Record<string, string | number> = {
@@ -58,46 +42,69 @@ function listQuery(offset: number): Record<string, string | number> {
 	return { ...query, scope: scope.value, filter_scope: `is:${scope.value}` };
 }
 
-async function loadPage(offset: number): Promise<void> {
-	const page = await list.run(() =>
-		$authFetch<ListPayload<ChangeSetSummary>>(AI_ROUTES.changes, {
-			query: listQuery(offset),
+type ChangesPage = ListPayload<ChangeSetSummary>;
+
+/** The sets the pages hold, in order. */
+function loadedCount(pages: ChangesPage[]): number {
+	return pages.reduce((count, page) => count + page.results.length, 0);
+}
+
+// The status and the list's first page are read with the page: a server
+// render shows them, and the selected set's panel, at once. "Load more"
+// appends a page under the scope's key; the page's refreshes read every
+// page loaded again.
+const status = useAiData<AssistantStatus>(AI_ROUTES.status);
+const list = useAiPagedData<ChangesPage, number>(
+	() => `dms-ai:changes:${scope.value}`,
+	({ $authFetch, cursor, signal }) =>
+		$authFetch<ChangesPage>(AI_ROUTES.changes, {
+			query: listQuery(cursor ?? 0),
+			signal,
 		}),
-	);
-	hasLoaded.value = true;
-	if (!page) return;
-	changeSets.value =
-		offset === 0 ? page.results : [...changeSets.value, ...page.results];
-	total.value = page.total;
-	if (selectedId.value === undefined) selectedId.value = page.results[0]?.id;
-}
-
-function reload(): Promise<void> {
-	return loadPage(0);
-}
-
-function loadMore(): Promise<void> {
-	return loadPage(changeSets.value.length);
-}
-
-onMounted(() => {
-	void status.run(() => $authFetch<AssistantStatus>(AI_ROUTES.status));
-	void reload();
-});
-
-watch(scope, reload);
-
-watch(
-	() => route.query[CHANGE_SET_QUERY_KEY],
-	(id) => {
-		if (id) selectedId.value = id;
+	{
+		nextCursor: (page, pages) => {
+			const loaded = loadedCount(pages);
+			return page.results.length > 0 && loaded < page.total ? loaded : null;
+		},
 	},
 );
+const changeSets = computed(() =>
+	list.pages.value.flatMap((page) => page.results),
+);
+const total = computed(() => list.pages.value.at(-1)?.total ?? 0);
+
+function selectedFromRoute(): string | undefined {
+	const id = route.query[CHANGE_SET_QUERY_KEY];
+	return typeof id === "string" && id ? id : undefined;
+}
+
+/** The set picked here or named by the URL (`?set=`); the first one until then. */
+const pickedId = ref<string | undefined>(selectedFromRoute());
+const selectedId = computed(() => pickedId.value ?? changeSets.value[0]?.id);
+
+const SCOPE_ITEMS = computed(() => [
+	{ value: "all", label: t("dms_ai.views.changes.filter_all") },
+	{ value: "safe", label: t("dms_ai.views.changes.filter_safe") },
+	{ value: "vibe", label: t("dms_ai.views.changes.filter_code") },
+]);
+
+function reload(): Promise<void> {
+	return list.refresh();
+}
+
+/** Appends the next page; a failure keeps the sets listed and the button. */
+function loadMore(): Promise<void> {
+	return list.loadMore();
+}
+
+watch(selectedFromRoute, (id) => {
+	if (id) pickedId.value = id;
+});
 
 function select(id: string | number | undefined): void {
 	if (id === undefined) return;
-	selectedId.value = String(id);
-	writeSelectedSet(selectedId.value);
+	pickedId.value = String(id);
+	writeSelectedSet(pickedId.value);
 }
 
 function sublabel(set: ChangeSetSummary): string {
@@ -134,9 +141,10 @@ const isCheckpointOff = computed(
 );
 const isFirstLoad = computed(
 	() =>
-		(!hasLoaded.value || list.isLoading.value) && changeSets.value.length === 0,
+		changeSets.value.length === 0 &&
+		(list.pending.value || list.status.value === "idle"),
 );
-const hasMore = computed(() => changeSets.value.length < total.value);
+const hasMore = computed(() => list.hasMore.value);
 const listLabel = computed(() =>
 	t("dms_ai.views.changes.list_label", { count: total.value }),
 );
@@ -230,7 +238,6 @@ const emptyActions = computed(() =>
 					v-if="selectedId"
 					:key="selectedId"
 					:change-set-id="selectedId"
-					@changed="reload"
 				/>
 			</DmsMasterDetail>
 			<div v-if="hasMore" class="flex lg:w-[380px] lg:justify-center">
@@ -239,7 +246,7 @@ const emptyActions = computed(() =>
 					variant="outline"
 					size="sm"
 					icon="i-ph-caret-down"
-					:loading="list.isLoading.value"
+					:loading="list.loadingMore.value"
 					:label="t('dms_ai.views.common.load_more')"
 					@click="loadMore"
 				/>

@@ -1,8 +1,11 @@
 import {
+  OPENAI_API_KEY_ENV_VAR,
+  OPENAI_API_KEY_IGNORED_WARNING,
+} from "../../constants/chatgpt.js";
+import {
   CODEX_LOG_PREFIX,
   MOCK_CODEX_FLAG_ENABLED,
   MOCK_CODEX_FLAG_ENV,
-  OPENAI_API_KEY_ENV_VAR,
 } from "../../constants/codex.js";
 import { PROVIDER_UNAVAILABLE_REASONS } from "../../constants/providers.js";
 import {
@@ -11,6 +14,7 @@ import {
   type ProviderModule,
   unavailable,
 } from "../types.js";
+import { readAccountStatus } from "./chatgpt/credentials.js";
 import { reapOrphanCodexProcesses } from "./process.js";
 import { createCodexProvider } from "./provider.js";
 import {
@@ -57,12 +61,19 @@ function readInstallVerdict(): ProviderAvailability {
 function checkAvailability(): ProviderAvailability {
   const installed = readInstallVerdict();
   if (!installed.available) return installed;
-  // Read every time: the key is an environment prerequisite, not an install
-  // step, so it can appear between two requests.
-  if (process.env[OPENAI_API_KEY_ENV_VAR] === undefined) {
-    return unavailable(PROVIDER_UNAVAILABLE_REASONS.CODEX_API_KEY_MISSING);
+  // Read every time: signing in or out happens while the sidecar runs, in this
+  // sidecar or in another project's.
+  if (!readAccountStatus().isSignedIn) {
+    return unavailable(PROVIDER_UNAVAILABLE_REASONS.CODEX_NOT_SIGNED_IN);
   }
   return AVAILABLE;
+}
+
+// Codex used to run on OPENAI_API_KEY. A key still set would otherwise suggest
+// it is being billed; said once per sidecar start, in the log only.
+function warnIfApiKeySet(): void {
+  if (process.env[OPENAI_API_KEY_ENV_VAR] === undefined) return;
+  console.warn(`${CODEX_LOG_PREFIX} ${OPENAI_API_KEY_IGNORED_WARNING}`);
 }
 
 export const codexModule: ProviderModule = {
@@ -74,14 +85,12 @@ export const codexModule: ProviderModule = {
       mcpHttpRegistry: runtime.mcpHttpRegistry,
       getMcpUrl: runtime.getMcpUrl,
       createMcpDeps: runtime.createMcpDeps,
-      // Read here, then written into the isolated home's auth.json: the binary
-      // does not read this variable itself.
-      getApiKey: () => process.env[OPENAI_API_KEY_ENV_VAR],
     }),
   checkAvailability,
   // Each orphan is a Rust process still holding a model connection and writing
   // to disk, so they are not harmless.
   reapOrphans: async (stateDir) => {
+    warnIfApiKeySet();
     await reapOrphanCodexProcesses(stateDir);
   },
 };

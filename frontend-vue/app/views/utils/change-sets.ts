@@ -26,13 +26,6 @@ export function matchesSearch(
 	return haystack.some((text) => text.toLowerCase().includes(needle));
 }
 
-/** The `?set=<id>` deep link of the page, if any. */
-export function readSelectedSet(): string | undefined {
-	if (typeof window === "undefined") return undefined;
-	const params = new URLSearchParams(window.location.search);
-	return params.get(CHANGE_SET_QUERY_KEY) ?? undefined;
-}
-
 /**
  * Keeps the selected set in the URL without a visit, so a reload or a shared
  * link opens it again.

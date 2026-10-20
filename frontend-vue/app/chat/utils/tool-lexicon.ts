@@ -138,6 +138,7 @@ const ICONS = {
 	LOGS: "i-ph-scroll",
 	SKILL: "i-ph-books",
 	PLAN: "i-ph-list-checks",
+	PREVIEW: "i-ph-frame-corners",
 	REFRESH: "i-ph-arrows-clockwise",
 	CATEGORY: "i-ph-folders",
 } as const;
@@ -283,6 +284,12 @@ const ASSISTANT_TOOLS: Record<string, ToolLexiconEntry> = {
 		verb: "ask_you",
 		icon: ICONS.ASK,
 		target: countOf("questions"),
+		isReadOnly: true,
+	},
+	PreviewBlocks: {
+		verb: "show_preview",
+		icon: ICONS.PREVIEW,
+		target: firstOf("title"),
 		isReadOnly: true,
 	},
 	Typecheck: {

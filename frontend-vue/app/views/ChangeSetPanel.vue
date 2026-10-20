@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, watch } from "vue";
+import { computed } from "vue";
 import DiffView from "./DiffView.vue";
 import UnavailableState from "./UnavailableState.vue";
-import { useAiRequest } from "./composables/useAiRequest";
+import { useAiData } from "./composables/useAiData";
 import { useAssistant } from "./composables/useAssistant";
 import { useChangeSetActions } from "./composables/useChangeSetActions";
 import { useViewFormat } from "./composables/useViewFormat";
@@ -20,27 +20,22 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits<{ changed: [] }>();
 
 const { t } = useI18n();
-const { $authFetch } = useAuthFetch();
 const { moment } = useViewFormat();
 const assistant = useAssistant();
-const detail = useAiRequest<ChangeSetDetail>();
-const actions = useChangeSetActions(() => {
-	void load();
-	emit("changed");
-});
+// A set picked again shows what was read before and reads again: it may have
+// been undone or redone since.
+const detail = useAiData<ChangeSetDetail>(
+	() => `${AI_ROUTES.changes}/${encodeURIComponent(props.changeSetId)}`,
+);
+// Once a set is undone or redone, the page reads its data again: this panel,
+// the list and the assistant's status.
+const actions = useChangeSetActions();
 
-function load(): Promise<ChangeSetDetail | null> {
-	return detail.run(() =>
-		$authFetch<ChangeSetDetail>(
-			`${AI_ROUTES.changes}/${encodeURIComponent(props.changeSetId)}`,
-		),
-	);
+function load(): Promise<void> {
+	return detail.refresh();
 }
-
-watch(() => props.changeSetId, load, { immediate: true });
 
 const changeSet = computed<ChangeSetSummary | null>(
 	() => detail.data.value?.changeSet ?? null,
@@ -128,7 +123,7 @@ function openPage(): void {
 		<USkeleton class="mt-4 h-24 w-full" />
 		<USkeleton class="h-40 w-full" />
 	</div>
-	<article v-else :aria-busy="detail.isLoading.value">
+	<article v-else :aria-busy="detail.pending.value">
 		<header class="flex min-h-16 flex-wrap items-start gap-3 px-5 py-3.5">
 			<div class="min-w-0 flex-1">
 				<p

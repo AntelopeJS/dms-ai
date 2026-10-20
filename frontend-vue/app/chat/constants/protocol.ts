@@ -52,6 +52,7 @@ export const SERVER_EVENT_TYPES = {
 	NOTICE: "notice",
 	CHANGE_SET: "change_set",
 	USAGE: "usage",
+	BLOCK_PREVIEW: "block_preview",
 } as const;
 
 /** The role the chat says hello with. */

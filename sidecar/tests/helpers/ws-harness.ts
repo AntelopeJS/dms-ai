@@ -181,7 +181,9 @@ export async function startWsHarness(
     ...options.settings,
   });
   const bridge: SidecarBridge = {};
-  const settingsApplier: SettingsApplier = { apply: settingsStore.set };
+  const settingsApplier: SettingsApplier = {
+    apply: (next) => settingsStore.set(next),
+  };
   const { server, port } = await createHttpServer({
     clientToken: CLIENT_TOKEN,
     port: ARBITRARY_PORT,
@@ -425,12 +427,11 @@ export async function callApi(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  return fetch(`http://${WS_HOST}:${port}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${CLIENT_TOKEN}`,
-      "content-type": "application/json",
-      ...init.headers,
-    },
+  // The caller's headers win, whichever shape `HeadersInit` they come in.
+  const headers = new Headers({
+    Authorization: `Bearer ${CLIENT_TOKEN}`,
+    "content-type": "application/json",
   });
+  new Headers(init.headers).forEach((value, name) => headers.set(name, value));
+  return fetch(`http://${WS_HOST}:${port}${path}`, { ...init, headers });
 }

@@ -19,6 +19,7 @@ import {
   THINKING_LEVELS,
 } from "../state/settings-types.js";
 import { PROVIDER_NAMES } from "../state/types.js";
+import { BlockPreviewSchema } from "./preview.js";
 import {
   PERMISSION_DECISION_VALUES,
   PermissionRuleSchema,
@@ -49,6 +50,7 @@ export const EVENT_TYPES = {
   NOTICE: "notice",
   CHANGE_SET: "change_set",
   USAGE: "usage",
+  BLOCK_PREVIEW: "block_preview",
 } as const;
 
 export const STATUS = {
@@ -165,9 +167,16 @@ export const QuestionAnswerRecordSchema = z.object({
   isCustom: z.boolean(),
 });
 
+// Server -> chat: the agent shared a block preview; drawn as an attachment.
+export const BlockPreviewEvent = z.object({
+  type: z.literal(EVENT_TYPES.BLOCK_PREVIEW),
+  conversationId: z.string(),
+  preview: BlockPreviewSchema,
+});
+
 // Roles: user | assistant | tool_use | tool_result | error | notice |
-// change_set | question_answer. A `change_set` entry carries only its id; the
-// summary is in the snapshot's changeSets list.
+// change_set | question_answer | block_preview. A `change_set` entry carries
+// only its id; the summary is in the snapshot's changeSets list.
 export const ConversationSnapshotMessage = z.object({
   role: z.string(),
   content: z.string(),
@@ -182,6 +191,7 @@ export const ConversationSnapshotMessage = z.object({
   changeSetId: z.string().optional(),
   notice: NoticeSchema.optional(),
   answers: z.array(QuestionAnswerRecordSchema).optional(),
+  preview: BlockPreviewSchema.optional(),
   isAutoFix: z.boolean().optional(),
 });
 
@@ -514,6 +524,7 @@ export const AnyServerEvent = z.discriminatedUnion("type", [
   NoticeEvent,
   ChangeSetEvent,
   UsageEvent,
+  BlockPreviewEvent,
 ]);
 export type AnyServerEventType = z.infer<typeof AnyServerEvent>;
 export type RunResumedEventType = z.infer<typeof RunResumedEvent>;

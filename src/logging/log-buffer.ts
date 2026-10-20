@@ -8,6 +8,11 @@ import {
 } from "../constants/logs";
 import type { BufferedLog, LogQuery } from "../types/logs";
 
+/** Whatever `toString()` the value carries: its own, or Object's. */
+interface Stringable {
+  toString(): string;
+}
+
 function sanitizeArg(arg: unknown): unknown {
   if (arg instanceof Error) {
     return { name: arg.name, message: arg.message, stack: arg.stack };
@@ -20,7 +25,7 @@ function sanitizeArg(arg: unknown): unknown {
       // A cycle, or a BigInt nested inside. `String(arg)` keeps a custom
       // `toString()`, and only degrades to "[object Object]" for a plain
       // object -- which is what the buffer showed before either way.
-      return String(arg);
+      return (arg as Stringable).toString();
     }
   }
   return arg;

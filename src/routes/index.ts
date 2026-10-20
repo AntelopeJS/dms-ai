@@ -2,6 +2,7 @@ export * from "./activity";
 export * from "./builder";
 export * from "./changes";
 export * from "./channels";
+export * from "./codex-account";
 export * from "./database";
 export * from "./health";
 export * from "./logs";

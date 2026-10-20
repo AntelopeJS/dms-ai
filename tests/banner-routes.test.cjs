@@ -183,3 +183,47 @@ void test("draws no status banner while all is well", async () => {
   const result = await new harness.routes.AIStatusController().banner();
   assert.equal(result.getStatus(), 204);
 });
+
+void test("offers to sign in with ChatGPT, to paste the return address, or to sign out", async () => {
+  reset();
+  const account = new harness.routes.AICodexAccountController();
+  const loginUrl = "https://auth.openai.com/api/accounts/authorize?state=s";
+  answer("GET", "/codex/account", 200, { isSignedIn: false, loginUrl });
+  const signedOut = bodyOf(await account.banner());
+  assert.deepEqual(signedOut.actions[0].target, {
+    type: "external",
+    url: loginUrl,
+    newTab: true,
+  });
+  // Away from the sidecar's machine, the return address is pasted instead.
+  const paste = signedOut.actions[1];
+  assert.equal(paste.target.url, "/ai/codex/callback");
+  assert.deepEqual(
+    paste.confirm.fields.map((field) => [field.id, field.required]),
+    [["url", true]],
+  );
+  answer("GET", "/codex/account", 200, {
+    isSignedIn: true,
+    email: "dev@example.com",
+  });
+  const signedIn = bodyOf(await account.banner());
+  assert.deepEqual(signedIn.title.params, { email: "dev@example.com" });
+  assert.equal(signedIn.actions[0].target.url, "/ai/codex/logout");
+  assert.ok(signedIn.actions[0].confirm);
+  assert.deepEqual(untranslated([signedOut, signedIn]), []);
+  sidecar.isDown = true;
+  assert.equal((await account.banner()).getStatus(), 204);
+});
+
+void test("hands a pasted return address to the sidecar, and its refusal back", async () => {
+  reset();
+  const account = new harness.routes.AICodexAccountController();
+  const pasted = "http://127.0.0.1:4123/auth/chatgpt/callback?code=c&state=s";
+  answer("POST", "/codex/callback", 400, {
+    message: "Not the sign-in address",
+  });
+  const refused = await account.finishSignIn({ url: pasted });
+  assert.equal(refused.getStatus(), 400);
+  assert.deepEqual(bodyOf(refused), { message: "Not the sign-in address" });
+  assert.deepEqual(sidecar.requests.at(-1).body, { url: pasted });
+});

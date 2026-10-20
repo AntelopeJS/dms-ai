@@ -67,6 +67,8 @@ function buildDeps(
       return { answers: [ANSWER], skipped: [] };
     },
     getLastEditedFile: () => undefined,
+    showPreview: () => {},
+    listAttachedImages: () => [],
   };
 }
 

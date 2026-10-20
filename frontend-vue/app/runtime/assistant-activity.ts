@@ -1,4 +1,4 @@
-import { computed, type ComputedRef, type Ref, ref } from "vue";
+import { computed, type ComputedRef, type Ref, ref, watch } from "vue";
 import type { ChatTransport } from "./chat-transport";
 import { STATUS_POLL_MS } from "./constants";
 import { isTypedMessage } from "./typed-message";
@@ -35,10 +35,24 @@ export interface AssistantActivity {
 	stop: () => void;
 }
 
+/** The read of the backend's status: `useApiData`, polled every `interval`. */
+export interface AssistantStatusRead {
+	data: Readonly<Ref<AssistantStatusPayload | null>>;
+	refresh: () => Promise<void>;
+}
+
+/**
+ * Opens the status read, polled every `interval` ms while it is above 0 and
+ * not polled while it is 0.
+ */
+export type OpenAssistantStatusRead = (
+	interval: () => number,
+) => AssistantStatusRead;
+
 export interface AssistantActivityOptions {
-	fetchStatus: () => Promise<AssistantStatusPayload>;
+	readStatus: OpenAssistantStatusRead;
 	chat: ChatTransport;
-	/** Whether polling is useful now: the tab shows and the panel is closed. */
+	/** Whether polling is useful now: the panel is closed, or its stream is down. */
 	shouldPoll: () => boolean;
 }
 
@@ -55,8 +69,9 @@ function sum(
 
 /**
  * What the tab knows of the assistant's work across chats, from the backend's
- * status (polled while the panel is closed) and from the conversation lists
- * the sidecar broadcasts while the stream is open.
+ * status (polled while the panel is closed or its stream down: the polling
+ * follows `shouldPoll`) and from the conversation lists the sidecar
+ * broadcasts while the stream is open.
  */
 export function createAssistantActivity(
 	options: AssistantActivityOptions,
@@ -65,16 +80,21 @@ export function createAssistantActivity(
 	const workingConversations = ref(0);
 	const lastError = ref<string | null>(null);
 
-	const refresh = async (): Promise<void> => {
-		try {
-			const status = await options.fetchStatus();
-			pendingApprovals.value = status.pendingApprovals ?? 0;
-			workingConversations.value = status.workingConversations ?? 0;
-			lastError.value = status.lastError ?? null;
-		} catch {
-			return;
-		}
-	};
+	const isStopped = ref(false);
+	const status = options.readStatus(() =>
+		!isStopped.value && options.shouldPoll() ? STATUS_POLL_MS : 0,
+	);
+	// A failed read keeps the last answer: the counts stay as they were.
+	const stopFollowing = watch(
+		status.data,
+		(payload) => {
+			if (!payload) return;
+			pendingApprovals.value = payload.pendingApprovals ?? 0;
+			workingConversations.value = payload.workingConversations ?? 0;
+			lastError.value = payload.lastError ?? null;
+		},
+		{ immediate: true },
+	);
 
 	const stopListening = options.chat.onMessage((msg) => {
 		if (!isListFrame(msg)) return;
@@ -85,10 +105,6 @@ export function createAssistantActivity(
 		);
 	});
 
-	const timer = setInterval(() => {
-		if (options.shouldPoll()) void refresh();
-	}, STATUS_POLL_MS);
-
 	return {
 		pendingApprovals,
 		workingConversations,
@@ -96,9 +112,10 @@ export function createAssistantActivity(
 			() => pendingApprovals.value > 0 || workingConversations.value > 0,
 		),
 		lastError,
-		refresh,
+		refresh: () => status.refresh(),
 		stop: () => {
-			clearInterval(timer);
+			isStopped.value = true;
+			stopFollowing();
 			stopListening();
 		},
 	};

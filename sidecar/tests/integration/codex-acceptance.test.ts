@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import type {
   PermissionBus,
@@ -12,6 +12,7 @@ import type {
 } from "../../src/agent/permission-bus.js";
 import type { ProviderSession } from "../../src/agent/provider.js";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
+import { XDG_CONFIG_HOME_ENV } from "../../src/constants/chatgpt.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import {
@@ -19,6 +20,7 @@ import {
   type McpHttpRegistry,
 } from "../../src/mcp/http-binding.js";
 import type { AiMcpServerDeps } from "../../src/mcp/types.js";
+import { readAccountStatus } from "../../src/providers/codex/chatgpt/credentials.js";
 import { createCodexProvider } from "../../src/providers/codex/provider.js";
 import { resolveCodexInstallation } from "../../src/providers/codex/resolve-binary.js";
 import { createHttpServer } from "../../src/server/http.js";
@@ -26,11 +28,14 @@ import { createNavigationCompleter } from "../../src/server/navigation-completer
 import type { AppSettings } from "../../src/state/settings-types.js";
 import { readRecordedPids } from "../helpers/codex-pids.js";
 
-// Real model turns cost money, so this suite is opt-in and kept out of
-// `pnpm test`: run it with `CODEX_ACCEPTANCE=1 pnpm test:acceptance`.
+// Real model turns spend the ChatGPT plan's usage, so this suite is opt-in and
+// kept out of `pnpm test`: sign in from Assistant › Settings once, then run it
+// with `CODEX_ACCEPTANCE=1 pnpm test:acceptance`. Read at import, before the
+// test setup swaps the config home for a temporary one.
+const REAL_CONFIG_HOME = process.env[XDG_CONFIG_HOME_ENV];
 const ENABLED =
   process.env.CODEX_ACCEPTANCE === "1" &&
-  process.env.OPENAI_API_KEY !== undefined &&
+  readAccountStatus().isSignedIn &&
   resolveCodexInstallation() !== undefined;
 
 const TMP_PREFIX = "dms-ai-acceptance-";
@@ -64,6 +69,8 @@ function buildMcpDeps(conversationId: string): AiMcpServerDeps {
     conversationId,
     requestQuestion: async () => null,
     getLastEditedFile: () => undefined,
+    showPreview: () => {},
+    listAttachedImages: () => [],
   };
 }
 
@@ -130,7 +137,6 @@ async function openSession(
     mcpHttpRegistry: harness.registry,
     createMcpDeps: buildMcpDeps,
     getMcpUrl: () => `http://127.0.0.1:${harness.port}/mcp`,
-    getApiKey: () => process.env.OPENAI_API_KEY,
   });
   return provider.createSession({
     conversationId: CONVERSATION,
@@ -173,6 +179,12 @@ function unpaired(events: RunnerEvent[]): string[] {
 describe.skipIf(!ENABLED)("Codex acceptance", () => {
   let harness: Harness | undefined;
   let session: ProviderSession | undefined;
+
+  // The real sign-in, not the setup's temporary one: these turns hit OpenAI.
+  beforeAll(() => {
+    if (REAL_CONFIG_HOME === undefined) delete process.env[XDG_CONFIG_HOME_ENV];
+    else process.env[XDG_CONFIG_HOME_ENV] = REAL_CONFIG_HOME;
+  });
 
   // Safe mode degrades to vibe when the Builder is absent, so without this the
   // safe-mode expectations below would silently be asserting vibe behaviour.
