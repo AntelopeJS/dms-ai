@@ -1,15 +1,25 @@
 <script setup lang="ts">
+import type { Tone } from "#dms-ui/app/types/tone";
 import { computed } from "vue";
 import { renderDocument } from "../chat/utils/markdown";
-import RowStepper from "../views/RowStepper.vue";
 import { useAssistant } from "../views/composables/useAssistant";
 import { useViewFormat } from "../views/composables/useViewFormat";
-import type { RowNavigation, SkillRow } from "../views/types";
+import type { SkillRow } from "../views/types";
 import { skillLook } from "../views/utils/skills";
 
 interface Props {
 	rowData?: SkillRow;
-	navigation?: RowNavigation;
+}
+
+/** A fact of the skill: a status pill, an identifier (mono) or plain text. */
+interface SkillFact {
+	id: string;
+	label: string;
+	value: string;
+	type?: "status" | "mono";
+	tone?: Tone;
+	/** Draws a button copying the value. */
+	copy?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -22,7 +32,7 @@ const skill = computed(() => props.rowData);
 const look = computed(() => (skill.value ? skillLook(skill.value) : null));
 const html = computed(() => renderDocument(skill.value?.body ?? ""));
 
-const facts = computed(() => {
+const facts = computed<SkillFact[]>(() => {
 	const current = skill.value;
 	if (!current || !look.value) return [];
 	return [
@@ -30,14 +40,21 @@ const facts = computed(() => {
 			id: "source",
 			label: t("dms_ai.views.skills.source_label"),
 			value: t(`dms_ai.views.skills.source.${current.source}`),
-			type: "status" as const,
+			type: "status",
 			tone: look.value.badgeTone,
+		},
+		{
+			id: "qualified",
+			label: t("dms_ai.views.skills.qualified_name_label"),
+			value: current.qualifiedName,
+			type: "mono",
+			copy: true,
 		},
 		{
 			id: "origin",
 			label: t("dms_ai.views.skills.origin_label"),
 			value: current.origin,
-			type: "mono" as const,
+			type: "mono",
 			copy: true,
 		},
 		{
@@ -67,22 +84,6 @@ function openLastConversation(): void {
 
 <template>
 	<div v-if="skill && look" class="flex min-h-full flex-col gap-5">
-		<RowStepper v-if="props.navigation" :navigation="props.navigation" />
-
-		<header class="flex items-start gap-3">
-			<DmsIconWell :icon="look.icon" :tone="look.tone" size="lg" />
-			<div class="min-w-0 flex-1">
-				<h3
-					class="text-highlighted truncate font-mono text-[15px] font-semibold"
-				>
-					{{ skill.name }}
-				</h3>
-				<p class="text-dimmed mt-0.5 truncate font-mono text-[11.5px]">
-					{{ skill.qualifiedName }}
-				</p>
-			</div>
-		</header>
-
 		<DmsBanner
 			v-if="skill.isShadowed"
 			size="sm"
@@ -95,7 +96,36 @@ function openLastConversation(): void {
 			"
 		/>
 
-		<DmsKeyValueList :items="facts" />
+		<!-- The drawer's header names the skill. The facts read as a record
+		     drawer's fields: the DMS form row, a label column beside a
+		     left-aligned value once the drawer is wide enough, the label above
+		     it on a phone. -->
+		<div class="grid gap-3">
+			<DmsFieldRow
+				v-for="fact in facts"
+				:key="fact.id"
+				:label="fact.label"
+				layout="form"
+				spacing="list"
+				:inset="false"
+			>
+				<div class="flex min-w-0 items-center gap-1.5 text-[13px]">
+					<DmsStatusPill
+						v-if="fact.type === 'status'"
+						:tone="fact.tone ?? 'neutral'"
+						:label="fact.value"
+					/>
+					<span
+						v-else
+						class="text-highlighted wrap-anywhere min-w-0"
+						:class="fact.type === 'mono' && 'font-mono text-[12.5px]'"
+					>
+						{{ fact.value }}
+					</span>
+					<DmsCopyButton v-if="fact.copy" :value="fact.value" class="-my-1" />
+				</div>
+			</DmsFieldRow>
+		</div>
 
 		<p class="text-muted max-w-[76ch] text-[13px] leading-relaxed">
 			{{ skill.description }}

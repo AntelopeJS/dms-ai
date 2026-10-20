@@ -34,6 +34,11 @@ const CARDS_PAGE_SIZE = 24;
  */
 const SKILL_DRAWER_SIZE = "3xl";
 /**
+ * The drawer's header names the open skill, its place in the list and the
+ * previous and next buttons: the DMS row header, as every row drawer.
+ */
+const SKILL_ROW_TITLE = "{name}";
+/**
  * The height of a real skill card at 1440 px (rows measure 192-278 px, 249 px
  * on average), so the placeholder cards keep the footer in place while the
  * custom cards load.
@@ -149,6 +154,8 @@ export class AISkillsPage extends PageController(
               blockMeta("skills.detail", "i-ph-sidebar-simple"),
             ),
             title: text("detail", "title"),
+            rowTitle: SKILL_ROW_TITLE,
+            positionLabel: text("detail", "position"),
             direction: ROW_DRAWER_DIRECTION,
             size: SKILL_DRAWER_SIZE,
           },

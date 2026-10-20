@@ -616,8 +616,11 @@ window, the whole screen on a phone), its running text kept to 76ch. In `DmsAiAc
 the output and the raw JSON are `DmsCodeSnippet`s (text, wrapped, 14 lines;
 JSON, 20 lines) with their language label and copy button, the "Allowed" and "Result" facts a
 `DmsKeyValueList` with its value slot, and each argument row copies the whole value
-(`copyValue`) while showing it cut short. `DmsAiSkillDetail` lists source (a pill), origin (copy),
-uses and last use in a `DmsKeyValueList`. The change set panel of Changes shows its four facts in a
+(`copyValue`) while showing it cut short. The Skill drawer uses the DMS row header
+(`rowTitle: "{name}"`, "Skill 8 of 35", previous and next), so its body draws no title or
+stepper of its own; `DmsAiSkillDetail` lists source (a pill), full name and origin (copy), uses
+and last use as `DmsFieldRow`s in the form layout, values left-aligned like a record drawer's
+fields (a label column from a 560 px drawer, the label above the value on a phone). The change set panel of Changes shows its four facts in a
 two-column `DmsKeyValueList` too, so the module's own `FactStrip` is gone. The diff view and the
 rendered SKILL.md stay custom: no DMS component draws a diff or Markdown.
 

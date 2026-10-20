@@ -306,6 +306,26 @@ void test("opens the skill detail as a 3xl reading panel on the right", async ()
   assert.equal(detail[0].direction, "right");
 });
 
+void test("titles the skill drawer with the DMS row header", async () => {
+  const { pages } = loadPages();
+  const skills = pages.find((page) => page.pageId === "skills");
+  const drawers = [];
+  for (const [, component] of staticComponents(skills)) {
+    findDrawers(await component.serialize(), drawers);
+  }
+  const [detail] = drawers.filter((drawer) =>
+    JSON.stringify(drawer).includes('"DmsAiSkillDetail"'),
+  );
+  // The header names the open skill and its place in the list, with the
+  // previous and next buttons: the body no longer draws them.
+  assert.equal(detail.rowTitle, "{name}");
+  assert.notEqual(detail.rowHeader, false);
+  for (const file of PAGE_LOCALES) {
+    const position = translate(readLocale(file), detail.positionLabel);
+    assert.match(position, /\{index\}.*\{total\}/, file);
+  }
+});
+
 /** The height of a real skill card, held by its placeholders while the cards load. */
 const CARD_SKELETON_HEIGHT = "250px";
 
