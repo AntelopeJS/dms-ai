@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RowNavigation } from "./types";
+import type { RowNavigation } from "#dms-ui/app/types/row-navigation";
 
 interface Props {
 	navigation: RowNavigation;

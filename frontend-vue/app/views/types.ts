@@ -170,16 +170,6 @@ export interface SkillRow {
 	icon?: string;
 }
 
-/** What a DMS row drawer hands its component to step through the rows. */
-export interface RowNavigation {
-	index: number;
-	total: number;
-	hasPrev: boolean;
-	hasNext: boolean;
-	prev: () => void;
-	next: () => void;
-}
-
 /** One fact of a change set, a row of a DmsKeyValueList. */
 export interface Fact {
 	id: string;
