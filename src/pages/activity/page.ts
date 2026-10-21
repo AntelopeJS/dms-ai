@@ -1,6 +1,7 @@
 import { TableView } from "@antelopejs/interface-dms/base";
 import { CustomComponent } from "@antelopejs/interface-dms/base/custom";
 import { DefaultLayout } from "@antelopejs/interface-dms/base/layouts";
+import { pageToolbar } from "@antelopejs/interface-dms/base/page-toolbar";
 import type { TableViewTab } from "@antelopejs/interface-dms/base/table-view/options";
 import { PageController, RegisterPage } from "@antelopejs/interface-dms/page";
 import { I18N_SECTIONS } from "../../constants/i18n";
@@ -10,18 +11,20 @@ import {
   PAGE_IDS,
   PAGE_ORDER,
   PAGE_ROUTES,
+  PERIOD_REMEMBER_KEY,
 } from "../../constants/pages";
 import { ACTIVITY_CATEGORIES, i18nKey } from "../../vocabulary";
-import { blockMeta, pageMenu, ROW_DRAWER_DIRECTION } from "../meta";
-import { periodToolbar } from "../toolbar";
+import {
+  blockMeta,
+  PERIOD_ICON,
+  pageMenu,
+  ROW_DRAWER_DIRECTION,
+  TOOLBAR_ICON,
+} from "../meta";
 import { ACTIVITY_COLUMNS } from "./columns";
 
 const SECTION = I18N_SECTIONS.ACTIVITY;
 const TABLE_PATH = "activity.log";
-const TOOLBAR_PATHS = {
-  toolbar: "activity.toolbar",
-  period: "activity.period",
-};
 
 function text(...segments: string[]): string {
   return i18nKey(SECTION, ...segments);
@@ -66,14 +69,20 @@ export class AIActivityPage extends PageController(
     ],
   }),
 ) {
-  static toolbar = periodToolbar(TOOLBAR_PATHS, {
-    id: ACTIVITY_PERIOD_SCOPE,
-    // The whole log by default, as before the page had a period; an audit
-    // log has nothing to compare against.
-    defaultPreset: "all",
-    presets: ["last-24h", "last-7-days", "last-30-days", "all"],
-    comparisons: ["none"],
-  });
+  // No live data: "Updated … ago" with a refresh button, then the period.
+  static toolbar = pageToolbar({
+    live: false,
+    period: {
+      id: ACTIVITY_PERIOD_SCOPE,
+      rememberKey: PERIOD_REMEMBER_KEY,
+      // The whole log by default, as before the page had a period; an audit
+      // log has nothing to compare against.
+      defaultPreset: "all",
+      presets: ["last-24h", "last-7-days", "last-30-days", "all"],
+      comparisons: ["none"],
+      meta: blockMeta("activity.period", PERIOD_ICON),
+    },
+  }).meta(blockMeta("activity.toolbar", TOOLBAR_ICON));
 
   static log = TableView.fromSource({
     fetchUrl: PAGE_ROUTES.ACTIVITY,
