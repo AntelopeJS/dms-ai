@@ -221,8 +221,7 @@
 			},
 			"detail": {
 				"open": "Details",
-				"title": "Action detail",
-				"position": "Action {index} of {total}"
+				"title": "Action detail"
 			},
 			"empty": {
 				"title": "No activity yet",

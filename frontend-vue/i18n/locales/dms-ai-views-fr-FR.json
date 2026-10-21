@@ -4,7 +4,10 @@
 			"common": {
 				"load_more": "Charger plus",
 				"loading": "Chargement",
+				"next": "Suivant",
+				"previous": "Précédent",
 				"open_assistant": "Ouvrir l'assistant",
+				"position": "{index} / {total}",
 				"retry": "Réessayer",
 				"unknown": "Inconnu"
 			},

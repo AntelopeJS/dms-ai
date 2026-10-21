@@ -2,13 +2,18 @@
 import { computed, ref } from "vue";
 import DecisionLabel from "../views/DecisionLabel.vue";
 import DiffView from "../views/DiffView.vue";
+import RowStepper from "../views/RowStepper.vue";
 import ResultPill from "../views/ResultPill.vue";
 import UnavailableState from "../views/UnavailableState.vue";
 import { useAiData } from "../views/composables/useAiData";
 import { useAssistant } from "../views/composables/useAssistant";
 import { useViewFormat } from "../views/composables/useViewFormat";
 import { AI_PAGES, AI_ROUTES, CHANGE_SET_QUERY_KEY } from "../views/constants";
-import type { ActivityDetailPayload, ActivityRow } from "../views/types";
+import type {
+	ActivityDetailPayload,
+	ActivityRow,
+	RowNavigation,
+} from "../views/types";
 import {
 	activityOutput,
 	argumentItems,
@@ -19,6 +24,7 @@ import { toolIcon, toolSource } from "../views/utils/tools";
 
 interface Props {
 	rowData?: ActivityRow;
+	navigation?: RowNavigation;
 }
 
 const props = defineProps<Props>();
@@ -84,6 +90,8 @@ function openConversation(): void {
 
 <template>
 	<div v-if="row" class="flex min-h-full flex-col gap-5">
+		<RowStepper v-if="props.navigation" :navigation="props.navigation" />
+
 		<header class="flex items-start gap-3">
 			<DmsIconWell :icon="toolIcon(row.tool)" tone="neutral" size="lg" />
 			<div class="min-w-0 flex-1">
