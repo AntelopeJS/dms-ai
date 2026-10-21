@@ -91,6 +91,9 @@ export class AIActivityPage extends PageController(
             type: "drawer",
             component: DETAIL_DRAWER,
             title: text("detail", "title"),
+            // The DMS row header: "Action 3 of 120", ∧ ∨ and J / K. The
+            // body keeps its own heading, which formats the tool and target.
+            positionLabel: text("detail", "position"),
             direction: ROW_DRAWER_DIRECTION,
           },
         },

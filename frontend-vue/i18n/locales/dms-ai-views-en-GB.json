@@ -4,10 +4,7 @@
 			"common": {
 				"load_more": "Load more",
 				"loading": "Loading",
-				"next": "Next",
-				"previous": "Previous",
 				"open_assistant": "Open assistant",
-				"position": "{index} / {total}",
 				"retry": "Retry",
 				"unknown": "Unknown"
 			},
