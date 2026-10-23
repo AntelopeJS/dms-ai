@@ -4,6 +4,7 @@ import { queryActivity } from "../../src/audit/activity-query.js";
 import {
   buildAllowed,
   buildKpi,
+  buildSeries,
   buildTopTools,
   buildUsage,
 } from "../../src/metrics/aggregate.js";
@@ -298,6 +299,84 @@ describe("metrics", () => {
     expect(buildKpi(empty, "actions", compared)).toMatchObject({
       previousValue: 0,
       delta: 0,
+    });
+  });
+
+  describe("comparison windows", () => {
+    const yearBefore = (ms: number) => {
+      const date = new Date(ms);
+      date.setUTCFullYear(date.getUTCFullYear() - 1);
+      return date.getTime();
+    };
+    // The same actions a year earlier: the previous period holds none.
+    const twoYears = {
+      ...sources,
+      records: [
+        ...records,
+        ...records.map((r) => ({
+          ...r,
+          timestampMs: yearBefore(r.timestampMs),
+        })),
+      ],
+    };
+    const previousPeriod = {
+      ...WINDOW,
+      compareFromMs: WINDOW.fromMs - (WINDOW.toMs - WINDOW.fromMs) - 1,
+      compareToMs: WINDOW.fromMs - 1,
+    };
+    const previousYear = {
+      ...WINDOW,
+      compareFromMs: yearBefore(WINDOW.fromMs),
+      compareToMs: yearBefore(WINDOW.toMs),
+    };
+
+    it("measures the KPIs against the window each comparison sends", () => {
+      expect(buildKpi(twoYears, "actions", previousYear)).toMatchObject({
+        value: 5,
+        previousValue: 5,
+        delta: 0,
+      });
+      const againstPeriod = buildKpi(twoYears, "actions", previousPeriod);
+      expect(againstPeriod.previousValue).toBe(0);
+      expect(againstPeriod).not.toHaveProperty("delta");
+    });
+
+    it("draws the previous year's actions day for day under the period's", () => {
+      const chart = buildSeries(twoYears, previousYear);
+      const ys = (data: { y: number }[] | undefined) => data?.map((p) => p.y);
+      expect(chart).toMatchObject({ value: 5, previousValue: 5, delta: 0 });
+      expect(ys(chart.comparisonSeries?.[0]?.data)).toEqual(
+        ys(chart.series[0]?.data),
+      );
+      expect(chart.comparisonSeries?.[0]?.data.map((p) => p.x)).toEqual(
+        chart.series[0]?.data.map((p) => p.x),
+      );
+    });
+
+    it("measures each row of the breakdowns against the comparison window", () => {
+      const allowed = buildAllowed(twoYears, previousYear).items;
+      const tools = buildTopTools(twoYears, previousYear, 10).items;
+      for (const row of [...allowed, ...tools].filter((r) => r.value > 0)) {
+        expect(row.delta).toBe(0);
+      }
+      // Grown from nothing over the previous period: no trend to state.
+      for (const row of buildTopTools(twoYears, previousPeriod, 10).items) {
+        expect(row).not.toHaveProperty("delta");
+      }
+      for (const row of buildAllowed(twoYears, WINDOW).items) {
+        expect(row).not.toHaveProperty("delta");
+      }
+    });
+
+    it("leaves out the delta, the previous figure and the dashed line without one", () => {
+      for (const payload of [
+        buildKpi(twoYears, "actions", WINDOW),
+        buildSeries(twoYears, WINDOW),
+      ]) {
+        expect(payload).not.toHaveProperty("delta");
+        expect(payload).not.toHaveProperty("previousValue");
+        expect(payload).not.toHaveProperty("comparisonSeries");
+      }
     });
   });
 

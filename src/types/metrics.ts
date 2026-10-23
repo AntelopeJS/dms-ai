@@ -47,6 +47,8 @@ export interface TopListItem {
   title: string;
   description?: string;
   value: number;
+  /** The share it moved against the comparison period; absent without one. */
+  delta?: number;
   icon?: string;
 }
 
@@ -59,6 +61,8 @@ export interface TopListPayload {
 interface CountedValue {
   id: string;
   value: number;
+  /** Absent without a comparison period, or when it counted zero. */
+  delta?: number;
 }
 
 /** How the actions of a window were allowed. */

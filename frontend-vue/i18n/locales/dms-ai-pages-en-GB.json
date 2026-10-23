@@ -28,6 +28,10 @@
 		},
 		"blocks": {
 			"overview": {
+				"toolbar": {
+					"name": "Toolbar",
+					"description": "When the Overview last read its figures, a refresh, and the period"
+				},
 				"period": {
 					"name": "Period",
 					"description": "Picks the period the Overview's figures cover"
@@ -80,11 +84,11 @@
 				},
 				"activity_chart": {
 					"name": "Activity chart",
-					"description": "Actions per day, compared with the previous period",
+					"description": "Actions per day, against the chosen comparison",
 					"title": "Activity",
 					"caption": "Actions over the selected period",
 					"primary": "Actions",
-					"comparison": "Previous period"
+					"comparison": "Comparison"
 				},
 				"allowed": {
 					"name": "How actions were allowed",
@@ -133,6 +137,14 @@
 				}
 			},
 			"activity": {
+				"toolbar": {
+					"name": "Toolbar",
+					"description": "When the audit log was last read, a refresh, and the period"
+				},
+				"period": {
+					"name": "Period",
+					"description": "Picks the period the audit log covers"
+				},
 				"log": {
 					"name": "Audit log",
 					"description": "Every tool call, how it was allowed and what came out"

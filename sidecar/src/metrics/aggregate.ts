@@ -139,16 +139,33 @@ function compare(
   value: number,
   window: MetricWindow,
 ): Comparison {
-  if (window.compareFromMs === undefined || window.compareToMs === undefined) {
-    return {};
-  }
-  const previousValue = countIn(
-    timestamps,
-    window.compareFromMs,
-    window.compareToMs,
-  );
+  const previous = comparisonWindow(window);
+  if (!previous) return {};
+  const previousValue = countIn(timestamps, previous.fromMs, previous.toMs);
   const delta = deltaPercent(value, previousValue);
   return delta === undefined ? { previousValue } : { previousValue, delta };
+}
+
+/** The comparison window, when the period has one. */
+function comparisonWindow(window: MetricWindow): MetricWindow | undefined {
+  if (window.compareFromMs === undefined || window.compareToMs === undefined) {
+    return undefined;
+  }
+  return { fromMs: window.compareFromMs, toMs: window.compareToMs };
+}
+
+/**
+ * The share each row of a breakdown moved against the same row over the
+ * comparison window; `undefined` without one, or from zero.
+ */
+function rowDelta(
+  value: number,
+  id: string,
+  previousCounts: ReadonlyMap<string, number> | undefined,
+): Pick<Comparison, "delta"> {
+  if (!previousCounts) return {};
+  const delta = deltaPercent(value, previousCounts.get(id) ?? 0);
+  return delta === undefined ? {} : { delta };
 }
 
 function approvalBreakdown(sources: MetricSources, window: MetricWindow) {
@@ -204,14 +221,9 @@ export function buildSeries(
     ...compare(timestamps, value, window),
     series: [seriesFrom("Actions", keys, counts)],
   };
-  if (window.compareFromMs === undefined || window.compareToMs === undefined) {
-    return payload;
-  }
-  const compareCounts = dailyCounts(
-    timestamps,
-    window.compareFromMs,
-    window.compareToMs,
-  );
+  const previous = comparisonWindow(window);
+  if (!previous) return payload;
+  const compareCounts = dailyCounts(timestamps, previous.fromMs, previous.toMs);
   return {
     ...payload,
     comparisonSeries: [seriesFrom("Comparison", keys, compareCounts)],
@@ -236,6 +248,16 @@ function countBy<T extends string>(
   return counts;
 }
 
+/** The counts of a breakdown over the comparison window, when there is one. */
+function countsOver<T extends string>(
+  sources: MetricSources,
+  window: MetricWindow,
+  key: (record: ActivityRecord) => T,
+): Map<T, number> | undefined {
+  const previous = comparisonWindow(window);
+  return previous ? countBy(inWindow(sources, previous), key) : undefined;
+}
+
 /** "How actions were allowed": one count per way, plus the deletions line. */
 export function buildAllowed(
   sources: MetricSources,
@@ -243,9 +265,13 @@ export function buildAllowed(
 ): AllowedPayload {
   const records = inWindow(sources, window);
   const counts = countBy(records, (r) => r.allowedBy);
+  const previousCounts = countsOver(sources, window, (r) => r.allowedBy);
   const deletions = records.filter((r) => r.kind === "destructive");
   return {
-    items: ALLOWED_BY_VALUES.map((id) => ({ id, value: counts.get(id) ?? 0 })),
+    items: ALLOWED_BY_VALUES.map((id) => {
+      const value = counts.get(id) ?? 0;
+      return { id, value, ...rowDelta(value, id, previousCounts) };
+    }),
     deletionsAsked: deletions.filter((r) => r.isAsked).length,
     deletions: deletions.length,
   };
@@ -265,10 +291,12 @@ export function buildTopTools(
   window: MetricWindow,
   limit: number,
 ): TopToolsPayload {
+  const previousCounts = countsOver(sources, window, (r) => r.tool);
   return {
     items: topCounts(sources, window, limit).map(([id, value]) => ({
       id,
       value,
+      ...rowDelta(value, id, previousCounts),
       source: toolSourceOf(id),
     })),
   };
