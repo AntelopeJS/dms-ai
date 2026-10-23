@@ -173,9 +173,11 @@ onMounted(() => {
 	color: var(--ui-text-muted);
 }
 
+/* Sits where the panel header's close button does: centred in a header
+   as tall as the DMS navbar (28px is the small square button height). */
 .dms-ai-panel-close {
 	position: absolute;
-	top: 11px;
+	top: calc((var(--ui-header-height) - 28px) / 2);
 	right: 8px;
 }
 
