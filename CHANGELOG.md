@@ -4,6 +4,11 @@
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.5.0...v0.6.0)
 
+### Upgrade notes
+
+- Runs on `@antelopejs/dms` 0.10 (`@antelopejs/interface-dms >=0.8.0`).
+- Block and permission ids: the Overview's period selector moved into a page toolbar, from `overview.period` to `overview.toolbar` + `overview.toolbar.period`; the Activity page's selector is `activity.toolbar.period`. A custom role that granted `overview.period` must be granted the new ids again ([#80](https://github.com/AntelopeJS/dms-ai/pull/80)).
+
 ### 🚀 Enhancements
 
 - **frontend:** The frontend registration as a pure function, declared as dmsFrontend ([#86](https://github.com/AntelopeJS/dms-ai/pull/86))
