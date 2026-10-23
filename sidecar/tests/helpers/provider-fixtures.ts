@@ -76,21 +76,11 @@ const claudeFixture: ProviderFixture = {
   },
 };
 
-const MOCK_API_KEY = "sk-mock";
-
-// The API key is an environment prerequisite in production too, and the
-// availability check reads it from there. A machine that already has a real key
-// keeps it.
-let injectedApiKey = false;
-
 const codexFixture: ProviderFixture = {
   name: "codex",
   use: (kind) => {
     process.env.MOCK_CODEX = "1";
     process.env.MOCK_CODEX_SCRIPT = CODEX_BY_KIND[kind];
-    if (process.env.OPENAI_API_KEY !== undefined) return;
-    process.env.OPENAI_API_KEY = MOCK_API_KEY;
-    injectedApiKey = true;
   },
   reset: () => {
     delete process.env.MOCK_CODEX;
@@ -99,9 +89,6 @@ const codexFixture: ProviderFixture = {
     delete process.env.MOCK_CODEX_ON_SIGTERM;
     delete process.env.MOCK_CODEX_FAIL_METHOD;
     delete process.env.MOCK_CODEX_GRANDCHILD_PID_FILE;
-    if (!injectedApiKey) return;
-    delete process.env.OPENAI_API_KEY;
-    injectedApiKey = false;
   },
 };
 

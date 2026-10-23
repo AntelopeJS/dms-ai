@@ -18,7 +18,6 @@ import {
   CODEX_INITIALIZED_METHOD,
   CODEX_LOG_PREFIX,
   CODEX_MAX_LIVE_SESSIONS,
-  CODEX_MISSING_API_KEY_MESSAGE,
   CODEX_MISSING_CLI_MESSAGE,
   CODEX_SKILLS_CONFIG_WRITE_METHOD,
   CODEX_SKILLS_EXTRA_ROOTS_METHOD,
@@ -33,12 +32,17 @@ import {
   SAFE_MODE_SKILL_MISSING_MESSAGE,
   SAFE_MODE_SKILL_MISSING_WARNING,
 } from "../../constants/codex.js";
+import {
+  CHATGPT_ACCESS_TOKEN_PATH,
+  CHATGPT_NOT_SIGNED_IN_MESSAGE,
+} from "../../constants/chatgpt.js";
 import { MCP_TOOL_NAME_PREFIX } from "../../constants/mcp.js";
 import type { McpHttpRegistry } from "../../mcp/http-binding.js";
 import type { AiMcpServerDeps } from "../../mcp/types.js";
 import { resolveSkillSources } from "../../skills/resolve-sources.js";
 import type { AppSettings } from "../../state/settings-types.js";
 import { createCodexAdapter } from "./adapter.js";
+import { readAccountStatus } from "./chatgpt/credentials.js";
 import { buildCodexTurnInput } from "./attachments.js";
 import type {
   CodexClientHandlers,
@@ -68,12 +72,11 @@ import {
   selectSkillsToDisable,
 } from "./skills.js";
 
-/** What the module hands down from the neutral ProviderRuntime, plus the key. */
+/** What the module hands down from the neutral ProviderRuntime. */
 interface CodexRuntimeDeps {
   stateDir: string;
   mcpHttpRegistry: McpHttpRegistry;
   getMcpUrl: () => string;
-  getApiKey: () => string | undefined;
 }
 
 export interface CodexProviderOptions
@@ -340,8 +343,9 @@ async function openCodexProcess(
   handlers: CodexClientHandlers,
 ): Promise<OpenedCodexProcess> {
   const installation = assertUsableInstallation();
-  const apiKey = options.getApiKey();
-  if (apiKey === undefined) throw new Error(CODEX_MISSING_API_KEY_MESSAGE);
+  if (!readAccountStatus().isSignedIn) {
+    throw new Error(CHATGPT_NOT_SIGNED_IN_MESSAGE);
+  }
   const mcpToken = await options.mcpHttpRegistry.register(
     options.createMcpDeps(ctx.conversationId),
   );
@@ -354,7 +358,11 @@ async function openCodexProcess(
       mcpUrl: options.getMcpUrl(),
       mcpToken,
       hostProjectRoot: ctx.hostProjectRoot,
-      apiKey,
+      // Same loopback server as the MCP endpoint.
+      accessTokenUrl: new URL(
+        CHATGPT_ACCESS_TOKEN_PATH,
+        options.getMcpUrl(),
+      ).toString(),
       handlers,
     });
     const outcome = await handshake(codexProcess, options, ctx);

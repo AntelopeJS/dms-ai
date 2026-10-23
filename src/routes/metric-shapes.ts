@@ -66,12 +66,14 @@ function deletionsRow(breakdown: AllowedBreakdown): TopListItem[] {
 
 /** How actions were allowed, one translated row per way, then deletions. */
 export function allowedPayload(breakdown: AllowedBreakdown): TopListPayload {
-  const counts = new Map(breakdown.items.map((item) => [item.id, item.value]));
+  const counted = new Map(breakdown.items.map((item) => [item.id, item]));
   const rows = Object.entries(ALLOWED_BY).flatMap(([id, entry]) => {
-    const value = counts.get(id) ?? 0;
-    if (value === 0) return [];
+    const item = counted.get(id);
+    if (!item?.value) return [];
     const title = vocabularyLabel(ACTIVITY, "allowed_by", id);
-    return [{ id, title, value, icon: entry.icon }];
+    return [
+      { id, title, value: item.value, delta: item.delta, icon: entry.icon },
+    ];
   });
   return { items: [...rows, ...deletionsRow(breakdown)] };
 }
@@ -83,6 +85,7 @@ function toolRow(tool: ToolCount): TopListItem {
     title: known ? toolLabel(ACTIVITY, known.name) : bareToolName(tool.id),
     description: vocabularyLabel(ACTIVITY, "tool_source", tool.source),
     value: tool.value,
+    delta: tool.delta,
     icon: known?.icon ?? TOOL_SOURCES[tool.source]?.icon ?? FALLBACK_TOOL_ICON,
   };
 }

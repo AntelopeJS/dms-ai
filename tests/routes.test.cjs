@@ -52,6 +52,20 @@ void test("translates the Activity table's query and keys each row by its id", a
   assert.equal(page.results[0].timestamp, "2026-10-07T14:02:00.000Z");
 });
 
+void test("filters the audit log on the period of its toolbar", async () => {
+  reset();
+  answer("GET", "/activity", 200, { results: [], total: 0 });
+  const from = "2026-10-11T00:00:00.000Z";
+  const to = "2026-10-18T09:30:00.000Z";
+  await new harness.routes.AIActivityController().list(
+    context(
+      `offset=0&limit=25&from=${from}&to=${to}&preset=last-7-days&comparison=none`,
+    ),
+  );
+  const [request] = sidecar.requests;
+  assert.deepEqual(request.query, { offset: "0", limit: "25", from, to });
+});
+
 void test("draws the action's target under its name, in red for a destructive tool", async () => {
   reset();
   const deletion = {
@@ -178,6 +192,46 @@ void test("shapes the approved KPI's caption from the sidecar's totals", async (
   });
   const kpi = await new harness.routes.AIMetricsController().kpi("approved");
   assert.equal(kpi.caption, "21 / 25 · 84%");
+});
+
+void test("forwards each comparison window of the Overview, none without one", async () => {
+  const metrics = new harness.routes.AIMetricsController();
+  const from = "2026-10-11T00:00:00.000Z";
+  const to = "2026-10-18T09:30:00.000Z";
+  const compareFrom = "2025-10-11T00:00:00.000Z";
+  const compareTo = "2025-10-18T09:30:00.000Z";
+  reset();
+  answer("GET", "/metrics/kpi/actions", 200, { value: 4, sparkline: [] });
+  answer("GET", "/metrics/series", 200, { value: 4, series: [] });
+  answer("GET", "/metrics/allowed", 200, {
+    items: [{ id: "approved", value: 3, delta: 50 }],
+    deletionsAsked: 0,
+    deletions: 0,
+  });
+  answer("GET", "/metrics/top-tools", 200, {
+    items: [{ id: "Edit", value: 2, delta: -50, source: "code" }],
+  });
+  await metrics.kpi("actions", from, to, compareFrom, compareTo);
+  await metrics.series(from, to, compareFrom, compareTo);
+  const allowed = await metrics.allowed(from, to, compareFrom, compareTo);
+  const tools = await metrics.topTools(
+    from,
+    to,
+    undefined,
+    compareFrom,
+    compareTo,
+  );
+  for (const request of sidecar.requests) {
+    assert.deepEqual(request.query, { from, to, compareFrom, compareTo });
+  }
+  assert.equal(allowed.items[0].delta, 50);
+  assert.equal(tools.items[0].delta, -50);
+  reset();
+  answer("GET", "/metrics/kpi/actions", 200, { value: 4, sparkline: [] });
+  const kpi = await metrics.kpi("actions", from, to);
+  assert.deepEqual(sidecar.requests[0].query, { from, to });
+  assert.equal(kpi.delta, undefined);
+  assert.equal(kpi.previousValue, undefined);
 });
 
 void test("serves the settings flat, numbers as text, deletions locked on", async () => {

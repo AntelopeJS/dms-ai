@@ -45,7 +45,6 @@ function allowedBreakdown(): ComponentBuilder {
     periodScope: OVERVIEW_PERIOD_SCOPE,
     valueFormat: "number",
     showBar: true,
-    showDelta: false,
     skeletonCount: ALLOWED_WAYS,
     emptyLabel: blockText(path, "empty"),
   }).meta(blockMeta(path, "i-ph-hand-palm"));
@@ -61,7 +60,6 @@ function topTools(): ComponentBuilder {
     valueFormat: "number",
     showRank: true,
     showBar: true,
-    showDelta: false,
     skeletonCount: TOP_TOOLS_LIMIT,
     emptyLabel: blockText(path, "empty"),
   }).meta(blockMeta(path, "i-ph-wrench"));

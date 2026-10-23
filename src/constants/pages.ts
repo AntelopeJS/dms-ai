@@ -1,4 +1,4 @@
-import { ROUTE_PREFIX } from "./module";
+import { MODULE_ID, ROUTE_PREFIX } from "./module";
 
 export const AI_MODULE_ICON = "i-ph-sparkle";
 export const AI_MODULE_LANDING_PAGE = "overview";
@@ -24,6 +24,10 @@ export const PAGE_ORDER = {
 
 /** The period selector of the Overview, which its cards follow. */
 export const OVERVIEW_PERIOD_SCOPE = "ai-overview";
+/** The period selector of the Activity page, which its audit log follows. */
+export const ACTIVITY_PERIOD_SCOPE = "ai-activity";
+/** Shared by the module's period selectors: the period follows the owner. */
+export const PERIOD_REMEMBER_KEY = MODULE_ID;
 
 /** Rows of the Overview's recent change sets. */
 export const RECENT_CHANGE_SETS = 4;
@@ -44,6 +48,9 @@ export const PAGE_ROUTES = {
   STATUS_FACTS: `${ROUTE_PREFIX}/status/facts`,
   STATUS_BANNER: `${ROUTE_PREFIX}/status/banner`,
   SIDECAR_RESTART: `${ROUTE_PREFIX}/sidecar/restart`,
+  CODEX_ACCOUNT_BANNER: `${ROUTE_PREFIX}/codex/account/banner`,
+  CODEX_LOGOUT: `${ROUTE_PREFIX}/codex/logout`,
+  CODEX_CALLBACK: `${ROUTE_PREFIX}/codex/callback`,
   KPI: `${ROUTE_PREFIX}/metrics/kpi`,
   SERIES: `${ROUTE_PREFIX}/metrics/series`,
   ALLOWED: `${ROUTE_PREFIX}/metrics/allowed`,

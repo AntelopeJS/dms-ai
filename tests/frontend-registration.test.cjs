@@ -27,8 +27,8 @@ function loadModule(registrations, sidecars) {
       },
     },
     "./logging/log-buffer": { startLogCapture() {} },
-    "./constants/frontend-module": require(
-      path.resolve(__dirname, "../dist/constants/frontend-module.js"),
+    "./frontend-module": require(
+      path.resolve(__dirname, "../dist/frontend-module.js"),
     ),
     "node:path": path,
     "./constants/sidecar": require(
@@ -350,4 +350,66 @@ void test("holds the skill card placeholders at the height of a real card", asyn
   for (const card of skillCards) {
     assert.equal(card.skeletonHeight, CARD_SKELETON_HEIGHT);
   }
+});
+
+async function toolbarPeriod(page) {
+  const [firstKey, toolbar] = staticComponents(page)[0];
+  const info = await toolbar.componentInfo;
+  const period = info.children.find((child) => child.id === "period");
+  return {
+    firstKey,
+    toolbar: await toolbar.serialize(),
+    childIds: info.children.map((child) => child.id),
+    period: await period.component.serialize(),
+  };
+}
+
+function findPage(pages, id) {
+  return pages.find((page) => page.pageId === id);
+}
+
+void test("opens the Overview and Activity with the DMS page toolbar, its period only", async () => {
+  const { pages } = loadPages();
+  for (const id of ["overview", "activity"]) {
+    const { firstKey, toolbar, childIds, period } = await toolbarPeriod(
+      findPage(pages, id),
+    );
+    assert.equal(firstKey, "toolbar", id);
+    assert.equal(toolbar.componentName, "dms-page-toolbar-block", id);
+    // No live data on these pages: "updated" and a refresh, no Direct / Pause.
+    assert.deepEqual(childIds, ["period"], id);
+    assert.equal(period.options.rememberKey, "ai", id);
+    assert.equal(period.options.rangeLabel, "relative", id);
+    assert.equal(period.options.variant, "segmented", id);
+  }
+});
+
+void test("offers the Overview's comparisons in a menu, the period before by default", async () => {
+  const { pages } = loadPages();
+  const { period } = await toolbarPeriod(findPage(pages, "overview"));
+  assert.equal(period.options.id, "ai-overview");
+  assert.deepEqual(period.options.presets, [
+    "last-24h",
+    "last-7-days",
+    "last-30-days",
+  ]);
+  assert.equal(period.options.defaultPreset, "last-7-days");
+  assert.deepEqual(period.options.comparisons, [
+    "previous-period",
+    "previous-year",
+    "none",
+  ]);
+  assert.equal(period.options.defaultComparison, "previous-period");
+  assert.equal(period.options.comparisonControl, "menu");
+});
+
+void test("scopes the audit log to the Activity period, the whole log by default", async () => {
+  const { pages } = loadPages();
+  const activity = findPage(pages, "activity");
+  const { period } = await toolbarPeriod(activity);
+  assert.equal(period.options.id, "ai-activity");
+  assert.equal(period.options.defaultPreset, "all");
+  assert.deepEqual(period.options.comparisons, ["none"]);
+  const log = await activity.log.serialize();
+  assert.equal(log.options.source.periodScope, "ai-activity");
 });

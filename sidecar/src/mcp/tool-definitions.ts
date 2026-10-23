@@ -1,6 +1,7 @@
 import type { AnyMcpToolDefinition } from "./define-tool.js";
 import { buildAskUserTool } from "./tools/ask-user.js";
 import { buildBuilderTools } from "./tools/builder.js";
+import { buildDatabaseTools } from "./tools/database.js";
 import { buildFindPagesUsingTool } from "./tools/find-pages-using.js";
 import { buildGetCurrentPageTool } from "./tools/get-current-page.js";
 import { buildListPagesTool } from "./tools/list-pages.js";
@@ -49,5 +50,6 @@ export function buildToolDefinitions(
       getLastEditedFile: deps.getLastEditedFile,
     }),
     buildQueryLogsTool({ logsClient: deps.logsClient }),
+    ...buildDatabaseTools({ databaseClient: deps.databaseClient }),
   ];
 }

@@ -1,8 +1,15 @@
+import { execFile } from "node:child_process";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
+import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
+import {
+  CHATGPT_TOKEN_SECRET_ENV,
+  CHATGPT_TOKEN_URL_ENV,
+} from "../../src/constants/chatgpt.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import {
-  buildAuthFile,
   buildConfigToml,
   buildDenialReminder,
   buildDeveloperInstructions,
@@ -129,6 +136,7 @@ describe("config.toml", () => {
   const toml = buildConfigToml({
     mcpUrl: "http://127.0.0.1:4321/mcp",
     hostProjectRoot: HOST_ROOT,
+    nodePath: process.execPath,
   });
 
   it("declares the MCP server at process level", () => {
@@ -148,12 +156,77 @@ describe("config.toml", () => {
   });
 });
 
-describe("auth file", () => {
-  it("writes the two fields codex login --with-api-key writes", () => {
-    expect(buildAuthFile("sk-test")).toEqual({
-      auth_mode: "apikey",
-      OPENAI_API_KEY: "sk-test",
+const run = promisify(execFile);
+const TOKEN_SECRET = "secret-for-test";
+
+interface TokenServer {
+  server: Server;
+  url: string;
+}
+
+/** Answers the sidecar's token route: the token for the right secret only. */
+async function startTokenServer(
+  status: number,
+  body: string,
+): Promise<TokenServer> {
+  const server = createServer((req, res) => {
+    const isAuthorized = req.headers.authorization === `Bearer ${TOKEN_SECRET}`;
+    res.writeHead(isAuthorized ? status : 401);
+    res.end(isAuthorized ? body : "");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  return { server, url: `http://127.0.0.1:${port}/codex/access-token` };
+}
+
+// The TOML array is written with JSON string escapes, so it reads back as JSON.
+function authCommandArgs(toml: string): string[] {
+  const line = toml.split("\n").find((entry) => entry.startsWith("args = "));
+  return JSON.parse(line?.slice("args = ".length) ?? "[]") as string[];
+}
+
+describe("ChatGPT plan provider", () => {
+  const toml = buildConfigToml({
+    mcpUrl: "http://127.0.0.1:4321/mcp",
+    hostProjectRoot: HOST_ROOT,
+    nodePath: process.execPath,
+  });
+  let tokenServer: TokenServer | undefined;
+
+  afterEach(() => {
+    tokenServer?.server.close();
+    tokenServer = undefined;
+  });
+
+  async function runAuthCommand(url: string) {
+    return run(process.execPath, authCommandArgs(toml), {
+      env: {
+        ...process.env,
+        [CHATGPT_TOKEN_URL_ENV]: url,
+        [CHATGPT_TOKEN_SECRET_ENV]: TOKEN_SECRET,
+      },
     });
+  }
+
+  it("selects the plan provider at top level, before any table", () => {
+    const topLevel = toml.split("\n[")[0] ?? "";
+    expect(topLevel).toContain('model_provider = "openai_chatgpt_plan"');
+    expect(toml).toContain("requires_openai_auth = false");
+    expect(toml).toContain("supports_websockets = false");
+  });
+
+  it("prints the token the sidecar answers, as the auth command", async () => {
+    tokenServer = await startTokenServer(200, "access-123");
+    const { stdout } = await runAuthCommand(tokenServer.url);
+    expect(stdout).toBe("access-123");
+  });
+
+  it("fails with the sidecar's reason when there is no token to give", async () => {
+    tokenServer = await startTokenServer(503, "sign in again");
+    const failure = await runAuthCommand(tokenServer.url).catch(
+      (error: unknown) => error as { code: number; stderr: string },
+    );
+    expect(failure).toMatchObject({ code: 1, stderr: "sign in again" });
   });
 });
 

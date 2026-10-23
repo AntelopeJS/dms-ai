@@ -13,10 +13,14 @@ import type {
 } from "@antelopejs/interface-dms/base/table-view";
 import { CSV_CONTENT_TYPE, HTTP_STATUS } from "../constants/http";
 import { ROUTE_PREFIX } from "../constants/module";
-import { buildQuery, pathSegment } from "../sidecar";
+import { buildQuery, pathSegment, type QueryParams } from "../sidecar";
 import type { ActivityRow, ActivityTableRow, SidecarList } from "../types";
 import { activityCsv } from "./activity-csv";
-import { type FilterMappings, sidecarListParams } from "./list-query";
+import {
+  type FilterMappings,
+  periodParams,
+  sidecarListParams,
+} from "./list-query";
 import { relay } from "./sidecar-results";
 import { findLoggedTool } from "../vocabulary";
 
@@ -42,6 +46,11 @@ function actionDetail(row: ActivityRow): CellSubline | null {
   return isDestructive
     ? { text: row.target, tone: DESTRUCTIVE_TARGET_TONE }
     : { text: row.target };
+}
+
+/** The table's list query and the period of its toolbar, for the sidecar. */
+function activityParams(search: URLSearchParams): QueryParams {
+  return { ...sidecarListParams(search, FILTERS), ...periodParams(search) };
 }
 
 function tableRow(row: ActivityRow): ActivityTableRow {
@@ -81,13 +90,13 @@ function exportResult(page: SidecarList<ActivityRow>): HTTPResult {
 export class AIActivityController extends Controller(ROUTE_PREFIX) {
   @Get(ACTIVITY_PATH)
   list(@Context() ctx: RequestContext): Promise<unknown> {
-    const query = buildQuery(sidecarListParams(ctx.url.searchParams, FILTERS));
+    const query = buildQuery(activityParams(ctx.url.searchParams));
     return relay(`${ACTIVITY_PATH}${query}`, tablePage);
   }
 
   @Get(`${ACTIVITY_PATH}/export.csv`)
   export(@Context() ctx: RequestContext): Promise<unknown> {
-    const params = sidecarListParams(ctx.url.searchParams, FILTERS);
+    const params = activityParams(ctx.url.searchParams);
     const query = buildQuery({
       ...params,
       offset: undefined,

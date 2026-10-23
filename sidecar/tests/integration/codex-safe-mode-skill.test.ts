@@ -87,7 +87,6 @@ describe("codex safe-mode skill guard", () => {
       mcpHttpRegistry: registry,
       createMcpDeps: () => ({}) as unknown as AiMcpServerDeps,
       getMcpUrl: () => "http://127.0.0.1:1/mcp",
-      getApiKey: () => "sk-mock",
     });
     session = await provider.createSession({
       conversationId: CONVERSATION,

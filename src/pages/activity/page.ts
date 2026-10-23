@@ -1,17 +1,26 @@
 import { TableView } from "@antelopejs/interface-dms/base";
 import { CustomComponent } from "@antelopejs/interface-dms/base/custom";
 import { DefaultLayout } from "@antelopejs/interface-dms/base/layouts";
+import { pageToolbar } from "@antelopejs/interface-dms/base/page-toolbar";
 import type { TableViewTab } from "@antelopejs/interface-dms/base/table-view/options";
 import { PageController, RegisterPage } from "@antelopejs/interface-dms/page";
 import { I18N_SECTIONS } from "../../constants/i18n";
 import {
   ACTIVITY_PAGE_SIZE,
+  ACTIVITY_PERIOD_SCOPE,
   PAGE_IDS,
   PAGE_ORDER,
   PAGE_ROUTES,
+  PERIOD_REMEMBER_KEY,
 } from "../../constants/pages";
 import { ACTIVITY_CATEGORIES, i18nKey } from "../../vocabulary";
-import { blockMeta, pageMenu, ROW_DRAWER_DIRECTION } from "../meta";
+import {
+  blockMeta,
+  PERIOD_ICON,
+  pageMenu,
+  ROW_DRAWER_DIRECTION,
+  TOOLBAR_ICON,
+} from "../meta";
 import { ACTIVITY_COLUMNS } from "./columns";
 
 const SECTION = I18N_SECTIONS.ACTIVITY;
@@ -37,9 +46,10 @@ const DETAIL_DRAWER = CustomComponent("DmsAiActivityDetail").meta(
 
 /**
  * AI Activity — the audit log: every tool the assistant used, how it was
- * allowed and what came out, from `/ai/activity`. Tabs and quick filters are
- * column filters the route forwards to the sidecar; a row opens its detail in
- * a drawer, deep-linked as `?record=<id>`.
+ * allowed and what came out, from `/ai/activity`, over the period of the page
+ * toolbar. Tabs and quick filters are column filters the route forwards to
+ * the sidecar, as is the period; a row opens its detail in a drawer,
+ * deep-linked as `?record=<id>`.
  */
 @RegisterPage()
 export class AIActivityPage extends PageController(
@@ -59,8 +69,24 @@ export class AIActivityPage extends PageController(
     ],
   }),
 ) {
+  // No live data: "Updated … ago" with a refresh button, then the period.
+  static toolbar = pageToolbar({
+    live: false,
+    period: {
+      id: ACTIVITY_PERIOD_SCOPE,
+      rememberKey: PERIOD_REMEMBER_KEY,
+      // The whole log by default, as before the page had a period; an audit
+      // log has nothing to compare against.
+      defaultPreset: "all",
+      presets: ["last-24h", "last-7-days", "last-30-days", "all"],
+      comparisons: ["none"],
+      meta: blockMeta("activity.period", PERIOD_ICON),
+    },
+  }).meta(blockMeta("activity.toolbar", TOOLBAR_ICON));
+
   static log = TableView.fromSource({
     fetchUrl: PAGE_ROUTES.ACTIVITY,
+    periodScope: ACTIVITY_PERIOD_SCOPE,
     capabilities: { search: true, paginate: true, filter: true },
     columns: ACTIVITY_COLUMNS,
     searchPlaceholder: text("search"),

@@ -4,6 +4,10 @@ import { I18N_SECTIONS } from "../constants/i18n";
 import { MODULE_ID } from "../constants/module";
 import { i18nKey } from "../vocabulary";
 
+/** Role-editor icons of the page toolbar and its period, on every page. */
+export const TOOLBAR_ICON = "i-ph-sliders-horizontal";
+export const PERIOD_ICON = "i-ph-calendar-blank";
+
 /** Row drawers open as a side sheet on the right, like the mockup's slideover. */
 export const ROW_DRAWER_DIRECTION = "right";
 

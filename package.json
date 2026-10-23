@@ -1,6 +1,6 @@
 {
   "name": "@antelopejs/dms-ai",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "AI development assistant for the AntelopeJS DMS: a chat panel next to every page and a coding agent that edits the project in reviewable, undoable change sets.",
   "keywords": [
     "ai",
@@ -55,7 +55,7 @@
     "test:sidecar-smoke": "pnpm run build:sidecar && node --test tests/sidecar-build.test.cjs",
     "test:frontend-registration": "pnpm run build && node --test tests/frontend-registration.test.cjs",
     "test:channels": "pnpm run build && node --test tests/channels.test.cjs tests/channel-limits.test.cjs",
-    "test:routes": "pnpm run build && node --test tests/routes.test.cjs tests/banner-routes.test.cjs",
+    "test:routes": "pnpm run build && node --test tests/routes.test.cjs tests/banner-routes.test.cjs tests/database-routes.test.cjs",
     "test:spawn-args": "node --test tests/spawn-args.test.cjs",
     "test:sidecar-lifecycle": "node --test tests/sidecar-lifecycle.test.cjs",
     "test:build-id": "node --test tests/build-id.test.cjs",
@@ -97,7 +97,8 @@
     }
   },
   "optionalDependencies": {
-    "@antelopejs/interface-dms-builder": ">=0.2.1 <1.0.0"
+    "@antelopejs/interface-database-catalog": ">=0.0.1 <1.0.0",
+    "@antelopejs/interface-dms-builder": ">=0.2.3 <1.0.0"
   },
   "packageManager": "pnpm@10.2.0",
   "antelopeJs": {
@@ -106,5 +107,6 @@
     "skills": [
       "./skills"
     ]
-  }
+  },
+  "dmsFrontend": "dist/frontend-module.js"
 }
