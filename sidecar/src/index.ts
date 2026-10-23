@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createDatabaseClient } from "./database/database-client.js";
 import { createBuilderClient } from "./builder/builder-client.js";
 import { setBuilderAvailable } from "./builder/capability.js";
 import { SIDECAR_BUILDER_FLAG } from "./constants/builder.js";
@@ -338,6 +339,10 @@ function buildWsStack({
     backendBaseUrl: args.backendUrl,
     token: backendToken,
   });
+  const databaseClient = createDatabaseClient({
+    backendBaseUrl: args.backendUrl,
+    token: backendToken,
+  });
   const scanner = createImportsScanner();
   const hostSocketRegistry = createHostSocketRegistry();
   const navigationCompleter = createNavigationCompleter();
@@ -359,6 +364,7 @@ function buildWsStack({
       logsClient,
       builderClient,
       builderEnabled: args.builderEnabled,
+      databaseClient,
       navigationCompleter,
     },
     hostState,

@@ -39,6 +39,7 @@ function buildDeps(conversationId: string): AiMcpServerDeps {
     moduleRoots: [],
     logsClient: { getLogs: async () => [] },
     builderClient: { call: async () => undefined },
+    databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     sendToHost: () => {},
     navigationCompleter: createNavigationCompleter(),
@@ -100,7 +101,6 @@ describe("two live Codex conversations stay isolated", () => {
         mcpHttpRegistry: registry,
         createMcpDeps: buildDeps,
         getMcpUrl: () => `http://127.0.0.1:${started.port}/mcp`,
-        getApiKey: () => "sk-mock",
       });
 
       const open = async (conversationId: string): Promise<ProviderSession> => {

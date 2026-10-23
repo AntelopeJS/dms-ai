@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type WebSocket from "ws";
-import { OPENAI_API_KEY_ENV_VAR } from "../../src/constants/codex.js";
 import {
   PROVIDER_LABELS,
   PROVIDER_UNAVAILABLE_REASONS,
 } from "../../src/constants/providers.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
+import { writeAuthRecord } from "../../src/providers/codex/chatgpt/store.js";
+import { signedInRecord, signInForTests } from "../helpers/chatgpt-auth.js";
 import { CLAUDE_FIXTURE } from "../helpers/provider-fixtures.js";
 import {
   createCollector,
@@ -27,18 +28,16 @@ function isRunError(msg: WireMessage): boolean {
 }
 
 /**
- * The provider is selected while it works, and stops working afterwards — a key
- * removed from the environment, a package uninstalled. What must not happen is
+ * The provider is selected while it works, and stops working afterwards — a
+ * ChatGPT sign-out, a package uninstalled. What must not happen is
  * the conversation quietly continuing on the other backend.
  */
 describe("a selected provider that cannot run", () => {
   let harness: WsHarness | undefined;
   let client: WebSocket | undefined;
-  let savedKey: string | undefined;
-
-  beforeEach(() => {
-    savedKey = process.env[OPENAI_API_KEY_ENV_VAR];
-    delete process.env[OPENAI_API_KEY_ENV_VAR];
+  beforeEach(async () => {
+    // Signed out: the host is remembered, its tokens are not.
+    await writeAuthRecord({ hostId: signedInRecord().hostId });
     CLAUDE_FIXTURE.use("simple");
   });
 
@@ -48,7 +47,7 @@ describe("a selected provider that cannot run", () => {
     await harness?.close();
     harness = undefined;
     CLAUDE_FIXTURE.reset();
-    if (savedKey !== undefined) process.env[OPENAI_API_KEY_ENV_VAR] = savedKey;
+    await signInForTests();
   });
 
   it(
@@ -68,7 +67,7 @@ describe("a selected provider that cannot run", () => {
       const failure = await collector.next(isRunError);
       expect(failure.error).toContain(PROVIDER_LABELS.codex);
       expect(failure.error).toContain(
-        PROVIDER_UNAVAILABLE_REASONS.CODEX_API_KEY_MISSING,
+        PROVIDER_UNAVAILABLE_REASONS.CODEX_NOT_SIGNED_IN,
       );
       // Nothing was answered by the other backend.
       expect(collector.events.some((e) => e.type === "assistant_text")).toBe(

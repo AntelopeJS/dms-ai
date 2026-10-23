@@ -297,11 +297,12 @@ function onKeydown(event: KeyboardEvent): void {
 	box-shadow: var(--dms-shadow-modal);
 }
 
+/* Matches the panel header it covers (see PanelHeader). */
 .cb-drawer__head {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	height: 52px;
+	height: var(--ui-header-height);
 	padding: 0 8px 0 14px;
 	border-bottom: 1px solid var(--ui-border);
 }

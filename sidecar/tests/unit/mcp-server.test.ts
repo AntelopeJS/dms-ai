@@ -49,6 +49,7 @@ function buildDeps() {
     moduleRoots: [],
     logsClient: buildStubLogsClient(),
     builderClient: { call: async () => undefined },
+    databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     sendToHost: () => {},
     navigationCompleter: createNavigationCompleter(),

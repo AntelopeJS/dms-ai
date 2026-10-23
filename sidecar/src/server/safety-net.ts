@@ -19,6 +19,11 @@ import type { LogsClient } from "../logs/logs-client.js";
 import type { BufferedLog } from "../logs/types.js";
 import type { TypecheckOutcome } from "../constants/audit.js";
 
+/** Whatever `toString()` the value carries: its own, or Object's. */
+interface Stringable {
+  toString(): string;
+}
+
 // A line worth listing in the auto-fix notice: a compiler error, or a reload
 // log line (which the summary prefixes with its channel).
 const ERROR_LINE = /error|^\[/i;
@@ -48,7 +53,7 @@ function argToText(arg: unknown): string {
       // `toString()` -- which an error object usually has, and which is the
       // whole content of the summary this feeds -- and only degrades to
       // "[object Object]" for a plain one.
-      return String(arg);
+      return (arg as Stringable).toString();
     }
   }
   return String(arg);

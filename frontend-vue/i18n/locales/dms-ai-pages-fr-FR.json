@@ -173,6 +173,10 @@
 				}
 			},
 			"settings": {
+				"chatgpt": {
+					"name": "Compte ChatGPT",
+					"description": "Le compte ChatGPT sur lequel tourne Codex, avec connexion et déconnexion"
+				},
 				"form": {
 					"name": "Réglages de l'assistant",
 					"description": "Valeurs par défaut de l'agent, des validations, de la portée, des skills et de l'historique"
@@ -420,7 +424,32 @@
 				},
 				"codex": {
 					"label": "Codex",
-					"description": "OpenAI · nécessite la CLI Codex et une clé d'API OpenAI"
+					"description": "OpenAI · utilise votre forfait ChatGPT, une fois connecté ci-dessous"
+				}
+			},
+			"chatgpt": {
+				"signed_out": {
+					"title": "Utilisez Codex avec votre forfait ChatGPT",
+					"description": "Connectez-vous avec ChatGPT pour utiliser ici l'usage Codex de votre forfait, sans clé d'API. Si le DMS tourne sur une autre machine, la page où OpenAI vous renvoie ne chargera pas : collez son adresse avec « Coller l'adresse de retour ».",
+					"action": "Se connecter avec ChatGPT"
+				},
+				"signed_in": {
+					"title": "Codex utilise le forfait ChatGPT de {email}",
+					"description": "Son usage compte dans les limites de votre forfait, que vous pouvez plafonner par app dans les réglages de ChatGPT.",
+					"action": "Se déconnecter"
+				},
+				"sign_out_confirm": {
+					"title": "Se déconnecter de ChatGPT ?",
+					"description": "Codex ne fonctionnera plus sur aucun projet DMS de cette machine tant que vous ne vous reconnecterez pas. Pour retirer complètement dms-ai de votre compte ChatGPT, déconnectez-le dans les réglages de ChatGPT."
+				},
+				"signed_out_toast": "Déconnecté de ChatGPT",
+				"paste": {
+					"action": "Coller l'adresse de retour",
+					"title": "Terminer la connexion à ChatGPT",
+					"description": "Après votre autorisation, OpenAI vous a envoyé vers une adresse commençant par http://127.0.0.1 qui n'a pas pu charger. Copiez cette adresse complète depuis la barre d'adresse et collez-la ici. Elle ne sert qu'une fois, dans les 10 minutes.",
+					"field": "Adresse de retour",
+					"confirm": "Terminer la connexion",
+					"success": "Connecté avec ChatGPT"
 				}
 			},
 			"thinking": {

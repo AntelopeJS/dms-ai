@@ -147,12 +147,14 @@ const moreItems = computed(() => [
 </template>
 
 <style scoped>
+/* Same height as the DMS navbar beside the panel, so both bottom borders
+   line up: the navbar sizes itself (border included) with this variable. */
 .cb__head {
 	display: flex;
 	flex: none;
 	align-items: center;
 	gap: 10px;
-	height: 52px;
+	height: var(--ui-header-height);
 	padding: 0 8px 0 14px;
 	border-bottom: 1px solid var(--ui-border);
 }

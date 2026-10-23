@@ -1,4 +1,5 @@
 import {
+  Banner,
   ChartCard,
   ChartColumn,
   Form,
@@ -26,7 +27,7 @@ const settingsForm = Form({
   .onFilter(lockUnavailableChoices);
 
 /**
- * AI Settings — the defaults of new conversations (agent, approval mode,
+ * AI Settings — the ChatGPT account Codex runs on; the defaults of new conversations (agent, approval mode,
  * scope), what always asks, local skills and checkpoint retention, in one
  * form saving each change on its own to `/ai/settings`; then the tokens the
  * conversations used.
@@ -37,6 +38,10 @@ export class AISettingsPage extends PageController(
   pageMenu(PAGE_IDS.SETTINGS, "i-ph-gear-six", PAGE_ORDER.SETTINGS),
   FormPageLayout(),
 ) {
+  static chatgpt = Banner({ fetchUrl: PAGE_ROUTES.CODEX_ACCOUNT_BANNER }).meta(
+    blockMeta("settings.chatgpt", "i-ph-open-ai-logo"),
+  );
+
   static settings = settingsForm;
 
   static usage = Section({
