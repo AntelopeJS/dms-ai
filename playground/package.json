@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@antelopejs/core": ">=1.16.0 <2",
-    "@antelopejs/dms-frontend": "0.6.3",
+    "@antelopejs/dms-frontend": "0.8.0",
     "@types/node": "^22.0.0",
     "rimraf": "^6.0.1",
     "typescript": "^6.0.3"
