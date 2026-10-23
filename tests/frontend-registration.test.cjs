@@ -27,8 +27,8 @@ function loadModule(registrations, sidecars) {
       },
     },
     "./logging/log-buffer": { startLogCapture() {} },
-    "./constants/frontend-module": require(
-      path.resolve(__dirname, "../dist/constants/frontend-module.js"),
+    "./frontend-module": require(
+      path.resolve(__dirname, "../dist/frontend-module.js"),
     ),
     "node:path": path,
     "./constants/sidecar": require(

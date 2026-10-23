@@ -23,6 +23,7 @@ import {
   bareToolName,
   isBlockRemovalTool,
   isCommandTool,
+  isConfigBuilderTool,
   isDestructiveBuilderTool,
   permissionKindOf,
 } from "./tool-kinds.js";
@@ -222,6 +223,76 @@ export function hostOf(url: string): string | null {
   }
 }
 
+const CONFIG_FILE_PATTERN = /antelope\.config\.m?ts$/;
+const BUILDER_HUNK_HEADER = /^@@ line (\d+) @@$/;
+const REMOVED_PREFIX = "- ";
+const ADDED_PREFIX = "+ ";
+
+interface PlannedChange {
+  path?: unknown;
+  diff?: unknown;
+}
+
+interface PlannedTexts {
+  start: number;
+  before: string;
+  after: string;
+}
+
+/** The old and new lines of a Builder change, as its `@@ line N @@` diff spells them. */
+function plannedTexts(diff: string): PlannedTexts {
+  const [header = "", ...lines] = diff.split("\n");
+  const start = Number(BUILDER_HUNK_HEADER.exec(header)?.[1] ?? 1);
+  const pick = (prefix: string): string =>
+    lines
+      .filter((line) => line.startsWith(prefix))
+      .map((line) => line.slice(prefix.length))
+      .join("\n");
+  return { start, before: pick(REMOVED_PREFIX), after: pick(ADDED_PREFIX) };
+}
+
+/** The configuration diff a project-config operation's dry run answered, for the card. */
+function plannedConfigPreview(
+  options: DescribeOptions,
+): DiffPreviewType | null {
+  if (!isConfigBuilderTool(options.toolName)) return null;
+  const changes = asRecord(options.args).plannedChanges;
+  const config = (
+    Array.isArray(changes) ? (changes as PlannedChange[]) : []
+  ).find(
+    (change) =>
+      typeof change.path === "string" && CONFIG_FILE_PATTERN.test(change.path),
+  );
+  if (
+    !config ||
+    typeof config.path !== "string" ||
+    typeof config.diff !== "string"
+  )
+    return null;
+  const planned = plannedTexts(config.diff);
+  const stats = diffTexts(planned.before, planned.after);
+  const offset = planned.start - 1;
+  const hunks = stats.hunks.map((hunk) => ({
+    ...hunk,
+    oldStart: hunk.oldStart + offset,
+    newStart: hunk.newStart + offset,
+    lines: hunk.lines.map((line) => ({
+      ...line,
+      oldLine: line.oldLine === undefined ? undefined : line.oldLine + offset,
+      newLine: line.newLine === undefined ? undefined : line.newLine + offset,
+    })),
+  }));
+  return {
+    type: "diff",
+    path: config.path,
+    relativePath: projectRelative(options.hostProjectRoot, config.path),
+    isNewFile: false,
+    added: stats.added,
+    removed: stats.removed,
+    hunks,
+  };
+}
+
 type PreviewBuilder = (
   options: DescribeOptions,
 ) => Promise<PermissionPreviewType>;
@@ -232,12 +303,14 @@ const PREVIEW_BY_KIND: Record<PermissionKind, PreviewBuilder> = {
   command: async (options) => commandPreview(options),
   web: async (options) => webPreview(options),
   destructive: async (options) => destructivePreview(options),
-  builder: async (options) => genericPreview(options),
+  builder: async (options) =>
+    plannedConfigPreview(options) ?? genericPreview(options),
   other: async (options) => genericPreview(options),
 };
 
 function isAlwaysAsk(options: DescribeOptions): boolean {
   if (isDestructiveBuilderTool(options.toolName)) return true;
+  if (isConfigBuilderTool(options.toolName)) return true;
   if (options.alwaysAskBlockRemoval && isBlockRemovalTool(options.toolName)) {
     return true;
   }

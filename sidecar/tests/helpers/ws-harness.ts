@@ -91,6 +91,7 @@ function buildMcpDeps(
     moduleRoots: [],
     logsClient: { getLogs: async () => [] },
     builderClient: { call: async () => undefined },
+    databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     navigationCompleter,
   };

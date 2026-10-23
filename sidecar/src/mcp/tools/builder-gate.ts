@@ -1,4 +1,7 @@
-import { isMutatingBuilderTool } from "../../agent/tool-kinds.js";
+import {
+  isConfigBuilderTool,
+  isMutatingBuilderTool,
+} from "../../agent/tool-kinds.js";
 import type { AnyMcpToolDefinition, McpToolResult } from "../define-tool.js";
 
 /** Whether one Builder operation may run, decided before it does. */
@@ -29,6 +32,7 @@ function withGate(
   gate: BuilderGate,
 ): AnyMcpToolDefinition {
   if (!isMutatingBuilderTool(definition.name)) return definition;
+  if (isConfigBuilderTool(definition.name)) return definition;
   return {
     ...definition,
     handler: async (args: Record<string, unknown>, extra: unknown) => {

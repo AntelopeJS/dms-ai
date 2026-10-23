@@ -1,3 +1,4 @@
+import { DATABASE_TOOL_NAMES } from "./database.js";
 import { BUILDER_TOOL_NAMES } from "./builder.js";
 import { QUERY_LOGS_TOOL_NAME } from "./logs.js";
 import { FIND_PAGES_TOOL_NAME, LIST_PAGES_TOOL_NAME } from "./pages.js";
@@ -72,6 +73,7 @@ export const FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES: ReadonlySet<string> = new Set(
     PREVIEW_BLOCKS_TOOL_NAME,
     TYPECHECK_TOOL_NAME,
     QUERY_LOGS_TOOL_NAME,
+    ...DATABASE_TOOL_NAMES,
     ...BUILDER_TOOL_NAMES,
   ].map((name) => `${MCP_TOOL_NAME_PREFIX}${name}`),
 );

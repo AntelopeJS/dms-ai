@@ -4,6 +4,7 @@ import { MCP_TOOL_NAME_PREFIX } from "../constants/mcp.js";
 import {
   ASSISTANT_TOOL_NAMES,
   BUILDER_BLOCK_REMOVAL_TOOL_NAMES,
+  BUILDER_CONFIG_TOOL_NAMES,
   BUILDER_DESTRUCTIVE_TOOL_NAMES,
   BUILDER_MUTATING_TOOL_NAMES,
   BUILDER_READ_TOOL_NAMES,
@@ -32,6 +33,7 @@ const isBuilderTool = isIn(BUILDER_TOOL_NAMES);
 export const isDestructiveBuilderTool = isIn(BUILDER_DESTRUCTIVE_TOOL_NAMES);
 export const isBlockRemovalTool = isIn(BUILDER_BLOCK_REMOVAL_TOOL_NAMES);
 export const isMutatingBuilderTool = isIn(BUILDER_MUTATING_TOOL_NAMES);
+export const isConfigBuilderTool = isIn(BUILDER_CONFIG_TOOL_NAMES);
 
 const READ_ONLY_TOOL_NAMES: readonly string[] = [
   ...BUILTIN_READ_TOOL_NAMES,
