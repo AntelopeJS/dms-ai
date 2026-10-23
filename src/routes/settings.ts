@@ -1,45 +1,30 @@
 import { Controller, Get, JSONBody, Put } from "@antelopejs/interface-api";
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import { ROUTE_PREFIX } from "../constants/module";
+import {
+  asFormValues,
+  type SettingsBody,
+  withNumbersAs,
+} from "../sidecar/settings-values";
 import { relay } from "./sidecar-results";
 
 const SETTINGS_PATH = "/settings";
-
-/** Settings whose value is a number in the sidecar and text in the form's selects. */
-const NUMERIC_SETTINGS = [
-  "requestTimeoutMinutes",
-  "checkpointRetentionDays",
-] as const;
 
 /** What the form reads but never writes: the sidecar's capabilities. */
 const READ_ONLY_SETTINGS = [
   "builderAvailable",
   "providers",
   "alwaysAskDeletions",
+  "defaults",
 ] as const;
 
 /** Deletions always ask: the form shows it as a locked switch. */
 const ALWAYS_ASK_DELETIONS = true;
 
-type SettingsBody = Record<string, unknown>;
-
-function withNumbersAs(
-  settings: SettingsBody,
-  convert: (value: unknown) => unknown,
-): SettingsBody {
-  const converted = { ...settings };
-  for (const key of NUMERIC_SETTINGS) {
-    if (converted[key] !== undefined && converted[key] !== null) {
-      converted[key] = convert(converted[key]);
-    }
-  }
-  return converted;
-}
-
 /** The flat settings object the form reads, with the read-only capabilities. */
 function formSettings(settings: SettingsBody): SettingsBody {
   return {
-    ...withNumbersAs(settings, String),
+    ...asFormValues(settings),
     alwaysAskDeletions: ALWAYS_ASK_DELETIONS,
   };
 }

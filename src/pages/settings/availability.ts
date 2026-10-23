@@ -1,8 +1,11 @@
 import type { ComponentInfoSerialized } from "@antelopejs/interface-dms/component";
 import type {
   FormFieldOrGroupSerialized,
+  FormFieldSerialized,
   FormPropsSerialized,
 } from "@antelopejs/interface-dms/base/form-types";
+import type { DefaultValue } from "@antelopejs/interface-dms/base/types/form-values";
+import { asFormValues } from "../../sidecar/settings-values";
 import { readSidecar } from "../../sidecar";
 import type { VocabularyOption } from "../../vocabulary";
 import { CODEX_PROVIDER, SAFE_SCOPE, settingsText } from "./options";
@@ -14,10 +17,12 @@ interface ProviderAvailability {
   reason?: string;
 }
 
-/** What the sidecar's settings say this install can do. */
+/** What the sidecar's settings say this install can do, and its defaults. */
 interface SidecarCapabilities {
   providers?: Record<string, ProviderAvailability | undefined>;
   builderAvailable?: boolean;
+  /** The sidecar's `DEFAULT_SETTINGS`: the one source of the module defaults. */
+  defaults?: Record<string, unknown>;
 }
 
 interface OptionsWithItems {
@@ -72,11 +77,34 @@ function locksFor(capabilities: SidecarCapabilities): OptionLock[] {
   return locks;
 }
 
+function offerDefault(
+  field: FormFieldSerialized,
+  defaults: Record<string, unknown>,
+): FormFieldSerialized {
+  if (!(field.id in defaults)) return field;
+  // The sidecar's settings are text, numbers and switches.
+  const defaultValue = defaults[field.id] as DefaultValue;
+  return { ...field, defaultValue, offersDefault: true };
+}
+
+/** Each field the sidecar has a default for offers it ("Use default"). */
+function withDefaults(
+  entry: FormFieldOrGroupSerialized,
+  defaults: Record<string, unknown>,
+): FormFieldOrGroupSerialized {
+  if (!("fields" in entry)) return offerDefault(entry, defaults);
+  return {
+    ...entry,
+    fields: entry.fields.map((field) => offerDefault(field, defaults)),
+  };
+}
+
 /**
- * Per request: the agent and scope choices this install cannot run are shown
+ * Per request, from the sidecar's settings: each field offers the sidecar's
+ * default, and the agent and scope choices this install cannot run are shown
  * disabled, each saying why (Codex not set up, no Builder for Safe mode).
  */
-export async function lockUnavailableChoices(
+export async function applySidecarSettings(
   _permissions: Set<string>,
   options: FormPropsSerialized,
 ): Promise<FormPropsSerialized> {
@@ -84,10 +112,13 @@ export async function lockUnavailableChoices(
     SETTINGS_PATH,
     {},
   );
+  const defaults = asFormValues(capabilities.defaults ?? {});
   const locks = locksFor(capabilities);
-  if (locks.length === 0) return options;
   const fields = options.fields.map((entry) =>
-    locks.reduce((locked, lock) => lockField(locked, lock), entry),
+    locks.reduce(
+      (locked, lock) => lockField(locked, lock),
+      withDefaults(entry, defaults),
+    ),
   );
   return { ...options, fields };
 }

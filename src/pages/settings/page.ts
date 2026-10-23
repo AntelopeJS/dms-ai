@@ -10,7 +10,7 @@ import { FormPageLayout } from "@antelopejs/interface-dms/base/layouts";
 import { PageController, RegisterPage } from "@antelopejs/interface-dms/page";
 import { PAGE_IDS, PAGE_ORDER, PAGE_ROUTES } from "../../constants/pages";
 import { blockMeta, blockText, DAY_AXIS, pageMenu } from "../meta";
-import { lockUnavailableChoices } from "./availability";
+import { applySidecarSettings } from "./availability";
 import { SETTINGS_SECTIONS } from "./sections";
 
 const USAGE_PATH = "settings.usage";
@@ -24,7 +24,7 @@ const settingsForm = Form({
   sections: SETTINGS_SECTIONS,
 })
   .meta(blockMeta("settings.form", "i-ph-sliders"))
-  .onFilter(lockUnavailableChoices);
+  .onFilter(applySidecarSettings);
 
 /**
  * AI Settings — the ChatGPT account Codex runs on; the defaults of new conversations (agent, approval mode,

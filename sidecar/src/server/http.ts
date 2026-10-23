@@ -6,6 +6,7 @@ import {
 } from "node:http";
 import { getBuilderAvailable } from "../builder/capability.js";
 import { CONTENT_TYPE, HTTP_STATUS } from "../constants/http.js";
+import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import { MCP_HTTP_PATH } from "../constants/mcp.js";
 import { LOOPBACK_HOST } from "../constants/ports.js";
 import type { McpHttpRegistry } from "../mcp/http-binding.js";
@@ -43,10 +44,11 @@ export interface SidecarBridge {
 }
 
 // What both frontends read: the stored settings plus the read-only capabilities
-// that gate them.
+// that gate them, and the defaults the settings form offers to go back to.
 interface SettingsPayload extends AppSettings {
   builderAvailable: boolean;
   providers: ProviderAvailabilityMap;
+  defaults: AppSettings;
 }
 
 interface CreateHttpServerOptions {
@@ -94,6 +96,7 @@ function buildSettingsPayload(settings: AppSettings): SettingsPayload {
     ...settings,
     builderAvailable: getBuilderAvailable(),
     providers: getProviderAvailability(),
+    defaults: DEFAULT_SETTINGS,
   };
 }
 

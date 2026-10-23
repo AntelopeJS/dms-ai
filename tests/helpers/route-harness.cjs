@@ -111,6 +111,7 @@ const ROUTE_FILES = [
   "routes/settings.js",
   "routes/skills.js",
   "routes/status.js",
+  "pages/settings/availability.js",
 ];
 
 /**
