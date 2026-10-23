@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.6.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.5.0...v0.6.0)
+
+### 🚀 Enhancements
+
+- **frontend:** The frontend registration as a pure function, declared as dmsFrontend ([#86](https://github.com/AntelopeJS/dms-ai/pull/86))
+- **pages:** Open Overview and Activity with the DMS page toolbar ([#80](https://github.com/AntelopeJS/dms-ai/pull/80))
+
+### 🩹 Fixes
+
+- **panel:** Match the assistant panel header to the DMS header height ([#85](https://github.com/AntelopeJS/dms-ai/pull/85))
+- **ai:** Wide skill reading drawer with reflowed SKILL.md ([#83](https://github.com/AntelopeJS/dms-ai/pull/83))
+
+### 📦 Build
+
+- Run on @antelopejs/dms 0.10 and @antelopejs/dms-frontend 0.8 ([#87](https://github.com/AntelopeJS/dms-ai/pull/87))
+
+### ❤️ Contributors
+
+- Maxime Westhoven ([@mwesto](http://github.com/mwesto))
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.5.0
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.4.1...v0.5.0)
