@@ -28,6 +28,22 @@ const CARDS_DISPLAY = "cards";
 const NAME_COLUMN_SIZE = 220;
 /** Six rows of four cards. */
 const CARDS_PAGE_SIZE = 24;
+/**
+ * A SKILL.md reads as a document: a 768 px reading panel, wide enough for its
+ * running text and code without covering the page it opens from.
+ */
+const SKILL_DRAWER_SIZE = "3xl";
+/**
+ * The drawer's header names the open skill, its place in the list and the
+ * previous and next buttons: the DMS row header, as every row drawer.
+ */
+const SKILL_ROW_TITLE = "{name}";
+/**
+ * The height of a real skill card at 1440 px (rows measure 192-278 px, 249 px
+ * on average), so the placeholder cards keep the footer in place while the
+ * custom cards load.
+ */
+const CARD_SKELETON_HEIGHT = "250px";
 
 function text(...segments: string[]): string {
   return i18nKey(SECTION, ...segments);
@@ -114,6 +130,7 @@ export class AISkillsPage extends PageController(
       component: CustomComponent("DmsAiSkillCard").meta(
         blockMeta("skills.card", "i-ph-cards"),
       ),
+      skeletonHeight: CARD_SKELETON_HEIGHT,
     },
     tabs: [
       { id: "all", label: text("tabs", "all"), icon: "i-ph-books" },
@@ -137,7 +154,10 @@ export class AISkillsPage extends PageController(
               blockMeta("skills.detail", "i-ph-sidebar-simple"),
             ),
             title: text("detail", "title"),
+            rowTitle: SKILL_ROW_TITLE,
+            positionLabel: text("detail", "position"),
             direction: ROW_DRAWER_DIRECTION,
+            size: SKILL_DRAWER_SIZE,
           },
         },
       ],

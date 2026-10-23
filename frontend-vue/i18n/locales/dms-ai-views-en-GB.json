@@ -131,6 +131,7 @@
 				"uses": "{count} use | {count} uses",
 				"never_used": "never used",
 				"source_label": "Source",
+				"qualified_name_label": "Full name",
 				"origin_label": "Origin",
 				"used_label": "Used",
 				"used_value": "{count}× · 30 days",

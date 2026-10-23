@@ -573,7 +573,8 @@
 			},
 			"detail": {
 				"open": "Details",
-				"title": "Skill detail"
+				"title": "Skill detail",
+				"position": "Skill {index} of {total}"
 			},
 			"empty": {
 				"title": "No skills loaded",

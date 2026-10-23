@@ -604,16 +604,23 @@ the tone pills of dms#181 (`StatusPillDisplay` with `toneField`, `PillsDisplay` 
 table cells: on a card the source would be a bare label, the tags an unrendered list, and a
 shadowed skill would look like the copy used. It also cannot dim an ignored copy or show the
 description. Revisit when the cards display renders fields through the column renderer.
+While the custom cards load, their placeholders hold `card.skeletonHeight: "250px"` (dms#354),
+the height of a real card at 1440 px, so the footer does not move on a client navigation.
 
 ### Q52. How do the row drawers open, and what do they draw with?
 
 **Decision:** the Activity and Skill drawers open from the right (`direction: "right"`, a 440 px
-side sheet, dms#188), like the mockup's slideover; the direction is one constant of the pages. In
-`DmsAiActivityDetail` the output and the raw JSON are `DmsCodeSnippet`s (text, wrapped, 14 lines;
+side sheet, dms#188), like the mockup's slideover; the direction is one constant of the pages. The
+Skill drawer reads a SKILL.md as a document, so it opens at the `3xl` size (768 px, capped to the
+window, the whole screen on a phone), its running text kept to 76ch. In `DmsAiActivityDetail`
+the output and the raw JSON are `DmsCodeSnippet`s (text, wrapped, 14 lines;
 JSON, 20 lines) with their language label and copy button, the "Allowed" and "Result" facts a
 `DmsKeyValueList` with its value slot, and each argument row copies the whole value
-(`copyValue`) while showing it cut short. `DmsAiSkillDetail` lists source (a pill), origin (copy),
-uses and last use in a `DmsKeyValueList`. The change set panel of Changes shows its four facts in a
+(`copyValue`) while showing it cut short. The Skill drawer uses the DMS row header
+(`rowTitle: "{name}"`, "Skill 8 of 35", previous and next), so its body draws no title or
+stepper of its own; `DmsAiSkillDetail` lists source (a pill), full name and origin (copy), uses
+and last use as `DmsFieldRow`s in the form layout, values left-aligned like a record drawer's
+fields (a label column from a 560 px drawer, the label above the value on a phone). The change set panel of Changes shows its four facts in a
 two-column `DmsKeyValueList` too, so the module's own `FactStrip` is gone. The diff view and the
 rendered SKILL.md stay custom: no DMS component draws a diff or Markdown.
 

@@ -281,6 +281,77 @@ void test("names only the custom components the frontend registers, where no DMS
   }
 });
 
+/** The skill drawer is a reading panel: 768 px, the SKILL.md at a readable measure. */
+const SKILL_DRAWER_SIZE = "3xl";
+
+function findDrawers(value, drawers) {
+  if (!value || typeof value !== "object") return drawers;
+  if (value.type === "drawer") drawers.push(value);
+  for (const entry of Object.values(value)) findDrawers(entry, drawers);
+  return drawers;
+}
+
+void test("opens the skill detail as a 3xl reading panel on the right", async () => {
+  const { pages } = loadPages();
+  const skills = pages.find((page) => page.pageId === "skills");
+  const drawers = [];
+  for (const [, component] of staticComponents(skills)) {
+    findDrawers(await component.serialize(), drawers);
+  }
+  const detail = drawers.filter((drawer) =>
+    JSON.stringify(drawer).includes('"DmsAiSkillDetail"'),
+  );
+  assert.equal(detail.length, 1);
+  assert.equal(detail[0].size, SKILL_DRAWER_SIZE);
+  assert.equal(detail[0].direction, "right");
+});
+
+void test("titles the skill drawer with the DMS row header", async () => {
+  const { pages } = loadPages();
+  const skills = pages.find((page) => page.pageId === "skills");
+  const drawers = [];
+  for (const [, component] of staticComponents(skills)) {
+    findDrawers(await component.serialize(), drawers);
+  }
+  const [detail] = drawers.filter((drawer) =>
+    JSON.stringify(drawer).includes('"DmsAiSkillDetail"'),
+  );
+  // The header names the open skill and its place in the list, with the
+  // previous and next buttons: the body no longer draws them.
+  assert.equal(detail.rowTitle, "{name}");
+  assert.notEqual(detail.rowHeader, false);
+  for (const file of PAGE_LOCALES) {
+    const position = translate(readLocale(file), detail.positionLabel);
+    assert.match(position, /\{index\}.*\{total\}/, file);
+  }
+});
+
+/** The height of a real skill card, held by its placeholders while the cards load. */
+const CARD_SKELETON_HEIGHT = "250px";
+
+function findCards(value, cards) {
+  if (!value || typeof value !== "object") return cards;
+  if (value.card) cards.push(value.card);
+  for (const entry of Object.values(value)) findCards(entry, cards);
+  return cards;
+}
+
+void test("holds the skill card placeholders at the height of a real card", async () => {
+  const { pages } = loadPages();
+  const skills = pages.find((page) => page.pageId === "skills");
+  const cards = [];
+  for (const [, component] of staticComponents(skills)) {
+    findCards(await component.serialize(), cards);
+  }
+  const skillCards = cards.filter((card) =>
+    JSON.stringify(card).includes('"DmsAiSkillCard"'),
+  );
+  assert.ok(skillCards.length > 0);
+  for (const card of skillCards) {
+    assert.equal(card.skeletonHeight, CARD_SKELETON_HEIGHT);
+  }
+});
+
 async function toolbarPeriod(page) {
   const [firstKey, toolbar] = staticComponents(page)[0];
   const info = await toolbar.componentInfo;

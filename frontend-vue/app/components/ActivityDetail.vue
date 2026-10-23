@@ -9,11 +9,8 @@ import { useAiData } from "../views/composables/useAiData";
 import { useAssistant } from "../views/composables/useAssistant";
 import { useViewFormat } from "../views/composables/useViewFormat";
 import { AI_PAGES, AI_ROUTES, CHANGE_SET_QUERY_KEY } from "../views/constants";
-import type {
-	ActivityDetailPayload,
-	ActivityRow,
-	RowNavigation,
-} from "../views/types";
+import type { RowNavigation } from "#dms-ui/app/types/row-navigation";
+import type { ActivityDetailPayload, ActivityRow } from "../views/types";
 import {
 	activityOutput,
 	argumentItems,
