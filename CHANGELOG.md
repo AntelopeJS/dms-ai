@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.6.1
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.6.0...v0.6.1)
+
+### 🚀 Enhancements
+
+- **settings:** Offer the module default on every settings field ([#89](https://github.com/AntelopeJS/dms-ai/pull/89))
+
+### 📖 Documentation
+
+- **changelog:** Upgrade notes of dms-ai 0.6.0 ([#88](https://github.com/AntelopeJS/dms-ai/pull/88))
+
+### 📦 Build
+
+- **deps:** Run on dms 0.11, interface-dms 0.9 and dms-frontend 0.9 ([#90](https://github.com/AntelopeJS/dms-ai/pull/90))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v0.6.0
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.5.0...v0.6.0)
