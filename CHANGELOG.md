@@ -4,6 +4,12 @@
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.6.0...v0.6.1)
 
+### Upgrade notes
+
+- Runs on `@antelopejs/dms` `>=0.11.0 <1.0.0`, `@antelopejs/interface-dms` `>=0.9.0`, `@antelopejs/interface-data-api` `>=0.4.0`, `@antelopejs/interface-database-decorators` `>=0.1.10` and `@antelopejs/interface-database` `>=0.1.11` ([#90](https://github.com/AntelopeJS/dms-ai/pull/90)).
+- **Upgrade together with the DMS:** the frontend layer now requires `@antelopejs/dms-frontend` `>=0.9.0 <0.10.0` (was `<0.9.0`). A project still on dms-frontend 0.8 or dms 0.10 must stay on dms-ai 0.6.0; upgrade dms 0.11, dms-frontend 0.9 and `@antelopejs/api` ≥ 1.5.0 with it.
+- The playground runs on api 1.5, mongodb 1.5 and file-storage-local 0.1.13.
+
 ### 🚀 Enhancements
 
 - **settings:** Offer the module default on every settings field ([#89](https://github.com/AntelopeJS/dms-ai/pull/89))
