@@ -1,11 +1,11 @@
 import { antelopeFmtPreset } from "@antelopejs/tooling-configs/oxc/fmt";
 
+/** The Vue layer keeps Prettier; the Codex protocol types are generated. */
 export default antelopeFmtPreset({
   ignorePatterns: [
     "frontend-vue/**",
-    // Formatted by its own Biome setup, like the layer.
-    "sidecar/**",
     "**/*.md",
     "**/*.vue",
+    "sidecar/src/providers/codex/protocol/**",
   ],
 });

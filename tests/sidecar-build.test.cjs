@@ -51,7 +51,7 @@ void test("playground installation builds the sidecar before startup", () => {
     readText("playground/antelope.config.ts"),
     /installCommand: \["pnpm install", "pnpm build", "pnpm build:sidecar"\]/,
   );
-  assert.match(readText(".agents/setup"), /pnpm build:sidecar/);
+  assert.match(readText(".agents/playground"), /pnpm build:sidecar/);
 });
 
 void test("built sidecar starts and serves health", async () => {
