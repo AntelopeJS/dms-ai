@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "antelopejs/no-comments": 1128,
+    "antelopejs/no-constant-value-assertion": 1,
+    "antelopejs/no-fs-read-in-tests": 8,
+    "antelopejs/require-assertion": 3,
+    "anti-slop/no-known-value-widening": 73,
+    "anti-slop/no-module-mocking": 3,
+    "anti-slop/no-runtime-typeof": 110,
+    "anti-slop/no-shape-in-symbol-names": 42,
+    "anti-slop/no-unknown-parameters": 115,
+    "anti-slop/no-unknown-returns": 47,
+    "anti-slop/no-unsafe-dictionary-type": 72,
+    "anti-slop/require-safety-comment-for-type-assertion": 338
+  },
+  "oversizeFiles": {
+    "frontend-vue/app/chat/components/ChatView.vue": 21713,
+    "frontend-vue/i18n/locales/dms-ai-pages-en-GB.json": 21297,
+    "frontend-vue/i18n/locales/dms-ai-pages-fr-FR.json": 24219,
+    "frontend-vue/i18n/locales/dms-ai-panel-fr-FR.json": 20300,
+    "frontend-vue/tests/panel-states.test.ts": 24951
+  }
+}

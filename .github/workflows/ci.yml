@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-  # No branch filter: the lint wave stacks its pull requests on top of each
-  # other, and filtering on `main` left every intermediate step ungated -- only
-  # the secret scanner ran.
   pull_request:
 
 permissions:
@@ -16,89 +13,34 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# The checks run as parallel jobs: a pull request waits for the slowest one,
-# not for their sum.
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      # `pnpm lint` also lints frontend-vue and the sidecar.
-      - uses: ./.github/actions/setup
-        with:
-          frontend: "true"
-          sidecar: "true"
-      - run: pnpm lint
-      # Unused dependencies only. `pnpm knip:all` also reports dead files and
-      # exports, which need a human to confirm, so they stay out of the gate.
-      - run: pnpm knip
-      - run: pnpm --dir sidecar knip
+  checks:
+    uses: AntelopeJS/.github/.github/workflows/ci-node.yml@v1
 
-  types:
+  vitest:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-        with:
-          frontend: "true"
-          sidecar: "true"
-      # oxlint's type-aware pass degrades to `any` on a broken tsconfig
-      # without failing, so a typecheck is what catches it. The build compiles
-      # the same tsconfig, so it is that typecheck; a separate
-      # `tsc --noEmit` would only repeat it.
-      - run: pnpm build
-      - run: pnpm --dir sidecar typecheck
-      # The chat needs nothing from the generated dashboard workspace, so it is
-      # typechecked on its own; the rest of frontend-vue needs that workspace.
-      - run: pnpm --dir frontend-vue typecheck:chat
-
-  node-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - run: pnpm build
-      # Every node:test suite against that one build, in parallel processes:
-      # the module's registration, the browser's channels to the sidecar, the
-      # /ai routes against a stand-in sidecar, the flags the launcher hands the
-      # sidecar, its lifecycle across hot reloads, restarts and Ctrl+C, and a
-      # build id that follows the compiled code rather than mtimes.
-      - run: pnpm test:node
-        env:
-          DMS_PREBUILT: "1"
-
-  sidecar-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # The longest suite, split in two so it stops being the critical path.
     strategy:
       matrix:
-        shard: [1, 2]
+        package: [sidecar, frontend-vue]
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sidecar: "true"
-      - run: pnpm --dir sidecar test --shard=${{ matrix.shard }}/2
-
-  frontend-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          frontend: "true"
-      - run: pnpm --dir frontend-vue test
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            ${{ matrix.package }}/pnpm-lock.yaml
+      - run: pnpm install --filter "{.}" --filter "./${{ matrix.package }}" --frozen-lockfile
+      - run: pnpm --dir ${{ matrix.package }} test
 
-  # Branch protection requires the check of the single job this workflow used
-  # to have: it now stands for all of them, and fails if any did not pass.
   ubuntu:
     if: always()
-    needs: [lint, types, node-tests, sidecar-tests, frontend-tests]
+    needs: [checks, vitest]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -11,13 +11,10 @@
     "build": "rimraf dist && tsc",
     "dev": "tsc -w",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
-    "lint": "oxlint && oxfmt --check .",
-    "lint:fix": "oxlint --fix --max-warnings=1000000 && oxfmt .",
     "test": "vitest run --passWithNoTests --exclude tests/integration/codex-acceptance.test.ts",
     "test:acceptance": "vitest run tests/integration/codex-acceptance.test.ts",
     "generate:codex-types": "node scripts/generate-codex-types.mjs",
     "test:e2e": "echo 'no e2e yet' && exit 0",
-    "format": "oxfmt .",
     "knip": "knip --dependencies",
     "knip:all": "knip"
   },
@@ -29,14 +26,11 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@antelopejs/tooling-configs": ">=0.0.9 <1.0.0",
+    "@antelopejs/tooling-configs": "^0.2.0",
     "@openai/codex": "0.154.0",
     "@types/node": "^22.19.15",
     "@types/ws": "^8.5.12",
     "knip": "^6.34.0",
-    "oxfmt": "^0.66.0",
-    "oxlint": "1.81.0",
-    "oxlint-tsgolint": "^7.0.2001",
     "rimraf": "^6.1.3",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
