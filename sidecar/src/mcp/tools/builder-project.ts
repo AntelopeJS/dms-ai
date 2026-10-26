@@ -74,6 +74,12 @@ const STEP = z.discriminatedUnion("op", [
       .string()
       .describe("Relative to the project root, e.g. `modules/erp-tables`."),
     entry: MODULE_ENTRY.optional(),
+    connection: z
+      .string()
+      .optional()
+      .describe(
+        "The catalog connection whose tables the module holds, e.g. `erp`: the Builder's Database panel then edits and removes the module with that connection.",
+      ),
   }),
 ]);
 

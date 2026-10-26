@@ -85,6 +85,38 @@ describe("the external-database tools", () => {
     );
   });
 
+  it("shows a unified diff whole, unindented lines and line numbers included", async () => {
+    const description = await describeRequest({
+      toolName: `${MCP_TOOL_NAME_PREFIX}BuilderConfigureProject`,
+      args: {
+        steps: STEPS,
+        plannedChanges: [
+          {
+            path: CONFIG,
+            kind: "modify",
+            diff: '@@ -1,2 +1,4 @@\n import { defineConfig } from "x";\n+import { existsSync } from "node:fs";\n+if (existsSync(file)) {\n+}\n export default defineConfig({',
+          },
+        ],
+      },
+      hostProjectRoot: ROOT,
+      alwaysAskDependencies: false,
+      alwaysAskBlockRemoval: false,
+    });
+    expect(description.preview).toMatchObject({ added: 3, removed: 0 });
+    const lines =
+      description.preview.type === "diff"
+        ? description.preview.hunks[0]?.lines
+        : [];
+    expect(lines).toContainEqual({
+      kind: "add",
+      text: 'import { existsSync } from "node:fs";',
+      newLine: 2,
+    });
+    expect(lines).toContainEqual(
+      expect.objectContaining({ kind: "context", newLine: 5 }),
+    );
+  });
+
   it("asks with the dry run's changes, and writes only once approved", async () => {
     const calls: Recorded[] = [];
     let asked: Record<string, unknown> | undefined;
