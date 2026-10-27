@@ -22,12 +22,34 @@ integrator gave you:
 ] }
 ```
 
-- **Step 1** is the client's database as an external postgres instance. Its URL comes from the
-  variable.
+- **Step 1** is the client's database as an external instance of its engine's module. Its URL
+  comes from the variable.
 - **Step 2** is the module the tables are generated into. It is bound to that instance.
 - **Step 3** keeps the DMS and its modules on the project's own database. Leave it out if the
   project already pins them.
 - **Steps 4 and 5** give the Builder and you the connection `erp`, the same id for both.
+
+For MongoDB and RethinkDB, step 1 changes, and the other steps name its id in place of
+`postgres-erp`. The `disabledExports` entry keeps the external instance from ever serving the raw
+client other modules ask for:
+
+```json
+{ "op": "AddModule", "id": "mongodb-erp", "entry": {
+    "source": { "type": "package", "package": "@antelopejs/mongodb", "version": "<version>" },
+    "config": { "mode": "external", "statementTimeoutMs": 30000 },
+    "env": { "url": "ERP_DATABASE_URL", "database": "ERP_DATABASE_NAME" },
+    "disabledExports": ["@antelopejs/interface-mongodb"] } }
+```
+
+```json
+{ "op": "AddModule", "id": "rethinkdb-erp", "entry": {
+    "source": { "type": "package", "package": "@antelopejs/rethinkdb", "version": "<version>" },
+    "config": { "mode": "external", "statementTimeoutMs": 30000 },
+    "env": { "url": "ERP_DATABASE_URL" },
+    "disabledExports": ["@antelopejs/interface-rethinkdb"] } }
+```
+
+The RethinkDB URL holds the database as its path: `rethinkdb://user:password@host:28015/erp`.
 
 ## The proposal
 
@@ -53,7 +75,8 @@ integrator gave you:
   "open": [
     { "id": "purpose:legacy.t_cst", "kind": "purpose", "relation": "legacy.t_cst",
       "question": "What does legacy.t_cst hold?", "options": ["…"], "proposed": null,
-      "resource": { "relation": "legacy.t_cst", "…": "…" } } ] }
+      "resource": { "relation": "legacy.t_cst", "…": "…" },
+      "open": [ { "id": "reference:legacy.t_cst.c05", "kind": "reference", "…": "…" } ] } ] }
 ```
 
 The rules, in the order they apply to a relation:
@@ -64,15 +87,15 @@ The rules, in the order they apply to a relation:
 | R4 | a framework's or a migration tool's table | excluded |
 | R3 | no rows | excluded |
 | R2 | no key | stats only |
-| R5 | keyed by its two foreign keys | stats only: a link table |
+| R5 | keyed by its two references | stats only: a link table |
 | R6 | keyed, with a label candidate | TableView |
 | R7 | keyed, no label, referenced | TableView labelled by its key, and a `label` item |
 | R8 | keyed, no label, not referenced, with a time axis | stats only: events or a log |
 | R9 | anything else | a `purpose` item |
 
 For columns: F1 and F2 leave out a column no type reads and one named like a secret, F3 proposes
-the first accepted declaration, F4 makes a declared foreign key a relation column, F5 one found
-whole by `CheckReference`. L1 chooses labels, L2 titles, FL the four flags, W1 read-only.
+the first accepted declaration, F4 makes a reference the database declares a relation column
+(PostgreSQL only), F5 one found whole by `CheckReference`. L1 chooses labels, L2 titles, FL the four flags, W1 read-only.
 
 ## Plan
 
@@ -119,7 +142,8 @@ The proposal's values, without their rules, plus what you changed:
 ```
 
 - `declared` defaults to the column's `accepts[0]`. Set it only to take another accepted
-  declaration.
+  declaration, and always for a column a `field-type` item asked about: give the answer as its
+  `declared`.
 - Key columns are added for you.
 - A relation column's target must be in the same call, with a `label`, or mapped in the module
   before.
