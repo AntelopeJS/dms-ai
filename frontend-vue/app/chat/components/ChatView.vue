@@ -55,7 +55,9 @@ import MessageList from "./MessageList.vue";
 import PanelHeader, { type PanelStatusKind } from "./PanelHeader.vue";
 import QuestionDock from "./QuestionDock.vue";
 import QueueDock from "./QueueDock.vue";
+import ProviderNotice from "./ProviderNotice.vue";
 import StepsDock from "./StepsDock.vue";
+import UndoConflictModal from "./UndoConflictModal.vue";
 
 interface Props {
 	/** The chat's side of the tab's stream, which the dashboard owns. */
@@ -318,10 +320,6 @@ function runPlan(): void {
 	conversation.sendUserMessage(t("dms_ai.panel.plan.go_ahead"));
 }
 
-function onConflictOpenChange(isOpen: boolean): void {
-	if (!isOpen) changeSetActions.cancelUndo();
-}
-
 function setDraft(text: string): void {
 	composerRef.value?.setDraft(text);
 }
@@ -488,30 +486,12 @@ onBeforeUnmount(() => {
 				@run-plan="runPlan"
 				@edit-plan="setDraft(t('dms_ai.panel.plan.edit_prefix'))"
 			/>
-			<div v-if="providerProblem" class="chat-view-provider">
-				<div class="cb-provider" role="alert">
-					<UIcon name="i-ph-key" class="cb-provider__icon" />
-					<div>
-						<b>
-							{{
-								t("dms_ai.panel.errors.agent_cant_run", { agent: agentName })
-							}}
-						</b>
-						{{ settings.providers[settings.provider]?.reason ?? "" }}
-						{{ t("dms_ai.panel.errors.agent_no_fallback") }}
-						<div class="cb-provider__row">
-							<UButton
-								size="xs"
-								color="neutral"
-								variant="outline"
-								icon="i-ph-gear-six"
-								:label="t('dms_ai.panel.errors.open_settings')"
-								@click="navigate(SETTINGS_PAGE_PATH)"
-							/>
-						</div>
-					</div>
-				</div>
-			</div>
+			<ProviderNotice
+				v-if="providerProblem"
+				:agent-name="agentName"
+				:reason="settings.providers[settings.provider]?.reason ?? ''"
+				@open-settings="navigate(SETTINGS_PAGE_PATH)"
+			/>
 		</section>
 
 		<div class="cb__dock">
@@ -594,47 +574,11 @@ onBeforeUnmount(() => {
 			/>
 		</div>
 
-		<UModal
-			:open="changeSetActions.pendingUndo.value !== null"
-			:title="t('dms_ai.panel.change.conflict_title')"
-			@update:open="onConflictOpenChange"
-		>
-			<template #body>
-				<p class="chat-view-conflict">
-					{{
-						t("dms_ai.panel.change.conflict_text", {
-							number: changeSetActions.pendingUndo.value?.number ?? 0,
-						})
-					}}
-				</p>
-				<ul class="chat-view-conflicts">
-					<li
-						v-for="conflict in changeSetActions.pendingUndo.value?.conflicts ??
-						[]"
-						:key="conflict.changeSetId"
-					>
-						<b>#{{ conflict.number }}</b>
-						{{ conflict.title }}
-						<span>{{ conflict.files.join(", ") }}</span>
-					</li>
-				</ul>
-			</template>
-			<template #footer>
-				<div class="chat-view-conflict-foot">
-					<UButton
-						color="neutral"
-						variant="ghost"
-						:label="t('dms_ai.panel.change.undo_only')"
-						@click="changeSetActions.confirmUndo(false)"
-					/>
-					<UButton
-						color="secondary"
-						:label="t('dms_ai.panel.change.undo_together')"
-						@click="changeSetActions.confirmUndo(true)"
-					/>
-				</div>
-			</template>
-		</UModal>
+		<UndoConflictModal
+			:pending="changeSetActions.pendingUndo.value"
+			@confirm="changeSetActions.confirmUndo"
+			@cancel="changeSetActions.cancelUndo"
+		/>
 	</main>
 </template>
 
@@ -657,39 +601,6 @@ onBeforeUnmount(() => {
 	flex: none;
 	border-top: 1px solid var(--ui-border);
 	background: var(--dms-bg-sidebar);
-}
-
-.chat-view-provider {
-	padding: 0 14px 16px;
-}
-
-.cb-provider {
-	display: flex;
-	gap: 10px;
-	padding: 10px 12px;
-	border: 1px solid var(--dms-error-line);
-	border-radius: var(--ai-radius-md);
-	background: var(--dms-error-tint);
-	font-size: 12.5px;
-	line-height: 1.5;
-	color: var(--ui-text-toned);
-}
-
-.cb-provider__icon {
-	width: 16px;
-	height: 16px;
-	flex: none;
-	margin-top: 1px;
-	color: var(--ui-error);
-}
-
-.cb-provider b {
-	font-weight: 600;
-	color: var(--ui-text-highlighted);
-}
-
-.cb-provider__row {
-	margin-top: 8px;
 }
 
 .cb-toast {
@@ -719,37 +630,6 @@ onBeforeUnmount(() => {
 .cb-toast__text {
 	flex: 1;
 	min-width: 0;
-}
-
-.chat-view-conflict {
-	margin: 0 0 10px;
-	font-size: 13px;
-	line-height: 1.5;
-	color: var(--ui-text-muted);
-}
-
-.chat-view-conflicts {
-	display: grid;
-	gap: 6px;
-	margin: 0;
-	padding: 0;
-	list-style: none;
-	font-size: 12.5px;
-}
-
-.chat-view-conflicts span {
-	display: block;
-	font-family: var(--ai-font-mono, ui-monospace, monospace);
-	font-size: 11px;
-	color: var(--ui-text-muted);
-	overflow-wrap: anywhere;
-}
-
-.chat-view-conflict-foot {
-	display: flex;
-	justify-content: flex-end;
-	gap: 8px;
-	width: 100%;
 }
 </style>
 
