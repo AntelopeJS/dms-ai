@@ -1,6 +1,6 @@
 ---
 name: dms-external-database
-description: Connects a DMS project to a client's existing database, runs the Builder's analysis of it, settles what the analysis could not decide from the catalog and aggregates, generates TableViews through the Builder, and adds stats pages over them. Use when the user wants pages over a database the project does not own ("plug in our client's Postgres", "generate the admin for this database", "finish the mapping the Builder proposed").
+description: Connects a DMS project to a client's existing database, runs the Builder's analysis of it, settles what the analysis could not decide from the catalog and aggregates, generates TableViews through the Builder, and adds stats pages over them. Use when the user wants pages over a database the project does not own, PostgreSQL, MongoDB or RethinkDB ("plug in our client's Postgres", "map their Mongo database", "generate the admin for this database", "finish the mapping the Builder proposed").
 icon: i-ph-database
 category: Builder
 tags: [Database, Builder, Pages, DMS]
@@ -28,16 +28,21 @@ Call `DatabaseConnections`.
 - **A connection is listed** with an `engine`: use its id and go to 2.
 - **An entry answers `error`**: say what it says (an owned instance, the catalog not enabled, a
   role that cannot read) and stop.
-- **Nothing is listed**: the project is not connected yet. Propose one
-  `BuilderConfigureProject` call with the steps in REFERENCE.md *Connecting*. Pick the names with
-  the integrator, for example connection `erp`, provider module `postgres-erp`, generated module
-  `erp-tables`, variable `ERP_DATABASE_URL`. Ask the integrator for the version of
-  `@antelopejs/postgres` to install: you cannot look it up. The user approves the diff.
-  - Then tell the integrator to put the URL in `.env` (`ERP_DATABASE_URL=postgres://…`), or in
-    the Builder's *Database* workspace, which writes it there, and to restart the project. Every
-    deployed environment needs the same variable, set where that environment keeps its secrets,
+- **Nothing is listed**: the project is not connected yet. Ask the integrator which engine the
+  database runs: PostgreSQL, MongoDB or RethinkDB. Propose one `BuilderConfigureProject` call
+  with that engine's steps in REFERENCE.md *Connecting*. Pick the names with the integrator, for
+  example connection `erp`, provider module `postgres-erp` (`mongodb-erp`, `rethinkdb-erp`),
+  generated module `erp-tables`, variable `ERP_DATABASE_URL`, and for MongoDB
+  `ERP_DATABASE_NAME`. Ask the integrator for the version of the engine's module to install
+  (`@antelopejs/postgres`, `@antelopejs/mongodb`, `@antelopejs/rethinkdb`): you cannot look it
+  up. The user approves the diff.
+  - Then tell the integrator to put the URL in `.env` (`ERP_DATABASE_URL=postgres://…`,
+    `mongodb://…`, or `rethinkdb://…/<database>`; for MongoDB also `ERP_DATABASE_NAME`), or in the
+    Builder's *Database* workspace, which writes it there, and to restart the project. Every
+    deployed environment needs the same variables, set where that environment keeps its secrets,
     never in git.
-  - Recommend a role with SELECT only for the analysis.
+  - Recommend an account that can only read for the analysis: a PostgreSQL role with SELECT, a
+    MongoDB user with the built-in `read` role, a RethinkDB user with `read` permission.
   - Stop here: the connection exists only after the restart.
 
 The Builder and you each have a connection to the database, under the same id: the Builder for
@@ -66,16 +71,24 @@ profile of the whole database again: the Builder did it.
 - **Open items**, one by one:
   - `purpose`: what a relation holds. Decide from its name, comment, columns and profile:
     entities to list (a TableView), facts to count (stats only), or nothing to show (excluded).
-    The item carries the relation as it would be mapped.
+    The item carries the relation as it would be mapped, and in its own `open` the questions
+    that mapping leaves. Answer those only when you map the relation.
   - `label`: which column names a row. Prefer a name or title, then a code or number people
     recognise.
   - `reference`: a column found almost whole in another relation's key. Check it with
     `CheckReference` on the column; make it a relation column only at containment 1.
+  - `field-type`: a field of a document database whose sampled values have several types, none
+    covering enough of them (`int 60% | string 40%`). Pick the declaration that reads what
+    the field means, from its name and its shares, or leave it out. Unanswered, it stays out.
   - Where nothing tells you, say so and leave the item open: the integrator answers it in the
     Builder. Do not guess.
 - **Defaults worth revisiting.** For example a table rule R8 calls a log whose name and comment
   say it holds entities, a label rule L1 chose that a comment contradicts, or a title taken from a
   cryptic name.
+- **Document databases** (MongoDB, RethinkDB) declare no field types and no references: the
+  catalog reads types from a sample, and every reference comes from a name and a `CheckReference`,
+  never from the database. An embedded document is one field: its subfields are not mappable, and
+  neither is an array of ids as a relation.
 - **Editable.** Every TableView is proposed read-only. Make one editable only where the integrator
   wants it; show `writes` beside it, so a read-only role in this environment is visible.
 - **Stats pages,** which the analysis does not make, one per area:
