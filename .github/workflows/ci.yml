@@ -6,6 +6,7 @@ on:
       - main
   pull_request:
 
+  workflow_dispatch: null
 permissions:
   contents: read
 
@@ -14,8 +15,11 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  checks:
+  ci:
     uses: AntelopeJS/.github/.github/workflows/ci-node.yml@v1
+    permissions:
+      contents: write
+      actions: write
 
   vitest:
     runs-on: ubuntu-latest
@@ -40,7 +44,7 @@ jobs:
 
   ubuntu:
     if: always()
-    needs: [checks, vitest]
+    needs: [ci, vitest]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
