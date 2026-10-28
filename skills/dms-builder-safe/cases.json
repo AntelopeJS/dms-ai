@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "ai-builder-add-chart",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "Using the Builder tools, add a revenue chart to the sales page.",
+      "expect": {
+        "skills": ["dms-builder-safe"],
+        "acceptable": [
+          "dms-pages",
+          "dms-best-practices",
+          "dms-builder-page",
+          "dms-builder"
+        ]
+      }
+    },
+    {
+      "id": "dms-builder-safe-table-casual",
+      "area": "dms-ai",
+      "style": "casual",
+      "prompt": "add a table of the books to the catalog page, safe mode",
+      "expect": {
+        "skills": ["dms-builder-safe"],
+        "acceptable": ["dms-pages", "dms-builder", "dms-best-practices"]
+      }
+    },
+    {
+      "id": "dms-builder-safe-kpi-query",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "In safe mode, add a KpiCard to the /sales/overview page that shows the total number of orders. Which Builder tools do I call, in what order?",
+      "expect": {
+        "skills": ["dms-builder-safe"],
+        "acceptable": ["dms-pages", "dms-best-practices", "dms-builder"],
+        "mustMention": [
+          "BuilderQueryTemplates",
+          "BuilderAddQuery",
+          "BuilderAddBlock"
+        ]
+      }
+    },
+    {
+      "id": "dms-builder-safe-opaque-target",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "In safe mode the Builder answered opaque_target when I tried to configure the nested chart of a ChartCard. How should the agent proceed?",
+      "expect": {
+        "skills": ["dms-builder-safe"],
+        "acceptable": ["dms-ai-code-mode", "dms-best-practices", "dms-pages"],
+        "mustMention": ["AskUser"]
+      }
+    },
+    {
+      "id": "dms-builder-safe-not-code-mode",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "dms-ai is in Code mode. I changed a custom block by hand and want to show the three pages that render it, then check the Typecheck output.",
+      "expect": {
+        "skills": ["dms-ai-code-mode"],
+        "acceptable": ["dms-ai", "dms-pages"],
+        "avoid": ["dms-builder-safe"]
+      }
+    }
+  ]
+}

@@ -225,6 +225,7 @@ export function hostOf(url: string): string | null {
 
 const CONFIG_FILE_PATTERN = /antelope\.config\.m?ts$/;
 const BUILDER_HUNK_HEADER = /^@@ line (\d+) @@$/;
+const UNIFIED_HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/;
 const REMOVED_PREFIX = "- ";
 const ADDED_PREFIX = "+ ";
 
@@ -251,6 +252,31 @@ function plannedTexts(diff: string): PlannedTexts {
   return { start, before: pick(REMOVED_PREFIX), after: pick(ADDED_PREFIX) };
 }
 
+/** The hunks of a `@@ line N @@` diff, the format of interface-dms-builder 0.2 and earlier. */
+function lineHeaderStats(diff: string): DiffStats {
+  const planned = plannedTexts(diff);
+  const stats = diffTexts(planned.before, planned.after);
+  const offset = planned.start - 1;
+  const hunks = stats.hunks.map((hunk) => ({
+    ...hunk,
+    oldStart: hunk.oldStart + offset,
+    newStart: hunk.newStart + offset,
+    lines: hunk.lines.map((line) => ({
+      ...line,
+      oldLine: line.oldLine === undefined ? undefined : line.oldLine + offset,
+      newLine: line.newLine === undefined ? undefined : line.newLine + offset,
+    })),
+  }));
+  return { ...stats, hunks };
+}
+
+/** A Builder change's hunks, whether its diff is unified or in the `@@ line N @@` format. */
+function plannedStats(diff: string): DiffStats {
+  return UNIFIED_HUNK_HEADER.test(diff)
+    ? parseUnifiedDiff(diff)
+    : lineHeaderStats(diff);
+}
+
 /** The configuration diff a project-config operation's dry run answered, for the card. */
 function plannedConfigPreview(
   options: DescribeOptions,
@@ -269,19 +295,7 @@ function plannedConfigPreview(
     typeof config.diff !== "string"
   )
     return null;
-  const planned = plannedTexts(config.diff);
-  const stats = diffTexts(planned.before, planned.after);
-  const offset = planned.start - 1;
-  const hunks = stats.hunks.map((hunk) => ({
-    ...hunk,
-    oldStart: hunk.oldStart + offset,
-    newStart: hunk.newStart + offset,
-    lines: hunk.lines.map((line) => ({
-      ...line,
-      oldLine: line.oldLine === undefined ? undefined : line.oldLine + offset,
-      newLine: line.newLine === undefined ? undefined : line.newLine + offset,
-    })),
-  }));
+  const stats = plannedStats(config.diff);
   return {
     type: "diff",
     path: config.path,
@@ -289,7 +303,7 @@ function plannedConfigPreview(
     isNewFile: false,
     added: stats.added,
     removed: stats.removed,
-    hunks,
+    hunks: stats.hunks,
   };
 }
 
