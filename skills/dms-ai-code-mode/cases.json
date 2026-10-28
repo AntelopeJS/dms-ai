@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "dms-ai-code-mode-edit-loop",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "The assistant is in Code mode and I want it to change the orders page and the two other pages that reuse the same custom block. How should it work so I can watch each page update in the dashboard?",
+      "expect": {
+        "skills": ["dms-ai-code-mode"],
+        "acceptable": ["dms-ai", "dms-pages", "dms-best-practices"],
+        "mustMention": ["FindPagesUsing", "NavigateToPage", "Typecheck"]
+      }
+    },
+    {
+      "id": "dms-ai-code-mode-page-404-casual",
+      "area": "dms-ai",
+      "style": "casual",
+      "prompt": "ai edited my page in code mode and now it 404s, how do i see why",
+      "expect": {
+        "skills": ["dms-ai-code-mode"],
+        "acceptable": ["dms-ai", "dms-pages", "dms"],
+        "mustMention": ["QueryLogs"]
+      }
+    },
+    {
+      "id": "dms-ai-code-mode-not-safe-builder",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "We are in safe mode. Create a Reports page under the pages.reports category with BuilderCreatePage, then add a TableView on the orders resource.",
+      "expect": {
+        "skills": ["dms-builder-safe"],
+        "acceptable": ["dms-pages", "dms-best-practices"],
+        "avoid": ["dms-ai-code-mode"]
+      }
+    }
+  ]
+}
