@@ -55,10 +55,12 @@ function activate(state: SwitchState): AgentRunner {
   return runner;
 }
 
-// Sessions belong to the backend that opened them: a process, a model
-// connection and a tool loadout the other provider knows nothing about. So a
-// provider change tears them down. Transcripts are untouched — only the live
-// context of an open conversation is lost.
+/**
+ * Sessions belong to the backend that opened them: a process, a model
+ * connection and a tool loadout the other provider knows nothing about. So a
+ * provider change tears them down. Transcripts are untouched — only the live
+ * context of an open conversation is lost.
+ */
 function retire(state: SwitchState, reason?: RunnerError): ActiveRunner | null {
   const previous = state.active;
   state.active = null;

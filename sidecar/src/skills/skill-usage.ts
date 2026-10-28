@@ -63,7 +63,7 @@ function skillToolName(args: unknown): string | undefined {
   return key === undefined ? undefined : bareSkillName(record[key] as string);
 }
 
-// Codex has no skill tool: it opens the SKILL.md file with a shell command.
+/** Codex has no skill tool: it opens the SKILL.md file with a shell command. */
 function skillFileRead(args: unknown, names: readonly string[]) {
   const text = JSON.stringify(args ?? "");
   return names.find((name) => text.includes(`${name}/${SKILL_FILE_NAME}`));

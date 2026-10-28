@@ -97,9 +97,11 @@ interface PromptOptions {
   env: ClaudeProcessEnv;
 }
 
-// The plugins + explicit allowlist needed to load module/local skills. Built
-// once per session: a flipped `allowLocalSkills` only affects sessions created
-// afterwards — live conversations keep their loadout.
+/**
+ * The plugins + explicit allowlist needed to load module/local skills. Built
+ * once per session: a flipped `allowLocalSkills` only affects sessions created
+ * afterwards — live conversations keep their loadout.
+ */
 interface SkillLoadout {
   plugins: SdkPluginConfig[];
   skills: string[];
@@ -146,6 +148,11 @@ function buildMcpServersMap(
   return { [MCP_SERVER_KEY]: mcpServer as McpSdkServerConfigWithInstance };
 }
 
+/**
+ * Layers the optional permission callback, MCP server and skill loadout onto
+ * the base options. `settingSources` stays `[]` (isolation): skills load via
+ * local plugins plus an explicit allowlist, never the host's settings sources.
+ */
 function buildPromptOptions(input: PromptOptionsInput): PromptOptions {
   const base = buildBasePromptOptions(input);
   const withTool =
@@ -156,8 +163,6 @@ function buildPromptOptions(input: PromptOptionsInput): PromptOptions {
     input.mcpServer === undefined
       ? withTool
       : { ...withTool, mcpServers: buildMcpServersMap(input.mcpServer) };
-  // settingSources stays `[]` (isolation) — skills load via local plugins +
-  // an explicit allowlist, never the host's settings sources.
   if (input.skillLoadout === undefined) return withMcp;
   return {
     ...withMcp,
@@ -166,10 +171,12 @@ function buildPromptOptions(input: PromptOptionsInput): PromptOptions {
   };
 }
 
-// Resolves the skill sources, synthesizes their plugin wrappers, and returns the
-// SDK plugins + the explicit `plugin:skill` allowlist. Returns undefined when
-// there are no loadable skills so the options omit `plugins`/`skills` entirely.
-// NEVER returns `skills:'all'` (Task 1: it leaks every machine skill into context).
+/**
+ * Resolves the skill sources, synthesizes their plugin wrappers, and returns the
+ * SDK plugins + the explicit `plugin:skill` allowlist. Returns undefined when
+ * there are no loadable skills so the options omit `plugins`/`skills` entirely.
+ * Never returns `skills: 'all'`, which leaks every machine skill into context.
+ */
 async function buildSkillLoadout(
   sources: readonly SkillSource[],
   hostProjectRoot: string,
@@ -265,27 +272,29 @@ function allowAutomatically(
   return Promise.resolve(buildAllowResult(input));
 }
 
+/**
+ * Builds the permission callback for a session. The SDK's built-in
+ * AskUserQuestion cannot render in the chat, so the agent is bounced to our own
+ * AskUser MCP tool instead of dead-ending at a permission prompt the host
+ * cannot show. The module's own MCP tools (the FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES
+ * set) are first-party and driven constantly by the documented workflow, so
+ * they are auto-allowed instead of prompting; Builder deletions are gated
+ * inside their own handler, which claims the call announced here. Read-only
+ * inspection of in-workspace files (the project and its sibling local modules)
+ * is non-mutating and also auto-allowed. Writes, shell and network tools still
+ * prompt.
+ */
 function buildCanUseTool(deps: CanUseToolDeps): CanUseTool {
   const { ctx } = deps;
   return (toolName, input, options) => {
-    // The SDK's built-in AskUserQuestion cannot render in the chat, so
-    // bounce the agent to our own AskUser MCP tool instead of dead-ending at a
-    // permission prompt the host can't show.
     if (toolName === ASK_USER_QUESTION_BUILTIN_TOOL_NAME) {
       return Promise.resolve(buildAskUserRedirectResult());
     }
     const callId = options.toolUseID;
-    // The module's own MCP tools (the FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES set)
-    // are first-party — the documented workflow drives them constantly — so
-    // auto-allow them instead of prompting. Builder deletions are gated inside
-    // their own handler, which claims the call announced here.
     if (isFirstPartyMcpTool(toolName)) {
       ctx.onToolAnnounced?.(callId, toolName, input);
       return allowAutomatically(deps, toolName, input, callId);
     }
-    // Read-only inspection of in-workspace files (the project and its sibling
-    // local modules) is non-mutating, so auto-allow it. Writes, shell and
-    // network tools still prompt.
     if (
       isAutoAllowedRead(toolName, input, deps.readRoots, ctx.hostProjectRoot)
     ) {
@@ -301,14 +310,16 @@ function buildCanUseTool(deps: CanUseToolDeps): CanUseTool {
   };
 }
 
+/**
+ * Skill source directories are auto-allowed for read-only tools too, so the
+ * agent can read SKILL.md bodies and supporting files without prompting.
+ */
 function resolveCanUseTool(
   ctx: ProviderSessionContext,
   moduleRoots: string[],
   skillRoots: string[],
 ): CanUseTool | undefined {
   if (ctx.permissionBus === undefined) return undefined;
-  // Skill source dirs are auto-allowed for read-only tools too, so the agent can
-  // read SKILL.md bodies and supporting files without prompting.
   const readRoots = resolveReadRoots(ctx.hostProjectRoot, [
     ...moduleRoots,
     ...skillRoots,
@@ -323,14 +334,18 @@ interface ProviderConfig {
   skillDirs: SkillSource[];
 }
 
-// Mutable settings cell shared by the session and the safe-mode hook, so a
-// safe/vibe flip is seen by the hook without rebuilding the SDK options.
+/**
+ * Mutable settings cell shared by the session and the safe-mode hook, so a
+ * safe/vibe flip is seen by the hook without rebuilding the SDK options.
+ */
 interface LiveSettings {
   settings: AppSettings;
 }
 
-// The Claude half of a session: the SDK stream, the prompt queue it consumes,
-// and the settings cell the safe-mode hook reads live.
+/**
+ * The Claude half of a session: the SDK stream, the prompt queue it consumes,
+ * and the settings cell the safe-mode hook reads live.
+ */
 interface ClaudeBackend {
   output: Query;
   queue: InputQueue;
@@ -375,8 +390,10 @@ function buildUserMessage(content: TurnContent): SDKUserMessage {
   };
 }
 
-// Flattens the SDK's message stream into the neutral event vocabulary, so the
-// session lifecycle never sees an SDKMessage.
+/**
+ * Flattens the SDK's message stream into the neutral event vocabulary, so the
+ * session lifecycle never sees an SDKMessage.
+ */
 async function* toRunnerEvents(
   output: Query,
   onTokenUsage: ((usage: TokenUsage) => void) | undefined,
@@ -437,15 +454,18 @@ async function* runTurn(
   yield* state.session.sendTurn(input, state.timeoutMs);
 }
 
+/**
+ * Builds the SDK options for a new session. The skill sources are recomputed at
+ * session creation: a flipped `allowLocalSkills` only takes effect for sessions
+ * created afterwards (unlike mode/thinking, which applySettings pushes to live
+ * sessions in place).
+ */
 async function buildSessionOptions(
   config: ProviderConfig,
   ctx: ProviderSessionContext,
   live: LiveSettings,
   abortController: AbortController,
 ): Promise<PromptOptions> {
-  // Recomputed at session creation: a flipped `allowLocalSkills` only takes
-  // effect for sessions created afterwards (unlike mode/thinking, which
-  // applySettings pushes to live sessions in place).
   const skillSources = resolveSkillSources(
     config.skillDirs,
     ctx.settings.allowLocalSkills,

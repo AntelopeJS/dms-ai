@@ -21,8 +21,10 @@ function errorCode(error: unknown): string | undefined {
   return (error as NodeJS.ErrnoException | undefined)?.code;
 }
 
-// A lock left by a sidecar that died mid-refresh would block every other one
-// forever; a refresh never takes this long, so an older lock is abandoned.
+/**
+ * A lock left by a sidecar that died mid-refresh would block every other one
+ * forever; a refresh never takes this long, so an older lock is abandoned.
+ */
 async function isStale(lock: string): Promise<boolean> {
   try {
     const info = await stat(lock);
@@ -32,6 +34,11 @@ async function isStale(lock: string): Promise<boolean> {
   }
 }
 
+/**
+ * Takes the lock by creating its directory, which is atomic on every platform:
+ * exactly one caller creates it. Waits until CHATGPT_LOCK_TIMEOUT_MS, and
+ * abandons a stale lock.
+ */
 async function acquire(lock: string): Promise<void> {
   const deadline = Date.now() + CHATGPT_LOCK_TIMEOUT_MS;
   await mkdir(path.dirname(lock), {
@@ -40,7 +47,6 @@ async function acquire(lock: string): Promise<void> {
   });
   for (;;) {
     try {
-      // mkdir is atomic on every platform: exactly one caller creates it.
       await mkdir(lock);
       return;
     } catch (error) {

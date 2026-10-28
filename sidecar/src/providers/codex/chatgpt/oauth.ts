@@ -65,12 +65,15 @@ export interface AuthorizeParams {
   loginHint?: string;
 }
 
+/**
+ * The OpenAI authorization URL. The agent name hint is display metadata for the
+ * registration only; reauthorization omits it.
+ */
 export function buildAuthorizeUrl(params: AuthorizeParams): string {
   const url = new URL(CHATGPT_AUTHORIZE_URL);
   const query = url.searchParams;
   const isRegistration = params.clientId === undefined;
   query.set("client_id", params.clientId ?? CHATGPT_DYNAMIC_CLIENT_ID);
-  // Display metadata for the registration only; reauthorization omits it.
   if (isRegistration) query.set("agent_name_hint", CHATGPT_AGENT_NAME_HINT);
   query.set("ext_agent_host_id", params.hostId);
   query.set("response_type", "code");

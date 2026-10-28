@@ -11,17 +11,21 @@ export interface PendingQueueStore {
   shift: (conversationId: string) => QueuedItemType | null;
   get: (conversationId: string) => QueuedItemType[];
   clear: (conversationId: string) => void;
-  // Single-writer guard: exactly one drain runs per conversation. tryStartDrain
-  // acquires it (false if a drain is already active); endDrain releases it. This
-  // is what keeps the server the sole authority over dequeue — a reconnecting or
-  // racing client can never start a parallel drain and double-run an item.
+  /**
+   * Single-writer guard: exactly one drain runs per conversation. tryStartDrain
+   * acquires it (false if a drain is already active); endDrain releases it. This
+   * is what keeps the server the sole authority over dequeue — a reconnecting or
+   * racing client can never start a parallel drain and double-run an item.
+   */
   tryStartDrain: (conversationId: string) => boolean;
   endDrain: (conversationId: string) => void;
 }
 
-// The server owns each conversation's follow-up queue in memory (session-scoped,
-// no disk). Because the server is the only writer that dequeues, follow-ups
-// survive a client reconnect/switch without being lost or run twice.
+/**
+ * The server owns each conversation's follow-up queue in memory (session-scoped,
+ * no disk). Because the server is the only writer that dequeues, follow-ups
+ * survive a client reconnect/switch without being lost or run twice.
+ */
 export function createPendingQueueStore(): PendingQueueStore {
   const byConversation = new Map<string, QueuedItemType[]>();
   const draining = new Set<string>();

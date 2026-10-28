@@ -1,5 +1,8 @@
-// Standalone on purpose: a fake binary shares nothing with the sidecar, exactly
-// like the real one. Every protocol string here is what the dumps show.
+/**
+ * JSON-RPC version stamped on every frame. This module is standalone on
+ * purpose: a fake binary shares nothing with the sidecar, exactly like the real
+ * one. Every protocol string here is what the dumps show.
+ */
 export const JSONRPC_VERSION = "2.0";
 export const LINE_SEPARATOR = "\n";
 
@@ -11,9 +14,11 @@ export const VERSION_ENV_VAR = "MOCK_CODEX_VERSION";
 export const MCP_TOKEN_ENV_VAR = "DMS_AI_MCP_TOKEN";
 export const CODEX_HOME_ENV_VAR = "CODEX_HOME";
 
-// How the app-server takes a SIGTERM. Unset or "die", it dies on the spot, which
-// is what the real one does. "linger" keeps writing into its home for a while
-// and then exits; "ignore" keeps writing until it is killed.
+/**
+ * How the app-server takes a SIGTERM. Unset or "die", it dies on the spot, which
+ * is what the real one does. "linger" keeps writing into its home for a while
+ * and then exits; "ignore" keeps writing until it is killed.
+ */
 export const ON_SIGTERM_ENV_VAR = "MOCK_CODEX_ON_SIGTERM";
 export const LINGER_ON_SIGTERM = "linger";
 export const IGNORE_SIGTERM = "ignore";
@@ -67,7 +72,9 @@ export const MCP_CLIENT_VERSION = "0.0.1";
 export const AUTHORIZATION_HEADER = "Authorization";
 export const BEARER_PREFIX = "Bearer ";
 
-// The index a module that ships its safe-mode skill produces.
+/**
+ * The index a module that ships its safe-mode skill produces.
+ */
 const SAFE_MODE_SKILL_INDEX = {
   data: [
     {
@@ -87,8 +94,10 @@ const SAFE_MODE_SKILL_INDEX = {
   ],
 };
 
-// Answers for calls the loaded dump does not cover. Anything the dump does
-// answer is replayed from it instead.
+/**
+ * Answers for calls the loaded dump does not cover. Anything the dump does
+ * answer is replayed from it instead.
+ */
 export const FALLBACK_RESULTS = {
   initialize: {
     userAgent: "mock-codex",

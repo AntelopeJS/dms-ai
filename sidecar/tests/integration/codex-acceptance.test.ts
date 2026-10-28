@@ -28,10 +28,13 @@ import { createNavigationCompleter } from "../../src/server/navigation-completer
 import type { AppSettings } from "../../src/state/settings-types.js";
 import { readRecordedPids } from "../helpers/codex-pids.js";
 
-// Real model turns spend the ChatGPT plan's usage, so this suite is opt-in and
-// kept out of `pnpm test`: sign in from Assistant › Settings once, then run it
-// with `CODEX_ACCEPTANCE=1 pnpm test:acceptance`. Read at import, before the
-// test setup swaps the config home for a temporary one.
+/**
+ * Real model turns spend the ChatGPT plan's usage, so this suite is opt-in and
+ * kept out of `pnpm test`: sign in from Assistant › Settings once, then run it
+ * with `CODEX_ACCEPTANCE=1 pnpm test:acceptance`. Read at import, before the
+ * test setup swaps the config home for a temporary one. A `beforeAll` puts it
+ * back, because these turns hit OpenAI with the real sign-in.
+ */
 const REAL_CONFIG_HOME = process.env[XDG_CONFIG_HOME_ENV];
 const ENABLED =
   process.env.CODEX_ACCEPTANCE === "1" &&
@@ -180,14 +183,11 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
   let harness: Harness | undefined;
   let session: ProviderSession | undefined;
 
-  // The real sign-in, not the setup's temporary one: these turns hit OpenAI.
   beforeAll(() => {
     if (REAL_CONFIG_HOME === undefined) delete process.env[XDG_CONFIG_HOME_ENV];
     else process.env[XDG_CONFIG_HOME_ENV] = REAL_CONFIG_HOME;
   });
 
-  // Safe mode degrades to vibe when the Builder is absent, so without this the
-  // safe-mode expectations below would silently be asserting vibe behaviour.
   beforeEach(() => setBuilderAvailable(true));
 
   afterEach(async () => {
@@ -289,8 +289,6 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
       session = await openSession(harness, vibe);
       await collect(session, "Reply with just: one", vibe);
 
-      // Safe mode now declines escalations; the same request must no longer
-      // reach the user as a prompt.
       const safe = settingsFor({ generationMode: "safe" });
       session.applySettings?.(safe);
       const events = await collect(

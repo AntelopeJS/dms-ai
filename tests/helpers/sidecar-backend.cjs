@@ -1,7 +1,9 @@
-// A backend reduced to the module's launcher: it starts the sidecar, reports
-// it is ready, then runs until a signal ends it.
 const { loadLauncherGeneration } = require("./sidecar-launcher.cjs");
 
+/**
+ * What this backend, reduced to the module's launcher, writes once the sidecar
+ * is started; it then runs until a signal ends it.
+ */
 const READY_LINE = "ready\n";
 const KEEP_ALIVE_MS = 60_000;
 

@@ -10,25 +10,33 @@ import type {
 import type { BlockPreviewType } from "../protocol/preview.js";
 import type { ChatMode, GenerationMode } from "./settings-types.js";
 
+/**
+ * The kinds of entry in a stored transcript. Besides the conversation turns
+ * (`user`, `assistant`, `tool_use`, `tool_result`, `error`):
+ * - `permission` is the audit record of a permission decision for a
+ *   non-auto-allowed (i.e. mutating/shell/network) tool. It is emitted from the
+ *   permission bridge, independent of the tool_use/tool_result pair, so
+ *   approve/deny rates can be derived.
+ * - `notice` is something the sidecar did or saw on the user's behalf (an
+ *   auto-fix turn, an expired request, a skipped question, Full auto ending),
+ *   shown in the transcript as a notice rather than a user message.
+ * - `change_set` is the change set a turn produced, by id; the summary travels
+ *   separately.
+ * - `question_answer` holds the answers given to an AskUser question, kept for
+ *   the transcript.
+ * - `block_preview` is a block preview the agent shared with PreviewBlocks,
+ *   drawn as an attachment.
+ */
 const STORED_MESSAGE_ROLES = [
   "user",
   "assistant",
   "tool_use",
   "tool_result",
-  // Audit record of a permission decision for a non-auto-allowed (i.e. mutating
-  // /shell/network) tool. Emitted from the permission bridge, independent of the
-  // tool_use/tool_result pair, so approve/deny rates can be derived.
   "permission",
   "error",
-  // Something the sidecar did or saw on the user's behalf (an auto-fix turn, an
-  // expired request, a skipped question, Full auto ending), shown in the
-  // transcript as a notice rather than a user message.
   "notice",
-  // The change set a turn produced, by id; the summary travels separately.
   "change_set",
-  // The answers given to an AskUser question, kept for the transcript.
   "question_answer",
-  // A block preview the agent shared with PreviewBlocks, drawn as an attachment.
   "block_preview",
 ] as const;
 
@@ -37,15 +45,19 @@ type StoredMessageRole = (typeof STORED_MESSAGE_ROLES)[number];
 const STORED_MESSAGE_STATUSES = ["success", "error"] as const;
 type StoredMessageStatus = (typeof STORED_MESSAGE_STATUSES)[number];
 
-// Normalized outcome of a permission decision: the sidecar's three
-// PERMISSION_DECISIONS values collapse to approved (allow_once /
-// allow_session) vs denied (deny / timeout).
+/**
+ * Normalized outcome of a permission decision: the sidecar's three
+ * PERMISSION_DECISIONS values collapse to approved (allow_once /
+ * allow_session) vs denied (deny / timeout).
+ */
 const STORED_PERMISSION_DECISIONS = ["approved", "denied"] as const;
 type StoredPermissionDecision = (typeof STORED_PERMISSION_DECISIONS)[number];
 
-// Lightweight record of a file the user attached, kept for redisplay on
-// reload. Deliberately excludes the base64 payload so the transcript store
-// stays small — the file itself lives inline in the live turn or on disk.
+/**
+ * Lightweight record of a file the user attached, kept for redisplay on
+ * reload. Deliberately excludes the base64 payload so the transcript store
+ * stays small: the file itself lives inline in the live turn or on disk.
+ */
 interface StoredAttachmentMeta {
   name: string;
   mimeType: string;
@@ -108,9 +120,9 @@ export interface StoredMessage {
   notice?: Notice;
   answers?: QuestionAnswerRecord[];
   preview?: BlockPreviewType;
-  // Set on calls made during an auto-fix turn.
+  /** Set on calls made during an auto-fix turn. */
   isAutoFix?: boolean;
-  // Permission records only: what the request was and when it was answered.
+  /** Permission records only, like the fields below it: what the request was and when it was answered. */
   requestId?: string;
   kind?: PermissionKind;
   alwaysAsk?: boolean;
@@ -122,15 +134,19 @@ export interface StoredMessage {
   decidedBy?: string;
 }
 
-// Agent backends the sidecar can drive. Stored on a conversation so a replayed
-// transcript says which one produced it.
+/**
+ * Agent backends the sidecar can drive. Stored on a conversation so a replayed
+ * transcript says which one produced it.
+ */
 export const PROVIDER_NAMES = ["claude", "codex"] as const;
 export type ProviderName = (typeof PROVIDER_NAMES)[number];
 
 export const DEFAULT_PROVIDER_NAME: ProviderName = PROVIDER_NAMES[0];
 
-// Tokens a conversation has cost so far, summed over its turns. Codex reports
-// them per model call; the Claude SDK reports them on the turn result.
+/**
+ * Tokens a conversation has cost so far, summed over its turns. Codex reports
+ * them per model call; the Claude SDK reports them on the turn result.
+ */
 export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
@@ -152,14 +168,19 @@ export interface StoredConversation {
   messages: StoredMessage[];
   createdAtMs: number;
   updatedAtMs: number;
-  // Set when its first turn runs; until then readers fall back to
-  // DEFAULT_PROVIDER_NAME.
+  /**
+   * Set when its first turn runs; until then readers fall back to
+   * DEFAULT_PROVIDER_NAME.
+   */
   provider?: ProviderName;
-  // Absent until a provider reports usage at least once.
+  /** Absent until a provider reports usage at least once. */
   tokenUsage?: TokenUsage;
   usageLog?: UsageEntry[];
-  // The conversation's own approval mode and scope, set from the defaults when
-  // its first turn runs. Absent before then: the defaults apply.
+  /**
+   * The conversation's own approval mode, set from the defaults when its first
+   * turn runs. Absent before then: the default applies. `generationMode`, the
+   * conversation's own scope, follows the same rule.
+   */
   mode?: ChatMode;
   generationMode?: GenerationMode;
 }

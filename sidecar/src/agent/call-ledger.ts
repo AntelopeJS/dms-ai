@@ -1,6 +1,6 @@
 import { bareToolName } from "./tool-kinds.js";
 
-// Announced calls kept per conversation; older ones are long settled.
+/** Announced calls kept per conversation; older ones are long settled. */
 const MAX_ANNOUNCED_CALLS = 100;
 
 interface AnnouncedCall {

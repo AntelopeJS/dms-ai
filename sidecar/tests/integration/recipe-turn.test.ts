@@ -36,8 +36,6 @@ function unpaired(events: WireMessage[]): string[] {
   return [...open];
 }
 
-// Scenarios 1 to 5, 8 and 9 of the acceptance recipe: everything that is about
-// one turn's lifecycle, driven over the same WS protocol the chat speaks.
 describe.each(PROVIDER_FIXTURES)(
   "recipe — turn lifecycle on $name",
   (fixture) => {
@@ -53,8 +51,10 @@ describe.each(PROVIDER_FIXTURES)(
       harness = undefined;
     });
 
-    // The recipe answers prompts as a user would; a scenario that is not about
-    // the verdict itself simply says yes to whatever comes.
+    /**
+     * The recipe answers prompts as a user would; a scenario that is not about
+     * the verdict itself simply says yes to whatever comes.
+     */
     function approveEveryPrompt(collector: WireCollector): void {
       void collector
         .next((e) => e.type === "permission_request")
@@ -68,8 +68,10 @@ describe.each(PROVIDER_FIXTURES)(
         .catch(() => undefined);
     }
 
-    // The chat echoes a queued follow-up, never an immediate message, so a
-    // second turn is recognized by its own terminal event.
+    /**
+     * The chat echoes a queued follow-up, never an immediate message, so a
+     * second turn is recognized by its own terminal event.
+     */
     function terminalCount(collector: WireCollector): number {
       return collector.events.filter(isTerminalEvent).length;
     }
@@ -108,8 +110,6 @@ describe.each(PROVIDER_FIXTURES)(
           CONVERSATION_ID,
           "update the page",
         );
-        // An edit escalates on the Claude path in the default mode; this
-        // scenario is about what the host sees once it is allowed.
         approveEveryPrompt(collector);
         await collector.next(isTerminalEvent);
         const edits = collector.events.filter(
@@ -215,7 +215,6 @@ describe.each(PROVIDER_FIXTURES)(
         expect(done.type).toBe("run_done");
         expect(unpaired(collector.events)).toEqual([]);
 
-        // The conversation stays usable: a second turn runs to completion.
         sendUserMessage(client as WebSocket, CONVERSATION_ID, "again");
         const second = await collector.next(
           (e) => isTerminalEvent(e) && terminalCount(collector) === 2,
@@ -252,7 +251,6 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         setBuilderAvailable(true);
         fixture.use("permission-twice");
-        // Starts in vibe, where a write escalates to the user.
         harness = await startWsHarness({
           provider: fixture.name,
           settings: { generationMode: "vibe" },
@@ -271,8 +269,6 @@ describe.each(PROVIDER_FIXTURES)(
         );
         await collector.next(isTerminalEvent);
 
-        // Safe mode now declines escalations outright, so the same turn must no
-        // longer reach the user as a prompt.
         sendWire(client as WebSocket, {
           type: "set_conversation_mode",
           conversationId: CONVERSATION_ID,

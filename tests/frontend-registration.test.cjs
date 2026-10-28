@@ -35,7 +35,6 @@ function loadModule(registrations, sidecars) {
     "./constants/sidecar": require(
       path.resolve(__dirname, "../dist/constants/sidecar.js"),
     ),
-    // The config store is the unit under test here, so it is loaded for real.
     "./config": require(path.resolve(__dirname, "../dist/config.js")),
   };
   const originalLoad = Module._load;
@@ -309,8 +308,6 @@ void test("titles the skill drawer with the DMS row header", async () => {
   const [detail] = drawers.filter((drawer) =>
     JSON.stringify(drawer).includes('"DmsAiSkillDetail"'),
   );
-  // The header names the open skill and its place in the list, with the
-  // previous and next buttons: the body no longer draws them.
   assert.equal(detail.rowTitle, "{name}");
   assert.notEqual(detail.rowHeader, false);
   for (const file of PAGE_LOCALES) {
@@ -369,7 +366,6 @@ void test("opens the Overview and Activity with the DMS page toolbar, its period
     );
     assert.equal(firstKey, "toolbar", id);
     assert.equal(toolbar.componentName, "dms-page-toolbar-block", id);
-    // No live data on these pages: "updated" and a refresh, no Direct / Pause.
     assert.deepEqual(childIds, ["period"], id);
     assert.equal(period.options.rememberKey, "ai", id);
     assert.equal(period.options.rangeLabel, "relative", id);

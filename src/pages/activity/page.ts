@@ -69,14 +69,12 @@ export class AIActivityPage extends PageController(
     ],
   }),
 ) {
-  // No live data: "Updated … ago" with a refresh button, then the period.
+  /** No live data: "Updated … ago" with a refresh button, then the period. */
   static toolbar = pageToolbar({
     live: false,
     period: {
       id: ACTIVITY_PERIOD_SCOPE,
       rememberKey: PERIOD_REMEMBER_KEY,
-      // The whole log by default, as before the page had a period; an audit
-      // log has nothing to compare against.
       defaultPreset: "all",
       presets: ["last-24h", "last-7-days", "last-30-days", "all"],
       comparisons: ["none"],
@@ -92,8 +90,6 @@ export class AIActivityPage extends PageController(
     searchPlaceholder: text("search"),
     pageSize: ACTIVITY_PAGE_SIZE,
     pagination: "loadMore",
-    // A click opens the row's detail drawer, as the audit log is read row
-    // after row; the default double-click left a single click inert.
     rowClick: "single",
     tabs: TABS,
     quickFilters: [

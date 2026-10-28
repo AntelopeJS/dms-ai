@@ -17,8 +17,6 @@ import { buildDeveloperInstructions } from "../../src/providers/codex/config.js"
 import { createCodexPermissionHandler } from "../../src/providers/codex/permissions.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
 
-// Safe mode only means anything with the Builder loaded: without it the whole
-// path degrades to vibe, which is a separate case covered in codex-config.
 beforeAll(() => setBuilderAvailable(true));
 afterAll(() => setBuilderAvailable(false));
 
@@ -118,8 +116,6 @@ describe("approval routing", () => {
     });
   });
 
-  // A later Codex release adding a decision method would otherwise become a
-  // refusal loop with nothing in the logs pointing at it.
   it("refuses an unknown server request, and says which one", async () => {
     const { handler } = buildHandler(settings({}));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -217,7 +213,4 @@ describe("developer instructions", () => {
       buildDeveloperInstructions(settings({ generationMode: "safe" })),
     ).toBe(SAFE_MODE_DENIED_MESSAGE);
   });
-
-  // The escalation itself rides on the turn text, not on these instructions:
-  // see codex-config (shape) and codex-lifecycle (wiring).
 });

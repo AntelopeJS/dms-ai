@@ -21,8 +21,10 @@ function isResponse(msg) {
   return msg.id !== undefined && msg.method === undefined;
 }
 
-// A dump records both directions, so a client request and the reply it got are
-// two separate lines linked only by their id.
+/**
+ * A dump records both directions, so a client request and the reply it got are
+ * two separate lines linked only by their id.
+ */
 function collectResponses(entries) {
   const methodById = new Map();
   const byMethod = new Map();
@@ -39,10 +41,12 @@ function collectResponses(entries) {
   return byMethod;
 }
 
-// One turn is everything the server sent after a turn/start went out, minus the
-// replies to the client's own calls. Notifications that belong to the session
-// rather than the turn (thread/started, and the like) ride along; the adapter
-// ignores what it does not handle, exactly as it does in production.
+/**
+ * One turn is everything the server sent after a turn/start went out, minus the
+ * replies to the client's own calls. Notifications that belong to the session
+ * rather than the turn (thread/started, and the like) ride along; the adapter
+ * ignores what it does not handle, exactly as it does in production.
+ */
 function collectTurns(entries) {
   const turns = [];
   let current = null;

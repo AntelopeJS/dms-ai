@@ -16,12 +16,14 @@ export function construct(config: unknown): void {
   setConfig(parseConfig(config));
 }
 
+/**
+ * Spawns the sidecar from start(), not module load: by now every module is
+ * loaded, so interface-core can report their on-disk roots and declared skills
+ * authoritatively.
+ */
 export async function start() {
   startLogCapture();
   await AddFrontendModule(frontendModule());
-  // Spawn from start(), not module load: by now every module is loaded, so
-  // interface-core can report their on-disk roots and declared skills
-  // authoritatively.
   const hostProjectRoot = process.cwd();
   const [moduleRoots, skillDirs, builderEnabled] = await Promise.all([
     collectModuleRoots(),

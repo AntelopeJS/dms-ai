@@ -28,17 +28,19 @@ import {
   permissionKindOf,
 } from "./tool-kinds.js";
 
-// Files above this size are not read for a preview: the card would not show
-// them usefully and the read would stall the request.
+/**
+ * Files above this size are not read for a preview: the card would not show
+ * them usefully and the read would stall the request.
+ */
 const MAX_PREVIEW_FILE_BYTES = 2 * 1024 * 1024;
 const FILE_ENCODING = "utf8";
 const WEB_FETCH_TOOL_NAME = "WebFetch";
 const CODEX_ADDED_KIND = "add";
 const CODEX_DELETED_KIND = "delete";
-// Argument keys of a Codex file change, set by its permission handler.
+/** Argument keys of a Codex file change, set by its permission handler. */
 export const CODEX_CHANGE_KIND_ARG = "change_kind";
 export const CODEX_CHANGE_DIFF_ARG = "diff";
-// Argument keys naming the target of a Builder operation, most specific first.
+/** Argument keys naming the target of a Builder operation, most specific first. */
 const BUILDER_TARGET_KEYS: readonly string[] = [
   "pageRef",
   "ref",
@@ -117,7 +119,11 @@ function editSteps(toolName: string, args: unknown): EditStep[] {
   return Array.isArray(record.edits) ? (record.edits as EditStep[]) : [];
 }
 
-/** The diff an Edit / MultiEdit / Write would make to `current`. */
+/**
+ * The diff an Edit / MultiEdit / Write would make to `current`. When the text to replace is not
+ * in the file (or there is no file yet), the first step's replacement is shown on its own rather
+ * than nothing.
+ */
 function plannedDiff(
   toolName: string,
   args: unknown,
@@ -128,8 +134,6 @@ function plannedDiff(
   const steps = editSteps(toolName, args);
   const edited = steps.reduce(applyEditStep, current);
   if (edited !== null && current !== null) return diffTexts(current, edited);
-  // The text to replace is not in the file (or there is no file yet): show the
-  // replacement on its own rather than nothing.
   const fallback = steps[0] ?? {};
   return diffTexts(
     readString(fallback, "old_string"),

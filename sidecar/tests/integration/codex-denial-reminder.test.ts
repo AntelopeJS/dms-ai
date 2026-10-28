@@ -24,8 +24,10 @@ const TEST_TIMEOUT_MS = 30_000;
 const CONVERSATION = "conv-denial";
 const DENIED_DUMP = "recette-3-command-denied.jsonl";
 const TURN_START = "turn/start";
-// CODEX_DENIAL_REMINDER_THRESHOLD is 2, so the third turn is the first to carry
-// the reminder.
+/**
+ * CODEX_DENIAL_REMINDER_THRESHOLD is 2, so the third turn is the first to carry
+ * the reminder.
+ */
 const TURNS = 3;
 
 const SAFE_SETTINGS: AppSettings = {
@@ -57,8 +59,6 @@ describe("codex denial reminder", () => {
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "dms-ai-denial-"));
-    // Safe mode degrades to vibe without the Builder, and then nothing is
-    // refused at all.
     setBuilderAvailable(true);
     CODEX_FIXTURE.use("permission");
   });
@@ -102,7 +102,6 @@ describe("codex denial reminder", () => {
           { text: `write the file, attempt ${turn}`, attachments: [] },
           SAFE_SETTINGS,
         )) {
-          // Drained: the turn is only over once its events are consumed.
         }
       }
 

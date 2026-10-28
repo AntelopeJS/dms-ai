@@ -70,9 +70,11 @@ interface PendingRequest {
   settle: (frame: JsonRpcFrame) => void;
 }
 
-// Inbound frames carry an id in two unrelated spaces: a reply to one of our
-// requests, and a request the server originates. Only the presence of `method`
-// separates them.
+/**
+ * Inbound frames carry an id in two unrelated spaces: a reply to one of our
+ * requests, and a request the server originates. Only the presence of `method`
+ * separates them.
+ */
 function isServerRequest(frame: JsonRpcFrame): boolean {
   return frame.id !== undefined && frame.method !== undefined;
 }
@@ -90,6 +92,12 @@ function parseFrame(line: string): JsonRpcFrame | null {
   }
 }
 
+/**
+ * A JSON-RPC client over the child's stdin and stdout. The stdout `close` event
+ * is the only end-of-life the transport itself reports: the process watchdog
+ * aborts with a better reason when it gets there first, and this one covers a
+ * stream that closes while the child lingers.
+ */
 export function createCodexClient(
   stdin: Writable,
   stdout: Readable,
@@ -196,9 +204,6 @@ export function createCodexClient(
 
   stdout.setEncoding("utf8");
   stdout.on("data", (chunk: string) => consume(chunk));
-  // The only end-of-life the transport itself reports. The process watchdog
-  // aborts with a better reason when it gets there first; this one covers a
-  // stream that closes while the child lingers.
   stdout.on("close", () => abort(new Error(CODEX_TRANSPORT_CLOSED_MESSAGE)));
 
   return {

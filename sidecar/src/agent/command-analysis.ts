@@ -1,20 +1,24 @@
-// Shell control operators: a command made of several of these is judged
-// segment by segment, never by its first words alone.
+/**
+ * Shell control operators: a command made of several of these is judged
+ * segment by segment, never by its first words alone.
+ */
 const SEGMENT_SEPARATORS = /&&|\|\||;|\||\n/;
-// Constructs whose effect a prefix cannot vouch for: command substitution,
-// backticks and redirections. A command holding one never matches a rule.
+/**
+ * Constructs whose effect a prefix cannot vouch for: command substitution,
+ * backticks and redirections. A command holding one never matches a rule.
+ */
 const UNRULABLE_CONSTRUCTS = /`|\$\(|>|</;
 const WHITESPACE = /\s+/;
 const FLAG_PREFIX = "-";
-// Words of a command a "command" rule keeps: `pnpm test`, `git status`.
+/** Words of a command a "command" rule keeps: `pnpm test`, `git status`. */
 const COMMAND_RULE_WORDS = 2;
 
 const PACKAGE_MANAGERS: readonly string[] = ["pnpm", "npm", "yarn", "bun"];
 const ADD_VERBS: readonly string[] = ["add"];
-// `install` / `i` add a dependency only when they name a package.
+/** `install` / `i` add a dependency only when they name a package. */
 const INSTALL_VERBS: readonly string[] = ["install", "i"];
 const REMOVE_VERBS: readonly string[] = ["remove", "rm", "uninstall", "un"];
-// Flags that take the next word as their value, so it is not the verb.
+/** Flags that take the next word as their value, so it is not the verb. */
 const VALUE_FLAGS: readonly string[] = [
   "--filter",
   "-F",

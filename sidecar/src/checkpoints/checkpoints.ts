@@ -115,7 +115,7 @@ const NO_OP_CHECKPOINT: TurnCheckpoint = {
   finish: () => Promise.resolve(null),
 };
 
-// Snapshots share one shadow index, so they run one at a time.
+/** Snapshots share one shadow index, so they run one at a time. */
 function serialize<T>(
   state: CheckpointsState,
   task: () => Promise<T>,
@@ -360,13 +360,16 @@ async function fileDetails(
   );
 }
 
+/**
+ * Drops expired checkpoints, then runs the gc on the serialization lock so a flush (and a test's
+ * cleanup) waits for it.
+ */
 async function pruneExpired(state: CheckpointsState, retentionDays: number) {
   const cutoff = Date.now() - retentionDays * MS_PER_DAY;
   const expired = state.store.all().filter((c) => c.createdAtMs < cutoff);
   if (expired.length === 0) return;
   for (const record of expired) await state.git.drop(record.id);
   state.store.remove(expired.map((record) => record.id));
-  // On the lock, so a flush (and a test's cleanup) waits for the gc.
   void serialize(state, () => state.git.prune()).catch(() => undefined);
 }
 

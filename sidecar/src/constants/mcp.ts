@@ -13,7 +13,9 @@ export const MCP_SERVER_VERSION = "0.0.1";
 export const MCP_SERVER_KEY = "dms-ai";
 export const MCP_SERVER_TYPE_SDK = "sdk" as const;
 
-// The SDK exposes MCP tools to the model as mcp__<serverKey>__<toolName>.
+/**
+ * The SDK exposes MCP tools to the model as mcp__<serverKey>__<toolName>.
+ */
 export const MCP_TOOL_NAME_PREFIX = `mcp__${MCP_SERVER_KEY}__`;
 
 export const GET_CURRENT_PAGE_TOOL_NAME = "GetCurrentPage";
@@ -27,18 +29,24 @@ export const NAVIGATE_RESULT_PREFIX = "Navigation requested to ";
 export const NAVIGATE_RESULT_COMPLETED_SUFFIX = " (completed)";
 export const NAVIGATE_RESULT_TIMEOUT_SUFFIX =
   " (timed out waiting for confirmation)";
-// Appended to the navigate result so the agent gets grounded confirmation of the
-// page the host is actually on now, rather than assuming the requested path took.
+/**
+ * Appended to the navigate result so the agent gets grounded confirmation of the
+ * page the host is actually on now, rather than assuming the requested path took.
+ */
 export const NAVIGATE_RESULT_LANDED_PREFIX = ". Host is now displaying ";
 
-// Returned instead of navigating when the requested path matches no registered
-// route — stops the agent from landing on a guessed URL that 404s.
+/**
+ * Returned instead of navigating when the requested path matches no registered
+ * route — stops the agent from landing on a guessed URL that 404s.
+ */
 export const NAVIGATE_UNKNOWN_ROUTE_PREFIX = "Did not navigate: ";
 export const NAVIGATE_UNKNOWN_ROUTE_SUFFIX =
   " is not a registered page route. Closest known routes: ";
 export const NAVIGATE_UNKNOWN_ROUTE_HINT =
   ". Call ListPages for the full list and use a real route.";
-// Cap the number of suggested routes inlined into the tool result.
+/**
+ * Cap the number of suggested routes inlined into the tool result.
+ */
 export const NAVIGATE_SUGGESTION_LIMIT = 20;
 
 export const ASK_USER_TOOL_NAME = "AskUser";
@@ -50,19 +58,23 @@ export const ASK_USER_RESULT_SKIPPED =
 export const ASK_USER_RESULT_NO_ANSWER =
   "The user did not answer (the question timed out or was dismissed).";
 
-// The SDK's built-in AskUserQuestion tool cannot render in the chat, so
-// calls to it dead-end at the permission prompt. Redirect the agent to the
-// module's own AskUser MCP tool, which routes to the question bus the chat
-// does render.
+/**
+ * The SDK's built-in AskUserQuestion tool cannot render in the chat, so
+ * calls to it dead-end at the permission prompt. Redirect the agent to the
+ * module's own AskUser MCP tool, which routes to the question bus the chat
+ * does render.
+ */
 export const ASK_USER_QUESTION_BUILTIN_TOOL_NAME = "AskUserQuestion";
 export const ASK_USER_QUESTION_REDIRECT_MESSAGE = `AskUserQuestion is not available here. Use the ${MCP_TOOL_NAME_PREFIX}${ASK_USER_TOOL_NAME} tool instead to ask the user multiple-choice questions.`;
 
-// Explicit allowlist of the module's own MCP tools that are safe to auto-allow
-// without a permission prompt: none of them mutate host state (page reads and
-// navigation, listing pages, asking the user, showing a preview, running tsc for a typecheck,
-// querying logs). Keyed by the fully qualified name the SDK presents to the
-// model. Any new dms-ai tool is NOT auto-allowed until it is added here
-// deliberately.
+/**
+ * Explicit allowlist of the module's own MCP tools that are safe to auto-allow
+ * without a permission prompt: none of them mutate host state (page reads and
+ * navigation, listing pages, asking the user, showing a preview, running tsc for a typecheck,
+ * querying logs). Keyed by the fully qualified name the SDK presents to the
+ * model. Any new dms-ai tool is NOT auto-allowed until it is added here
+ * deliberately.
+ */
 export const FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES: ReadonlySet<string> = new Set(
   [
     GET_CURRENT_PAGE_TOOL_NAME,
@@ -79,13 +91,17 @@ export const FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES: ReadonlySet<string> = new Set(
 );
 
 export const MCP_HTTP_PATH = "/mcp";
-// Where an out-of-process provider reaches the endpoint above.
+/**
+ * Where an out-of-process provider reaches the endpoint above.
+ */
 export const MCP_HTTP_URL_TEMPLATE = `http://127.0.0.1:%port%${MCP_HTTP_PATH}`;
 export const MCP_HTTP_PORT_TOKEN = "%port%";
 export const MCP_AUTHORIZATION_HEADER = "authorization";
 export const MCP_BEARER_PREFIX = "bearer ";
-// Loopback forms accepted in Host/Origin. Anything else is refused so a page in
-// a browser cannot reach the sidecar's MCP endpoint by DNS rebinding.
+/**
+ * Loopback forms accepted in Host/Origin. Anything else is refused so a page in
+ * a browser cannot reach the sidecar's MCP endpoint by DNS rebinding.
+ */
 export const MCP_LOOPBACK_HOSTNAMES = [
   "127.0.0.1",
   "localhost",
@@ -95,15 +111,19 @@ export const MCP_LOOPBACK_HOSTNAMES = [
 
 const MS_PER_SECOND = 1_000;
 
-// The longest a dms-ai tool waits on the user: an AskUser question, or a
-// Builder deletion held at the gate for the longest permission timeout.
+/**
+ * The longest a dms-ai tool waits on the user: an AskUser question, or a
+ * Builder deletion held at the gate for the longest permission timeout.
+ */
 const LONGEST_USER_WAIT_MS = Math.max(
   QUESTION_TIMEOUT_MS,
   Math.max(...REQUEST_TIMEOUT_MINUTES) * MS_PER_MINUTE,
 );
 
-// Room left after that wait for the work the call then does (the turn's
-// checkpoint, the Builder op and its typecheck).
+/**
+ * Room left after that wait for the work the call then does (the turn's
+ * checkpoint, the Builder op and its typecheck).
+ */
 const MCP_TOOL_TIMEOUT_GRACE_MS = 5 * MS_PER_MINUTE;
 
 /**

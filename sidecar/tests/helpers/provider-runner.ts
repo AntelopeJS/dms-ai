@@ -8,6 +8,10 @@ import { createCodexProvider } from "../../src/providers/codex/provider.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
 import type { ProviderName } from "../../src/state/types.js";
 
+/**
+ * No tool in these turns reaches MCP, so the binding is registered but never
+ * dialled; the URL is deliberately dead.
+ */
 const UNREACHABLE_MCP_URL = "http://127.0.0.1:1/mcp";
 
 export interface RunnerHandle {
@@ -39,8 +43,6 @@ const BUILDERS: Record<ProviderName, ProviderBuilder> = {
     dispose: () => Promise.resolve(),
   }),
   codex: (options) => {
-    // No tool in these turns reaches MCP, so the binding is registered but
-    // never dialled; the URL is deliberately dead.
     const registry = createMcpHttpRegistry();
     return {
       provider: createCodexProvider({

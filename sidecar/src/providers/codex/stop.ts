@@ -10,8 +10,10 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-// Windows has no signals: `process.kill` terminates the app-server and leaves
-// whatever it spawned behind, so the tree is killed through taskkill instead.
+/**
+ * Windows has no signals: `process.kill` terminates the app-server and leaves
+ * whatever it spawned behind, so the tree is killed through taskkill instead.
+ */
 async function terminateWindows(pid: number): Promise<void> {
   const [command, ...args] = WINDOWS_TREE_KILL;
   await execFileAsync(

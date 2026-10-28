@@ -27,8 +27,6 @@ describe("effective generation mode", () => {
     expect(effectiveGenerationMode("vibe")).toBe("vibe");
   });
 
-  // The fallback is read-time only: the caller's stored preference is never
-  // rewritten, so safe re-engages by itself once dms-builder is loaded.
   it("re-engages safe once the builder appears", () => {
     const stored = DEFAULT_SETTINGS.generationMode;
     setBuilderAvailable(false);

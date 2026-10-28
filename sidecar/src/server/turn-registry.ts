@@ -11,14 +11,14 @@ interface OpenCall {
 /** What the sidecar tracks about one running turn. */
 export interface ActiveTurn {
   conversationId: string;
-  // The user's request, shortened into the change set title.
+  /** The user's request, shortened into the change set title. */
   request: string;
   isAutoFix: boolean;
   askedBy?: string;
   pagePath?: string;
   checkpoint: TurnCheckpoint;
   openCalls: Map<string, OpenCall>;
-  // Calls that may have changed files, stamped with the change set at the end.
+  /** Calls that may have changed files, stamped with the change set at the end. */
   mutatingCallIds: string[];
   approvalsNeeded: number;
   builderOps: number;

@@ -12,9 +12,12 @@ import { listPagesRegistry } from "../pages-registry";
 import type { PagesRegistryEntry } from "../types/pages-registry";
 import { isSidecarRequest, sidecarForbidden } from "./sidecar-auth";
 
-// The runtime registry has no file path (it knows route/id/module only). When the
-// Builder is present, enrich each entry with the real source file it resolves from
-// its own scan, keyed by route — so page-file tools work for every page.
+/**
+ * The runtime registry has no file path (it knows route/id/module only). When
+ * the Builder is present, enrich each entry with the real source file it
+ * resolves from its own scan, keyed by route — so page-file tools work for every
+ * page.
+ */
 async function withBuilderFilepaths(
   entries: PagesRegistryEntry[],
 ): Promise<PagesRegistryEntry[]> {

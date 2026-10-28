@@ -39,8 +39,10 @@ function approve(socket: WebSocket, requestId: unknown): void {
   });
 }
 
-// Both providers replay a turn that stops on an approval request, which is what
-// holds the drain lock open while the queue is exercised.
+/**
+ * Both providers replay a turn that stops on an approval request, which is what
+ * holds the drain lock open while the queue is exercised.
+ */
 async function startPausedTurn(
   socket: WebSocket,
 ): Promise<{ collector: WireCollector; permission: WireMessage }> {

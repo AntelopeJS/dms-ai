@@ -301,8 +301,10 @@ interface InterruptFlag {
   requested: boolean;
 }
 
-// The real SDK answers an interrupt by ending the turn with a result message,
-// which is what lets the session close the turn instead of hard-aborting it.
+/**
+ * The real SDK answers an interrupt by ending the turn with a result message,
+ * which is what lets the session close the turn instead of hard-aborting it.
+ */
 function buildInterruptedResult(): SDKMessage {
   return {
     type: "result",
@@ -332,9 +334,11 @@ async function* replayOnce(
   }
 }
 
-// One replay per user turn, as the real SDK serves several turns from a single
-// query: the session stays alive between them, which is what a scenario about a
-// second turn needs.
+/**
+ * One replay per user turn, as the real SDK serves several turns from a single
+ * query: the session stays alive between them, which is what a scenario about a
+ * second turn needs.
+ */
 async function* createMessageStream(
   args: BuildMockQueryArgs,
   interrupted: InterruptFlag,
@@ -396,14 +400,17 @@ interface TraceEntry {
   [field: string]: unknown;
 }
 
+/**
+ * Appends one entry to the trace file named by the environment, if any. A trace
+ * that cannot be written is swallowed: tracing is never worth failing a session
+ * for, same as in the Codex mock.
+ */
 function appendTrace(entry: TraceEntry): void {
   const file = process.env[MOCK_TRACE_ENV_VAR];
   if (file === undefined) return;
   try {
     appendFileSync(file, `${JSON.stringify(entry)}\n`);
-  } catch {
-    // Same as the Codex mock: tracing is never worth failing a session for.
-  }
+  } catch {}
 }
 
 function traceOptions(options: Options | undefined): void {

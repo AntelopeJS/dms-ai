@@ -56,8 +56,6 @@ describe("mode mapping", () => {
     });
   });
 
-  // Accepting edits says nothing about egress, and the Claude path grants none
-  // here: the backend the user picked must not widen what they agreed to.
   it("leaves the network closed when edits are auto-accepted", () => {
     expect(
       resolveModePolicy(settings({ mode: "acceptEdits" })).networkAccess,
@@ -111,8 +109,6 @@ describe("mode mapping", () => {
     },
   );
 
-  // Without the Builder there is no write route left at all, so safe mode
-  // degrades to vibe here exactly as it does on the Claude path.
   it("degrades safe mode to vibe when the Builder is absent", () => {
     const policy = resolveModePolicy(
       settings({ mode: "acceptEdits", generationMode: "safe" }),
@@ -124,7 +120,6 @@ describe("mode mapping", () => {
   it("translates the thinking level to a reasoning effort", () => {
     expect(
       buildTurnOverrides(settings({ thinking: "off" }), WORKSPACE).effort,
-      // Codex rejects "minimal"; off maps to the lowest level it accepts.
     ).toBe("low");
     expect(
       buildTurnOverrides(settings({ thinking: "high" }), WORKSPACE).effort,
@@ -179,7 +174,7 @@ async function startTokenServer(
   return { server, url: `http://127.0.0.1:${port}/codex/access-token` };
 }
 
-// The TOML array is written with JSON string escapes, so it reads back as JSON.
+/** The TOML array is written with JSON string escapes, so it reads back as JSON. */
 function authCommandArgs(toml: string): string[] {
   const line = toml.split("\n").find((entry) => entry.startsWith("args = "));
   return JSON.parse(line?.slice("args = ".length) ?? "[]") as string[];
@@ -230,8 +225,6 @@ describe("ChatGPT plan provider", () => {
   });
 });
 
-// Safe mode only exists while the Builder is loaded; without it both of these
-// degrade to vibe, and there is nothing left to say.
 describe("safe-mode instructions", () => {
   const safe = (): AppSettings => settings({ generationMode: "safe" });
   const vibe = (): AppSettings => settings({ generationMode: "vibe" });

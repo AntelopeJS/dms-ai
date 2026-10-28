@@ -1,13 +1,15 @@
 import type { AllowedBy } from "../constants/audit.js";
 
-// Codex fans one patch out into `<itemId>:<index>` calls; its approval names
-// the item alone.
+/**
+ * Codex fans one patch out into `<itemId>:<index>` calls; its approval names
+ * the item alone.
+ */
 const CALL_INDEX_SEPARATOR = ":";
 
 /** How one call was allowed, as decided before it ran. */
 export interface CallDecision {
   allowedBy: AllowedBy;
-  // The user was asked about it.
+  /** The user was asked about it. */
   isPrompted: boolean;
 }
 

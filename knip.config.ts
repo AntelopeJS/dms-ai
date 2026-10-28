@@ -1,21 +1,25 @@
 import { antelopeKnipConfig } from "@antelopejs/tooling-configs/knip";
 
+/**
+ * Knip config for the root package. `@anthropic-ai/claude-code` is resolved from
+ * node_modules at runtime as an executable and never imported. The published
+ * sidecar uses the root's runtime dependencies, so the SDK, MCP and zod
+ * dependencies are ignored here: knip assigns their imports to the sidecar
+ * workspace, which is checked separately. Nested package dependencies are
+ * checked from their own manifests, so `frontend-vue` and `sidecar` stay
+ * separate workspaces with their own development manifests.
+ */
 export default {
   workspaces: {
     ".": antelopeKnipConfig({
       ignoreDependencies: [
-        // Resolved from node_modules at runtime as an executable, never imported.
         "@anthropic-ai/claude-code",
-        // The published sidecar uses the root's runtime dependencies. Knip now
-        // assigns its imports to the sidecar workspace, checked separately.
         "@anthropic-ai/claude-agent-sdk",
         "@modelcontextprotocol/sdk",
         "zod",
       ],
-      // Nested package dependencies are checked from their own manifests.
       ignore: ["frontend-vue/**", "sidecar/tests/**"],
     }),
   },
-  // Keep the existing separate checks for nested development manifests.
   ignoreWorkspaces: ["frontend-vue", "sidecar"],
 };

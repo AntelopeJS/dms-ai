@@ -35,8 +35,10 @@ function buildNavigationEvent(targetPath: string): AnyServerEventType {
   };
 }
 
-// Best-effort list of registered routes; never blocks navigation on its own
-// failure (the validation below only fires when this is non-empty).
+/**
+ * Best-effort list of registered routes; never blocks navigation on its own
+ * failure (the validation below only fires when this is non-empty).
+ */
 async function safeKnownRoutes(registry: RegistryClient): Promise<string[]> {
   try {
     const entries = await registry.getRegistry();
@@ -98,15 +100,18 @@ function buildContent(
   });
 }
 
+/**
+ * Builds the tool that navigates the user's browser to a page. It guards
+ * against guessed URLs: with a non-empty registry, a path that is not a known
+ * route returns suggestions instead of navigating into a 404. It fails open
+ * when the registry is empty or unreachable.
+ */
 export function buildNavigateToPageTool(deps: NavigateToPageDeps) {
   return defineTool(
     NAVIGATE_TOOL_NAME,
     NAVIGATE_TOOL_DESCRIPTION,
     INPUT_SCHEMA,
     async ({ path: targetPath }: { path: string }) => {
-      // Guard against guessed URLs: if we have a non-empty registry and the
-      // path isn't a known route, return suggestions instead of navigating into
-      // a 404. Fail open when the registry is empty/unreachable.
       const knownRoutes = await safeKnownRoutes(deps.registry);
       if (knownRoutes.length > 0 && !isKnownRoute(targetPath, knownRoutes)) {
         return buildUnknownRouteContent(targetPath, knownRoutes);

@@ -35,14 +35,17 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Appends one entry to the trace file named by the environment, if any. A trace
+ * that cannot be written must never take the server down with it, so a failed
+ * write is swallowed.
+ */
 function trace(entry) {
   const file = process.env[TRACE_ENV_VAR];
   if (file === undefined) return;
   try {
     appendFileSync(file, `${JSON.stringify(entry)}${LINE_SEPARATOR}`);
-  } catch {
-    // A trace that cannot be written must never take the server down with it.
-  }
+  } catch {}
 }
 
 function createTransport(stdin, stdout) {
@@ -89,8 +92,10 @@ function itemOf(frame) {
   return frame.params?.item;
 }
 
-// A replayed mcpToolCall is executed for real against the sidecar's MCP
-// binding, then its completion carries whatever came back.
+/**
+ * A replayed mcpToolCall is executed for real against the sidecar's MCP
+ * binding, then its completion carries whatever came back.
+ */
 async function completeMcpToolCall(frame) {
   const item = itemOf(frame);
   const { result, error } = await callMcpTool(item.tool, item.arguments);
@@ -139,6 +144,11 @@ async function replayFrame(state, transport, frame) {
   transport.write(await resolveFrame(frame));
 }
 
+/**
+ * Replays the next recorded turn. A dump always ends its turn itself; a
+ * hand-built script need not, so a turn-completed frame is appended when the
+ * last frame is not one.
+ */
 async function replayTurn(state, transport) {
   const frames = state.dump.turns[state.turnIndex] ?? [];
   state.turnIndex += 1;
@@ -151,7 +161,6 @@ async function replayTurn(state, transport) {
     await sleep(delayMs());
     await replayFrame(state, transport, frame);
   }
-  // A dump always ends its turn itself; a hand-built script need not.
   const last = frames.at(-1);
   if (last?.method !== TURN_COMPLETED_METHOD) {
     transport.write(turnCompleted(COMPLETED_ITEM_STATUS));

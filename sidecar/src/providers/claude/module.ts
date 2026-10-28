@@ -9,8 +9,10 @@ import {
 } from "../types.js";
 import { createClaudeProvider } from "./provider.js";
 
-// Resolved by specifier, never imported: the SDK is loaded lazily, and this
-// only has to answer whether it is installed at all.
+/**
+ * Resolved by specifier, never imported: the SDK is loaded lazily, and this
+ * only has to answer whether it is installed at all.
+ */
 function isSdkInstalled(): boolean {
   try {
     createRequire(import.meta.url).resolve(REAL_SDK_PACKAGE);
@@ -25,8 +27,10 @@ function checkAvailability(): ProviderAvailability {
   return unavailable(PROVIDER_UNAVAILABLE_REASONS.CLAUDE_SDK_MISSING);
 }
 
-// In-process: the MCP server reaches it through the session context, so none of
-// the runtime is used here.
+/**
+ * In-process: the MCP server reaches it through the session context, so none of
+ * the runtime is used here.
+ */
 export const claudeModule: ProviderModule = {
   name: "claude",
   create: (options) => createClaudeProvider(options),

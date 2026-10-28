@@ -11,8 +11,10 @@ import {
   MCP_TOKEN_ENV_VAR,
 } from "./constants.mjs";
 
-// The sidecar hands the endpoint the same way it does to the real binary: the
-// URL in the generated config.toml, the bearer in the environment.
+/**
+ * The sidecar hands the endpoint the same way it does to the real binary: the
+ * URL in the generated config.toml, the bearer in the environment.
+ */
 function readMcpUrl() {
   const home = process.env[CODEX_HOME_ENV_VAR];
   if (home === undefined) return undefined;

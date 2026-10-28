@@ -11,13 +11,15 @@ interface SessionSetup {
   onDisposed?: (disposal: Promise<void>) => void;
 }
 
-// A backend that never says anything: whatever the session does, it is not
-// because an event arrived.
+/**
+ * A backend that never says anything: whatever the session does, it is not
+ * because an event arrived.
+ */
 function silentEvents(): AsyncIterator<RunnerEvent, void> {
   return { next: () => new Promise<never>(() => {}) };
 }
 
-// A backend whose stream has already ended, as when its process died.
+/** A backend whose stream has already ended, as when its process died. */
 function endedEvents(): AsyncIterator<RunnerEvent, void> {
   return { next: () => Promise.resolve({ value: undefined, done: true }) };
 }
@@ -80,7 +82,6 @@ describe("session teardown", () => {
       { text: "go", attachments: [] },
       IDLE_TIMEOUT_MS,
     )) {
-      // The stream has already ended: the turn only has to notice.
     }
     expect(handed).toHaveLength(1);
     expect(session.dispose()).toBe(handed[0]);

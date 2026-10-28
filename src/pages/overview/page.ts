@@ -24,19 +24,14 @@ export class AIOverviewPage extends PageController(
   pageMenu(PAGE_IDS.OVERVIEW, "i-ph-chart-line", PAGE_ORDER.OVERVIEW),
   DefaultLayout(),
 ) {
-  // No live data: "Updated … ago" with a refresh button, then the period.
+  /** No live data: "Updated … ago" with a refresh button, then the period. */
   static toolbar = pageToolbar({
     live: false,
     period: {
       id: OVERVIEW_PERIOD_SCOPE,
       rememberKey: PERIOD_REMEMBER_KEY,
       defaultPreset: "last-7-days",
-      // The activity chart has one point per day: an hour would draw one point.
       presets: ["last-24h", "last-7-days", "last-30-days"],
-      // A menu, the period before first: the owner picks what the deltas and
-      // the chart's dashed line measure against, or none at all. The sidecar
-      // keeps conversations until the owner deletes them, so a year back is
-      // there to compare with.
       comparisons: ["previous-period", "previous-year", "none"],
       meta: blockMeta("overview.period", PERIOD_ICON),
     },

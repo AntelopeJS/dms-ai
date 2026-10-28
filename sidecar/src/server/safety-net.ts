@@ -24,8 +24,10 @@ interface Stringable {
   toString(): string;
 }
 
-// A line worth listing in the auto-fix notice: a compiler error, or a reload
-// log line (which the summary prefixes with its channel).
+/**
+ * A line worth listing in the auto-fix notice: a compiler error, or a reload
+ * log line (which the summary prefixes with its channel).
+ */
 const ERROR_LINE = /error|^\[/i;
 
 export function uniqueEditedRoots(
@@ -40,6 +42,12 @@ export function uniqueEditedRoots(
   return [...roots];
 }
 
+/**
+ * Renders a log argument as text. `JSON.stringify` throws on a cycle or a
+ * nested BigInt; the fallback then uses the value's own `toString()`, which an
+ * error object usually customises and which is the whole content of the
+ * summary this feeds, and only degrades to "[object Object]" for a plain one.
+ */
 function argToText(arg: unknown): string {
   if (typeof arg === "string") return arg;
   if (arg !== null && typeof arg === "object") {
@@ -49,10 +57,6 @@ function argToText(arg: unknown): string {
     try {
       return JSON.stringify(arg);
     } catch {
-      // A cycle, or a BigInt nested inside. `String(arg)` keeps a custom
-      // `toString()` -- which an error object usually has, and which is the
-      // whole content of the summary this feeds -- and only degrades to
-      // "[object Object]" for a plain one.
       return (arg as Stringable).toString();
     }
   }
@@ -91,11 +95,11 @@ function defaultDelay(ms: number): Promise<void> {
 
 /** What the safety net found after a turn that edited files. */
 export interface BuildReport {
-  // The auto-fix prompt, or null when the build is healthy.
+  /** The auto-fix prompt, or null when the build is healthy. */
   healPrompt: string | null;
-  // `skipped` when no typecheck could run on the edited roots.
+  /** `skipped` when no typecheck could run on the edited roots. */
   typecheck: TypecheckOutcome;
-  // One line per problem, for the auto-fix notice.
+  /** One line per problem, for the auto-fix notice. */
   errors: string[];
 }
 

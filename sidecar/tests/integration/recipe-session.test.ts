@@ -39,15 +39,19 @@ const TEST_TIMEOUT_MS = 40_000;
 const ANSWER = "Yes";
 const SKILL_NAME = "dms-builder-safe";
 
-// Claude is handed an allowlist naming the skill; Codex an extra root naming
-// the directory it must scan. Same fact, two shapes.
+/**
+ * Claude is handed an allowlist naming the skill; Codex an extra root naming
+ * the directory it must scan. Same fact, two shapes.
+ */
 const SKILL_EVIDENCE: Record<ProviderName, (skillDir: string) => string> = {
   claude: () => SKILL_NAME,
   codex: (skillDir) => skillDir,
 };
 
-// A one-page PDF, small enough to inline: Codex has no PDF input, so this is
-// the attachment whose handling differs between providers.
+/**
+ * A one-page PDF, small enough to inline: Codex has no PDF input, so this is
+ * the attachment whose handling differs between providers.
+ */
 const PDF_BASE64 =
   "JVBERi0xLjQKMSAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PgplbmRvYmoKMiAwIG9iago8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PgplbmRvYmoKMyAwIG9iago8PC9UeXBlL1BhZ2UvUGFyZW50IDIgMCBSL01lZGlhQm94WzAgMCA5OSA5OV0+PgplbmRvYmoKdHJhaWxlcgo8PC9Sb290IDEgMCBSPj4K";
 
@@ -55,8 +59,6 @@ function isTerminal(msg: WireMessage): boolean {
   return msg.type === "run_done" || msg.type === "run_error";
 }
 
-// Scenarios 6, 7, 10, 11, 12 and 13: what a session exposes around its turns —
-// skills, the AskUser round trip, isolation, teardown and attachments.
 describe.each(PROVIDER_FIXTURES)("recipe — session on $name", (fixture) => {
   let harness: WsHarness | undefined;
   let client: WebSocket | undefined;
@@ -93,8 +95,6 @@ describe.each(PROVIDER_FIXTURES)("recipe — session on $name", (fixture) => {
       await eventsB.next(isTerminal);
       second.close();
 
-      // Every event a socket received belongs to its own conversation, and
-      // each transcript holds only its own message.
       const foreignA = eventsA.events.filter(
         (e) => e.conversationId === CONVERSATION_B,
       );
@@ -186,8 +186,6 @@ describe.each(PROVIDER_FIXTURES)("recipe — session on $name", (fixture) => {
   );
 });
 
-// Scenarios only the Codex path can carry end to end: they read what the fake
-// binary was actually asked to do.
 describe("recipe — session on codex only", () => {
   let harness: WsHarness | undefined;
   let client: WebSocket | undefined;
@@ -335,8 +333,6 @@ describe("recipe — session on codex only", () => {
       expect(before).toHaveLength(1);
       expect(existsSync(`/proc/${before[0]}`)).toBe(true);
 
-      // The chat goes first, as it does when the host shuts down: an open
-      // upgraded socket would hold the HTTP server's close.
       client?.close();
       client = undefined;
       await harness?.close();
@@ -367,8 +363,6 @@ describe("recipe — session on codex only", () => {
         (entry) => entry.method === "turn/start",
       );
       const input = JSON.stringify(start?.params?.input ?? []);
-      // Either rasterized pages (poppler present) or the file referenced by
-      // path — never silently dropped.
       expect(input).toContain("spec.pdf");
       expect(tracedMethods()).toContain("turn/start");
     },

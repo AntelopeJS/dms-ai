@@ -55,8 +55,10 @@ function hasTokenSecret(req: IncomingMessage): boolean {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-// Plain text both ways: the auth command prints the body as the bearer token,
-// or as the reason the request failed, which Codex then reports in the turn.
+/**
+ * Plain text both ways: the auth command prints the body as the bearer token,
+ * or as the reason the request failed, which Codex then reports in the turn.
+ */
 async function sendAccessToken(
   req: IncomingMessage,
   res: ServerResponse,

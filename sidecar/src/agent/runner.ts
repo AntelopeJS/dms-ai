@@ -19,28 +19,38 @@ import type {
 } from "./provider.js";
 import type { RunnerError, RunnerEvent } from "./runner-events.js";
 
-// What the agent is told about the page when the user removed the page chip:
-// the mode line of the host context still matters, the page does not.
+/**
+ * What the agent is told about the page when the user removed the page chip:
+ * the mode line of the host context still matters, the page does not.
+ */
 const WITHOUT_PAGE: CurrentPage = { path: HOST_CONTEXT_UNKNOWN_VALUE };
 
 export interface RunnerContext extends ToolCallHooks {
   conversationId: string;
   hostProjectRoot: string;
-  // Reads the host's displayed page live. Called at turn start to build the
-  // per-turn host-context block, and at session creation for the initial prompt.
+  /**
+   * Reads the host's displayed page live. Called at turn start to build the
+   * per-turn host-context block, and at session creation for the initial prompt.
+   */
   getCurrentPage: () => CurrentPage;
-  // Files the user attached to this turn. How they are carried to the agent is
-  // the provider's business.
+  /**
+   * Files the user attached to this turn. How they are carried to the agent is
+   * the provider's business.
+   */
   attachments?: AttachmentType[];
-  // False when the user removed the page chip from the composer.
+  /** False when the user removed the page chip from the composer. */
   includePageContext?: boolean;
   permissionBus?: PermissionBus;
-  // Built lazily: the server is consumed once, when the session opens, never
-  // per turn. A provider that registers an HTTP endpoint would otherwise mint a
-  // fresh binding on every turn.
+  /**
+   * Built lazily: the server is consumed once, when the session opens, never
+   * per turn. A provider that registers an HTTP endpoint would otherwise mint a
+   * fresh binding on every turn.
+   */
   createMcpServer?: () => AiMcpServer;
-  // Tokens one model call cost, so the connection layer can keep a running
-  // total per conversation.
+  /**
+   * Tokens one model call cost, so the connection layer can keep a running
+   * total per conversation.
+   */
   onTokenUsage?: (usage: TokenUsage) => void;
 }
 

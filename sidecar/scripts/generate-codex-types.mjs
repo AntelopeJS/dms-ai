@@ -52,18 +52,22 @@ const PROTOCOL_ROOTS = [
   "v2/UserInput",
 ];
 
-// Namespace directory, as `generate-ts` lays it out, to the module it is
-// flattened into. The root namespace lands in `common.ts` rather than in
-// `index.ts` so the barrel the package's `exports` map points at holds only
-// re-exports, which keeps the public shape identical to the generated tree.
+/**
+ * Namespace directory, as `generate-ts` lays it out, to the module it is
+ * flattened into. The root namespace lands in `common.ts` rather than in
+ * `index.ts` so the barrel the package's `exports` map points at holds only
+ * re-exports, which keeps the public shape identical to the generated tree.
+ */
 const MODULE_BY_NAMESPACE = {
   ".": "common",
   v2: "v2",
   serde_json: "serde_json",
 };
 
-// Namespaces the barrel re-exports. `serde_json` stays reachable only through
-// the types that reference it, exactly as the generated tree had it.
+/**
+ * Namespaces the barrel re-exports. `serde_json` stays reachable only through
+ * the types that reference it, exactly as the generated tree had it.
+ */
 const PUBLIC_NAMESPACES = [".", "v2"];
 
 const GENERATED_HEADER = [
@@ -211,7 +215,10 @@ function resolveSpecifier(fromKey, specifier) {
 
 /**
  * Every type reachable from `PROTOCOL_ROOTS`, parsed once and kept in memory so
- * the generated tree can be replaced by the flattened modules afterwards.
+ * the generated tree can be replaced by the flattened modules afterwards. An
+ * import that names a directory is a barrel re-export: it carries no
+ * declaration of its own, so there is nothing to pull in. Any other import that
+ * resolves to no file is an error.
  */
 function collectClosure() {
   const closure = new Map();
@@ -232,8 +239,6 @@ function collectClosure() {
         pending.push(target);
         continue;
       }
-      // A directory specifier is a barrel re-export; it carries no
-      // declaration of its own, so nothing to pull in.
       const asDirectory = path.join(OUTPUT_DIR, target);
       if (existsSync(asDirectory) && statSync(asDirectory).isDirectory()) {
         continue;
@@ -277,14 +282,16 @@ function crossNamespaceImports(closure, keys, namespace) {
   return byModule;
 }
 
+/**
+ * Writes one flattened module. Flattening puts imports and declarations in one
+ * scope, so a name carried by two namespaces would silently shadow. Codex has a
+ * few such pairs; this refuses rather than emit types that mean the wrong thing.
+ */
 function writeNamespaceModule(closure, namespace, keys) {
   const declared = new Set(keys.map(nameOf));
   const imports = crossNamespaceImports(closure, keys, namespace);
   for (const [module, names] of imports) {
     for (const name of names) {
-      // Flattening puts imports and declarations in one scope, so a name
-      // carried by two namespaces would silently shadow. Codex has a few
-      // such pairs; refuse rather than emit types that mean the wrong thing.
       if (declared.has(name)) {
         throw new Error(
           `"${name}" exists in both "${namespace}" and "${module}"; flattening would shadow it`,

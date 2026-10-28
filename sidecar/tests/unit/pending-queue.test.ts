@@ -52,8 +52,6 @@ describe("pending-queue store", () => {
   it("is a single-writer drain lock: only one holder at a time", () => {
     const q = createPendingQueueStore();
     expect(q.tryStartDrain(CONV)).toBe(true);
-    // A second acquire while held is refused — this is what prevents a racing
-    // or reconnecting client from starting a parallel drain and double-running.
     expect(q.tryStartDrain(CONV)).toBe(false);
     q.endDrain(CONV);
     expect(q.tryStartDrain(CONV)).toBe(true);

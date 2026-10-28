@@ -1,13 +1,17 @@
 import { defineConfig } from "@antelopejs/interface-core/config";
 
-// Origin the DMS frontend is served from. The api module cannot publish it --
-// it only knows its own origins -- so it stays a literal here, overridable for
-// the gateway setup.
+/**
+ * Origin the DMS frontend is served from. The api module cannot publish it --
+ * it only knows its own origins -- so it stays a literal here, overridable for
+ * the gateway setup.
+ */
 const FRONTEND_ORIGIN = "http://localhost:3001";
 const FRONTEND_LOOPBACK_ORIGIN = "http://127.0.0.1:3001";
 const dmsClientUrl = process.env.DMS_CLIENT_BASE_URL;
-// Port the api module *prefers*; it publishes the one it actually reserved as
-// API_LOCAL_BASE_URL, which is what every other module here consumes.
+/**
+ * Port the api module *prefers*; it publishes the one it actually reserved as
+ * API_LOCAL_BASE_URL, which is what every other module here consumes.
+ */
 const API_PREFERRED_PORT = "5010";
 const apiLocalBaseUrl = "${@api.API_LOCAL_BASE_URL}";
 

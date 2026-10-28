@@ -21,9 +21,11 @@ function installed(root, name) {
   return path.join(root, "node_modules", ...name.split("/"));
 }
 
-// A loaded module in the module cache with one interface dependency, and a
-// project root that installs the core, a dev tool and the same module from
-// npm, none of them loaded as modules.
+/**
+ * A loaded module in the module cache with one interface dependency, and a
+ * project root that installs the core, a dev tool and the same module from
+ * npm, none of them loaded as modules.
+ */
 function createFixture() {
   const base = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), "dms-ai-skill-sources-")),

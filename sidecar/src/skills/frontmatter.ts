@@ -1,7 +1,7 @@
-// Minimal SKILL.md frontmatter parser for the catalog DISPLAY only — the SDK
-// parses SKILL.md itself for the agent. Intentionally dependency-free: supports
-// `key: scalar`, quoted scalars, and inline arrays `[a, b]` (only `tags` needs
-// arrays).
+/**
+ * The fields of a SKILL.md read for the catalog display only; the SDK parses
+ * SKILL.md itself for the agent.
+ */
 export interface ParsedSkill {
   name: string;
   description: string;
@@ -35,6 +35,12 @@ function parseInlineArray(v: string): string[] {
     .filter((s) => s.length > 0);
 }
 
+/**
+ * Minimal SKILL.md frontmatter parser, intentionally dependency-free: supports
+ * `key: scalar`, quoted scalars, and inline arrays `[a, b]` (only `tags` needs
+ * arrays). Returns null when there is no frontmatter fence or when `name` or
+ * `description` is missing.
+ */
 export function parseSkillFile(raw: string): ParsedSkill | null {
   const m = raw.match(FENCE);
   if (m === null) return null;

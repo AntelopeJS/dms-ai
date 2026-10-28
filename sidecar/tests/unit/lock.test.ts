@@ -42,8 +42,6 @@ describe("sidecar lock", () => {
 
   it("does NOT remove a lock owned by a different pid", async () => {
     await writeLock(dir, LOCK);
-    // A retired/orphaned instance (different pid) must not clobber the live
-    // sidecar's lock, or the backend can't adopt it and spawns a duplicate.
     await removeLock(dir, LOCK.pid + 1);
     expect(existsSync(buildLockPath(dir))).toBe(true);
   });

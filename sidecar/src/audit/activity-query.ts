@@ -40,7 +40,7 @@ export interface ActivityFileDiff {
 /** One row with what its drawer shows. */
 export interface ActivityDetail extends ActivityRow {
   args: unknown;
-  // The tool's output, truncated; `result` stays the row's status.
+  /** The tool's output, truncated; `result` stays the row's status. */
   output?: string;
   diff?: ActivityFileDiff[];
   decisionTrail: DecisionStep[];

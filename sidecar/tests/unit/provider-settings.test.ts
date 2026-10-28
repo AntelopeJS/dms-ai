@@ -29,7 +29,6 @@ describe("provider setting", () => {
     expect(parseSettings(bogus).provider).toBe(DEFAULT_SETTINGS.provider);
   });
 
-  // A settings patch omitting the field must leave the stored choice alone.
   it("leaves the field undefined when a patch omits it", () => {
     const msg = SetSettingsMsg.parse({
       type: "set_settings",
