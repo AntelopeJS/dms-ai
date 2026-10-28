@@ -13,7 +13,7 @@ An owner-only development assistant. The backend starts a sidecar (child process
 ## Setup
 
 - `ajs project modules add @antelopejs/dms-ai`; config `backendUrl: "${@api.API_LOCAL_BASE_URL}"`.
-- Version 0.3+ needs `@antelopejs/dms` 0.9 (`interface-dms` 0.7) and `@antelopejs/dms-frontend` 0.6; 0.2 is the DMS 0.8 line. The frontend server proxies `/ai/**` to the backend with the session (`backendProxies`).
+- It needs `@antelopejs/dms` 0.11 (`interface-dms` 0.9) and `@antelopejs/dms-frontend` 0.9; 0.6.0 is the DMS 0.10 line. The frontend server proxies `/ai/**` to the backend with the session (`backendProxies`).
 - Load `@antelopejs/dms-builder` too: chats then default to Safe mode (Builder tools only, typechecked writes). Code mode allows file edits and commands under the approval mode.
 - Claude Code is the default provider. Codex needs `@openai/codex` at the exact version in `peerDependencies` and a ChatGPT sign-in (Assistant › Settings; on a remote DMS the 127.0.0.1 return page fails to load and its address is pasted with **Paste the return address**; stored per user in `~/.config/dms-ai/chatgpt-auth.json`, `OPENAI_API_KEY` is ignored); a provider that cannot run fails the turn, never falls back.
 
