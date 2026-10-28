@@ -51,7 +51,7 @@ async function readState(filePath: string): Promise<StoredState> {
     return parseStateContents(raw);
   } catch (err) {
     const isMissing =
-      err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT";
+      err instanceof Error && "code" in err && err.code === "ENOENT";
     if (isMissing) return STATE_INITIAL;
     console.warn(`${STATE_LOG_PREFIX} read failed: ${String(err)}`);
     return STATE_INITIAL;

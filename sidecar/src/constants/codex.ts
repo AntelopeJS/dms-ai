@@ -30,23 +30,23 @@ export const WINDOWS_PLATFORM = "win32";
  * they are invisible to a direct resolve and have to be reached from the
  * launcher package's own resolution root.
  */
-export const CODEX_PLATFORM_PACKAGE_BY_TRIPLE: Record<string, string> = {
-  "x86_64-unknown-linux-musl": "@openai/codex-linux-x64",
-  "aarch64-unknown-linux-musl": "@openai/codex-linux-arm64",
-  "x86_64-apple-darwin": "@openai/codex-darwin-x64",
-  "aarch64-apple-darwin": "@openai/codex-darwin-arm64",
-  "x86_64-pc-windows-msvc": "@openai/codex-win32-x64",
-  "aarch64-pc-windows-msvc": "@openai/codex-win32-arm64",
-};
+export const CODEX_PLATFORM_PACKAGE_BY_TRIPLE = new Map<string, string>([
+  ["x86_64-unknown-linux-musl", "@openai/codex-linux-x64"],
+  ["aarch64-unknown-linux-musl", "@openai/codex-linux-arm64"],
+  ["x86_64-apple-darwin", "@openai/codex-darwin-x64"],
+  ["aarch64-apple-darwin", "@openai/codex-darwin-arm64"],
+  ["x86_64-pc-windows-msvc", "@openai/codex-win32-x64"],
+  ["aarch64-pc-windows-msvc", "@openai/codex-win32-arm64"],
+]);
 
-export const CODEX_TRIPLE_BY_HOST: Record<string, string> = {
-  "linux:x64": "x86_64-unknown-linux-musl",
-  "linux:arm64": "aarch64-unknown-linux-musl",
-  "darwin:x64": "x86_64-apple-darwin",
-  "darwin:arm64": "aarch64-apple-darwin",
-  "win32:x64": "x86_64-pc-windows-msvc",
-  "win32:arm64": "aarch64-pc-windows-msvc",
-};
+export const CODEX_TRIPLE_BY_HOST = new Map<string, string>([
+  ["linux:x64", "x86_64-unknown-linux-musl"],
+  ["linux:arm64", "aarch64-unknown-linux-musl"],
+  ["darwin:x64", "x86_64-apple-darwin"],
+  ["darwin:arm64", "aarch64-apple-darwin"],
+  ["win32:x64", "x86_64-pc-windows-msvc"],
+  ["win32:arm64", "aarch64-pc-windows-msvc"],
+]);
 
 export const CODEX_VERSION_ARGUMENT = "--version";
 export const CODEX_VERSION_PATTERN = /(\d+\.\d+\.\d+)\s*$/;
@@ -136,7 +136,9 @@ export const CODEX_PROC_CMDLINE = `/proc/${CODEX_PID_TOKEN}/cmdline`;
  * BSD ps, Windows answers with the image name, which is enough to tell a codex
  * process from a recycled pid.
  */
-export const PROCESS_QUERY_BY_PLATFORM: Record<string, readonly string[]> = {
+export const PROCESS_QUERY_BY_PLATFORM: Partial<
+  Record<NodeJS.Platform, readonly string[]>
+> = {
   darwin: ["ps", "-p", CODEX_PID_TOKEN, "-o", "command="],
   win32: ["tasklist", "/FI", `PID eq ${CODEX_PID_TOKEN}`, "/FO", "CSV", "/NH"],
 };
@@ -259,12 +261,12 @@ export const CODEX_TURN_ABORTED_MESSAGE = "codex turn aborted";
  * reasoning, a command or a patch producing output, and the `error` it emits
  * while reconnecting to the model (the turn then goes on).
  */
-export const CODEX_ACTIVITY_BY_METHOD: Record<string, ActivityKind> = {
-  "turn/started": "thinking",
-  "item/reasoning/summaryTextDelta": "thinking",
-  "item/reasoning/summaryPartAdded": "thinking",
-  "item/reasoning/textDelta": "thinking",
-  "item/commandExecution/outputDelta": "tool",
-  "item/fileChange/outputDelta": "tool",
-  error: "retrying",
-};
+export const CODEX_ACTIVITY_BY_METHOD = new Map<string, ActivityKind>([
+  ["turn/started", "thinking"],
+  ["item/reasoning/summaryTextDelta", "thinking"],
+  ["item/reasoning/summaryPartAdded", "thinking"],
+  ["item/reasoning/textDelta", "thinking"],
+  ["item/commandExecution/outputDelta", "tool"],
+  ["item/fileChange/outputDelta", "tool"],
+  ["error", "retrying"],
+]);

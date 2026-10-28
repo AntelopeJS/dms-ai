@@ -56,7 +56,7 @@ function buildDeps(
     hostProjectRoot: TEST_HOST_ROOT,
     moduleRoots: [],
     logsClient,
-    builderClient: { call: async () => undefined },
+    builderClient: { call: async () => null },
     databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     sendToHost: () => {},

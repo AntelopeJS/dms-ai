@@ -41,6 +41,12 @@ function buildRequest(conversationId = CONVERSATION_ID) {
   return { conversationId, questions: QUESTIONS };
 }
 
+function first<T>(items: readonly T[]): T {
+  const [item] = items;
+  if (item === undefined) throw new Error("expected at least one item");
+  return item;
+}
+
 async function settleNextTick(): Promise<void> {
   await new Promise((resolve) => setImmediate(resolve));
 }
@@ -53,7 +59,7 @@ describe("question bus", () => {
     await settleNextTick();
     expect(capture.prompts).toHaveLength(1);
     expect(capture.prompts[0]?.questions).toEqual(QUESTIONS);
-    const requestId = capture.prompts[0]?.requestId as string;
+    const requestId = first(capture.prompts).requestId;
     bus.resolveQuestion(requestId, { answers: ["A"], skipped: [] });
     await expect(promise).resolves.toEqual({ answers: ["A"], skipped: [] });
   });
@@ -160,7 +166,7 @@ describe("question bus", () => {
     const pending = tracked.requestQuestion(buildRequest());
     await settleNextTick();
     const reply = { answers: [""], skipped: [true] };
-    tracked.resolveQuestion(prompts[0] as string, reply);
+    tracked.resolveQuestion(first(prompts), reply);
     await expect(pending).resolves.toEqual(reply);
     expect(answered).toEqual([reply]);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

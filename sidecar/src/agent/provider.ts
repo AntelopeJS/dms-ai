@@ -5,6 +5,7 @@ import type { SkillSource } from "../skills/types.js";
 import type { CurrentPage } from "../state/host-state.js";
 import type { AppSettings } from "../state/settings-types.js";
 import type { TokenUsage } from "../state/types.js";
+import type { ToolArgs } from "./edit-targets.js";
 import type { PermissionBus } from "./permission-bus.js";
 import type { RunnerError, RunnerEvent } from "./runner-events.js";
 
@@ -33,7 +34,7 @@ export interface ToolCallHooks {
    */
   onToolDecision?: (decision: ToolDecision) => void;
   /** A call the provider is about to run, with its id (see CallLedger). */
-  onToolAnnounced?: (callId: string, toolName: string, args: unknown) => void;
+  onToolAnnounced?: (callId: string, toolName: string, args: ToolArgs) => void;
   /** Awaited before a mutating tool runs: the turn's checkpoint is taken. */
   beforeMutation?: () => Promise<void>;
 }

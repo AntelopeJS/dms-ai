@@ -51,20 +51,20 @@ export const CLAUDE_STREAM_EVENT_TYPES = {
 export const CLAUDE_TEXT_DELTA_TYPE = "text_delta";
 
 /** What the model is doing when it opens a content block of a given type. */
-export const CLAUDE_BLOCK_ACTIVITY: Record<string, ActivityKind> = {
-  thinking: "thinking",
-  redacted_thinking: "thinking",
-  tool_use: "writing",
-  server_tool_use: "writing",
-  mcp_tool_use: "writing",
-};
+export const CLAUDE_BLOCK_ACTIVITY = new Map<string, ActivityKind>([
+  ["thinking", "thinking"],
+  ["redacted_thinking", "thinking"],
+  ["tool_use", "writing"],
+  ["server_tool_use", "writing"],
+  ["mcp_tool_use", "writing"],
+]);
 
 /** What the model is doing while it streams a delta of a given type. */
-export const CLAUDE_DELTA_ACTIVITY: Record<string, ActivityKind> = {
-  thinking_delta: "thinking",
-  signature_delta: "thinking",
-  input_json_delta: "writing",
-};
+export const CLAUDE_DELTA_ACTIVITY = new Map<string, ActivityKind>([
+  ["thinking_delta", "thinking"],
+  ["signature_delta", "thinking"],
+  ["input_json_delta", "writing"],
+]);
 
 /** System messages that report provider activity. */
 export const CLAUDE_SYSTEM_SUBTYPES = {
@@ -73,10 +73,10 @@ export const CLAUDE_SYSTEM_SUBTYPES = {
 } as const;
 
 /** What the provider is doing for a given `status` system message. */
-export const CLAUDE_STATUS_ACTIVITY: Record<string, ActivityKind> = {
-  compacting: "compacting",
-  requesting: "thinking",
-};
+export const CLAUDE_STATUS_ACTIVITY = new Map<string, ActivityKind>([
+  ["compacting", "compacting"],
+  ["requesting", "thinking"],
+]);
 
 export const CLAUDE_RETRY_DETAIL_TOKENS = {
   ATTEMPT: "{{attempt}}",

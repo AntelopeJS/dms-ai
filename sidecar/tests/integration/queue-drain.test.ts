@@ -75,7 +75,7 @@ describe.each(PROVIDER_FIXTURES)(
         );
         const queueSizes = events
           .filter((e) => e.type === "queue_state")
-          .map((e) => (e.items as unknown[]).length);
+          .map((e) => e.items?.length ?? 0);
         expect(queueSizes).toContain(1);
         expect(queueSizes.at(-1)).toBe(0);
       },

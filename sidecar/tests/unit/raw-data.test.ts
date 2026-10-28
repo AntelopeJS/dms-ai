@@ -13,7 +13,8 @@ describe("rawDataToText", () => {
   });
 
   it("decodes an ArrayBuffer instead of stringifying the object", () => {
-    const bytes = new TextEncoder().encode("hello");
-    expect(rawDataToText(bytes.buffer as ArrayBuffer)).toBe("hello");
+    const buffer = new ArrayBuffer(5);
+    new TextEncoder().encodeInto("hello", new Uint8Array(buffer));
+    expect(rawDataToText(buffer)).toBe("hello");
   });
 });

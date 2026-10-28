@@ -11,7 +11,7 @@ import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
 } from "../../src/mcp/http-binding.js";
-import type { AiMcpServerDeps } from "../../src/mcp/types.js";
+import { buildInertMcpDeps } from "../helpers/provider-runner.js";
 import {
   codexHomeFor,
   reapOrphanCodexProcesses,
@@ -26,7 +26,11 @@ import {
   codexFailOn,
   codexOnSigterm,
 } from "../helpers/provider-fixtures.js";
-import { readPidRecords, readRecordedPids } from "../helpers/codex-pids.js";
+import {
+  readFirstPid,
+  readPidRecords,
+  readRecordedPids,
+} from "../helpers/codex-pids.js";
 
 const TEST_TIMEOUT_MS = 30_000;
 /**
@@ -38,10 +42,19 @@ const SETTLE_MS = 400;
 const STRAY_HOME = "conv-life-stray";
 const REFUSED_PID_PATTERN = /\(pid (\d+)\)/;
 
-function refusedPid(error: unknown): number {
-  const match = REFUSED_PID_PATTERN.exec(String(error));
-  if (match?.[1] === undefined) throw new Error(`no pid in ${String(error)}`);
+function refusedPid(failure: string): number {
+  const match = REFUSED_PID_PATTERN.exec(failure);
+  if (match?.[1] === undefined) throw new Error(`no pid in ${failure}`);
   return Number(match[1]);
+}
+
+async function failureOf(work: Promise<ProviderSession>): Promise<string> {
+  try {
+    await work;
+  } catch (error) {
+    return String(error);
+  }
+  throw new Error("the session was expected to fail to start");
 }
 
 async function settle(): Promise<void> {
@@ -79,14 +92,18 @@ describe("codex process lifecycle", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
+  function requireRegistry(): McpHttpRegistry {
+    if (registry === undefined) throw new Error("no provider was built");
+    return registry;
+  }
+
   function buildProvider() {
     registry = createMcpHttpRegistry();
     const options: CodexProviderOptions = {
       settings: DEFAULT_SETTINGS,
       stateDir,
       mcpHttpRegistry: registry,
-      createMcpDeps: (conversationId) =>
-        ({ conversationId }) as unknown as AiMcpServerDeps,
+      createMcpDeps: buildInertMcpDeps,
       getMcpUrl: () => "http://127.0.0.1:1/mcp",
       stopGraces: TEST_STOP_GRACES,
     };
@@ -129,13 +146,12 @@ describe("codex process lifecycle", () => {
     "kills the app-server and drops its home when a conversation is disposed",
     async () => {
       const session = await open(buildProvider(), "conv-life-1");
-      const [pid] = await readPids();
-      expect(pid).toBeDefined();
-      expect(isAlive(pid as number)).toBe(true);
+      const pid = await readFirstPid(stateDir);
+      expect(isAlive(pid)).toBe(true);
 
       await session.dispose();
       expect(await readPids()).toEqual([]);
-      expect(isAlive(pid as number)).toBe(false);
+      expect(isAlive(pid)).toBe(false);
       expect(existsSync(join(stateDir, "codex-home", "conv-life-1"))).toBe(
         false,
       );
@@ -161,9 +177,8 @@ describe("codex process lifecycle", () => {
 
   async function leaveOrphan(conversationId: string): Promise<number> {
     const session = await open(buildProvider(), conversationId);
-    const [pid] = await readPids();
+    const pid = await readFirstPid(stateDir);
     opened.splice(opened.indexOf(session), 1);
-    if (pid === undefined) throw new Error("no pid recorded");
     return pid;
   }
 
@@ -220,10 +235,8 @@ describe("codex process lifecycle", () => {
     async () => {
       codexFailOn("thread/start");
       const provider = buildProvider();
-      const release = vi.spyOn(registry as McpHttpRegistry, "release");
-      const failure = await open(provider, "conv-life-failed").catch(
-        (error: unknown) => error,
-      );
+      const release = vi.spyOn(requireRegistry(), "release");
+      const failure = await failureOf(open(provider, "conv-life-failed"));
       const pid = refusedPid(failure);
 
       expect(isRunning(pid)).toBe(false);

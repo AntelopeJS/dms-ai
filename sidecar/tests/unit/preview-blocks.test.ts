@@ -51,12 +51,24 @@ interface ToolResult {
   isError?: boolean;
 }
 
+type PreviewTool = ReturnType<typeof buildPreviewBlocksTool>;
+type PreviewArgs = Parameters<PreviewTool["handler"]>[0];
+
+const ABSENT_ARGS = {
+  description: undefined,
+  label: undefined,
+  tree: undefined,
+  sketch: undefined,
+  reference: undefined,
+  variants: undefined,
+};
+
 interface ToolLike {
   name: string;
-  schema: z.ZodRawShape;
+  schema: PreviewTool["schema"];
   handler: (
-    args: Record<string, unknown>,
-    extra: unknown,
+    args: Partial<PreviewArgs> & Pick<PreviewArgs, "title">,
+    extra: Parameters<PreviewTool["handler"]>[1],
   ) => Promise<ToolResult>;
 }
 
@@ -67,15 +79,27 @@ interface Harness {
 
 function buildHarness(attached: string[] = []): Harness {
   const shown: BlockPreviewType[] = [];
-  const tool = buildPreviewBlocksTool({
+  const built = buildPreviewBlocksTool({
     showPreview: (preview) => shown.push(preview),
     listAttachedImages: () => attached,
-  }) as unknown as ToolLike;
+  });
+  const tool: ToolLike = {
+    name: built.name,
+    schema: built.schema,
+    handler: (args, extra) => built.handler({ ...ABSENT_ARGS, ...args }, extra),
+  };
   return { shown, tool };
 }
 
-function parse(result: ToolResult): Record<string, any> {
-  return JSON.parse(result.content[0]?.text ?? "{}");
+const ParsedBodySchema = z.looseObject({
+  ok: z.boolean().optional(),
+  message: z.string().optional(),
+  data: z.looseObject({ previewId: z.string().optional() }).optional(),
+  error: z.looseObject({ code: z.string().optional() }).optional(),
+});
+
+function parse(result: ToolResult) {
+  return ParsedBodySchema.parse(JSON.parse(result.content[0]?.text ?? "{}"));
 }
 
 function nested(depth: number): PreviewNodeType {
@@ -116,7 +140,7 @@ describe("PreviewBlocks tool", () => {
     const body = parse(result);
     expect(body.ok).toBe(true);
     expect(shown).toHaveLength(1);
-    expect(body.data.previewId).toBe(shown[0]?.id);
+    expect(body.data?.previewId).toBe(shown[0]?.id);
     expect(shown[0]).toMatchObject({
       title: "Revenue card",
       description: "Rounded corners",
@@ -144,7 +168,7 @@ describe("PreviewBlocks tool", () => {
       {},
     );
     expect(result.isError).toBe(true);
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
     expect(shown).toHaveLength(0);
   });
 
@@ -161,7 +185,7 @@ describe("PreviewBlocks tool", () => {
       {},
     );
     const body = parse(result);
-    expect(body.error.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
+    expect(body.error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
     expect(body.message).toContain("fetchUrl");
     expect(shown).toHaveLength(0);
   });
@@ -184,7 +208,7 @@ describe("PreviewBlocks tool", () => {
       { title: "Deep", tree: nested(PREVIEW_MAX_DEPTH + 1) },
       {},
     );
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
   });
 
   it("counts the nodes of every variant against the cap", async () => {
@@ -200,14 +224,14 @@ describe("PreviewBlocks tool", () => {
       },
       {},
     );
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
   });
 
   it("refuses a preview over the JSON size cap", async () => {
     const { tool } = buildHarness();
     const huge = { type: "Text", options: { text: "x".repeat(70_000) } };
     const result = await tool.handler({ title: "Huge", tree: huge }, {});
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
   });
 
   it("resolves `latest` to the last image the user attached", async () => {
@@ -254,7 +278,7 @@ describe("PreviewBlocks tool", () => {
       {},
     );
     const body = parse(result);
-    expect(body.error.code).toBe(PREVIEW_ERROR_CODES.UNKNOWN_ATTACHMENT);
+    expect(body.error?.code).toBe(PREVIEW_ERROR_CODES.UNKNOWN_ATTACHMENT);
     expect(body.message).toContain(MOCKUP_NAME);
     expect(shown).toHaveLength(0);
   });
@@ -269,7 +293,7 @@ describe("PreviewBlocks tool", () => {
       },
       {},
     );
-    expect(parse(result).error.code).toBe(
+    expect(parse(result).error?.code).toBe(
       PREVIEW_ERROR_CODES.UNKNOWN_ATTACHMENT,
     );
   });
@@ -296,7 +320,7 @@ describe("PreviewBlocks tool", () => {
       { title: "Card", tree: KPI_NODE, reference: { url } },
       {},
     );
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.INVALID_URL);
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_URL);
     expect(shown).toHaveLength(0);
   });
 });
@@ -334,7 +358,7 @@ describe("PreviewBlocks sketches", () => {
       { title: "Empty", tree: KPI_NODE, variants: [{ label: "Nothing" }] },
       {},
     );
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
     expect(shown).toHaveLength(0);
   });
 
@@ -377,7 +401,7 @@ describe("PreviewBlocks sketches", () => {
       {},
     );
     expect(result.isError).toBe(true);
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.INVALID_SKETCH);
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_SKETCH);
     expect(shown).toHaveLength(0);
   });
 
@@ -401,7 +425,7 @@ describe("PreviewBlocks sketches", () => {
       },
       {},
     );
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
   });
 
   it("bounds the sketch height in the schema", () => {

@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { z } = require("zod");
 const Module = require("node:module");
 const path = require("node:path");
 const { test } = require("node:test");
@@ -32,6 +33,7 @@ function loadModule(registrations, sidecars) {
       path.resolve(__dirname, "../dist/frontend-module.js"),
     ),
     "node:path": path,
+    zod: require("zod"),
     "./constants/sidecar": require(
       path.resolve(__dirname, "../dist/constants/sidecar.js"),
     ),
@@ -114,6 +116,12 @@ function translate(locale, key) {
     .reduce((node, part) => (node === undefined ? node : node[part]), locale);
 }
 
+const TextSchema = z.string();
+
+function isTranslated(locale, key) {
+  return TextSchema.safeParse(translate(locale, key)).success;
+}
+
 function loadPages() {
   const registered = { modules: [], pages: [] };
   const pageApi = {
@@ -162,7 +170,7 @@ async function collectPositions(prefix, component, positions) {
 }
 
 function collectKeys(value, keys) {
-  if (typeof value === "string") {
+  if (TextSchema.safeParse(value).success) {
     for (const match of value.matchAll(I18N_KEY)) keys.add(match[0]);
     return;
   }
@@ -203,12 +211,8 @@ void test("titles every block and child of the AI pages for the role editor", as
       assert.match(metadata.description ?? "", /^\$dms_ai\.blocks\./, where);
       assert.ok(metadata.icon, `${where} has an icon`);
       for (const locale of locales) {
-        assert.equal(typeof translate(locale, metadata.name), "string", where);
-        assert.equal(
-          typeof translate(locale, metadata.description),
-          "string",
-          where,
-        );
+        assert.ok(isTranslated(locale, metadata.name), where);
+        assert.ok(isTranslated(locale, metadata.description), where);
       }
     }
   }
@@ -228,9 +232,7 @@ void test("translates every $dms_ai key the AI pages serve, in English and Frenc
   assert.ok(keys.size > 0);
   for (const file of PAGE_LOCALES) {
     const locale = readLocale(file);
-    const missing = [...keys].filter(
-      (key) => typeof translate(locale, key) !== "string",
-    );
+    const missing = [...keys].filter((key) => !isTranslated(locale, key));
     assert.deepEqual(missing, [], file);
   }
 });

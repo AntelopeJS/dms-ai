@@ -68,6 +68,16 @@ describe.skipIf(process.platform === "win32")(
       stateDir = undefined;
     });
 
+    function requireGrandchild(): number {
+      if (grandchild === undefined) throw new Error("no turn was started");
+      return grandchild;
+    }
+
+    function requirePid(spawned: CodexProcess): number {
+      if (spawned.pid === undefined) throw new Error("the process has no pid");
+      return spawned.pid;
+    }
+
     function requireStateDir(): string {
       if (stateDir === undefined) throw new Error("no turn was started");
       return stateDir;
@@ -113,7 +123,7 @@ describe.skipIf(process.platform === "win32")(
         expect(isRunning(grandchild)).toBe(true);
 
         await running.dispose();
-        expect(await isGoneWithin(grandchild as number)).toBe(true);
+        expect(await isGoneWithin(requireGrandchild())).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
@@ -126,8 +136,8 @@ describe.skipIf(process.platform === "win32")(
         expect(isRunning(grandchild)).toBe(true);
 
         await reapOrphanCodexProcesses(requireStateDir(), TEST_STOP_GRACES);
-        expect(await isGoneWithin(orphan.pid as number)).toBe(true);
-        expect(await isGoneWithin(grandchild as number)).toBe(true);
+        expect(await isGoneWithin(requirePid(orphan))).toBe(true);
+        expect(await isGoneWithin(requireGrandchild())).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
@@ -139,8 +149,8 @@ describe.skipIf(process.platform === "win32")(
         process.env.MOCK_CODEX_SCRIPT = codexScript("app-server-crash.jsonl");
         running = await startTurnLeavingGrandchild();
 
-        expect(await isGoneWithin(running.pid as number)).toBe(true);
-        expect(await isGoneWithin(grandchild as number)).toBe(true);
+        expect(await isGoneWithin(requirePid(running))).toBe(true);
+        expect(await isGoneWithin(requireGrandchild())).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );

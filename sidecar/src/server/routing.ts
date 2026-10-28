@@ -390,7 +390,7 @@ const handleChangeSet = on(
   },
 );
 
-const MESSAGE_HANDLERS: Record<string, ClientMessageHandler> = {
+const MESSAGE_HANDLERS = {
   [MESSAGE_TYPES.HELLO]: handleHello,
   [MESSAGE_TYPES.ECHO]: handleEcho,
   [MESSAGE_TYPES.ACTOR]: handleActor,
@@ -414,7 +414,7 @@ const MESSAGE_HANDLERS: Record<string, ClientMessageHandler> = {
   [MESSAGE_TYPES.QUEUE_MOVE]: handleQueueMove,
   [MESSAGE_TYPES.QUEUE_CLEAR]: handleQueueClear,
   [MESSAGE_TYPES.CHANGE_SET_ACTION]: handleChangeSet,
-};
+} satisfies Partial<Record<AnyClientMessageType["type"], ClientMessageHandler>>;
 
 function parseMessage(raw: string): AnyClientMessageType | null {
   try {

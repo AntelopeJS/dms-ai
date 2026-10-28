@@ -26,7 +26,7 @@ function text(...segments: string[]): string {
   return i18nKey(SECTION, ...segments);
 }
 
-const COLUMNS: Record<string, TableViewSourceColumn> = {
+const COLUMNS = {
   number: {
     name: text("columns", "number"),
     type: new DefaultDataTypes.NumberType(),
@@ -79,7 +79,7 @@ const COLUMNS: Record<string, TableViewSourceColumn> = {
     size: PILL_COLUMN_SIZE,
     order: 6,
   },
-};
+} satisfies Record<string, TableViewSourceColumn>;
 
 const ROW_ACTIONS: CustomRowAction[] = [
   {

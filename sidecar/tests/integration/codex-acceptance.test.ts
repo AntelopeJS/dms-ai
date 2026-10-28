@@ -64,7 +64,7 @@ function buildMcpDeps(conversationId: string): AiMcpServerDeps {
     hostProjectRoot: "/tmp",
     moduleRoots: [],
     logsClient: { getLogs: async () => [] },
-    builderClient: { call: async () => undefined },
+    builderClient: { call: async () => null },
     databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     sendToHost: () => {},
@@ -97,12 +97,20 @@ async function startHarness(answer: PermissionOutcome): Promise<Harness> {
     mcpHttpRegistry: registry,
   });
   const prompted: PermissionRequest[] = [];
-  const bus = {
-    requestPermission: async (req: PermissionRequest) => {
+  const bus: PermissionBus = {
+    requestPermission: async (req) => {
       prompted.push(req);
       return answer;
     },
-  } as unknown as PermissionBus;
+    resolvePermission: () => {},
+    getPendingForConversation: () => [],
+    countPending: () => 0,
+    cancelConversation: () => {},
+    cancelCall: () => {},
+    forgetConversation: () => {},
+    listRules: () => [],
+    revokeRule: () => false,
+  };
   return {
     root,
     stateDir: join(root, ".state"),

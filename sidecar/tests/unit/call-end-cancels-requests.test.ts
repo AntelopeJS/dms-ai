@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createQuestionBus } from "../../src/agent/question-bus.js";
-import { EVENT_TYPES } from "../../src/protocol/events.js";
+import {
+  type AnyServerEventType,
+  EVENT_TYPES,
+} from "../../src/protocol/events.js";
 import type { SidecarServices } from "../../src/server/services.js";
 import { handleTurnEvent } from "../../src/server/turns.js";
 import { createTestBus } from "../helpers/permission-bus.js";
@@ -20,19 +23,20 @@ const QUESTIONS = [
 
 interface Harness {
   services: SidecarServices;
-  sent: Array<Record<string, unknown>>;
+  sent: AnyServerEventType[];
 }
 
 function buildHarness(): Harness {
-  const sent: Array<Record<string, unknown>> = [];
-  const send = (_id: string, event: unknown) => {
-    sent.push(event as Record<string, unknown>);
+  const sent: AnyServerEventType[] = [];
+  const send = (_id: string, event: AnyServerEventType) => {
+    sent.push(event);
   };
   const questionBus = createQuestionBus({
     onPromptChat: () => {},
     onExpired: (question) =>
       send(question.conversationId, {
         type: EVENT_TYPES.QUESTION_EXPIRED,
+        conversationId: question.conversationId,
         requestId: question.requestId,
       }),
     timeoutMs: LONG_TIMEOUT_MS,

@@ -4,6 +4,7 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
+import type { AddressInfo } from "node:net";
 import { getBuilderAvailable } from "../builder/capability.js";
 import { CONTENT_TYPE, HTTP_STATUS } from "../constants/http.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
@@ -102,11 +103,11 @@ function buildSettingsPayload(settings: AppSettings): SettingsPayload {
   };
 }
 
-function parseJson(body: string): unknown {
+function safeParseJson<T extends z.ZodType>(schema: T, body: string) {
   try {
-    return JSON.parse(body) as unknown;
+    return schema.safeParse(JSON.parse(body));
   } catch {
-    return null;
+    return schema.safeParse(null);
   }
 }
 
@@ -116,7 +117,7 @@ async function putSettings(
   res: ServerResponse,
   deps: ApiDeps,
 ): Promise<void> {
-  const result = SettingsPatchSchema.safeParse(parseJson(await readBody(req)));
+  const result = safeParseJson(SettingsPatchSchema, await readBody(req));
   if (!result.success) {
     sendJson(res, HTTP_STATUS.BAD_REQUEST, {
       message: result.error.issues[0]?.message ?? "Invalid settings.",
@@ -164,9 +165,7 @@ const SETTINGS_ROUTES: readonly ApiRoute[] = [
     method: "POST",
     pattern: /^\/codex\/callback$/,
     handle: async (req, res) => {
-      const result = PastedCallbackSchema.safeParse(
-        parseJson(await readBody(req)),
-      );
+      const result = safeParseJson(PastedCallbackSchema, await readBody(req));
       if (!result.success) {
         sendJson(res, HTTP_STATUS.BAD_REQUEST, { message: "Missing url." });
         return;
@@ -205,7 +204,7 @@ interface MatchedRoute {
 
 function decodeParams(raw: string[]): string[] | null {
   const params = raw.map(decodeRouteParam);
-  return params.includes(null) ? null : (params as string[]);
+  return params.every((p): p is string => p !== null) ? params : null;
 }
 
 function matchRoute(method: string, path: string): MatchedRoute | null {
@@ -230,7 +229,10 @@ async function handleApiRoute(
   const url = new URL(req.url ?? "/", "http://localhost");
   const matched = matchRoute(req.method ?? "GET", url.pathname);
   const deps = buildDeps(ctx);
-  if (matched === null || (deps === null && !matched.route.isStandalone)) {
+  if (
+    matched === null ||
+    (deps === null && matched.route.isStandalone !== true)
+  ) {
     sendResponse(res, HTTP_STATUS.NOT_FOUND, CONTENT_TYPE.TEXT, "Not Found");
     return;
   }
@@ -238,11 +240,20 @@ async function handleApiRoute(
     sendJson(res, HTTP_STATUS.BAD_REQUEST, { error: "malformed path" });
     return;
   }
-  await matched.route.handle(req, res, deps as ApiDeps, {
+  const match = {
     params: matched.params,
     query: url.searchParams,
     getSkillSources: ctx.getSkillSources,
-  });
+  };
+  const { route } = matched;
+  if (route.isStandalone === true) await route.handle(req, res, deps, match);
+  else if (deps !== null) await route.handle(req, res, deps, match);
+}
+
+function isAddressInfo(
+  address: AddressInfo | string | null,
+): address is AddressInfo {
+  return address !== null && typeof address !== "string";
 }
 
 function buildRoutePath(req: IncomingMessage): string {
@@ -291,7 +302,7 @@ export function createHttpServer(
     server.listen(options.port, LOOPBACK_HOST, () => {
       server.removeListener("error", rejectListen);
       const address = server.address();
-      if (address === null || typeof address === "string") {
+      if (!isAddressInfo(address)) {
         rejectListen(new Error("Failed to determine listening port"));
         return;
       }

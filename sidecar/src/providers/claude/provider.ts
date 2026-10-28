@@ -142,9 +142,7 @@ function buildBasePromptOptions(input: PromptOptionsInput): PromptOptions {
   return { ...base, pathToClaudeCodeExecutable: claudeBinary };
 }
 
-function buildMcpServersMap(
-  mcpServer: AiMcpServer,
-): Record<string, McpServerConfig> {
+function buildMcpServersMap(mcpServer: AiMcpServer) {
   return { [MCP_SERVER_KEY]: mcpServer as McpSdkServerConfigWithInstance };
 }
 
@@ -201,10 +199,12 @@ async function buildSkillLoadout(
   };
 }
 
+type ToolInput = Parameters<CanUseTool>[1];
+
 type SdkPermissionAllow = Extract<PermissionResult, { behavior: "allow" }>;
 type SdkPermissionDeny = Extract<PermissionResult, { behavior: "deny" }>;
 
-function buildAllowResult(input: Record<string, unknown>): SdkPermissionAllow {
+function buildAllowResult(input: ToolInput): SdkPermissionAllow {
   return {
     behavior: SDK_PERMISSION_BEHAVIOR.ALLOW,
     updatedInput: input,
@@ -229,7 +229,7 @@ export async function bridgeCanUseTool(
   bus: PermissionBus,
   conversationId: string,
   toolName: string,
-  input: Record<string, unknown>,
+  input: ToolInput,
   callId?: string,
 ): Promise<PermissionResult> {
   const outcome = await bus.requestPermission({
@@ -262,7 +262,7 @@ interface CanUseToolDeps {
 function allowAutomatically(
   deps: CanUseToolDeps,
   toolName: string,
-  input: Record<string, unknown>,
+  input: ToolInput,
   callId: string,
 ): Promise<PermissionResult> {
   const allowedBy = isMutatingBuilderTool(toolName)

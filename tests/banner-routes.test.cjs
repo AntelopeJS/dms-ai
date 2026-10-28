@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { z } = require("zod");
 const { test } = require("node:test");
 const {
   PAGE_LOCALES: PAGE_LOCALE_FILES,
@@ -11,6 +12,7 @@ const {
   useRouteHarness,
 } = require("./helpers/route-harness.cjs");
 
+const TextSchema = z.string();
 const harness = useRouteHarness();
 
 const PAGE_LOCALES = PAGE_LOCALE_FILES.map(readLocale);
@@ -22,10 +24,12 @@ function untranslated(answer) {
   return PAGE_LOCALES.flatMap((locale) =>
     keys.filter(
       (key) =>
-        typeof key
-          .slice(1)
-          .split(".")
-          .reduce((node, part) => node?.[part], locale) !== "string",
+        !TextSchema.safeParse(
+          key
+            .slice(1)
+            .split(".")
+            .reduce((node, part) => node?.[part], locale),
+        ).success,
     ),
   );
 }

@@ -1,4 +1,9 @@
-import { generateKeyPairSync, type KeyObject, sign } from "node:crypto";
+import {
+  generateKeyPairSync,
+  type JsonWebKey,
+  type KeyObject,
+  sign,
+} from "node:crypto";
 import { statSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -32,21 +37,23 @@ const PORT = 4321;
 const ISSUED_CLIENT_ID = "oaiapp_issued";
 const KEY_ID = "test-key";
 
+function isText(body: RequestInit["body"]): body is string {
+  return typeof body === "string";
+}
+
 interface FormCall {
   url: string;
   form: URLSearchParams;
 }
 
 /** Records every form POST, and answers each with what `answer` returns. */
-function stubFetch(answer: (call: FormCall) => Response, jwks?: unknown) {
+function stubFetch(answer: (call: FormCall) => Response, jwks?: Jwks) {
   const calls: FormCall[] = [];
   vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
     if (url === CHATGPT_JWKS_URL) return Response.json(jwks ?? { keys: [] });
     const call = {
       url,
-      form: new URLSearchParams(
-        typeof init?.body === "string" ? init.body : "",
-      ),
+      form: new URLSearchParams(isText(init?.body) ? init.body : ""),
     };
     calls.push(call);
     return answer(call);
@@ -153,7 +160,7 @@ describe("access token", () => {
 
 interface SigningKey {
   privateKey: KeyObject;
-  jwks: unknown;
+  jwks: Jwks;
 }
 
 function createSigningKey(): SigningKey {
@@ -167,8 +174,26 @@ function createSigningKey(): SigningKey {
   };
 }
 
-function signIdToken(key: KeyObject, claims: Record<string, unknown>): string {
-  const encode = (value: unknown) =>
+interface Jwks {
+  keys: JsonWebKey[];
+}
+
+interface IdTokenClaims {
+  iss: string;
+  aud: string;
+  exp: number;
+  nonce: string;
+  sub: string;
+  email?: string;
+}
+
+interface JwtHeader {
+  alg: string;
+  kid: string;
+}
+
+function signIdToken(key: KeyObject, claims: IdTokenClaims): string {
+  const encode = (value: IdTokenClaims | JwtHeader) =>
     Buffer.from(JSON.stringify(value)).toString("base64url");
   const signingInput = `${encode({ alg: "RS256", kid: KEY_ID })}.${encode(claims)}`;
   const signature = sign("RSA-SHA256", Buffer.from(signingInput), key).toString(

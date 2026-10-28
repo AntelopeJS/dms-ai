@@ -4,7 +4,7 @@ import type { ToolEntry } from "./types";
 const MCP_TOOL_PREFIX = "mcp__dms-ai__";
 
 /** The agents' built-in tools, by the name they are logged under. */
-const BUILTIN_TOOLS: Readonly<Record<string, ToolEntry>> = {
+const BUILTIN_TOOLS = {
   Read: { icon: "i-ph-file-text", source: "code" },
   Write: { icon: "i-ph-file-plus", source: "code" },
   Edit: { icon: "i-ph-pencil-simple-line", source: "code" },
@@ -24,10 +24,10 @@ const BUILTIN_TOOLS: Readonly<Record<string, ToolEntry>> = {
   AskUserQuestion: { icon: "i-ph-question", source: "assistant" },
   UndoChangeSet: { icon: "i-ph-arrow-counter-clockwise", source: "assistant" },
   RedoChangeSet: { icon: "i-ph-arrow-clockwise", source: "assistant" },
-};
+} satisfies Readonly<Record<string, ToolEntry>>;
 
 /** The module's own MCP tools, by their bare name. */
-const MODULE_TOOLS: Readonly<Record<string, ToolEntry>> = {
+const MODULE_TOOLS = {
   GetCurrentPage: { icon: "i-ph-browser", source: "project" },
   NavigateToPage: { icon: "i-ph-arrow-square-out", source: "project" },
   FindPagesUsing: { icon: "i-ph-magnifying-glass", source: "project" },
@@ -84,7 +84,7 @@ const MODULE_TOOLS: Readonly<Record<string, ToolEntry>> = {
     source: "builder",
     isDestructive: true,
   },
-};
+} satisfies Readonly<Record<string, ToolEntry>>;
 
 /** A tool as the activity log names it: by its bare name, which keys its label. */
 export interface LoggedTool extends ToolEntry {

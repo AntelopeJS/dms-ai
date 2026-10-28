@@ -22,6 +22,7 @@ import {
 import {
   createCollector,
   openChat,
+  parseWireMessage,
   sendHello,
   sendUserMessage,
   sendUserMessageWithAttachment,
@@ -224,7 +225,7 @@ describe("recipe — session on codex only", () => {
       const socket = client;
       client.on("message", (data) => {
         const raw = rawDataToText(data);
-        options.onMessage?.(JSON.parse(raw) as WireMessage, socket);
+        options.onMessage?.(parseWireMessage(raw), socket);
       });
     }
     sendHello(client, CONVERSATION_A);

@@ -1,23 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
-import type { WebSocket } from "ws";
 import {
   type AnyServerEventType,
   EVENT_TYPES,
 } from "../../src/protocol/events.js";
-import { createHostSocketRegistry } from "../../src/server/host-socket-registry.js";
+import {
+  createHostSocketRegistry,
+  type SocketSender,
+} from "../../src/server/host-socket-registry.js";
 
-function buildFakeSocket(): WebSocket {
-  return { send: vi.fn() } as unknown as WebSocket;
+function buildFakeSocket(): SocketSender {
+  return { send: vi.fn() };
 }
 
 interface FakeHost {
-  socket: WebSocket;
+  socket: SocketSender;
   send: ReturnType<typeof vi.fn>;
 }
 
 function buildFakeHost(): FakeHost {
   const send = vi.fn();
-  return { socket: { send } as unknown as WebSocket, send };
+  return { socket: { send }, send };
 }
 
 function buildEvent(): AnyServerEventType {
@@ -32,14 +34,12 @@ describe("createHostSocketRegistry", () => {
 
   it("set then send dispatches JSON to the held socket", () => {
     const registry = createHostSocketRegistry();
-    const socket = buildFakeSocket();
+    const { socket, send: sendSpy } = buildFakeHost();
     registry.set(socket);
     registry.send(buildEvent());
-    const sendSpy = (socket as unknown as { send: ReturnType<typeof vi.fn> })
-      .send;
     expect(sendSpy).toHaveBeenCalledTimes(1);
-    const arg = sendSpy.mock.calls[0]?.[0] as string;
-    expect(JSON.parse(arg)).toEqual(buildEvent());
+    const arg = sendSpy.mock.calls[0]?.[0];
+    expect(JSON.parse(String(arg))).toEqual(buildEvent());
   });
 
   it("clear removes only the matching socket", () => {

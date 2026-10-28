@@ -11,11 +11,10 @@ export const PROVIDER_MODULES: Record<ProviderName, ProviderModule> = {
 
 /** Per-provider verdict, as exposed next to `builderAvailable` in GET /settings. */
 export function getProviderAvailability(): ProviderAvailabilityMap {
-  const entries = PROVIDER_NAMES.map((name) => [
-    name,
-    PROVIDER_MODULES[name].checkAvailability(),
-  ]);
-  return Object.fromEntries(entries) as ProviderAvailabilityMap;
+  return {
+    claude: PROVIDER_MODULES.claude.checkAvailability(),
+    codex: PROVIDER_MODULES.codex.checkAvailability(),
+  };
 }
 
 export function isProviderAvailable(name: ProviderName): boolean {

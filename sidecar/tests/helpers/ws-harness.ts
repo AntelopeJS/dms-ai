@@ -3,13 +3,13 @@ import { rawDataToText } from "../../src/server/raw-data.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
+import { z } from "zod";
 import type { PermissionBus } from "../../src/agent/permission-bus.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
 } from "../../src/mcp/http-binding.js";
-import type { AiMcpServerStaticDeps } from "../../src/mcp/types.js";
 import { isProviderAvailable } from "../../src/providers/registry.js";
 import type { ProviderHostRuntime } from "../../src/providers/types.js";
 import { createHostSocketRegistry } from "../../src/server/host-socket-registry.js";
@@ -38,6 +38,7 @@ import type { SettingsStore } from "../../src/state/settings-store.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
 import { createStore } from "../../src/state/store.js";
 import type { ProviderName } from "../../src/state/types.js";
+import { buildInertStaticMcpDeps } from "./provider-runner.js";
 
 export const CLIENT_TOKEN = "ws-harness-test-credential";
 
@@ -72,31 +73,6 @@ export interface WsHarness {
   /** Stops the stack the way the sidecar's graceful shutdown does, files kept. */
   shutdown: () => Promise<void>;
   close: () => Promise<void>;
-}
-
-function buildMcpDeps(
-  hostState: ReturnType<typeof createHostState>,
-  navigationCompleter: ReturnType<typeof createNavigationCompleter>,
-): AiMcpServerStaticDeps {
-  return {
-    getCurrentPage: () => hostState.getCurrentPage(),
-    registry: {
-      getRegistry: async () => [],
-      getStaleSinceMs: () => null,
-      invalidate: () => {},
-    },
-    scanner: {
-      scan: async () => ({ importersByFile: new Map() }),
-      invalidate: () => {},
-    },
-    hostProjectRoot: HOST_ROOT,
-    moduleRoots: [],
-    logsClient: { getLogs: async () => [] },
-    builderClient: { call: async () => undefined },
-    databaseClient: { get: async () => [], post: async () => ({}) },
-    builderEnabled: false,
-    navigationCompleter,
-  };
 }
 
 /**
@@ -214,7 +190,11 @@ export async function startWsHarness(
     skillDirs: options.skillDirs,
     conversationStore,
     settingsStore,
-    mcpDeps: buildMcpDeps(hostState, navigationCompleter),
+    mcpDeps: buildInertStaticMcpDeps(
+      () => hostState.getCurrentPage(),
+      navigationCompleter,
+      HOST_ROOT,
+    ),
     providerRuntime: buildProviderRuntime(
       join(tmpDir, ".state"),
       mcpHttpRegistry,
@@ -271,9 +251,38 @@ export async function openChat(port: number): Promise<WebSocket> {
   return socket;
 }
 
-export interface WireMessage {
-  type: string;
-  [key: string]: unknown;
+/** A nested record of a frame; only the fields a scenario reads are typed. */
+const wireNodeSchema = z.looseObject({
+  id: z.string().optional(),
+  kind: z.string().optional(),
+  label: z.string().optional(),
+  role: z.string().optional(),
+});
+
+/** One frame of the chat socket, the fields scenarios read typed and the rest kept as sent. */
+const wireMessageSchema = z.looseObject({
+  type: z.string(),
+  items: z
+    .array(z.looseObject({ id: z.string(), content: z.string() }))
+    .optional(),
+  ruleOptions: z.array(wireNodeSchema).optional(),
+  rules: z.array(wireNodeSchema).optional(),
+  messages: z.array(wireNodeSchema).optional(),
+  conversations: z.array(wireNodeSchema).optional(),
+  changeSet: wireNodeSchema.optional(),
+});
+
+export type WireNode = z.infer<typeof wireNodeSchema>;
+export type WireMessage = z.infer<typeof wireMessageSchema>;
+
+export function parseWireMessage(raw: string): WireMessage {
+  return wireMessageSchema.parse(JSON.parse(raw));
+}
+
+/** The value a scenario expects to be there, failing the scenario when it is not. */
+export function requireValue<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error("expected a value, found none");
+  return value;
 }
 
 export function sendHello(socket: WebSocket, conversationId: string): void {
@@ -294,7 +303,7 @@ export function answerPermission(
   socket: WebSocket,
   msg: WireMessage,
   decision: string,
-  rule?: unknown,
+  rule?: WireNode,
 ): void {
   socket.send(
     JSON.stringify({
@@ -324,8 +333,7 @@ export function collectUntil(
       options.timeoutMs,
     );
     socket.on("message", (data) => {
-      const raw = rawDataToText(data);
-      const parsed = JSON.parse(raw) as WireMessage;
+      const parsed = parseWireMessage(rawDataToText(data));
       events.push(parsed);
       options.onMessage?.(parsed, socket);
       if (!options.until(parsed)) return;
@@ -363,8 +371,7 @@ export function createCollector(
   const events: WireMessage[] = [];
   const waiters: WireMessageWaiter[] = [];
   socket.on("message", (data) => {
-    const raw = rawDataToText(data);
-    const parsed = JSON.parse(raw) as WireMessage;
+    const parsed = parseWireMessage(rawDataToText(data));
     events.push(parsed);
     for (let i = waiters.length - 1; i >= 0; i--) {
       if (waiters[i]?.matches(parsed) !== true) continue;

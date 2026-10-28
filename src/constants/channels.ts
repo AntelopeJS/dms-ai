@@ -25,11 +25,11 @@ export const SSE_CONTENT_TYPE = "text/event-stream";
 export const SSE_OK_STATUS = 200;
 export const SSE_KEEPALIVE_INTERVAL_MS = 15_000;
 export const SSE_KEEPALIVE_FRAME = ": keepalive\n\n";
-export const SSE_HEADERS: Readonly<Record<string, string>> = {
+export const SSE_HEADERS = {
   "Cache-Control": "no-store, no-transform",
   "X-Accel-Buffering": "no",
   Connection: "keep-alive",
-};
+} satisfies Readonly<Record<string, string>>;
 
 /**
  * Mirror of the sidecar's WebSocket frame cap (sidecar/src/constants/attachments.ts):

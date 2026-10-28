@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import type WebSocket from "ws";
 import { createCallLedger } from "../../src/agent/call-ledger.js";
 import { ASK_USER_RESULT_SKIPPED } from "../../src/constants/mcp.js";
 import type { AnyMcpToolDefinition } from "../../src/mcp/define-tool.js";
@@ -14,10 +13,7 @@ const CONVERSATION_ID = "conv-blocks";
 
 function fakeSocket() {
   const sent: string[] = [];
-  return {
-    socket: { send: (raw: string) => sent.push(raw) } as unknown as WebSocket,
-    sent,
-  };
+  return { socket: { send: (raw: string) => sent.push(raw) }, sent };
 }
 
 describe("Builder gate", () => {

@@ -1,6 +1,7 @@
 import type {
   SDKAPIRetryMessage,
   SDKMessage,
+  SDKPartialAssistantMessage,
   SDKStatusMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import type {
@@ -18,70 +19,36 @@ import {
   CLAUDE_SYSTEM_SUBTYPES,
 } from "../../constants/claude.js";
 
-interface StreamContentBlock {
-  type?: string;
-  name?: string;
-}
-
-interface StreamDelta {
-  type?: string;
-}
-
-interface StreamEventPayload {
-  type?: string;
-  content_block?: StreamContentBlock;
-  delta?: StreamDelta;
-}
-
-type ActivitySystemMessage = SDKStatusMessage | SDKAPIRetryMessage;
-
-type ActivitySystemSubtype = ActivitySystemMessage["subtype"];
-
-type SystemActivityMappers = {
-  [Subtype in ActivitySystemSubtype]: (
-    message: Extract<ActivitySystemMessage, { subtype: Subtype }>,
-  ) => RunnerEvent[];
-};
-
-type SystemActivityMapper = (message: ActivitySystemMessage) => RunnerEvent[];
-
-type StreamActivityMapper = (payload: StreamEventPayload) => RunnerEvent[];
+type StreamEvent = SDKPartialAssistantMessage["event"];
 
 function activity(kind: ActivityKind, detail?: string): RunnerActivity {
   if (detail === undefined || detail === "") return { type: "activity", kind };
   return { type: "activity", kind, detail };
 }
 
-function blockStartActivity(payload: StreamEventPayload): RunnerEvent[] {
-  const block = payload.content_block;
-  const kind = CLAUDE_BLOCK_ACTIVITY[block?.type ?? ""];
-  if (kind === undefined) return [];
-  return [activity(kind, block?.name)];
-}
-
-function deltaActivity(payload: StreamEventPayload): RunnerEvent[] {
-  const kind = CLAUDE_DELTA_ACTIVITY[payload.delta?.type ?? ""];
-  if (kind === undefined) return [];
-  return [activity(kind)];
-}
-
-const STREAM_ACTIVITY_MAPPERS: Record<string, StreamActivityMapper> = {
-  [CLAUDE_STREAM_EVENT_TYPES.MESSAGE_START]: () => [activity("thinking")],
-  [CLAUDE_STREAM_EVENT_TYPES.CONTENT_BLOCK_START]: blockStartActivity,
-  [CLAUDE_STREAM_EVENT_TYPES.CONTENT_BLOCK_DELTA]: deltaActivity,
-};
-
 /**
  * The activity a partial-message event reveals: the model starting a reply,
  * thinking, or composing a tool call. Text deltas are not activity, since they
  * already reach the chat as text.
  */
-export function streamActivity(event: unknown): RunnerEvent[] {
-  if (event === null || typeof event !== "object") return [];
-  const payload = event as StreamEventPayload;
-  const mapper = STREAM_ACTIVITY_MAPPERS[payload.type ?? ""];
-  if (mapper === undefined) return [];
-  return mapper(payload);
+export function streamActivity(event: StreamEvent): RunnerEvent[] {
+  switch (event.type) {
+    case CLAUDE_STREAM_EVENT_TYPES.MESSAGE_START:
+      return [activity("thinking")];
+    case CLAUDE_STREAM_EVENT_TYPES.CONTENT_BLOCK_START: {
+      const block = event.content_block;
+      const kind = CLAUDE_BLOCK_ACTIVITY.get(block.type);
+      if (kind === undefined) return [];
+      return [activity(kind, "name" in block ? block.name : undefined)];
+    }
+    case CLAUDE_STREAM_EVENT_TYPES.CONTENT_BLOCK_DELTA: {
+      const kind = CLAUDE_DELTA_ACTIVITY.get(event.delta.type);
+      if (kind === undefined) return [];
+      return [activity(kind)];
+    }
+    default:
+      return [];
+  }
 }
 
 function retryDetail(message: SDKAPIRetryMessage): string {
@@ -92,33 +59,22 @@ function retryDetail(message: SDKAPIRetryMessage): string {
 }
 
 function statusActivity(message: SDKStatusMessage): RunnerEvent[] {
-  const kind = CLAUDE_STATUS_ACTIVITY[message.status ?? ""];
+  const kind = CLAUDE_STATUS_ACTIVITY.get(message.status ?? "");
   if (kind === undefined) return [];
   return [activity(kind)];
 }
 
-const SYSTEM_ACTIVITY_MAPPERS: SystemActivityMappers = {
-  [CLAUDE_SYSTEM_SUBTYPES.STATUS]: statusActivity,
-  [CLAUDE_SYSTEM_SUBTYPES.API_RETRY]: (message) => [
-    activity("retrying", retryDetail(message)),
-  ],
-};
-
-function isActivitySystemMessage(
-  message: SDKMessage,
-): message is ActivitySystemMessage {
-  return (
-    message.type === "system" && message.subtype in SYSTEM_ACTIVITY_MAPPERS
-  );
-}
-
 /** The activity a system message reveals: compaction, or a retried request. */
 export function systemActivity(message: SDKMessage): RunnerEvent[] {
-  if (!isActivitySystemMessage(message)) return [];
-  const mapper: SystemActivityMapper = SYSTEM_ACTIVITY_MAPPERS[
-    message.subtype
-  ] as SystemActivityMapper;
-  return mapper(message);
+  if (message.type !== "system") return [];
+  switch (message.subtype) {
+    case CLAUDE_SYSTEM_SUBTYPES.STATUS:
+      return statusActivity(message);
+    case CLAUDE_SYSTEM_SUBTYPES.API_RETRY:
+      return [activity("retrying", retryDetail(message))];
+    default:
+      return [];
+  }
 }
 
 /** A tool reporting that it is still running. */

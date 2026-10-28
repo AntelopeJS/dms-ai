@@ -26,9 +26,9 @@ import { relay } from "./sidecar-results";
 const SKILLS_PATH = "/skills";
 const LOCAL_PROVENANCE = "local";
 const LOCAL_ORIGIN = "~/.claude/skills";
-const SOURCES_BY_PROVENANCE: Readonly<Record<string, string>> = {
-  [LOCAL_PROVENANCE]: "local",
-};
+const SOURCES_BY_PROVENANCE = new Map<string, string>([
+  [LOCAL_PROVENANCE, "local"],
+]);
 const MODULE_SOURCE = "module";
 const SOURCE_COLUMN = "source";
 const CONFLICTS_PATH = `${SKILLS_PATH}/conflicts`;
@@ -41,7 +41,9 @@ function conflictText(key: string): string {
 
 function skillRow(skill: SidecarSkill): SkillRow {
   const source =
-    skill.source ?? SOURCES_BY_PROVENANCE[skill.provenance] ?? MODULE_SOURCE;
+    skill.source ??
+    SOURCES_BY_PROVENANCE.get(skill.provenance) ??
+    MODULE_SOURCE;
   const isLocal = skill.provenance === LOCAL_PROVENANCE;
   return {
     _id: skill.id,

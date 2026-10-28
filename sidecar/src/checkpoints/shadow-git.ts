@@ -145,8 +145,11 @@ function parseNumstat(output: string): Map<string, ChangeSetFile> {
 function applyStatuses(output: string, files: Map<string, ChangeSetFile>) {
   const parts = output.split(NUL);
   for (let i = 0; i + 1 < parts.length; i += 2) {
-    const entry = files.get(parts[i + 1] as string);
-    const status = GIT_STATUS_BY_LETTER[(parts[i] as string).charAt(0)];
+    const letter = parts[i];
+    const file = parts[i + 1];
+    if (letter === undefined || file === undefined) continue;
+    const entry = files.get(file);
+    const status = GIT_STATUS_BY_LETTER.get(letter.charAt(0));
     if (entry !== undefined && status !== undefined) entry.status = status;
   }
 }

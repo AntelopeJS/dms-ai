@@ -2,7 +2,7 @@ import { Logging } from "@antelopejs/interface-core/logging";
 import { AddFrontendModule } from "@antelopejs/interface-dms/page";
 import { isBuilderAvailable } from "./builder/presence";
 import { closeAllBridges } from "./channels/registry";
-import { getConfig, parseConfig, setConfig } from "./config";
+import { ConfigSchema, getConfig, setConfig } from "./config";
 import { SIDECAR_LOG_PREFIX } from "./constants/sidecar";
 import { collectModuleRoots } from "./lifecycle/module-roots";
 import { collectSkillSources } from "./lifecycle/skill-sources";
@@ -13,7 +13,7 @@ import "./routes";
 import { frontendModule } from "./frontend-module";
 
 export function construct(config: unknown): void {
-  setConfig(parseConfig(config));
+  setConfig(ConfigSchema.safeParse(config).data ?? {});
 }
 
 /**

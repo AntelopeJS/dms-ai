@@ -157,7 +157,7 @@ describe("sidecar client authentication", () => {
   });
 
   it("refuses a stored Full auto and merges a partial body", async () => {
-    const put = (body: unknown) =>
+    const put = (body: Record<string, string | number>) =>
       fetch(`http://127.0.0.1:${server.port}/settings`, {
         method: "PUT",
         headers: {
@@ -171,10 +171,11 @@ describe("sidecar client authentication", () => {
     expect(await refused.json()).toHaveProperty("message");
     const merged = await put({ requestTimeoutMinutes: 15 });
     expect(merged.status).toBe(200);
-    const payload = (await merged.json()) as Record<string, unknown>;
-    expect(payload.requestTimeoutMinutes).toBe(15);
-    expect(payload.mode).toBe("normal");
-    expect(payload.checkpointRetentionDays).toBe(30);
+    expect(await merged.json()).toMatchObject({
+      requestTimeoutMinutes: 15,
+      mode: "normal",
+      checkpointRetentionDays: 30,
+    });
   });
 
   it("rejects the socket without the Bearer credential, even with cookies, query tokens or the retired subprotocol", async () => {

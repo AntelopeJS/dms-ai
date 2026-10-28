@@ -57,7 +57,7 @@ import type { ConversationStore } from "../state/conversations.js";
 import type { HostState } from "../state/host-state.js";
 import type { SettingsStore } from "../state/settings-store.js";
 import type { AppSettings } from "../state/settings-types.js";
-import { PROVIDER_NAMES, type ProviderName } from "../state/types.js";
+import type { ProviderName } from "../state/types.js";
 import {
   broadcastConversationList,
   emitBlockPreview,
@@ -163,8 +163,8 @@ function buildRunnerFactories(
   runtime: ProviderRuntime,
   resolveSettings: ConversationSettingsResolver,
 ): Record<ProviderName, ProviderRunnerFactory> {
-  const factories = PROVIDER_NAMES.map((name) => [
-    name,
+  const factoryFor =
+    (name: ProviderName): ProviderRunnerFactory =>
     (settings: AppSettings) =>
       createAgentRunner(
         PROVIDER_MODULES[name].create(
@@ -172,12 +172,8 @@ function buildRunnerFactories(
           runtime,
         ),
         { settings, resolveSettings },
-      ),
-  ]);
-  return Object.fromEntries(factories) as Record<
-    ProviderName,
-    ProviderRunnerFactory
-  >;
+      );
+  return { claude: factoryFor("claude"), codex: factoryFor("codex") };
 }
 
 function buildRunner(

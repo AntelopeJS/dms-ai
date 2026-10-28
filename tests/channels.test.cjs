@@ -41,7 +41,7 @@ void test("streams every sidecar frame as a message event, after a ready event c
     { name: "message", data: '{"type":"settings_update"}' },
     { name: "message", data: '{"type":"host_command_navigate","path":"/x"}' },
   ]);
-  assert.equal(typeof opened.connectionId, "string");
+  assert.match(opened.connectionId, /^.+$/);
   assert.deepEqual(sidecar.paths, [SIDECAR_SOCKET_PATH]);
 });
 

@@ -47,13 +47,12 @@ export interface RunTypecheckOptions {
 
 function toText(value: string | Buffer | undefined): string {
   if (value === undefined) return "";
-  return typeof value === "string" ? value : value.toString("utf8");
+  return value.toString();
 }
 
-export function parseTscOutput(output: string): {
-  errorCount: number;
-  summary: string;
-} {
+export function parseTscOutput(
+  output: string,
+): Pick<TypecheckResult, "errorCount" | "summary"> {
   const lines = output
     .split(/\r?\n/)
     .filter((line) => TYPECHECK_ERROR_LINE_REGEX.test(line))
@@ -90,7 +89,9 @@ export async function runTypecheck(
     );
     return skipped(TYPECHECK_NO_TSCONFIG_MESSAGE);
   }
-  const exec = opts.exec ?? (execFileAsync as ExecFn);
+  const exec: ExecFn =
+    opts.exec ??
+    ((command, args, options) => execFileAsync(command, args, options));
   try {
     await exec(TYPECHECK_COMMAND, TYPECHECK_ARGS, {
       cwd: opts.targetRoot,

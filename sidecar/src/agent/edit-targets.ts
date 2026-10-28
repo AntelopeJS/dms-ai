@@ -1,17 +1,27 @@
+import { z } from "zod";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 const POSIX_SEPARATOR = "/";
 const PARENT_SEGMENT = "..";
 
-function readString(args: unknown, key: string): string | undefined {
-  if (args === null || typeof args !== "object") return undefined;
-  const value = (args as Record<string, unknown>)[key];
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+/** The arguments a tool call carries: an object keyed by argument name, empty when the call sent anything else. */
+export const ToolArgsSchema = z.record(z.string(), z.unknown()).catch({});
+export type ToolArgs = z.infer<typeof ToolArgsSchema>;
+
+const StringSchema = z.string();
+
+/** The string argument `key`, empty or not; undefined when it is absent or not a string. */
+export function readStringArg(args: ToolArgs, key: string): string | undefined {
+  return StringSchema.safeParse(args[key]).data;
 }
 
-function readStringList(args: unknown, key: string): string[] {
-  if (args === null || typeof args !== "object") return [];
-  const value = (args as Record<string, unknown>)[key];
+function readString(args: ToolArgs, key: string): string | undefined {
+  const value = readStringArg(args, key);
+  return value !== undefined && value.length > 0 ? value : undefined;
+}
+
+function readStringList(args: ToolArgs, key: string): string[] {
+  const value = args[key];
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
 }
@@ -22,7 +32,7 @@ const EDIT_PATH_KEYS: readonly string[] = ["file_path", "notebook_path"];
 export const EDIT_PATHS_KEY = "file_paths";
 
 /** The files an edit writes, as given by the agent (absolute or relative). */
-export function editTargetPaths(args: unknown): string[] {
+export function editTargetPaths(args: ToolArgs): string[] {
   const listed = readStringList(args, EDIT_PATHS_KEY);
   if (listed.length > 0) return listed;
   const single = EDIT_PATH_KEYS.map((key) => readString(args, key)).find(

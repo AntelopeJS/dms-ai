@@ -16,7 +16,7 @@ interface ErrorBody {
 }
 
 /** Turns a sidecar body into the route's answer. */
-export type BodyShaper<T> = (body: T) => unknown;
+export type BodyToAnswer<T> = (body: T) => unknown;
 
 /** The 503 every list and settings route answers while the sidecar is down. */
 export function assistantUnavailable(): HTTPResult {
@@ -41,13 +41,13 @@ function refused(response: SidecarResponse): HTTPResult {
 }
 
 /**
- * Forwards a request to the sidecar and shapes its answer. A refusal keeps
+ * Forwards a request to the sidecar and turns its answer into the route's. A refusal keeps
  * its status with `{ message }`; an unreachable sidecar answers 503, so
  * tables show their error state and an instant save says "Not saved".
  */
 export async function relay<T>(
   path: string,
-  shape: BodyShaper<T>,
+  toAnswer: BodyToAnswer<T>,
   request: SidecarRequest = {},
 ): Promise<unknown> {
   let response: SidecarResponse;
@@ -57,7 +57,7 @@ export async function relay<T>(
     return assistantUnavailable();
   }
   if (!response.isOk) return refused(response);
-  return shape(response.body as T);
+  return toAnswer(response.body as T);
 }
 
 /** Forwards the sidecar's answer unchanged. */

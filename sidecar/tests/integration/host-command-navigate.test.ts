@@ -19,6 +19,7 @@ import { createConversationStore } from "../../src/state/conversations.js";
 import { createHostState } from "../../src/state/host-state.js";
 import { createStore } from "../../src/state/store.js";
 import { rawDataToText } from "../../src/server/raw-data.js";
+import { parseWireMessage, type WireMessage } from "../helpers/ws-harness.js";
 
 const ARBITRARY_PORT = 0;
 const CLIENT_TOKEN = "host-navigation-test-credential";
@@ -36,15 +37,6 @@ interface ServerHandle {
   navigationCompleter: NavigationCompleter;
   tmpDir: string;
   close: () => Promise<void>;
-}
-
-interface ToolHandlerLike {
-  handler: (
-    args: { path: string },
-    extra: unknown,
-  ) => Promise<{
-    content: Array<{ type: string; text: string }>;
-  }>;
 }
 
 async function startTestServer(): Promise<ServerHandle> {
@@ -73,7 +65,7 @@ async function startTestServer(): Promise<ServerHandle> {
     hostProjectRoot: TEST_HOST_ROOT,
     moduleRoots: [],
     logsClient: { getLogs: async () => [] },
-    builderClient: { call: async () => undefined },
+    builderClient: { call: async () => null },
     databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     navigationCompleter,
@@ -119,11 +111,11 @@ function waitForOpen(socket: WebSocket): Promise<void> {
   });
 }
 
-function waitForMessage(socket: WebSocket): Promise<unknown> {
+function waitForMessage(socket: WebSocket): Promise<WireMessage> {
   return new Promise((resolveMsg) => {
     socket.once("message", (data) => {
       const raw = rawDataToText(data);
-      resolveMsg(JSON.parse(raw));
+      resolveMsg(parseWireMessage(raw));
     });
   });
 }
@@ -166,7 +158,7 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
         invalidate: () => {},
       },
       getCurrentPage: () => ({ path: "unknown" }),
-    }) as unknown as ToolHandlerLike;
+    });
     const handlerPromise = toolDef.handler(
       { path: NAVIGATE_TARGET },
       undefined,
@@ -208,7 +200,7 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
         invalidate: () => {},
       },
       getCurrentPage: () => ({ path: "unknown" }),
-    }) as unknown as ToolHandlerLike;
+    });
     const handlerPromise = toolDef.handler(
       { path: NAVIGATE_TARGET },
       undefined,
@@ -239,7 +231,7 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
         invalidate: () => {},
       },
       getCurrentPage: () => ({ path: "unknown" }),
-    }) as unknown as ToolHandlerLike;
+    });
     const handlerPromise = toolDef.handler({ path: "/x" }, undefined);
     await settle();
     handle.navigationCompleter.complete("/x");

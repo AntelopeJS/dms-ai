@@ -1,7 +1,11 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  NonNullableUsage,
+  SDKMessage,
+  SDKResultSuccess,
+} from "@anthropic-ai/claude-agent-sdk";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { extractTokenUsage } from "../../src/providers/claude/adapter.js";
 import {
@@ -15,9 +19,53 @@ const STATE_FILE = "state.json";
 const CONVERSATION_ID = "conv-usage-1";
 const FAST_DEBOUNCE_MS = 10;
 
-function resultMessage(usage: Record<string, number>): SDKMessage {
-  return { type: "result", usage } as unknown as SDKMessage;
+const IDENTITY = {
+  uuid: "00000000-0000-4000-8000-000000000000",
+  session_id: "session-1",
+} as const;
+
+const EMPTY_USAGE: NonNullableUsage = {
+  cache_creation: {
+    ephemeral_1h_input_tokens: 0,
+    ephemeral_5m_input_tokens: 0,
+  },
+  cache_creation_input_tokens: 0,
+  cache_read_input_tokens: 0,
+  inference_geo: "",
+  input_tokens: 0,
+  iterations: [],
+  output_tokens: 0,
+  server_tool_use: { web_fetch_requests: 0, web_search_requests: 0 },
+  service_tier: "standard",
+  speed: "standard",
+};
+
+function resultMessage(usage: Partial<NonNullableUsage>): SDKResultSuccess {
+  return {
+    type: "result",
+    subtype: "success",
+    duration_ms: 0,
+    duration_api_ms: 0,
+    is_error: false,
+    num_turns: 1,
+    result: "",
+    stop_reason: null,
+    total_cost_usd: 0,
+    usage: { ...EMPTY_USAGE, ...usage },
+    modelUsage: {},
+    permission_denials: [],
+    ...IDENTITY,
+  };
 }
+
+const NON_RESULT_MESSAGE: SDKMessage = {
+  type: "tool_progress",
+  tool_use_id: "tool-1",
+  tool_name: "Bash",
+  parent_tool_use_id: null,
+  elapsed_time_seconds: 1,
+  ...IDENTITY,
+};
 
 describe("token usage extraction", () => {
   it("counts cached and cache-write input as input", () => {
@@ -37,7 +85,7 @@ describe("token usage extraction", () => {
   });
 
   it("ignores any message that is not the turn result", () => {
-    expect(extractTokenUsage({ type: "assistant" } as SDKMessage)).toBeNull();
+    expect(extractTokenUsage(NON_RESULT_MESSAGE)).toBeNull();
   });
 
   it("survives a result with no usage block", () => {

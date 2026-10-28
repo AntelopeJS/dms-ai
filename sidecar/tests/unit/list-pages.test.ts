@@ -8,14 +8,6 @@ import { buildListPagesTool } from "../../src/mcp/tools/list-pages.js";
 import type { RegistryClient } from "../../src/pages/registry-client.js";
 import type { PagesRegistryEntry } from "../../src/pages/types.js";
 
-interface ToolHandlerLike {
-  name: string;
-  handler: (
-    args: { refresh?: boolean },
-    extra: unknown,
-  ) => Promise<{ content: Array<{ type: string; text: string }> }>;
-}
-
 function buildRegistry(
   entries: PagesRegistryEntry[],
   overrides: Partial<RegistryClient> = {},
@@ -28,8 +20,8 @@ function buildRegistry(
   };
 }
 
-function buildTool(registry: RegistryClient): ToolHandlerLike {
-  return buildListPagesTool({ registry }) as unknown as ToolHandlerLike;
+function buildTool(registry: RegistryClient) {
+  return buildListPagesTool({ registry });
 }
 
 describe("buildListPagesTool", () => {
@@ -41,7 +33,10 @@ describe("buildListPagesTool", () => {
     const registry = buildRegistry([
       { id: "p1", path: "/form/form-simple", moduleId: "dms" },
     ]);
-    const result = await buildTool(registry).handler({}, undefined);
+    const result = await buildTool(registry).handler(
+      { refresh: undefined },
+      undefined,
+    );
     const parsed = JSON.parse(result.content[0]?.text ?? "[]");
     expect(parsed).toEqual([
       { id: "p1", path: "/form/form-simple", moduleId: "dms" },
@@ -49,7 +44,10 @@ describe("buildListPagesTool", () => {
   });
 
   it("reports when no pages are registered", async () => {
-    const result = await buildTool(buildRegistry([])).handler({}, undefined);
+    const result = await buildTool(buildRegistry([])).handler(
+      { refresh: undefined },
+      undefined,
+    );
     expect(result.content[0]?.text).toBe(LIST_PAGES_EMPTY_MESSAGE);
   });
 
@@ -69,7 +67,10 @@ describe("buildListPagesTool", () => {
         throw new Error("backend down");
       },
     });
-    const result = await buildTool(registry).handler({}, undefined);
+    const result = await buildTool(registry).handler(
+      { refresh: undefined },
+      undefined,
+    );
     expect(result.content[0]?.text).toBe(LIST_PAGES_ERROR_MESSAGE);
   });
 });

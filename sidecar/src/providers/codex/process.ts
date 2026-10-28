@@ -2,6 +2,7 @@ import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 import {
   CODEX_APP_SERVER_COMMAND,
   CODEX_BINARY_NAME,
@@ -24,6 +25,7 @@ import {
   CODEX_SURVIVED_STOP_MESSAGE,
   PROCESS_QUERY_BY_PLATFORM,
 } from "../../constants/codex.js";
+import { PLATFORM_LINUX } from "../../constants/native-binary.js";
 import { safeDirSegment } from "../../state/safe-segment.js";
 import type { CodexClient, CodexClientHandlers } from "./client.js";
 import { createCodexClient } from "./client.js";
@@ -90,23 +92,19 @@ interface PidRecord {
   home: string;
 }
 
-function toPidRecord(entry: unknown): PidRecord | undefined {
-  if (entry === null || typeof entry !== "object") return undefined;
-  const { pid, home } = entry as Partial<PidRecord>;
-  if (pid === undefined || !Number.isInteger(pid)) return undefined;
-  return typeof home === "string" ? { pid, home } : undefined;
-}
+const pidRecordSchema = z.object({ pid: z.number().int(), home: z.string() });
 
-function isPidRecord(record: PidRecord | undefined): record is PidRecord {
-  return record !== undefined;
-}
+const pidRegistrySchema = z.array(z.unknown());
 
 async function readPidRegistry(stateDir: string): Promise<PidRecord[]> {
   try {
     const raw = await readFile(pidRegistryPath(stateDir), "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(toPidRecord).filter(isPidRecord);
+    const entries = pidRegistrySchema.safeParse(JSON.parse(raw));
+    if (!entries.success) return [];
+    return entries.data.flatMap((entry) => {
+      const record = pidRecordSchema.safeParse(entry);
+      return record.success ? [record.data] : [];
+    });
   } catch {
     return [];
   }
@@ -138,20 +136,16 @@ function queryProcessTable(pid: number): string | undefined {
 }
 
 /**
- * procfs where there is one, the platform's own process table elsewhere. Linux
- * is not the only host: a macOS or Windows sidecar that cannot read a command
- * line would never recognize an orphan, and would therefore never reap one.
- */
-const COMMAND_READERS: Record<string, (pid: number) => string | undefined> = {
-  linux: readProcCmdline,
-};
-
-/**
  * The command line of a running process, or undefined when it is gone or
- * unreadable. Never throws: an unreadable process is treated as absent.
+ * unreadable. Never throws: an unreadable process is treated as absent. Reads
+ * procfs where there is one, the platform's own process table elsewhere: Linux
+ * is not the only host, and a macOS or Windows sidecar that cannot read a
+ * command line would never recognize an orphan, and would therefore never reap
+ * one.
  */
 export function readProcessCommand(pid: number): string | undefined {
-  const read = COMMAND_READERS[process.platform] ?? queryProcessTable;
+  const read =
+    process.platform === PLATFORM_LINUX ? readProcCmdline : queryProcessTable;
   try {
     const command = read(pid)?.trim();
     return command === undefined || command.length === 0 ? undefined : command;
@@ -441,10 +435,6 @@ function watchChild(child: ChildProcess, stderr: StderrTail): Watchdog {
   };
 }
 
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 async function retireChild(
   stateDir: string,
   child: ChildProcess,
@@ -456,11 +446,14 @@ async function retireChild(
     console.warn(`${CODEX_LOG_PREFIX} ${CODEX_SURVIVED_STOP_MESSAGE} ${pid}`);
     return false;
   }
-  await forgetPid(stateDir, pid).catch((error: unknown) => {
+  try {
+    await forgetPid(stateDir, pid);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
     console.warn(
-      `${CODEX_LOG_PREFIX} ${CODEX_PID_RELEASE_FAILED_MESSAGE} ${pid}: ${describeError(error)}`,
+      `${CODEX_LOG_PREFIX} ${CODEX_PID_RELEASE_FAILED_MESSAGE} ${pid}: ${reason}`,
     );
-  });
+  }
   return true;
 }
 
@@ -470,13 +463,14 @@ async function retireChild(
  * client's code.
  */
 async function removeHome(codexHome: string): Promise<void> {
-  await rm(codexHome, { recursive: true, force: true }).catch(
-    (error: unknown) => {
-      console.error(
-        `${CODEX_LOG_PREFIX} ${CODEX_HOME_REMOVAL_FAILED_MESSAGE} ${codexHome}: ${describeError(error)}`,
-      );
-    },
-  );
+  try {
+    await rm(codexHome, { recursive: true, force: true });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(
+      `${CODEX_LOG_PREFIX} ${CODEX_HOME_REMOVAL_FAILED_MESSAGE} ${codexHome}: ${reason}`,
+    );
+  }
 }
 
 interface ProcessTeardown {

@@ -12,6 +12,7 @@ import {
   SAFE_MODE_DISALLOWED_TOOLS,
 } from "../../constants/settings.js";
 import { homedir } from "node:os";
+import { z } from "zod";
 import { isAbsolute, join, relative } from "node:path";
 import { isMutatingTool } from "../../agent/tool-kinds.js";
 import type { GenerationMode } from "../../state/settings-types.js";
@@ -36,18 +37,21 @@ const NO_DECISION: SyncHookJSONOutput = { continue: true };
  */
 const PLANS_DIRECTORY = join(homedir(), ".claude", "plans");
 
-interface FileToolInput {
-  file_path?: unknown;
-}
+const fileToolCallSchema = z.object({
+  tool_input: z.object({ file_path: z.string() }),
+});
 
-interface FileToolCall {
-  tool_input?: FileToolInput;
-}
+const preToolUseInputSchema = z.object({
+  tool_name: z.string().optional(),
+  tool_use_id: z.string().optional(),
+});
 
 /** Plan mode's own plan file, which safe mode lets through: it is not a project file. */
 function isPlanFile(input: HookInput): boolean {
-  const filePath = ((input as FileToolCall).tool_input ?? {}).file_path;
-  if (typeof filePath !== "string" || !isAbsolute(filePath)) return false;
+  const call = fileToolCallSchema.safeParse(input);
+  if (!call.success) return false;
+  const filePath = call.data.tool_input.file_path;
+  if (!isAbsolute(filePath)) return false;
   const inside = relative(PLANS_DIRECTORY, filePath);
   return inside.length > 0 && !inside.startsWith("..") && !isAbsolute(inside);
 }
@@ -65,11 +69,6 @@ export interface PreToolUseDeps {
   beforeMutation?: () => Promise<void>;
 }
 
-interface PreToolUseInput {
-  tool_name?: string;
-  tool_use_id?: string;
-}
-
 /**
  * Enforces safe mode as a `PreToolUse` hook. The CLI runs hooks before it
  * applies the permission mode, and a hook denial is final, so the refusal holds
@@ -82,7 +81,7 @@ interface PreToolUseInput {
 export function buildSafeModeHooks(deps: PreToolUseDeps): SdkHooks {
   const preToolUse: HookCallback = async (input) => {
     const { tool_name: toolName = "", tool_use_id: callId = "" } =
-      input as PreToolUseInput;
+      preToolUseInputSchema.safeParse(input).data ?? {};
     if (deps.getGenerationMode() === "safe" && isBlockedTool(input)) {
       deps.onBlocked?.(callId, toolName);
       return SAFE_MODE_DENIAL;

@@ -6,7 +6,7 @@ import {
   QUERY_LOGS_TOOL_NAME,
 } from "../../constants/logs.js";
 import type { LogsClient } from "../../logs/logs-client.js";
-import { defineTool } from "../define-tool.js";
+import { defineTool, type McpToolResult } from "../define-tool.js";
 
 export interface QueryLogsDeps {
   logsClient: LogsClient;
@@ -26,9 +26,7 @@ interface QueryLogsInput {
   limit?: number;
 }
 
-function buildContent(text: string): {
-  content: Array<{ type: "text"; text: string }>;
-} {
+function buildContent(text: string): McpToolResult {
   return { content: [{ type: "text", text }] };
 }
 

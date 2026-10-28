@@ -49,7 +49,7 @@ function text(...segments: string[]): string {
   return i18nKey(SECTION, ...segments);
 }
 
-const COLUMNS: Record<string, TableViewSourceColumn> = {
+const COLUMNS = {
   name: {
     name: text("columns", "name"),
     type: new DefaultDataTypes.StringType(),
@@ -90,7 +90,7 @@ const COLUMNS: Record<string, TableViewSourceColumn> = {
     sortable: true,
     order: 5,
   },
-};
+} satisfies Record<string, TableViewSourceColumn>;
 
 /**
  * AI Skills — the SKILL.md files loaded into the agent, contributed by the

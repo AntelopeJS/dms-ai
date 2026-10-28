@@ -41,7 +41,7 @@ function registerDefinition(
   server.registerTool(
     definition.name,
     { description: definition.description, inputSchema: definition.schema },
-    definition.handler as never,
+    definition.handler,
   );
 }
 

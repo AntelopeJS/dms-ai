@@ -17,7 +17,7 @@ import { isKnownRoute } from "../../pages/route-match.js";
 import { type AnyServerEventType, EVENT_TYPES } from "../../protocol/events.js";
 import type { NavigationCompleter } from "../../server/navigation-completer.js";
 import type { CurrentPage } from "../../state/host-state.js";
-import { defineTool } from "../define-tool.js";
+import { defineTool, type McpToolResult } from "../define-tool.js";
 
 export interface NavigateToPageDeps {
   sendToHost: (event: AnyServerEventType) => void;
@@ -48,10 +48,8 @@ async function safeKnownRoutes(registry: RegistryClient): Promise<string[]> {
   }
 }
 
-function jsonContent(payload: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text: JSON.stringify(payload) }] };
+function textContent(text: string): McpToolResult {
+  return { content: [{ type: "text", text }] };
 }
 
 function buildUnknownRouteText(
@@ -64,13 +62,15 @@ function buildUnknownRouteText(
 function buildUnknownRouteContent(
   targetPath: string,
   knownRoutes: string[],
-): { content: Array<{ type: "text"; text: string }> } {
+): McpToolResult {
   const suggestions = knownRoutes.slice(0, NAVIGATE_SUGGESTION_LIMIT);
-  return jsonContent({
-    ok: false,
-    error: { code: "unknown_route", path: targetPath, suggestions },
-    message: buildUnknownRouteText(targetPath, suggestions),
-  });
+  return textContent(
+    JSON.stringify({
+      ok: false,
+      error: { code: "unknown_route", path: targetPath, suggestions },
+      message: buildUnknownRouteText(targetPath, suggestions),
+    }),
+  );
 }
 
 function buildResultText(
@@ -88,16 +88,18 @@ function buildContent(
   targetPath: string,
   isCompleted: boolean,
   landedOn: CurrentPage,
-): { content: Array<{ type: "text"; text: string }> } {
-  return jsonContent({
-    ok: true,
-    data: {
-      path: targetPath,
-      navigation: isCompleted ? "completed" : "timeout",
-      currentPage: landedOn,
-    },
-    message: buildResultText(targetPath, isCompleted, landedOn),
-  });
+): McpToolResult {
+  return textContent(
+    JSON.stringify({
+      ok: true,
+      data: {
+        path: targetPath,
+        navigation: isCompleted ? "completed" : "timeout",
+        currentPage: landedOn,
+      },
+      message: buildResultText(targetPath, isCompleted, landedOn),
+    }),
+  );
 }
 
 /**

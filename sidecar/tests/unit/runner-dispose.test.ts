@@ -125,9 +125,7 @@ describe("runner teardown", () => {
       },
     };
     const runner = createAgentRunner(provider);
-    const turn = openConversation(runner, "conv-a").catch(
-      (error: unknown) => error,
-    );
+    const turn = openConversation(runner, "conv-a").catch(String);
     await flushCallbacks();
 
     const disposal = watchSettle(runner.dispose());

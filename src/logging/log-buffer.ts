@@ -8,6 +8,10 @@ import {
 } from "../constants/logs";
 import type { BufferedLog, LogQuery } from "../types/logs";
 
+function isObject(value: unknown): value is object {
+  return typeof value === "object" && value !== null;
+}
+
 /** Whatever `toString()` the value carries: its own, or Object's. */
 interface Stringable {
   toString(): string;
@@ -23,12 +27,13 @@ function sanitizeArg(arg: unknown): unknown {
   if (arg instanceof Error) {
     return { name: arg.name, message: arg.message, stack: arg.stack };
   }
-  if (typeof arg === "object" && arg !== null) {
+  if (isObject(arg)) {
     try {
       JSON.stringify(arg);
       return arg;
     } catch {
-      return (arg as Stringable).toString();
+      const printable: Stringable = arg;
+      return printable.toString();
     }
   }
   return arg;

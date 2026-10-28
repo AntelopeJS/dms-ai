@@ -1,5 +1,6 @@
 import { isAbsolute, resolve, sep } from "node:path";
 import { READ_ONLY_TOOL_PATH_KEYS } from "../constants/read-access.js";
+import { readStringArg, type ToolArgs } from "./edit-targets.js";
 
 /**
  * The roots under which read-only file tools are auto-allowed: the host project
@@ -27,14 +28,10 @@ interface ReadPathArg {
   value: string | undefined;
 }
 
-function readPathArg(
-  toolName: string,
-  input: Record<string, unknown>,
-): ReadPathArg {
-  const key = READ_ONLY_TOOL_PATH_KEYS[toolName];
+function readPathArg(toolName: string, input: ToolArgs): ReadPathArg {
+  const key = READ_ONLY_TOOL_PATH_KEYS.get(toolName);
   if (key === undefined) return { managed: false, value: undefined };
-  const raw = input[key];
-  return { managed: true, value: typeof raw === "string" ? raw : undefined };
+  return { managed: true, value: readStringArg(input, key) };
 }
 
 /**
@@ -45,15 +42,11 @@ function readPathArg(
  */
 export function isAutoAllowedRead(
   toolName: string,
-  input: unknown,
+  input: ToolArgs,
   roots: string[],
   cwd: string,
 ): boolean {
-  const safeInput =
-    input !== null && typeof input === "object"
-      ? (input as Record<string, unknown>)
-      : {};
-  const { managed, value } = readPathArg(toolName, safeInput);
+  const { managed, value } = readPathArg(toolName, input);
   if (!managed) return false;
   if (value === undefined || value.length === 0) return true;
   const abs = isAbsolute(value) ? resolve(value) : resolve(cwd, value);

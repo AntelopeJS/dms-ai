@@ -27,6 +27,7 @@ export function rawDataToText(data: RawData): string {
   try {
     return Buffer.from(data).toString("utf8");
   } catch {
-    return (data as Stringable).toString();
+    const printable: Stringable = data;
+    return printable.toString();
   }
 }

@@ -1,4 +1,5 @@
-import { internal, type PageInfo } from "@antelopejs/interface-dms/page";
+import { internal } from "@antelopejs/interface-dms/page";
+import { z } from "zod";
 import {
   DEFAULT_MODULE_ID,
   REGISTERED_FIELD,
@@ -20,20 +21,19 @@ function readRegisteredMap(): Map<unknown, unknown> {
   return map;
 }
 
-function isPageInfo(value: unknown): value is PageInfo {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.fullId === "string" &&
-    typeof candidate.fullSlug === "string"
-  );
-}
+const PageInfoSchema = z.object({
+  fullId: z.string(),
+  fullSlug: z.string(),
+  module: z.string().optional().catch(undefined),
+});
 
-function resolveModuleId(pageInfo: PageInfo): string {
+type RegisteredPage = z.infer<typeof PageInfoSchema>;
+
+function resolveModuleId(pageInfo: RegisteredPage): string {
   return pageInfo.module ?? DEFAULT_MODULE_ID;
 }
 
-function toRegistryEntry(pageInfo: PageInfo): PagesRegistryEntry {
+function toRegistryEntry(pageInfo: RegisteredPage): PagesRegistryEntry {
   return {
     id: pageInfo.fullId,
     path: pageInfo.fullSlug,
@@ -45,8 +45,8 @@ export function listPagesRegistry(): PagesRegistryEntry[] {
   const registered = readRegisteredMap();
   const entries: PagesRegistryEntry[] = [];
   for (const key of registered.keys()) {
-    if (!isPageInfo(key)) continue;
-    entries.push(toRegistryEntry(key));
+    const pageInfo = PageInfoSchema.safeParse(key);
+    if (pageInfo.success) entries.push(toRegistryEntry(pageInfo.data));
   }
   return entries;
 }

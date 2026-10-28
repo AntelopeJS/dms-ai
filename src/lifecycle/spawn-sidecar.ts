@@ -2,6 +2,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { closeSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import { z } from "zod";
 import { Logging } from "@antelopejs/interface-core/logging";
 import { PRODUCTION_NODE_ENV } from "../constants/module";
 import {
@@ -56,19 +57,21 @@ interface SpawnOptions {
   builderEnabled?: boolean;
 }
 
-interface SidecarLock {
-  port: number;
-  pid: number;
-  version: string;
-  buildId: string;
-  startedAt: number;
-  token?: string;
-  clientToken?: string;
-}
+/**
+ * What the module reads of the sidecar's lock file: where it listens, which
+ * process it is and the credentials it published. A lock without a numeric
+ * port and pid is no lock.
+ */
+const SidecarLockSchema = z.object({
+  port: z.number(),
+  pid: z.number(),
+  token: z.string().optional().catch(undefined),
+  clientToken: z.string().optional().catch(undefined),
+});
 
-interface HealthResponse {
-  ok?: boolean;
-}
+type SidecarLock = z.infer<typeof SidecarLockSchema>;
+
+const HealthResponseSchema = z.object({ ok: z.literal(true) });
 
 interface LauncherState {
   options: SpawnOptions | null;
@@ -166,11 +169,8 @@ function readLock(root: string): SidecarLock | null {
       buildCachePath(root, SIDECAR_LOCK_FILE_NAME),
       "utf8",
     );
-    const parsed = JSON.parse(raw) as Partial<SidecarLock>;
-    if (typeof parsed.port !== "number" || typeof parsed.pid !== "number") {
-      return null;
-    }
-    return parsed as SidecarLock;
+    const lock = SidecarLockSchema.safeParse(JSON.parse(raw));
+    return lock.success ? lock.data : null;
   } catch {
     return null;
   }
@@ -183,7 +183,7 @@ function removeLockOf(root: string, pid: number): void {
 
 function isHealthyBody(body: string): boolean {
   try {
-    return (JSON.parse(body) as HealthResponse).ok === true;
+    return HealthResponseSchema.safeParse(JSON.parse(body)).success;
   } catch {
     return false;
   }

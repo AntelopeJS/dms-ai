@@ -1,13 +1,14 @@
+import { readStringArg, type ToolArgs } from "./edit-targets.js";
+
 export const EDIT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "Edit",
   "Write",
   "MultiEdit",
 ]);
 
-export function extractEditedFilePath(args: unknown): string | undefined {
-  if (args === null || typeof args !== "object") return undefined;
-  const value = (args as { file_path?: unknown }).file_path;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+export function extractEditedFilePath(args: ToolArgs): string | undefined {
+  const value = readStringArg(args, "file_path");
+  return value !== undefined && value.length > 0 ? value : undefined;
 }
 
 export interface EditTracker {
