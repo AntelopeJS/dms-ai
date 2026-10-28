@@ -11,7 +11,7 @@ integrator gave you:
       "source": { "type": "package", "package": "@antelopejs/postgres", "version": "<version>" },
       "config": { "mode": "external", "statementTimeoutMs": 30000 },
       "env": { "url": "ERP_DATABASE_URL" } } },
-  { "op": "CreateLocalModule", "id": "erp-tables", "path": "modules/erp-tables", "entry": {
+  { "op": "CreateLocalModule", "id": "erp-tables", "path": "modules/erp-tables", "connection": "erp", "entry": {
       "importOverrides": [{ "interface": "@antelopejs/interface-database", "source": "postgres-erp" }] } },
   { "op": "ConfigureModule", "id": "mongodb", "entry": {
       "exportPriority": { "@antelopejs/interface-database": 1 } } },
@@ -24,7 +24,8 @@ integrator gave you:
 
 - **Step 1** is the client's database as an external postgres instance. Its URL comes from the
   variable.
-- **Step 2** is the module the tables are generated into. It is bound to that instance.
+- **Step 2** is the module the tables are generated into. It is bound to that instance, and
+  `connection` records that it holds the tables of `erp`.
 - **Step 3** keeps the DMS and its modules on the project's own database. Leave it out if the
   project already pins them.
 - **Steps 4 and 5** give the Builder and you the connection `erp`, the same id for both.
