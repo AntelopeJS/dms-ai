@@ -262,9 +262,7 @@ function interruptTurn(backend: CodexBackend): void {
       threadId: backend.threadId,
       turnId: backend.turnId,
     })
-    .catch(() => {
-      // The turn may have finished on its own between the stop and this call.
-    });
+    .catch(() => {});
 }
 
 function trackTurnId(
