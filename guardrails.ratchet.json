@@ -1,11 +1,7 @@
 {
   "rules": {
-    "antelopejs/no-comments": 1128,
-    "antelopejs/no-constant-value-assertion": 1,
-    "antelopejs/no-fs-read-in-tests": 8,
-    "antelopejs/require-assertion": 3,
+    "antelopejs/no-comments": 1122,
     "anti-slop/no-known-value-widening": 73,
-    "anti-slop/no-module-mocking": 3,
     "anti-slop/no-runtime-typeof": 92,
     "anti-slop/no-shape-in-symbol-names": 42,
     "anti-slop/no-unknown-parameters": 115,

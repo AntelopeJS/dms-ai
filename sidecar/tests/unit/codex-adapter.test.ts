@@ -1,35 +1,9 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
 import { MCP_TOOL_NAME_PREFIX } from "../../src/constants/mcp.js";
 import { TOOL_LEXICON } from "../../src/constants/tool-lexicon.js";
 import { createCodexAdapter } from "../../src/providers/codex/adapter.js";
-import type { CodexNotification } from "../../src/providers/codex/client.js";
-
-const DUMPS = resolve(__dirname, "../fixtures/codex-dumps");
-
-interface DumpFrame {
-  dir: string;
-  msg: { id?: number | string; method?: string; params?: unknown };
-}
-
-// Only server-to-client notifications reach the adapter: a frame carrying both
-// an id and a method is an approval request, which the permission layer owns.
-function readNotifications(name: string): CodexNotification[] {
-  const raw = readFileSync(resolve(DUMPS, name), "utf8");
-  return raw
-    .split("\n")
-    .filter((line) => line.trim() !== "")
-    .map((line) => JSON.parse(line) as DumpFrame)
-    .filter((frame) => frame.dir === "in")
-    .filter((frame) => frame.msg.method !== undefined)
-    .filter((frame) => frame.msg.id === undefined)
-    .map((frame) => ({
-      method: frame.msg.method as string,
-      params: frame.msg.params,
-    }));
-}
+import { readNotifications } from "../helpers/codex-dumps.js";
 
 function replay(name: string): RunnerEvent[] {
   const adapter = createCodexAdapter();

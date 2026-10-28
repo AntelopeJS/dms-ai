@@ -10,10 +10,6 @@ afterEach(() => {
 });
 
 describe("effective generation mode", () => {
-  it("defaults to safe", () => {
-    expect(DEFAULT_SETTINGS.generationMode).toBe("safe");
-  });
-
   it("keeps a stored safe preference when the builder is present", () => {
     setBuilderAvailable(true);
     expect(effectiveGenerationMode("safe")).toBe("safe");

@@ -88,6 +88,7 @@ describe("permission bus", () => {
     );
     void t.bus.requestPermission(request({ command: "pnpm test > out.txt" }));
     await t.waitForPrompts(3);
+    expect(t.prompts).toHaveLength(3);
   });
 
   it("ignores a rule the request did not offer", async () => {

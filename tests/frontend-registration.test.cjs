@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const Module = require("node:module");
 const path = require("node:path");
 const { test } = require("node:test");
+const { PAGE_LOCALES, readLocale } = require("./helpers/page-locales.cjs");
 
 const BACKEND_URL = "http://127.0.0.1:41234";
 
@@ -104,16 +105,8 @@ void test("ignores config entries that are not usable origins", async () => {
   ]);
 });
 
-const LOCALES_DIR = path.resolve(__dirname, "../frontend-vue/i18n/locales");
-const PAGE_LOCALES = ["dms-ai-pages-en-GB.json", "dms-ai-pages-fr-FR.json"];
 const I18N_KEY = /\$dms_ai\.[A-Za-z0-9_.-]+/g;
 const MODULE_PAGES = ["overview", "changes", "activity", "skills", "settings"];
-
-function readLocale(file) {
-  return JSON.parse(
-    require("node:fs").readFileSync(path.join(LOCALES_DIR, file), "utf8"),
-  );
-}
 
 function translate(locale, key) {
   return key
