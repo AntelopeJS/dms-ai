@@ -1,4 +1,5 @@
 import { type Ref, ref } from "vue";
+import type { ConversationStartMode } from "./assistant-session";
 
 /** Opens the panel on a stored conversation. */
 interface OpenConversationIntent {
@@ -6,10 +7,11 @@ interface OpenConversationIntent {
 	conversationId: string;
 }
 
-/** Opens the panel on a new conversation, the composer optionally prefilled. */
+/** Opens the panel on a new conversation, the composer optionally prefilled, in `mode` when given. */
 interface StartConversationIntent {
 	kind: "start";
 	prompt?: string;
+	mode?: ConversationStartMode;
 }
 
 /** Puts the caret in the composer of the current conversation. */

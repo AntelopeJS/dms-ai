@@ -26,6 +26,10 @@ import {
 	paletteAssistant,
 	paletteSource,
 } from "../runtime/assistant-commands";
+import {
+	ASSISTANT_ACTIONS_KEY,
+	publicAssistantActions,
+} from "../runtime/assistant-actions";
 import { installAssistantNotifications } from "../runtime/assistant-notifications";
 import {
 	ASSISTANT_SESSION_KEY,
@@ -264,8 +268,8 @@ function createSession(parts: SessionParts): AssistantSession {
 			intents.push({ kind: "open", conversationId });
 			panel.open();
 		},
-		startConversation: (prompt) => {
-			intents.push({ kind: "start", prompt });
+		startConversation: (prompt, mode) => {
+			intents.push({ kind: "start", prompt, mode });
 			panel.open();
 		},
 		holdStream: parts.holds.hold,
@@ -502,6 +506,10 @@ export default defineDmsPlugin((context) => {
 		i18n: createChatI18n(context.$i18n),
 	};
 	context.vueApp.provide(ASSISTANT_SESSION_KEY, provided.session);
+	context.vueApp.provide(
+		ASSISTANT_ACTIONS_KEY,
+		publicAssistantActions(provided.session),
+	);
 	context.vueApp.provide(CHAT_I18N_KEY, provided.i18n);
 	const appMounted = new Promise<void>((resolve) =>
 		context.hook("app:mounted", resolve),

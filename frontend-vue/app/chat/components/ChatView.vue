@@ -8,6 +8,7 @@ import {
 	watch,
 } from "vue";
 import type { ChatTransport } from "../../runtime/chat-transport";
+import type { ConversationStartMode } from "../../runtime/assistant-session";
 import type { PanelIntent, PanelIntents } from "../../runtime/panel-intents";
 import {
 	useChangeSetActions,
@@ -324,6 +325,23 @@ function setDraft(text: string): void {
 	composerRef.value?.setDraft(text);
 }
 
+/** Sets the new conversation's mode as soon as the stream can carry it, unless the chat moved on. */
+function setModeWhenConnected(next: ConversationStartMode): void {
+	const conversationId = activeId.value;
+	const apply = (): void => {
+		if (activeId.value === conversationId) mode.setMode(next);
+	};
+	if (isConnected.value) {
+		apply();
+		return;
+	}
+	const stop = watch(isConnected, (connected) => {
+		if (!connected) return;
+		stop();
+		apply();
+	});
+}
+
 const INTENT_HANDLERS: Record<
 	PanelIntent["kind"],
 	(intent: PanelIntent) => void
@@ -333,6 +351,8 @@ const INTENT_HANDLERS: Record<
 	},
 	start: (intent) => {
 		newConversation();
+		if (intent.kind === "start" && intent.mode)
+			setModeWhenConnected(intent.mode);
 		if (intent.kind === "start" && intent.prompt)
 			void nextTick(() => setDraft(intent.prompt ?? ""));
 		else void nextTick(() => composerRef.value?.focus());
