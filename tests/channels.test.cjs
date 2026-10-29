@@ -23,6 +23,8 @@ const { openChannel } = require(dist("channels/channel-service.js"));
 const { closeAllBridges } = require(dist("channels/registry.js"));
 const { createSseStream } = require(dist("channels/sse-stream.js"));
 
+const SETTLE_MS = 50;
+
 afterEach(closeEverything);
 
 void test("streams every sidecar frame as a message event, after a ready event carrying the connection id", async () => {
@@ -144,7 +146,8 @@ void test("leaves nothing open when the browser left during the sidecar handshak
   };
   await openChannel(context.ctx, actorOf(OWNER), slowConnect);
   await waitFor(() => sidecar.closed === 1, "sidecar socket closes");
-  assert.equal(sidecar.closed, 1);
+  await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+  assert.equal(sidecar.closed, 1, "the socket closes once and stays closed");
 });
 
 void test("answers 503 without streaming when the sidecar cannot be reached", async () => {
