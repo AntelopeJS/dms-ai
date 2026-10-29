@@ -398,7 +398,7 @@ export function createCollector(
  * reject, and not `unknown`, which would let `sendWire(socket, undefined)`
  * compile.
  */
-// oxlint-disable-next-line anti-slop/no-object-parameters
+// oxlint-disable-next-line anti-slop/no-object-parameters -- a message type would forbid the frames the protocol should reject, and unknown would let sendWire(socket, undefined) compile
 export function sendWire(socket: WebSocket, msg: object): void {
   socket.send(JSON.stringify(msg));
 }

@@ -120,9 +120,9 @@ function editSteps(toolName: string, args: unknown): EditStep[] {
 }
 
 /**
- * The diff an Edit / MultiEdit / Write would make to `current`. When the text to replace is not
- * in the file (or there is no file yet), the first step's replacement is shown on its own rather
- * than nothing.
+ * The diff an Edit / MultiEdit / Write would make to `current`. When the text
+ * to replace is not in the file (or there is no file yet), the first step's
+ * replacement is shown on its own rather than nothing.
  */
 function plannedDiff(
   toolName: string,

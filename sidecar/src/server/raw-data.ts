@@ -18,7 +18,7 @@ interface Stringable {
  * Total by construction: the ws `message` listener has no try/catch, so a throw
  * here would leave the EventEmitter and take the process down. An unexpected
  * shape degrades to its own `toString()`, which is what the caller's own
- * parsing already refuses. The fallback exists for a shape @types/ws does not
+ * parsing already refuses. The fallback exists for a shape `@types/ws` does not
  * model, such as a Blob under `binaryType: "blob"`.
  */
 export function rawDataToText(data: RawData): string {

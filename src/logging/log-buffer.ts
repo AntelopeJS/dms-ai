@@ -14,9 +14,10 @@ interface Stringable {
 }
 
 /**
- * Keeps an argument the buffer can serialise as it is. Anything else (a cycle,
- * or a BigInt nested inside) becomes `toString()`'s result, which keeps a custom
- * `toString()` and only degrades to "[object Object]" for a plain object.
+ * Keeps an argument the buffer can serialise as it is. An Error becomes
+ * `{ name, message, stack }`. Anything else that cannot be serialised (a cycle,
+ * or a BigInt nested inside) becomes `toString()`'s result, which keeps a
+ * custom `toString()` and only degrades to "[object Object]" for a plain object.
  */
 function sanitizeArg(arg: unknown): unknown {
   if (arg instanceof Error) {

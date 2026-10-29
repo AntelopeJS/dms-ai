@@ -361,8 +361,8 @@ async function fileDetails(
 }
 
 /**
- * Drops expired checkpoints, then runs the gc on the serialization lock so a flush (and a test's
- * cleanup) waits for it.
+ * Drops expired checkpoints, then runs the gc on the serialization lock so a
+ * flush (and a test's cleanup) waits for it.
  */
 async function pruneExpired(state: CheckpointsState, retentionDays: number) {
   const cutoff = Date.now() - retentionDays * MS_PER_DAY;

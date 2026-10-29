@@ -231,7 +231,10 @@ export const FullAutoStateSchema = z.object({
   untilMs: z.number().optional(),
 });
 
-/** A conversation's modes; `generationMode` is the effective one: vibe when the Builder is absent. */
+/**
+ * A conversation's modes; `generationMode` is the effective one: vibe when the
+ * Builder is absent.
+ */
 export const ConversationModeSchema = z.object({
   conversationId: z.string(),
   mode: z.enum(CHAT_MODES),

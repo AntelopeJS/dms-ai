@@ -122,7 +122,10 @@ export interface StoredMessage {
   preview?: BlockPreviewType;
   /** Set on calls made during an auto-fix turn. */
   isAutoFix?: boolean;
-  /** Permission records only, like the fields below it: what the request was and when it was answered. */
+  /**
+   * Permission records only, like the fields below it: what the request was
+   * and when it was answered.
+   */
   requestId?: string;
   kind?: PermissionKind;
   alwaysAsk?: boolean;
