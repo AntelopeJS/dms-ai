@@ -101,12 +101,11 @@ function markStale(
   state: StaleState,
   nowMs: number,
   logger: Pick<Console, "warn">,
-  err: unknown,
+  reason: string,
 ): void {
   if (state.staleSinceMs === null) state.staleSinceMs = nowMs;
   if (!state.mustLogOnNextFallback) return;
   state.mustLogOnNextFallback = false;
-  const reason = err instanceof Error ? err.message : String(err);
   logger.warn(
     `${PAGES_LOG_PREFIX} ${REGISTRY_STALE_FALLBACK_MESSAGE} (since=${state.staleSinceMs}, reason=${reason})`,
   );
@@ -132,7 +131,12 @@ export function createRegistryClient(
       return entries;
     } catch (err) {
       if (cache !== null) {
-        markStale(staleState, now(), logger, err);
+        markStale(
+          staleState,
+          now(),
+          logger,
+          err instanceof Error ? err.message : String(err),
+        );
         return cache.entries;
       }
       throw err;

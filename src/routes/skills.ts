@@ -111,7 +111,9 @@ function conflictsBanner({
 @AuthOwnerOnly()
 export class AISkillsController extends Controller(ROUTE_PREFIX) {
   @Get(`${SKILLS_PATH}/catalog`)
-  catalog(@Context() ctx: RequestContext): Promise<unknown> {
+  catalog(
+    @Context() ctx: RequestContext,
+  ): Promise<SidecarList<SkillRow> | HTTPResult> {
     const source = filteredValue(ctx.url.searchParams, SOURCE_COLUMN);
     return relay(SKILLS_PATH, catalogPage(source));
   }

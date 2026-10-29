@@ -1,11 +1,11 @@
 {
   "rules": {
     "anti-slop/no-known-value-widening": 3,
-    "anti-slop/no-runtime-typeof": 10,
-    "anti-slop/no-unknown-parameters": 17,
-    "anti-slop/no-unknown-returns": 32,
-    "anti-slop/no-unsafe-dictionary-type": 7,
-    "anti-slop/require-safety-comment-for-type-assertion": 29
+    "anti-slop/no-runtime-typeof": 7,
+    "anti-slop/no-unknown-parameters": 11,
+    "anti-slop/no-unknown-returns": 13,
+    "anti-slop/no-unsafe-dictionary-type": 6,
+    "anti-slop/require-safety-comment-for-type-assertion": 27
   },
   "oversizeFiles": {
     "frontend-vue/app/chat/components/ChatView.vue": 21713,

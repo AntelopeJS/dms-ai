@@ -93,8 +93,7 @@ export function broadcastQueueState(
   );
 }
 
-export function logFailure(what: string, err: unknown): void {
-  const message = err instanceof Error ? err.message : String(err);
+export function logFailure(what: string, message: string): void {
   console.warn(`${WS_LOG_PREFIX} ${what}: ${message}`);
 }
 
@@ -120,7 +119,10 @@ async function drainConversation(
       sendUserEcho(ctx, conversationId, next);
       await runUserTurn(ctx, conversationId, next);
     } catch (err) {
-      logFailure("queued turn failed", err);
+      logFailure(
+        "queued turn failed",
+        err instanceof Error ? err.message : String(err),
+      );
     }
   }
 }
@@ -138,7 +140,10 @@ export async function ensureDraining(
   try {
     await drainConversation(ctx, conversationId);
   } catch (err) {
-    logFailure("drain failed", err);
+    logFailure(
+      "drain failed",
+      err instanceof Error ? err.message : String(err),
+    );
   } finally {
     ctx.pendingQueue.endDrain(conversationId);
   }
@@ -175,7 +180,7 @@ export async function runExclusive(
     await run();
     await drainConversation(ctx, conversationId);
   } catch (err) {
-    logFailure("run failed", err);
+    logFailure("run failed", err instanceof Error ? err.message : String(err));
   } finally {
     ctx.pendingQueue.endDrain(conversationId);
   }

@@ -10,6 +10,7 @@ import {
 import type {
   AllowedBreakdown,
   ChartPayload,
+  KeyValueItem,
   KpiPayload,
   SidecarKpi,
   TopListPayload,
@@ -127,7 +128,9 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
   }
 
   @Get("usage/summary")
-  usageSummary(@Parameter("days", "query") days?: string): Promise<unknown> {
+  usageSummary(
+    @Parameter("days", "query") days?: string,
+  ): Promise<{ items: KeyValueItem[] }> {
     return readMetric(
       "/metrics/usage",
       { days },

@@ -18,7 +18,7 @@ import { PAGE_ROUTES } from "../constants/pages";
 import { requestSidecar } from "../sidecar";
 import { i18nKey } from "../vocabulary";
 import { bannerAnswer } from "./banner";
-import { relay } from "./sidecar-results";
+import { asIs, relay } from "./sidecar-results";
 
 const ACCOUNT_PATH = "/codex/account";
 const LOGOUT_PATH = "/codex/logout";
@@ -129,6 +129,11 @@ function accountBanner(account: CodexAccount): BannerContent | null {
     : signedOutBanner(account.loginUrl);
 }
 
+/** What the sign-in form posts: the address the browser landed on. */
+interface PastedCallbackBody {
+  [PASTED_URL_FIELD]?: string;
+}
+
 /**
  * Settings' ChatGPT account: the banner offering to sign in or out, the
  * pasted return address that completes a remote sign-in, and the sign-out. No banner while the sidecar does not answer: the Overview
@@ -150,8 +155,8 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
   }
 
   @Post(CALLBACK_PATH)
-  finishSignIn(@JSONBody() body?: Record<string, unknown>): Promise<unknown> {
-    return relay(CALLBACK_PATH, (answer: unknown) => answer, {
+  finishSignIn(@JSONBody() body?: PastedCallbackBody): Promise<unknown> {
+    return relay(CALLBACK_PATH, asIs, {
       method: "POST",
       body: { url: body?.[PASTED_URL_FIELD] },
     });
@@ -159,6 +164,6 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
 
   @Post(LOGOUT_PATH)
   logout(): Promise<unknown> {
-    return relay(LOGOUT_PATH, (body: unknown) => body, { method: "POST" });
+    return relay(LOGOUT_PATH, asIs, { method: "POST" });
   }
 }

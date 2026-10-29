@@ -30,7 +30,7 @@ interface StoreState {
 
 function parseStateContents(raw: string): StoredState {
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed: unknown = JSON.parse(raw);
     if (parsed === null || typeof parsed !== "object") return STATE_INITIAL;
     const candidate = parsed as Partial<StoredState>;
     if (

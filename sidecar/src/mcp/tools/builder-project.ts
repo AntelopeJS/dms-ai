@@ -1,3 +1,4 @@
+import type { JsonValue } from "../../protocol/json.js";
 import { z } from "zod";
 import type { BuilderClient } from "../../builder/builder-client.js";
 import {
@@ -25,7 +26,7 @@ const OP_ANSWER = z.object({
 });
 
 /** A Builder answer as a tool result: an `{ ok: false }` answer is a failed call. */
-export function opResult(value: unknown): McpToolResult {
+export function opResult(value: JsonValue): McpToolResult {
   const text = JSON.stringify(value);
   const failed = OP_ANSWER.safeParse(value).data?.ok === false;
   return failed
