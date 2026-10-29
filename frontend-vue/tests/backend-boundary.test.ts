@@ -47,6 +47,7 @@ beforeEach(() => {
 	manifest("backend", "@antelopejs/dms-ai");
 	write("backend/src/routes/status.ts", "export const status = 1;\n");
 	write("backend/dist/index.js", "export const built = 1;\n");
+	write("backend/srcfoo/index.ts", "export const sibling = 1;\n");
 	manifest("other", "another-package");
 	write("other/src/index.ts", "export const other = 1;\n");
 	manifest("frontend", "@antelopejs/dms-ai-frontend-vue");
@@ -104,6 +105,12 @@ describe("the backend boundary of a real build", () => {
 	it("lets the backend's built output through", async () => {
 		await expect(
 			buildEntry("../backend/dist/index.js"),
+		).resolves.toBeUndefined();
+	});
+
+	it("lets a sibling directory whose name starts with src through", async () => {
+		await expect(
+			buildEntry("../backend/srcfoo/index.ts"),
 		).resolves.toBeUndefined();
 	});
 
