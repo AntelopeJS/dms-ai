@@ -1,3 +1,4 @@
+import { ToolArgsSchema } from "../agent/edit-targets.js";
 import { extractEditedFilePath } from "../agent/edit-tracker.js";
 import type { RunnerContext } from "../agent/runner.js";
 import type { RunnerEvent } from "../agent/runner-events.js";
@@ -59,7 +60,7 @@ function recordEditIfAny(
   ev: RunnerEvent,
 ): void {
   if (ev.type !== "tool_use" || !isEditTool(ev.toolName)) return;
-  const filePath = extractEditedFilePath(ev.args);
+  const filePath = extractEditedFilePath(ToolArgsSchema.parse(ev.args));
   if (filePath !== undefined)
     services.editTracker.record(conversationId, filePath);
 }
@@ -82,9 +83,7 @@ function endTurnEvents(
   );
 }
 
-const TURN_EVENT_HANDLERS: {
-  [K in RunnerEvent["type"]]: TurnEventHandler<K>;
-} = {
+const TURN_EVENT_HANDLERS = {
   assistant_text: (services, conversationId, ev) => {
     services.conversationStore.appendMessage(conversationId, {
       role: "assistant",
@@ -133,6 +132,8 @@ const TURN_EVENT_HANDLERS: {
     };
   },
   activity: () => null,
+} satisfies {
+  [K in RunnerEvent["type"]]: TurnEventHandler<K>;
 };
 
 export function handleTurnEvent(

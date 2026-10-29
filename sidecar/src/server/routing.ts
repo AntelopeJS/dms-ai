@@ -380,7 +380,10 @@ const handleChangeSet = on(
   MESSAGE_TYPES.CHANGE_SET_ACTION,
   async (socket, msg, ctx) => {
     await handleChangeSetAction(ctx, msg, ctx.actor?.name).catch((err) => {
-      logFailure("change set action failed", err);
+      logFailure(
+        "change set action failed",
+        err instanceof Error ? err.message : String(err),
+      );
       send(socket, {
         type: EVENT_TYPES.RUN_ERROR,
         conversationId: msg.conversationId ?? "",
@@ -390,7 +393,7 @@ const handleChangeSet = on(
   },
 );
 
-const MESSAGE_HANDLERS: Record<string, ClientMessageHandler> = {
+const MESSAGE_HANDLERS = {
   [MESSAGE_TYPES.HELLO]: handleHello,
   [MESSAGE_TYPES.ECHO]: handleEcho,
   [MESSAGE_TYPES.ACTOR]: handleActor,
@@ -414,7 +417,7 @@ const MESSAGE_HANDLERS: Record<string, ClientMessageHandler> = {
   [MESSAGE_TYPES.QUEUE_MOVE]: handleQueueMove,
   [MESSAGE_TYPES.QUEUE_CLEAR]: handleQueueClear,
   [MESSAGE_TYPES.CHANGE_SET_ACTION]: handleChangeSet,
-};
+} satisfies Partial<Record<AnyClientMessageType["type"], ClientMessageHandler>>;
 
 function parseMessage(raw: string): AnyClientMessageType | null {
   try {

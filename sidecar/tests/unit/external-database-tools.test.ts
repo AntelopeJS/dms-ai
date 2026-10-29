@@ -1,3 +1,4 @@
+import type { PreToolUseHookInput } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it, vi } from "vitest";
 import { describeRequest } from "../../src/agent/permission-preview.js";
 import { isReadOnlyTool } from "../../src/agent/tool-kinds.js";
@@ -7,6 +8,7 @@ import {
   FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES,
   MCP_TOOL_NAME_PREFIX,
 } from "../../src/constants/mcp.js";
+import type { AnyMcpToolDefinition } from "../../src/mcp/define-tool.js";
 import type { BuilderGate } from "../../src/mcp/tools/builder-gate.js";
 import { buildProjectTools } from "../../src/mcp/tools/builder-project.js";
 
@@ -27,6 +29,8 @@ const PLANNED = [
   },
 ];
 
+type ToolArgs = Parameters<AnyMcpToolDefinition["handler"]>[0];
+
 interface Recorded {
   op: string;
   args: unknown[];
@@ -46,8 +50,7 @@ function configureProject(client: BuilderClient, gate: BuilderGate) {
     (definition) => definition.name === "BuilderConfigureProject",
   );
   if (!tool) throw new Error("BuilderConfigureProject is missing");
-  return (args: Record<string, unknown>) =>
-    tool.handler(args as never, {} as never);
+  return (args: ToolArgs) => tool.handler(args, {});
 }
 
 describe("the external-database tools", () => {
@@ -119,7 +122,7 @@ describe("the external-database tools", () => {
 
   it("asks with the dry run's changes, and writes only once approved", async () => {
     const calls: Recorded[] = [];
-    let asked: Record<string, unknown> | undefined;
+    let asked: Parameters<BuilderGate>[1] | undefined;
     const gate: BuilderGate = async (_tool, args) => {
       asked = args;
       return { isAllowed: true };
@@ -155,8 +158,7 @@ describe("the Builder's analysis tool", () => {
       (definition) => definition.name === "BuilderAnalyseDatabase",
     );
     if (!tool) throw new Error("BuilderAnalyseDatabase is missing");
-    return (args: Record<string, unknown>) =>
-      tool.handler(args as never, {} as never);
+    return (args: ToolArgs) => tool.handler(args, {});
   }
 
   it("reads without a prompt and in plan mode", () => {
@@ -215,10 +217,7 @@ describe("the Builder's analysis tool", () => {
     const tool = buildProjectTools(recordingClient(calls), undefined).find(
       (definition) => definition.name === "BuilderMapping",
     );
-    await tool?.handler(
-      { connection: "erp", module: "erp-tables" } as never,
-      {} as never,
-    );
+    await tool?.handler({ connection: "erp", module: "erp-tables" }, {});
     expect(calls).toEqual([{ op: "GetMapping", args: ["erp", "erp-tables"] }]);
   });
 
@@ -258,7 +257,10 @@ describe("plan mode in safe mode", () => {
     const { homedir } = await import("node:os");
     const hooks = buildSafeModeHooks({ getGenerationMode: () => "safe" });
     const [matcher] = hooks.PreToolUse ?? [];
-    const input = {
+    const input: PreToolUseHookInput = {
+      session_id: "session-1",
+      transcript_path: "",
+      cwd: "/project",
       hook_event_name: "PreToolUse",
       tool_name: "Write",
       tool_use_id: "call-1",
@@ -267,7 +269,7 @@ describe("plan mode in safe mode", () => {
         content: "# Plan",
       },
     };
-    return matcher.hooks[0](input as never, "call-1", {
+    return matcher.hooks[0](input, "call-1", {
       signal: new AbortController().signal,
     });
   };

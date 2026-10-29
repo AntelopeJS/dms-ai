@@ -4,11 +4,18 @@ import { turnTypecheck } from "../../src/server/turns.js";
 
 function turn(overrides: Partial<ActiveTurn>): ActiveTurn {
   return {
+    conversationId: "conv-1",
+    request: "Edit",
+    isAutoFix: false,
+    checkpoint: { ready: async () => {}, finish: async () => null },
+    openCalls: new Map(),
+    approvalsNeeded: 0,
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     typecheck: "skipped",
     builderOps: 0,
     mutatingCallIds: [],
     ...overrides,
-  } as ActiveTurn;
+  };
 }
 
 describe("turnTypecheck", () => {

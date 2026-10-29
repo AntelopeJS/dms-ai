@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { PermissionBus } from "../../agent/permission-bus.js";
 import {
   CODEX_CHANGE_DIFF_ARG,
@@ -22,9 +23,9 @@ import type { CodexFileChange } from "./adapter.js";
 import type { CodexServerRequest } from "./client.js";
 import { resolveModePolicy } from "./config.js";
 
-interface CodexApprovalDecisionResponse {
+type CodexApprovalDecisionResponse = {
   decision: string;
-}
+};
 
 export interface CodexPermissionDeps {
   conversationId: string;
@@ -48,18 +49,22 @@ export interface CodexPermissionHandler {
 
 interface ApprovalSubject {
   toolName: string;
-  args: Record<string, unknown>;
+  args: Record<string, string | string[]>;
   callId?: string;
 }
 
-interface CommandApprovalParams {
-  command?: string | null;
-  itemId?: string;
-}
+const commandApprovalParamsSchema = z.object({
+  command: z.string().nullish(),
+  itemId: z.string().optional(),
+});
 
-interface FileChangeApprovalParams {
-  itemId?: string;
-}
+const fileChangeApprovalParamsSchema = z.object({
+  itemId: z.string().optional(),
+});
+
+type CommandApprovalParams = z.infer<typeof commandApprovalParamsSchema>;
+
+type FileChangeApprovalParams = z.infer<typeof fileChangeApprovalParamsSchema>;
 
 function accept(): CodexApprovalDecisionResponse {
   return { decision: CODEX_APPROVAL_DECISIONS.ACCEPT };
@@ -83,8 +88,8 @@ export function createCodexPermissionHandler(
   let denials = 0;
   let cancelled = false;
 
-  function describeCommand(params: unknown): ApprovalSubject {
-    const { command, itemId } = params as CommandApprovalParams;
+  function describeCommand(params: CommandApprovalParams): ApprovalSubject {
+    const { command, itemId } = params;
     return {
       toolName: TOOL_LEXICON.BASH,
       args: { [BASH_COMMAND_ARG]: command ?? "" },
@@ -97,8 +102,10 @@ export function createCodexPermissionHandler(
    * first file's diff feeds the card; every path feeds the rule check, so a
    * rule for one file never approves a patch that also touches another.
    */
-  function describeFileChange(params: unknown): ApprovalSubject {
-    const { itemId } = params as FileChangeApprovalParams;
+  function describeFileChange(
+    params: FileChangeApprovalParams,
+  ): ApprovalSubject {
+    const { itemId } = params;
     const changes = itemId === undefined ? [] : deps.getChanges(itemId);
     const [first] = changes;
     return {
@@ -113,13 +120,24 @@ export function createCodexPermissionHandler(
     };
   }
 
-  const SUBJECT_BY_METHOD: Record<
-    string,
-    (params: unknown) => ApprovalSubject
-  > = {
-    [CODEX_COMMAND_APPROVAL_METHOD]: describeCommand,
-    [CODEX_FILE_CHANGE_APPROVAL_METHOD]: describeFileChange,
-  };
+  function subjectDescriber(
+    request: CodexServerRequest,
+  ): (() => ApprovalSubject) | undefined {
+    switch (request.method) {
+      case CODEX_COMMAND_APPROVAL_METHOD:
+        return () =>
+          describeCommand(
+            commandApprovalParamsSchema.safeParse(request.params).data ?? {},
+          );
+      case CODEX_FILE_CHANGE_APPROVAL_METHOD:
+        return () =>
+          describeFileChange(
+            fileChangeApprovalParamsSchema.safeParse(request.params).data ?? {},
+          );
+      default:
+        return undefined;
+    }
+  }
 
   function countDenial(isAllowed: boolean): void {
     denials = isAllowed ? 0 : denials + 1;
@@ -154,7 +172,7 @@ export function createCodexPermissionHandler(
 
   return {
     async handle(request) {
-      const describe = SUBJECT_BY_METHOD[request.method];
+      const describe = subjectDescriber(request);
       if (describe === undefined) {
         console.warn(
           `${CODEX_LOG_PREFIX} ${CODEX_UNKNOWN_APPROVAL_METHOD} ${request.method}`,
@@ -162,7 +180,7 @@ export function createCodexPermissionHandler(
         return decline();
       }
       if (cancelled) return decline();
-      const subject = describe(request.params);
+      const subject = describe();
       if (resolveModePolicy(deps.getSettings()).autoDeclineEscalations) {
         return block(subject);
       }

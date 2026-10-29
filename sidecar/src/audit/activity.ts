@@ -1,3 +1,4 @@
+import { ToolArgsSchema } from "../agent/edit-targets.js";
 import type { PendingRequest } from "../agent/permission-bus.js";
 import {
   bareToolName,
@@ -10,6 +11,7 @@ import type {
   ActivityCategory,
   ActivityResult,
   AllowedBy,
+  ChangeSetState,
   PermissionKind,
 } from "../constants/audit.js";
 import type { ConversationEntry } from "../state/conversations.js";
@@ -24,7 +26,7 @@ import { activityTarget, parseArgs } from "./activity-target.js";
 export const UNDO_TOOL_NAME = "UndoChangeSet";
 export const REDO_TOOL_NAME = "RedoChangeSet";
 
-const STATE_CHANGE_TOOL: Record<string, string> = {
+const STATE_CHANGE_TOOL: Partial<Record<ChangeSetState, string>> = {
   undone: UNDO_TOOL_NAME,
   applied: REDO_TOOL_NAME,
 };
@@ -199,7 +201,11 @@ function callRecord(input: RowInput, use: StoredMessage): ActivityRecord {
     id: `${entry.id}:${callId}`,
     timestampMs: use.timestampMs,
     tool: bareToolName(toolName),
-    target: activityTarget(toolName, args, input.sources.hostProjectRoot),
+    target: activityTarget(
+      toolName,
+      ToolArgsSchema.parse(args),
+      input.sources.hostProjectRoot,
+    ),
     agent: entry.conversation.provider ?? DEFAULT_PROVIDER_NAME,
     allowedBy,
     result: resultOf(result, allowedBy, input.sources.running.has(entry.id)),
@@ -234,7 +240,7 @@ function permissionOnlyRecord(input: RowInput, permission: StoredMessage) {
     tool: bareToolName(toolName),
     target: activityTarget(
       toolName,
-      permission.args,
+      ToolArgsSchema.parse(permission.args),
       input.sources.hostProjectRoot,
     ),
     agent: entry.conversation.provider ?? DEFAULT_PROVIDER_NAME,
@@ -295,7 +301,7 @@ function pendingRecord(
     tool: bareToolName(request.toolName),
     target: activityTarget(
       request.toolName,
-      request.args,
+      ToolArgsSchema.parse(request.args),
       input.sources.hostProjectRoot,
     ),
     agent: input.entry.conversation.provider ?? DEFAULT_PROVIDER_NAME,

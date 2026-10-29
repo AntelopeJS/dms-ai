@@ -19,6 +19,7 @@ import type {
   PermissionDecisionValue,
   PermissionRuleType,
 } from "../protocol/messages.js";
+import { ToolArgsSchema } from "./edit-targets.js";
 import { describeRequest } from "./permission-preview.js";
 import {
   createPermissionRuleStore,
@@ -263,7 +264,7 @@ async function buildPending(
     callId: req.callId,
     toolName: req.toolName,
     args: req.args,
-    summary: buildToolSummary(req.toolName, req.args),
+    summary: buildToolSummary(req.toolName, ToolArgsSchema.parse(req.args)),
     ...description,
     createdAtMs,
     expiresAtMs: createdAtMs + timeoutMs,

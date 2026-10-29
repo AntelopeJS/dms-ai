@@ -7,11 +7,19 @@ import {
 } from "../../src/constants/permissions.js";
 import { bridgeCanUseTool } from "../../src/providers/claude/provider.js";
 import { createTestBus } from "../helpers/permission-bus.js";
+import type { PendingRequest } from "../../src/agent/permission-bus.js";
 
 const CONVERSATION_ID = "conv-bridge-1";
 const TOOL_NAME = "Bash";
-const TOOL_INPUT = { command: "ls" } satisfies Record<string, unknown>;
+const TOOL_INPUT = { command: "ls" } satisfies Parameters<
+  typeof bridgeCanUseTool
+>[3];
 const CALL_ID = "toolu_1";
+
+function requestIdOf(prompt: PendingRequest | undefined): string {
+  if (prompt === undefined) throw new Error("expected a permission prompt");
+  return prompt.requestId;
+}
 
 describe("bridgeCanUseTool", () => {
   it("maps allow_once to an SDK allow result with original input", async () => {
@@ -26,7 +34,7 @@ describe("bridgeCanUseTool", () => {
     const [prompt] = await t.waitForPrompts(1);
     expect(prompt?.callId).toBe(CALL_ID);
     t.bus.resolvePermission({
-      requestId: prompt?.requestId as string,
+      requestId: requestIdOf(prompt),
       decision: PERMISSION_DECISIONS.ALLOW_ONCE,
     });
     const result = await pending;
@@ -46,7 +54,7 @@ describe("bridgeCanUseTool", () => {
     );
     const [prompt] = await t.waitForPrompts(1);
     t.bus.resolvePermission({
-      requestId: prompt?.requestId as string,
+      requestId: requestIdOf(prompt),
       decision: PERMISSION_DECISIONS.DENY,
     });
     const result = await pending;
@@ -66,7 +74,7 @@ describe("bridgeCanUseTool", () => {
     );
     const [prompt] = await t.waitForPrompts(1);
     t.bus.resolvePermission({
-      requestId: prompt?.requestId as string,
+      requestId: requestIdOf(prompt),
       decision: PERMISSION_DECISIONS.DENY_ALL,
     });
     const result = await pending;

@@ -14,6 +14,7 @@ import type {
   SDKMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import { z } from "zod";
 import {
   MOCK_ABORT_REASON,
   MOCK_ACCEPT_EDITS_COMMANDS,
@@ -102,37 +103,40 @@ interface BuildMockQueryArgs {
   mcpServers?: Record<string, McpServerConfig>;
 }
 
-interface ToolUseBlock {
-  type: "tool_use";
-  id: string;
-  name: string;
-  input: Record<string, unknown>;
-}
+const TOOL_USE_BLOCK = z.object({
+  type: z.literal("tool_use"),
+  id: z.string(),
+  name: z.string(),
+  input: z.record(z.string(), z.unknown()),
+});
+
+type ToolUseBlock = z.infer<typeof TOOL_USE_BLOCK>;
+
+const TOOL_RESULT_REFERENCE = z.object({
+  type: z.literal("tool_result"),
+  tool_use_id: z.string(),
+});
+
+const SHELL_COMMAND = z.string().catch("");
 
 function isToolUseBlock(value: unknown): value is ToolUseBlock {
-  if (value === null || typeof value !== "object") return false;
-  return (value as { type?: string }).type === "tool_use";
+  return TOOL_USE_BLOCK.safeParse(value).success;
 }
 
 function extractToolUseBlocks(message: SDKMessage): ToolUseBlock[] {
   if (message.type !== "assistant") return [];
-  const content = (message.message as { content?: unknown }).content;
+  const content = message.message.content;
   if (!Array.isArray(content)) return [];
   return content.filter(isToolUseBlock);
 }
 
 function extractToolResultId(message: SDKMessage): string | null {
   if (message.type !== "user") return null;
-  const content = (message.message as { content?: unknown }).content;
+  const content = message.message.content;
   if (!Array.isArray(content)) return null;
   for (const block of content) {
-    const candidate = block as { type?: string; tool_use_id?: string };
-    if (
-      candidate.type === "tool_result" &&
-      typeof candidate.tool_use_id === "string"
-    ) {
-      return candidate.tool_use_id;
-    }
+    const reference = TOOL_RESULT_REFERENCE.safeParse(block);
+    if (reference.success) return reference.data.tool_use_id;
   }
   return null;
 }
@@ -152,14 +156,14 @@ interface ToolDecision {
   isAllowed: boolean;
 }
 
-interface HookDecision {
-  permissionDecision?: string;
-}
-
 function isHookDenial(output: HookJSONOutput): boolean {
   if (!("hookSpecificOutput" in output)) return false;
-  const specific = output.hookSpecificOutput as HookDecision | undefined;
-  return specific?.permissionDecision === MOCK_HOOK_DENY;
+  const specific = output.hookSpecificOutput;
+  return (
+    specific !== undefined &&
+    "permissionDecision" in specific &&
+    specific.permissionDecision === MOCK_HOOK_DENY
+  );
 }
 
 async function isDeniedByHooks(
@@ -185,8 +189,7 @@ async function isDeniedByHooks(
 
 function shellProgram(block: ToolUseBlock): string | null {
   if (block.name !== MOCK_SHELL_TOOL) return null;
-  const raw = block.input[MOCK_SHELL_COMMAND_ARG];
-  const command = typeof raw === "string" ? raw : "";
+  const command = SHELL_COMMAND.parse(block.input[MOCK_SHELL_COMMAND_ARG]);
   const [program] = command.trim().split(/\s+/);
   return program ?? null;
 }
@@ -199,10 +202,12 @@ function isReadOnlyCommand(block: ToolUseBlock): boolean {
   return MOCK_READ_ONLY_COMMANDS.includes(shellProgram(block) ?? "");
 }
 
-const APPROVED_BY_MODE: Record<
-  string,
-  (block: ToolUseBlock, permissions: PermissionState) => boolean
-> = {
+type ModeApproval = (
+  block: ToolUseBlock,
+  permissions: PermissionState,
+) => boolean;
+
+const APPROVED_BY_MODE: Partial<Record<PermissionMode, ModeApproval>> = {
   [MOCK_BYPASS_MODE]: () => true,
   [MOCK_PLAN_MODE]: (_block, permissions) => permissions.isBypassAvailable,
   [MOCK_ACCEPT_EDITS_MODE]: (block) =>
@@ -334,6 +339,10 @@ async function* replayOnce(
   }
 }
 
+function isTextPrompt(prompt: MockQueryParams["prompt"]): prompt is string {
+  return typeof prompt === "string";
+}
+
 /**
  * One replay per user turn, as the real SDK serves several turns from a single
  * query: the session stays alive between them, which is what a scenario about a
@@ -344,7 +353,7 @@ async function* createMessageStream(
   interrupted: InterruptFlag,
 ): AsyncGenerator<SDKMessage, void> {
   const entries = await loadScript(args.scriptPath);
-  if (typeof args.prompt === "string") {
+  if (isTextPrompt(args.prompt)) {
     yield* replayOnce(entries, args, interrupted);
     return;
   }
@@ -385,19 +394,36 @@ function buildControlSurface(
     mcpServerStatus: unsupported("mcpServerStatus"),
     getContextUsage: unsupported("getContextUsage"),
     readFile: unsupported("readFile"),
-  } as unknown as Omit<Query, keyof AsyncGenerator<SDKMessage, void>>;
+    reloadPlugins: unsupported("reloadPlugins"),
+    accountInfo: unsupported("accountInfo"),
+    rewindFiles: unsupported("rewindFiles"),
+    seedReadState: unsupported("seedReadState"),
+    reconnectMcpServer: unsupported("reconnectMcpServer"),
+    toggleMcpServer: unsupported("toggleMcpServer"),
+    setMcpServers: unsupported("setMcpServers"),
+    streamInput: unsupported("streamInput"),
+    stopTask: unsupported("stopTask"),
+    backgroundTasks: unsupported("backgroundTasks"),
+    close: unsupported("close"),
+  };
 }
 
 function buildQuery(args: BuildMockQueryArgs): Query {
   const interrupted: InterruptFlag = { requested: false };
   const stream = createMessageStream(args, interrupted);
   const control = buildControlSurface(interrupted, args.permissions);
-  return Object.assign(stream, control) as Query;
+  return Object.assign(stream, control);
 }
 
 interface TraceEntry {
   kind: string;
-  [field: string]: unknown;
+  name?: string;
+  decidedBy?: DecidingLayer;
+  isAllowed?: boolean;
+  permissionMode?: PermissionMode;
+  plugins?: Options["plugins"];
+  skills?: Options["skills"];
+  mcpServers?: string[];
 }
 
 /**

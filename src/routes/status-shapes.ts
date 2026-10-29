@@ -13,16 +13,16 @@ import { i18nKey } from "../vocabulary";
 export const OFFLINE_STATUS = "offline";
 
 const SIDECAR_HOST = "localhost";
-const STATE_TONES: Readonly<Record<string, Tone>> = {
-  ready: "success",
-  working: "info",
-  waiting: "warning",
-  [OFFLINE_STATUS]: "error",
-};
-const SCOPE_TONES: Readonly<Record<string, Tone>> = {
-  safe: "success",
-  vibe: "warning",
-};
+const STATE_TONES = new Map<string, Tone>([
+  ["ready", "success"],
+  ["working", "info"],
+  ["waiting", "warning"],
+  [OFFLINE_STATUS, "error"],
+]);
+const SCOPE_TONES = new Map<string, Tone>([
+  ["safe", "success"],
+  ["vibe", "warning"],
+]);
 
 /** The banner of one state, or nothing when the status is not in it. */
 type BannerRule = (status: AssistantStatus) => BannerContent | null;
@@ -58,7 +58,7 @@ function stateFact(status: AssistantStatus): KeyValueListItem {
     label: text("facts", "state"),
     value: text("state", status.status),
     type: "status",
-    tone: STATE_TONES[status.status] ?? "neutral",
+    tone: STATE_TONES.get(status.status) ?? "neutral",
     detail: activityDetail(status),
   };
 }
@@ -107,7 +107,7 @@ function settingsFacts(status: AssistantStatus): KeyValueListItem[] {
       label: text("facts", "default_scope"),
       value: text("scope", scope),
       type: "status",
-      tone: SCOPE_TONES[scope] ?? "neutral",
+      tone: SCOPE_TONES.get(scope) ?? "neutral",
       detail: isSafeWithoutBuilder
         ? text("facts", "scope_safe_needs_builder")
         : undefined,

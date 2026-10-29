@@ -59,8 +59,10 @@ export function createPendingQueueStore(): PendingQueueStore {
       const items = byConversation.get(conversationId);
       const from = items?.findIndex((item) => item.id === id) ?? -1;
       if (items === undefined || from < 0) return false;
-      const [item] = items.splice(from, 1);
-      items.splice(Math.min(toIndex, items.length), 0, item as QueuedItemType);
+      const item = items[from];
+      if (item === undefined) return false;
+      items.splice(from, 1);
+      items.splice(Math.min(toIndex, items.length), 0, item);
       return true;
     },
     shift: (conversationId) => {

@@ -174,16 +174,11 @@ function armTurnTimeout(state: SessionState, timeoutMs: number): TurnTimeout {
   };
 }
 
-function buildErrorEvent(state: SessionState, err: unknown): RunnerEvent {
-  if (state.abortOutcome !== null) return state.abortOutcome;
-  return errorOutcome(err instanceof Error ? err.message : String(err));
-}
-
 function buildStreamEndedEvent(state: SessionState): RunnerEvent {
   return state.abortOutcome ?? errorOutcome(TURN_STREAM_ENDED_MESSAGE);
 }
 
-const OUTSTANDING_TOOL_DELTAS: Record<string, number> = {
+const OUTSTANDING_TOOL_DELTAS: Partial<Record<RunnerEvent["type"], number>> = {
   tool_use: 1,
   tool_result: -1,
 };
@@ -223,7 +218,10 @@ async function* readTurn(
     try {
       result = await nextUnlessAborted(state);
     } catch (err) {
-      yield buildErrorEvent(state, err);
+      yield (
+        state.abortOutcome ??
+          errorOutcome(err instanceof Error ? err.message : String(err))
+      );
       void disposeSession(state);
       return;
     }

@@ -1,4 +1,5 @@
 import os from "node:os";
+import { z } from "zod";
 import type {
   AgentProvider,
   AgentProviderOptions,
@@ -6,6 +7,7 @@ import type {
   ProviderSessionContext,
   TurnInput,
 } from "../../agent/provider.js";
+import { ToolArgsSchema } from "../../agent/edit-targets.js";
 import type { RunnerEvent } from "../../agent/runner-events.js";
 import { createAgentSession } from "../../agent/session.js";
 import { TURN_IDLE_TIMEOUT_MS } from "../../constants/agent.js";
@@ -91,6 +93,18 @@ interface LiveSettings {
   settings: AppSettings;
 }
 
+const turnStartedSchema = z.object({ turn: z.object({ id: z.string() }) });
+
+const tokenUsageUpdatedSchema = z.object({
+  tokenUsage: z.object({
+    last: z.object({
+      inputTokens: z.number(),
+      outputTokens: z.number(),
+      totalTokens: z.number(),
+    }),
+  }),
+});
+
 interface CodexBackend {
   process: CodexProcess;
   threadId: string;
@@ -103,6 +117,10 @@ interface CodexBackend {
   resumeApprovals: () => void;
 }
 
+interface BackendRef {
+  current: CodexBackend | null;
+}
+
 /**
  * Bounded because they run before the session — and its idle timeout — exists.
  */
@@ -110,7 +128,7 @@ const HANDSHAKE: CodexRequestOptions = {
   timeoutMs: CODEX_HANDSHAKE_TIMEOUT_MS,
 };
 
-function clientInfo(): Record<string, unknown> {
+function clientInfo() {
   return {
     clientInfo: {
       name: CODEX_CLIENT_NAME,
@@ -266,13 +284,14 @@ function interruptTurn(backend: CodexBackend): void {
 }
 
 function trackTurnId(
-  backendRef: { current: CodexBackend | null },
+  backendRef: BackendRef,
   notification: CodexNotification,
 ): void {
   if (notification.method !== CODEX_TURN_STARTED_NOTIFICATION) return;
-  const params = notification.params as v2.TurnStartedNotification;
+  const params = turnStartedSchema.safeParse(notification.params);
+  if (!params.success) return;
   if (backendRef.current === null) return;
-  backendRef.current.turnId = params.turn.id;
+  backendRef.current.turnId = params.data.turn.id;
 }
 
 /**
@@ -282,7 +301,11 @@ function trackTurnId(
 function announceToolCall(ctx: ProviderSessionContext, event: RunnerEvent) {
   if (event.type !== "tool_use") return;
   if (!event.toolName.startsWith(MCP_TOOL_NAME_PREFIX)) return;
-  ctx.onToolAnnounced?.(event.callId, event.toolName, event.args);
+  ctx.onToolAnnounced?.(
+    event.callId,
+    event.toolName,
+    ToolArgsSchema.parse(event.args),
+  );
 }
 
 /**
@@ -295,8 +318,9 @@ function reportTokenUsage(
 ): void {
   if (notification.method !== CODEX_TOKEN_USAGE_NOTIFICATION) return;
   if (ctx.onTokenUsage === undefined) return;
-  const params = notification.params as v2.ThreadTokenUsageUpdatedNotification;
-  const last = params.tokenUsage.last;
+  const params = tokenUsageUpdatedSchema.safeParse(notification.params);
+  if (!params.success) return;
+  const last = params.data.tokenUsage.last;
   ctx.onTokenUsage({
     inputTokens: last.inputTokens,
     outputTokens: last.outputTokens,
@@ -413,7 +437,7 @@ async function createProviderSession(
 ): Promise<ProviderSession> {
   const stream = createRunnerEventStream();
   const adapter = createCodexAdapter();
-  const backendRef: { current: CodexBackend | null } = { current: null };
+  const backendRef: BackendRef = { current: null };
   const permissions = createCodexPermissionHandler({
     conversationId: ctx.conversationId,
     permissionBus: ctx.permissionBus,

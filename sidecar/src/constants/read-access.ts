@@ -5,10 +5,10 @@
  * networked (WebFetch/WebSearch) still prompts. A path-less Glob/Grep defaults
  * to the project cwd, which is in-scope.
  */
-export const READ_ONLY_TOOL_PATH_KEYS: Record<string, string> = {
-  Read: "file_path",
-  LS: "path",
-  Glob: "path",
-  Grep: "path",
-  NotebookRead: "notebook_path",
-};
+export const READ_ONLY_TOOL_PATH_KEYS = new Map<string, string>([
+  ["Read", "file_path"],
+  ["LS", "path"],
+  ["Glob", "path"],
+  ["Grep", "path"],
+  ["NotebookRead", "notebook_path"],
+]);

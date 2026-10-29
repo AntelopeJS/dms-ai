@@ -21,6 +21,13 @@ const MINIMAL_PDF = [
 const PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
+function firstText(
+  input: Awaited<ReturnType<typeof buildCodexTurnInput>>,
+): string {
+  const [first] = input;
+  return first?.type === "text" ? first.text : "";
+}
+
 function attachment(
   name: string,
   mimeType: string,
@@ -54,9 +61,11 @@ describe("codex turn input", () => {
       [attachment("shot.png", "image/png", PNG_BASE64)],
       { hostProjectRoot: root, conversationId: CONVERSATION },
     );
-    const images = input.filter((item) => item.type === "localImage");
+    const images = input.flatMap((item) =>
+      item.type === "localImage" ? [item] : [],
+    );
     expect(images).toHaveLength(1);
-    const written = await readFile((images[0] as { path: string }).path);
+    const written = await readFile(images[0]?.path ?? "");
     expect(written.length).toBeGreaterThan(0);
   });
 
@@ -73,7 +82,7 @@ describe("codex turn input", () => {
       { hostProjectRoot: root, conversationId: CONVERSATION },
     );
     expect(input.filter((item) => item.type === "localImage")).toHaveLength(0);
-    const text = (input[0] as { text: string }).text;
+    const text = firstText(input);
     expect(text).toContain("[Attached file:");
     expect(text).toContain("notes.txt");
   });
@@ -93,7 +102,7 @@ describe("codex turn input", () => {
       { hostProjectRoot: root, conversationId: CONVERSATION },
     );
     const images = input.filter((item) => item.type === "localImage");
-    const text = (input[0] as { text: string }).text;
+    const text = firstText(input);
     expect(images.length > 0 || text.includes("[Attached file:")).toBe(true);
   });
 });

@@ -1,10 +1,5 @@
-import {
-  createHash,
-  createPublicKey,
-  type JsonWebKey,
-  randomBytes,
-  verify,
-} from "node:crypto";
+import { createHash, createPublicKey, randomBytes, verify } from "node:crypto";
+import { z } from "zod";
 import {
   CHATGPT_AGENT_NAME_HINT,
   CHATGPT_AUTHORIZE_URL,
@@ -91,15 +86,19 @@ export function buildAuthorizeUrl(params: AuthorizeParams): string {
   return url.toString();
 }
 
-interface TokenResponseBody {
-  access_token?: string;
-  refresh_token?: string;
-  id_token?: string;
-  expires_in?: number;
-  scope?: string;
-  error?: string;
-  error_description?: string;
-}
+const optionalString = z.string().optional().catch(undefined);
+
+const tokenResponseBodySchema = z.object({
+  access_token: optionalString,
+  refresh_token: optionalString,
+  id_token: optionalString,
+  expires_in: z.number().optional().catch(undefined),
+  scope: optionalString,
+  error: optionalString,
+  error_description: optionalString,
+});
+
+type TokenResponseBody = z.infer<typeof tokenResponseBodySchema>;
 
 async function postForm(
   url: string,
@@ -115,7 +114,7 @@ async function postForm(
 
 async function readJson(response: Response): Promise<TokenResponseBody> {
   try {
-    return (await response.json()) as TokenResponseBody;
+    return tokenResponseBodySchema.parse(await response.json());
   } catch {
     return {};
   }
@@ -217,10 +216,10 @@ export async function revokeRefreshToken(
   }
 }
 
-interface JwtHeader {
-  alg?: string;
-  kid?: string;
-}
+const jwtHeaderSchema = z.object({
+  alg: optionalString,
+  kid: optionalString,
+});
 
 /** What a validated ID token says about the account. */
 export interface IdTokenClaims {
@@ -228,26 +227,47 @@ export interface IdTokenClaims {
   email?: string;
 }
 
-interface RawIdTokenClaims {
-  iss?: string;
-  aud?: string | string[];
-  exp?: number;
-  nonce?: string;
-  sub?: string;
-  email?: string;
-}
+const rawIdTokenClaimsSchema = z.object({
+  iss: optionalString,
+  aud: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .catch(undefined),
+  exp: z.number().optional().catch(undefined),
+  nonce: optionalString,
+  sub: optionalString,
+  email: optionalString,
+});
 
-interface Jwk extends JsonWebKey {
-  kid?: string;
-}
+const jwkSchema = z.looseObject({
+  kid: optionalString,
+  kty: optionalString,
+  crv: optionalString,
+  d: optionalString,
+  dp: optionalString,
+  dq: optionalString,
+  e: optionalString,
+  k: optionalString,
+  n: optionalString,
+  p: optionalString,
+  q: optionalString,
+  qi: optionalString,
+  x: optionalString,
+  y: optionalString,
+});
 
-interface Jwks {
-  keys?: Jwk[];
-}
+type Jwk = z.infer<typeof jwkSchema>;
 
-function decodeSegment<T>(segment: string | undefined): T {
+const jwksSchema = z.object({ keys: z.array(jwkSchema).optional() });
+
+function decodeSegment<Schema extends z.ZodType>(
+  segment: string | undefined,
+  schema: Schema,
+): z.output<Schema> {
   if (segment === undefined) throw new Error("malformed ID token");
-  return JSON.parse(Buffer.from(segment, "base64url").toString("utf8")) as T;
+  return schema.parse(
+    JSON.parse(Buffer.from(segment, "base64url").toString("utf8")),
+  );
 }
 
 async function fetchSigningKey(kid: string | undefined): Promise<Jwk> {
@@ -255,8 +275,8 @@ async function fetchSigningKey(kid: string | undefined): Promise<Jwk> {
     signal: AbortSignal.timeout(CHATGPT_HTTP_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`JWKS answered ${response.status}`);
-  const jwks = (await response.json()) as Jwks;
-  const key = jwks.keys?.find((candidate) => candidate.kid === kid);
+  const jwks = jwksSchema.safeParse(await response.json());
+  const key = jwks.data?.keys?.find((candidate) => candidate.kid === kid);
   if (key === undefined) throw new Error("ID token signed by an unknown key");
   return key;
 }
@@ -280,7 +300,7 @@ export async function validateIdToken(
   expected: IdTokenExpectations,
 ): Promise<IdTokenClaims> {
   const [encodedHeader, encodedClaims, encodedSignature] = idToken.split(".");
-  const header = decodeSegment<JwtHeader>(encodedHeader);
+  const header = decodeSegment(encodedHeader, jwtHeaderSchema);
   if (header.alg !== ID_TOKEN_ALGORITHM) {
     throw new Error(`ID token uses ${String(header.alg)}`);
   }
@@ -292,7 +312,7 @@ export async function validateIdToken(
     Buffer.from(encodedSignature ?? "", "base64url"),
   );
   if (!isSigned) throw new Error("ID token signature does not verify");
-  const claims = decodeSegment<RawIdTokenClaims>(encodedClaims);
+  const claims = decodeSegment(encodedClaims, rawIdTokenClaimsSchema);
   const now = Date.now() / MS_PER_SECOND;
   if (claims.iss !== CHATGPT_ISSUER) throw new Error("ID token issuer");
   if (!hasAudience(claims.aud, expected.clientId)) {

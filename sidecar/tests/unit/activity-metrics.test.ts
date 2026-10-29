@@ -19,7 +19,7 @@ const WINDOW = { fromMs: NOW - 7 * DAY_MS, toMs: NOW + DAY_MS };
 function call(
   callId: string,
   toolName: string,
-  args: unknown,
+  args: Record<string, string>,
   result: Partial<StoredMessage>,
   at = NOW,
 ): StoredMessage[] {
@@ -198,7 +198,7 @@ describe("activity log", () => {
 describe("changed category", () => {
   function categoryOf(
     toolName: string,
-    args: unknown,
+    args: Record<string, string>,
     result: Partial<StoredMessage>,
   ) {
     const entry: ConversationEntry = {

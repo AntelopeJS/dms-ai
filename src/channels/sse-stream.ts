@@ -13,7 +13,7 @@ const LINE_BREAK = /\r\n|\r|\n/;
 interface SseSink {
   write(chunk: string): boolean;
   end(): void;
-  once(event: "drain", listener: () => void): unknown;
+  once(event: "drain", listener: () => void): void;
 }
 
 /** The response stream plus the signal that its client went away. */

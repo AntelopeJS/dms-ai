@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import type { WebSocket } from "ws";
 import {
   type AnyServerEventType,
   EVENT_TYPES,
 } from "../../src/protocol/events.js";
 import { createHostCommandRouter } from "../../src/server/host-command-router.js";
-import { createHostSocketRegistry } from "../../src/server/host-socket-registry.js";
+import {
+  createHostSocketRegistry,
+  type SocketSender,
+} from "../../src/server/host-socket-registry.js";
 import { createChatSocketRegistry } from "../../src/server/chat-socket-registry.js";
 
 const FIRST_TAB_CONVERSATION = "conv-first-tab";
@@ -16,13 +18,13 @@ const NAVIGATE_EVENT: AnyServerEventType = {
 };
 
 interface Tab {
-  socket: WebSocket;
+  socket: SocketSender;
   send: ReturnType<typeof vi.fn>;
 }
 
 function buildTab(): Tab {
   const send = vi.fn();
-  return { socket: { send } as unknown as WebSocket, send };
+  return { socket: { send }, send };
 }
 
 function openTwoTabs() {

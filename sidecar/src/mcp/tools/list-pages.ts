@@ -6,7 +6,7 @@ import {
   LIST_PAGES_TOOL_NAME,
 } from "../../constants/pages.js";
 import type { RegistryClient } from "../../pages/registry-client.js";
-import { defineTool } from "../define-tool.js";
+import { defineTool, type McpToolResult } from "../define-tool.js";
 
 export interface ListPagesDeps {
   registry: RegistryClient;
@@ -14,9 +14,7 @@ export interface ListPagesDeps {
 
 const INPUT_SCHEMA = { refresh: z.boolean().optional() } as const;
 
-function buildContent(text: string): {
-  content: Array<{ type: "text"; text: string }>;
-} {
+function buildContent(text: string): McpToolResult {
   return { content: [{ type: "text", text }] };
 }
 

@@ -52,11 +52,11 @@ function unknownConnection(connection: string | undefined): HTTPResult {
 }
 
 /** Runs `work` on the named connection's catalog, answering its refusal as the agent reads it. */
-async function onCatalog(
+async function onCatalog<Answer>(
   token: string | undefined,
   connection: string | undefined,
-  work: (catalog: CatalogConnection) => Promise<unknown>,
-): Promise<unknown> {
+  work: (catalog: CatalogConnection) => Promise<Answer>,
+): Promise<Answer | HTTPResult> {
   if (!isSidecarRequest(token)) {
     return sidecarForbidden();
   }
@@ -74,7 +74,13 @@ async function onCatalog(
   }
 }
 
-async function describeConnection(connection: string): Promise<unknown> {
+/** What the profile route answers: the relation's profile and each checked reference. */
+interface ProfileAnswer {
+  profile: Awaited<ReturnType<CatalogConnection["Profile"]>> | undefined;
+  references: Awaited<ReturnType<CatalogConnection["CheckReference"]>>[];
+}
+
+async function describeConnection(connection: string) {
   try {
     return { connection, ...(await catalogOf(connection)?.Info()) };
   } catch (err) {
@@ -90,7 +96,7 @@ export class AIDatabaseController extends Controller(ROUTE_PREFIX) {
   @Get(DATABASE_CONNECTIONS_PATH)
   async connections(
     @Parameter(SIDECAR_AUTH_HEADER, "header") token?: string,
-  ): Promise<unknown> {
+  ): Promise<HTTPResult | Awaited<ReturnType<typeof describeConnection>>[]> {
     if (!isSidecarRequest(token)) {
       return sidecarForbidden();
     }
@@ -101,7 +107,9 @@ export class AIDatabaseController extends Controller(ROUTE_PREFIX) {
   relations(
     @Parameter(SIDECAR_AUTH_HEADER, "header") token?: string,
     @JSONBody() body?: RelationsBody,
-  ): Promise<unknown> {
+  ): Promise<
+    Awaited<ReturnType<CatalogConnection["ListRelations"]>> | HTTPResult
+  > {
     return onCatalog(token, body?.connection, (catalog) =>
       catalog.ListRelations(body?.schemas),
     );
@@ -111,7 +119,9 @@ export class AIDatabaseController extends Controller(ROUTE_PREFIX) {
   describe(
     @Parameter(SIDECAR_AUTH_HEADER, "header") token?: string,
     @JSONBody() body?: DescribeBody,
-  ): Promise<unknown> {
+  ): Promise<
+    Awaited<ReturnType<CatalogConnection["DescribeRelations"]>> | HTTPResult
+  > {
     return onCatalog(token, body?.connection, (catalog) =>
       catalog.DescribeRelations(body?.relations ?? []),
     );
@@ -121,7 +131,7 @@ export class AIDatabaseController extends Controller(ROUTE_PREFIX) {
   profile(
     @Parameter(SIDECAR_AUTH_HEADER, "header") token?: string,
     @JSONBody() body?: ProfileBody,
-  ): Promise<unknown> {
+  ): Promise<ProfileAnswer | HTTPResult> {
     return onCatalog(token, body?.connection, async (catalog) => ({
       profile: body?.relation
         ? await catalog.Profile({

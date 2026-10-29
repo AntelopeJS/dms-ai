@@ -16,6 +16,7 @@ import {
   sendUserMessage,
   startWsHarness,
   type WireMessage,
+  type WireNode,
   type WsHarness,
 } from "../helpers/ws-harness.js";
 
@@ -62,12 +63,15 @@ async function reload(session: Session): Promise<WireMessage> {
   });
   sendHello(session.client, CONVERSATION_ID);
   const events = await collected;
-  return events.find(isSnapshot) as WireMessage;
+  const snapshot = events.find(isSnapshot);
+  if (snapshot === undefined) throw new Error("no snapshot arrived");
+  return snapshot;
 }
 
-function snapshotErrors(snapshot: WireMessage): unknown[] {
-  const messages = snapshot.messages as { role: string; content: string }[];
-  return messages.filter((message) => message.role === "error");
+function snapshotErrors(snapshot: WireMessage): WireNode[] {
+  return (snapshot.messages ?? []).filter(
+    (message) => message.role === "error",
+  );
 }
 
 describe.each(PROVIDER_FIXTURES)(

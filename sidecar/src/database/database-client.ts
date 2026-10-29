@@ -1,4 +1,5 @@
 import { SIDECAR_AUTH_HEADER } from "../constants/daemon.js";
+import { type JsonValue, JsonValueSchema } from "../protocol/json.js";
 import {
   DATABASE_FETCH_TIMEOUT_MS,
   DATABASE_LOG_PREFIX,
@@ -6,8 +7,8 @@ import {
 
 /** The backend's catalog routes, which reach the project's declared database connections. */
 export interface DatabaseClient {
-  get(path: string): Promise<unknown>;
-  post(path: string, body: unknown): Promise<unknown>;
+  get(path: string): Promise<JsonValue>;
+  post(path: string, body: JsonValue): Promise<JsonValue>;
 }
 
 export interface DatabaseClientOptions {
@@ -17,20 +18,22 @@ export interface DatabaseClientOptions {
   logger?: Pick<Console, "warn">;
 }
 
-function buildHeaders(token: string | undefined): Record<string, string> {
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-  };
-  if (token !== undefined) {
-    headers[SIDECAR_AUTH_HEADER] = token;
-  }
-  return headers;
+const JSON_HEADERS = { "content-type": "application/json" };
+
+function buildHeaders(token: string | undefined) {
+  return token === undefined
+    ? JSON_HEADERS
+    : { ...JSON_HEADERS, [SIDECAR_AUTH_HEADER]: token };
 }
 
 /** A failed call as the tool answers it: the backend's own body when it sent one. */
-async function failure(response: Response): Promise<unknown> {
+async function failure(response: Response): Promise<JsonValue> {
   try {
-    return { ok: false, status: response.status, error: await response.json() };
+    return {
+      ok: false,
+      status: response.status,
+      error: JsonValueSchema.parse(await response.json()),
+    };
   } catch {
     return { ok: false, status: response.status };
   }
@@ -43,7 +46,10 @@ export function createDatabaseClient(
   const logger = opts.logger ?? console;
   const headers = buildHeaders(opts.token);
   const base = opts.backendBaseUrl.replace(/\/$/, "");
-  const request = async (path: string, init: RequestInit): Promise<unknown> => {
+  const request = async (
+    path: string,
+    init: RequestInit,
+  ): Promise<JsonValue> => {
     const controller = new AbortController();
     const timer = setTimeout(
       () => controller.abort(),
@@ -55,7 +61,9 @@ export function createDatabaseClient(
         headers,
         signal: controller.signal,
       });
-      return response.ok ? await response.json() : await failure(response);
+      return response.ok
+        ? JsonValueSchema.parse(await response.json())
+        : await failure(response);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       logger.warn(`${DATABASE_LOG_PREFIX} ${path} failed (${reason})`);

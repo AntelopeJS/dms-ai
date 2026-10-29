@@ -28,11 +28,11 @@ function resolveModules(modules: string[] | undefined): string {
   return modules.join(SYSTEM_PROMPT_MODULES_SEPARATOR);
 }
 
-const RESOLVERS: Record<string, Resolver> = {
+const RESOLVERS = {
   [SYSTEM_PROMPT_TOKEN_NAME]: (o) => resolveOptional(o.name),
   [SYSTEM_PROMPT_TOKEN_HOST_ROOT]: (o) => o.hostProjectRoot,
   [SYSTEM_PROMPT_TOKEN_MODULES]: (o) => resolveModules(o.antelopeModules),
-};
+} satisfies Record<string, Resolver>;
 
 export function buildSystemPrompt(opts: SystemPromptOptions): string {
   let out = SYSTEM_PROMPT_TEMPLATE;

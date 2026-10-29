@@ -1,3 +1,4 @@
+import type { ToolArgs } from "./edit-targets.js";
 import { bareToolName } from "./tool-kinds.js";
 
 /** Announced calls kept per conversation; older ones are long settled. */
@@ -20,19 +21,19 @@ export interface CallLedger {
     conversationId: string,
     callId: string,
     toolName: string,
-    args: unknown,
+    args: ToolArgs,
   ): void;
   claim(
     conversationId: string,
     toolName: string,
-    args: unknown,
+    args: ToolArgs,
   ): string | undefined;
   forget(conversationId: string): void;
 }
 
-function argsKey(args: unknown): string {
+function argsKey(args: ToolArgs): string {
   try {
-    return JSON.stringify(args ?? null);
+    return JSON.stringify(args);
   } catch {
     return "";
   }

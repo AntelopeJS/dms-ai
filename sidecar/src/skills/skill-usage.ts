@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { bareToolName, isCommandTool } from "../agent/tool-kinds.js";
 import { parseArgs } from "../audit/activity-target.js";
 import {
@@ -37,6 +38,8 @@ export interface SkillConflict {
   ignored: SkillOrigin[];
 }
 
+type ToolArgs = ReturnType<typeof parseArgs>;
+
 interface SkillUse {
   name: string;
   timestampMs: number;
@@ -56,15 +59,22 @@ function bareSkillName(name: string): string {
   return index < 0 ? name : name.slice(index + 1);
 }
 
-function skillToolName(args: unknown): string | undefined {
-  if (args === null || typeof args !== "object") return undefined;
-  const record = args as Record<string, unknown>;
-  const key = SKILL_TOOL_ARG_KEYS.find((k) => typeof record[k] === "string");
-  return key === undefined ? undefined : bareSkillName(record[key] as string);
+const ToolArgStringsSchema = z.record(
+  z.string(),
+  z.string().optional().catch(undefined),
+);
+
+function skillToolName(args: ToolArgs): string | undefined {
+  const parsed = ToolArgStringsSchema.safeParse(args);
+  if (!parsed.success) return undefined;
+  const value = SKILL_TOOL_ARG_KEYS.map((k) => parsed.data[k]).find(
+    (v) => v !== undefined,
+  );
+  return value === undefined ? undefined : bareSkillName(value);
 }
 
 /** Codex has no skill tool: it opens the SKILL.md file with a shell command. */
-function skillFileRead(args: unknown, names: readonly string[]) {
+function skillFileRead(args: ToolArgs, names: readonly string[]) {
   const text = JSON.stringify(args ?? "");
   return names.find((name) => text.includes(`${name}/${SKILL_FILE_NAME}`));
 }
@@ -142,14 +152,17 @@ export function enrichSkills(
 /** Names declared by more than one source: who wins, who is ignored. */
 export function skillConflicts(catalog: SkillCatalog): SkillConflict[] {
   const firstByName = winners(catalog.items);
-  return catalog.duplicateNames.map((name) => {
-    const winner = firstByName.get(name) as SkillCatalogItem;
-    return {
-      name,
-      winner: originOf(winner),
-      ignored: catalog.items
-        .filter((item) => item.name === name && item.id !== winner.id)
-        .map(originOf),
-    };
+  return catalog.duplicateNames.flatMap((name) => {
+    const winner = firstByName.get(name);
+    if (winner === undefined) return [];
+    return [
+      {
+        name,
+        winner: originOf(winner),
+        ignored: catalog.items
+          .filter((item) => item.name === name && item.id !== winner.id)
+          .map(originOf),
+      },
+    ];
   });
 }

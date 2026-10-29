@@ -29,15 +29,15 @@ export const CHECKPOINT_REF_PREFIX = "refs/dms-ai/";
 export const BEFORE_REF_SUFFIX = "/before";
 export const AFTER_REF_SUFFIX = "/after";
 
-export const GIT_STATUS_BY_LETTER: Record<
+export const GIT_STATUS_BY_LETTER = new Map<
   string,
   "added" | "modified" | "deleted"
-> = {
-  A: "added",
-  M: "modified",
-  D: "deleted",
-  T: "modified",
-};
+>([
+  ["A", "added"],
+  ["M", "modified"],
+  ["D", "deleted"],
+  ["T", "modified"],
+]);
 
 export const BINARY_NUMSTAT = "-";
 export const BINARY_DIFF_MARKER = "Binary files";

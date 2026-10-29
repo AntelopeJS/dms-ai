@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { SIDECAR_AUTH_HEADER } from "../constants/daemon.js";
 import {
   PAGES_LOG_PREFIX,
@@ -56,6 +57,15 @@ async function fetchWithTimeout(
   }
 }
 
+const RegistryEntrySchema = z.object({
+  id: z.string(),
+  path: z.string(),
+  filepath: z.string().optional(),
+  moduleId: z.string(),
+});
+
+const RegistryEntryListSchema = z.array(z.unknown()).catch([]);
+
 async function fetchRegistry(
   url: string,
   fetchImpl: typeof fetch,
@@ -65,8 +75,12 @@ async function fetchRegistry(
   if (!response.ok) {
     throw new Error(`registry fetch failed: ${response.status}`);
   }
-  const data = (await response.json()) as PagesRegistryEntry[];
-  return Array.isArray(data) ? data : [];
+  return RegistryEntryListSchema.parse(await response.json()).flatMap(
+    (entry) => {
+      const parsed = RegistryEntrySchema.safeParse(entry);
+      return parsed.success ? [parsed.data] : [];
+    },
+  );
 }
 
 interface StaleState {
@@ -87,12 +101,11 @@ function markStale(
   state: StaleState,
   nowMs: number,
   logger: Pick<Console, "warn">,
-  err: unknown,
+  reason: string,
 ): void {
   if (state.staleSinceMs === null) state.staleSinceMs = nowMs;
   if (!state.mustLogOnNextFallback) return;
   state.mustLogOnNextFallback = false;
-  const reason = err instanceof Error ? err.message : String(err);
   logger.warn(
     `${PAGES_LOG_PREFIX} ${REGISTRY_STALE_FALLBACK_MESSAGE} (since=${state.staleSinceMs}, reason=${reason})`,
   );
@@ -118,7 +131,12 @@ export function createRegistryClient(
       return entries;
     } catch (err) {
       if (cache !== null) {
-        markStale(staleState, now(), logger, err);
+        markStale(
+          staleState,
+          now(),
+          logger,
+          err instanceof Error ? err.message : String(err),
+        );
         return cache.entries;
       }
       throw err;

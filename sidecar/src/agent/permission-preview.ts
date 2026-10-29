@@ -1,5 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import { dirname } from "node:path";
+import { z } from "zod";
 import type { PermissionKind } from "../constants/audit.js";
 import { BUILDER_DELETE_RESOURCE_TOOL_NAME } from "../constants/tool-kinds.js";
 import type {
@@ -16,7 +17,10 @@ import {
 import {
   editTargetPaths,
   projectRelative,
+  readStringArg,
   resolveInProject,
+  type ToolArgs,
+  ToolArgsSchema,
 } from "./edit-targets.js";
 import { type DiffStats, diffTexts, parseUnifiedDiff } from "./line-diff.js";
 import {
@@ -64,16 +68,12 @@ export interface DescribeOptions {
   alwaysAskBlockRemoval: boolean;
 }
 
-function asRecord(args: unknown): Record<string, unknown> {
-  if (args === null || typeof args !== "object" || Array.isArray(args)) {
-    return {};
-  }
-  return args as Record<string, unknown>;
+interface ParsedOptions extends Omit<DescribeOptions, "args"> {
+  args: ToolArgs;
 }
 
-function readString(args: unknown, key: string): string {
-  const value = asRecord(args)[key];
-  return typeof value === "string" ? value : "";
+function readString(args: ToolArgs, key: string): string {
+  return readStringArg(args, key) ?? "";
 }
 
 async function readCurrent(path: string): Promise<string | null> {
@@ -97,26 +97,28 @@ function replaceOnce(
   return text.replace(oldString, () => newString);
 }
 
-interface EditStep {
-  old_string?: unknown;
-  new_string?: unknown;
-  replace_all?: unknown;
-}
+const EditStepSchema = z
+  .object({
+    old_string: z.string().catch(""),
+    new_string: z.string().catch(""),
+    replace_all: z.boolean().catch(false),
+  })
+  .catch({ old_string: "", new_string: "", replace_all: false });
+
+type EditStep = z.infer<typeof EditStepSchema>;
+
+const EditStepListSchema = z.array(EditStepSchema).catch([]);
 
 function applyEditStep(text: string | null, step: EditStep): string | null {
   if (text === null) return null;
-  return replaceOnce(
-    text,
-    typeof step.old_string === "string" ? step.old_string : "",
-    typeof step.new_string === "string" ? step.new_string : "",
-    step.replace_all === true,
-  );
+  return replaceOnce(text, step.old_string, step.new_string, step.replace_all);
 }
 
-function editSteps(toolName: string, args: unknown): EditStep[] {
-  const record = asRecord(args);
-  if (bareToolName(toolName) !== "MultiEdit") return [record as EditStep];
-  return Array.isArray(record.edits) ? (record.edits as EditStep[]) : [];
+function editSteps(toolName: string, args: ToolArgs): EditStep[] {
+  if (bareToolName(toolName) !== "MultiEdit") {
+    return [EditStepSchema.parse(args)];
+  }
+  return EditStepListSchema.parse(args.edits);
 }
 
 /**
@@ -126,44 +128,41 @@ function editSteps(toolName: string, args: unknown): EditStep[] {
  */
 function plannedDiff(
   toolName: string,
-  args: unknown,
+  args: ToolArgs,
   current: string | null,
 ): DiffStats {
-  const content = asRecord(args).content;
-  if (typeof content === "string") return diffTexts(current ?? "", content);
+  const content = readStringArg(args, "content");
+  if (content !== undefined) return diffTexts(current ?? "", content);
   const steps = editSteps(toolName, args);
   const edited = steps.reduce(applyEditStep, current);
   if (edited !== null && current !== null) return diffTexts(current, edited);
-  const fallback = steps[0] ?? {};
-  return diffTexts(
-    readString(fallback, "old_string"),
-    readString(fallback, "new_string"),
-  );
+  const fallback = steps[0];
+  return diffTexts(fallback?.old_string ?? "", fallback?.new_string ?? "");
 }
 
-const CODEX_DIFF_BY_KIND: Record<
+const CODEX_DIFF_BY_KIND = new Map<
   string,
   (diff: string, current: string | null) => DiffStats
-> = {
-  [CODEX_ADDED_KIND]: (diff) => diffTexts("", diff),
-  [CODEX_DELETED_KIND]: (diff, current) => diffTexts(current ?? diff, ""),
-};
+>([
+  [CODEX_ADDED_KIND, (diff) => diffTexts("", diff)],
+  [CODEX_DELETED_KIND, (diff, current) => diffTexts(current ?? diff, "")],
+]);
 
-function codexDiff(args: unknown, current: string | null): DiffStats {
+function codexDiff(args: ToolArgs, current: string | null): DiffStats {
   const diff = readString(args, CODEX_CHANGE_DIFF_ARG);
   const kind = readString(args, CODEX_CHANGE_KIND_ARG);
-  const byKind = CODEX_DIFF_BY_KIND[kind];
+  const byKind = CODEX_DIFF_BY_KIND.get(kind);
   return byKind === undefined ? parseUnifiedDiff(diff) : byKind(diff, current);
 }
 
 async function diffPreview(
-  options: DescribeOptions,
+  options: ParsedOptions,
 ): Promise<DiffPreviewType | null> {
   const [target] = editTargetPaths(options.args);
   if (target === undefined) return null;
   const path = resolveInProject(options.hostProjectRoot, target);
   const current = await readCurrent(path);
-  const isCodex = CODEX_CHANGE_KIND_ARG in asRecord(options.args);
+  const isCodex = CODEX_CHANGE_KIND_ARG in options.args;
   const stats = isCodex
     ? codexDiff(options.args, current)
     : plannedDiff(options.toolName, options.args, current);
@@ -177,7 +176,7 @@ async function diffPreview(
   };
 }
 
-function commandPreview(options: DescribeOptions): CommandPreviewType {
+function commandPreview(options: ParsedOptions): CommandPreviewType {
   const command = readString(options.args, "command");
   const change = detectDependencyChange(command);
   const preview: CommandPreviewType = {
@@ -189,12 +188,12 @@ function commandPreview(options: DescribeOptions): CommandPreviewType {
   return { ...preview, effect: change.effect, touches: change.touches };
 }
 
-function builderTarget(args: unknown): string {
+function builderTarget(args: ToolArgs): string {
   const key = BUILDER_TARGET_KEYS.find((k) => readString(args, k) !== "");
   return key === undefined ? "" : readString(args, key);
 }
 
-function destructivePreview(options: DescribeOptions): DestructivePreviewType {
+function destructivePreview(options: ParsedOptions): DestructivePreviewType {
   const operation = bareToolName(options.toolName);
   const target = builderTarget(options.args);
   const deletesData = operation === BUILDER_DELETE_RESOURCE_TOOL_NAME;
@@ -208,15 +207,15 @@ function destructivePreview(options: DescribeOptions): DestructivePreviewType {
   return deletesData ? { ...preview, confirmText: target } : preview;
 }
 
-function webPreview(options: DescribeOptions): PermissionPreviewType {
+function webPreview(options: ParsedOptions): PermissionPreviewType {
   const url = readString(options.args, "url");
   const host = hostOf(url);
   if (host === null) return genericPreview(options);
   return { type: "web", url, host };
 }
 
-function genericPreview(options: DescribeOptions): PermissionPreviewType {
-  return { type: "generic", args: asRecord(options.args) };
+function genericPreview(options: ParsedOptions): PermissionPreviewType {
+  return { type: "generic", args: options.args };
 }
 
 export function hostOf(url: string): string | null {
@@ -233,10 +232,14 @@ const UNIFIED_HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/;
 const REMOVED_PREFIX = "- ";
 const ADDED_PREFIX = "+ ";
 
-interface PlannedChange {
-  path?: unknown;
-  diff?: unknown;
-}
+const PlannedChangeSchema = z
+  .object({
+    path: z.string().optional().catch(undefined),
+    diff: z.string().optional().catch(undefined),
+  })
+  .catch({ path: undefined, diff: undefined });
+
+const PlannedChangeListSchema = z.array(PlannedChangeSchema).catch([]);
 
 interface PlannedTexts {
   start: number;
@@ -282,23 +285,15 @@ function plannedStats(diff: string): DiffStats {
 }
 
 /** The configuration diff a project-config operation's dry run answered, for the card. */
-function plannedConfigPreview(
-  options: DescribeOptions,
-): DiffPreviewType | null {
+function plannedConfigPreview(options: ParsedOptions): DiffPreviewType | null {
   if (!isConfigBuilderTool(options.toolName)) return null;
-  const changes = asRecord(options.args).plannedChanges;
-  const config = (
-    Array.isArray(changes) ? (changes as PlannedChange[]) : []
+  const config = PlannedChangeListSchema.parse(
+    options.args.plannedChanges,
   ).find(
     (change) =>
-      typeof change.path === "string" && CONFIG_FILE_PATTERN.test(change.path),
+      change.path !== undefined && CONFIG_FILE_PATTERN.test(change.path),
   );
-  if (
-    !config ||
-    typeof config.path !== "string" ||
-    typeof config.diff !== "string"
-  )
-    return null;
+  if (config?.path === undefined || config.diff === undefined) return null;
   const stats = plannedStats(config.diff);
   return {
     type: "diff",
@@ -312,7 +307,7 @@ function plannedConfigPreview(
 }
 
 type PreviewBuilder = (
-  options: DescribeOptions,
+  options: ParsedOptions,
 ) => Promise<PermissionPreviewType>;
 
 const PREVIEW_BY_KIND: Record<PermissionKind, PreviewBuilder> = {
@@ -326,7 +321,7 @@ const PREVIEW_BY_KIND: Record<PermissionKind, PreviewBuilder> = {
   other: async (options) => genericPreview(options),
 };
 
-function isAlwaysAsk(options: DescribeOptions): boolean {
+function isAlwaysAsk(options: ParsedOptions): boolean {
   if (isDestructiveBuilderTool(options.toolName)) return true;
   if (isConfigBuilderTool(options.toolName)) return true;
   if (options.alwaysAskBlockRemoval && isBlockRemovalTool(options.toolName)) {
@@ -338,7 +333,7 @@ function isAlwaysAsk(options: DescribeOptions): boolean {
   return detectDependencyChange(readString(options.args, "command")) !== null;
 }
 
-function editRuleOptions(options: DescribeOptions): PermissionRuleType[] {
+function editRuleOptions(options: ParsedOptions): PermissionRuleType[] {
   const targets = editTargetPaths(options.args).map((target) =>
     resolveInProject(options.hostProjectRoot, target),
   );
@@ -356,19 +351,19 @@ function editRuleOptions(options: DescribeOptions): PermissionRuleType[] {
   return [...fileRules, ...directoryRules];
 }
 
-function commandRuleOptions(options: DescribeOptions): PermissionRuleType[] {
+function commandRuleOptions(options: ParsedOptions): PermissionRuleType[] {
   const prefix = commandRulePrefix(readString(options.args, "command"));
   return prefix === null ? [] : [{ kind: "command", value: prefix }];
 }
 
-function webRuleOptions(options: DescribeOptions): PermissionRuleType[] {
+function webRuleOptions(options: ParsedOptions): PermissionRuleType[] {
   if (bareToolName(options.toolName) !== WEB_FETCH_TOOL_NAME) return [];
   const host = hostOf(readString(options.args, "url"));
   return host === null ? [] : [{ kind: "domain", value: host }];
 }
 
 const RULE_OPTIONS_BY_KIND: Partial<
-  Record<PermissionKind, (options: DescribeOptions) => PermissionRuleType[]>
+  Record<PermissionKind, (options: ParsedOptions) => PermissionRuleType[]>
 > = {
   edit: editRuleOptions,
   command: commandRuleOptions,
@@ -381,8 +376,9 @@ const RULE_OPTIONS_BY_KIND: Partial<
  * and the rule scopes it may offer (none for an always-ask request).
  */
 export async function describeRequest(
-  options: DescribeOptions,
+  described: DescribeOptions,
 ): Promise<RequestDescription> {
+  const options = { ...described, args: ToolArgsSchema.parse(described.args) };
   const kind = permissionKindOf(options.toolName);
   const alwaysAsk = isAlwaysAsk(options);
   const preview = await PREVIEW_BY_KIND[kind](options);

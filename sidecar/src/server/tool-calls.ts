@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type {
   RunnerToolResult,
   RunnerToolUse,
@@ -95,7 +96,8 @@ function outcomeOf(
 }
 
 function resultText(result: unknown): string {
-  if (typeof result === "string") return result;
+  const asString = z.string().safeParse(result);
+  if (asString.success) return asString.data;
   try {
     return JSON.stringify(result ?? "");
   } catch {
@@ -108,9 +110,13 @@ const TYPECHECK_OUTCOME_MARKERS: ReadonlyArray<[string, TypecheckOutcome]> = [
   [TYPECHECK_CLEAN_MESSAGE, "passed"],
 ];
 
-function noteTypecheck(turn: ActiveTurn, toolName: string, result: unknown) {
+function noteTypecheck(
+  turn: ActiveTurn,
+  toolName: string,
+  ev: RunnerToolResult,
+) {
   if (bareToolName(toolName) !== TYPECHECK_TOOL_NAME) return;
-  const text = resultText(result);
+  const text = resultText(ev.result);
   const marker = TYPECHECK_OUTCOME_MARKERS.find(([m]) => text.includes(m));
   if (marker !== undefined) turn.typecheck = marker[1];
 }
@@ -162,7 +168,7 @@ function trackEnd(
 ): void {
   if (turn === undefined) return;
   turn.openCalls.delete(ev.callId);
-  noteTypecheck(turn, toolName, ev.result);
+  noteTypecheck(turn, toolName, ev);
   if (outcome === "done" && isMutatingBuilderTool(toolName)) turn.builderOps++;
 }
 

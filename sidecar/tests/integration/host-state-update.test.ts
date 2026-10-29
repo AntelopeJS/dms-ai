@@ -67,7 +67,7 @@ async function startTestServer(): Promise<ServerHandle> {
     hostProjectRoot: TEST_HOST_ROOT,
     moduleRoots: [],
     logsClient: { getLogs: async () => [] },
-    builderClient: { call: async () => undefined },
+    builderClient: { call: async () => null },
     databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     sendToHost: hostSocketRegistry.send,
@@ -117,15 +117,6 @@ function settle(): Promise<void> {
   return new Promise((resolveSettle) =>
     setTimeout(resolveSettle, SETTLE_DELAY_MS),
   );
-}
-
-interface ToolHandlerLike {
-  handler: (
-    args: Record<string, never>,
-    extra: unknown,
-  ) => Promise<{
-    content: Array<{ type: string; text: string }>;
-  }>;
 }
 
 describe("host_state_update WS message", () => {
@@ -183,7 +174,7 @@ describe("host_state_update WS message", () => {
     client.close();
     const toolDef = buildGetCurrentPageTool(() =>
       handle.hostState.getCurrentPage(),
-    ) as unknown as ToolHandlerLike;
+    );
     const result = await toolDef.handler({}, undefined);
     const text = result.content[0]?.text ?? "";
     expect(JSON.parse(text)).toEqual({ path: "/dashboard" });
@@ -192,7 +183,7 @@ describe("host_state_update WS message", () => {
   it("returns the unknown page when no host_state_update arrived yet", async () => {
     const toolDef = buildGetCurrentPageTool(() =>
       handle.hostState.getCurrentPage(),
-    ) as unknown as ToolHandlerLike;
+    );
     const result = await toolDef.handler({}, undefined);
     const text = result.content[0]?.text ?? "";
     expect(JSON.parse(text)).toEqual({ path: UNKNOWN_PAGE_PATH });

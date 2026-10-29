@@ -299,7 +299,7 @@ export const DeleteConversationMsg = z.object({
  * client that omits a field leaves it alone rather than resetting it. `auto` is
  * refused for `mode`: Full auto exists only per conversation.
  */
-export const SettingsPatchShape = {
+export const SettingsPatchFields = {
   provider: z.enum(PROVIDER_NAMES).optional(),
   mode: z.enum(CHAT_MODES).optional(),
   thinking: z.enum(THINKING_LEVELS).optional(),
@@ -312,11 +312,11 @@ export const SettingsPatchShape = {
   checkpointRetentionDays: z.literal(CHECKPOINT_RETENTION_DAYS).optional(),
 };
 
-export const SettingsPatchSchema = z.object(SettingsPatchShape);
+export const SettingsPatchSchema = z.object(SettingsPatchFields);
 
 export const SetSettingsMsg = z.object({
   type: z.literal(MESSAGE_TYPES.SET_SETTINGS),
-  ...SettingsPatchShape,
+  ...SettingsPatchFields,
 });
 
 /**

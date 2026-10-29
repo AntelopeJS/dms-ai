@@ -39,7 +39,9 @@ describe("process identification", () => {
   });
 });
 
-const EXIT_COMMAND_BY_PLATFORM: Record<string, readonly string[]> = {
+const EXIT_COMMAND_BY_PLATFORM: Partial<
+  Record<NodeJS.Platform, readonly string[]>
+> = {
   win32: ["cmd", "/c", "exit"],
 };
 const EXIT_COMMAND = ["node", "-e", ""] as const;

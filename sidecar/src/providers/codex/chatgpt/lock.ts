@@ -17,8 +17,8 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function errorCode(error: unknown): string | undefined {
-  return (error as NodeJS.ErrnoException | undefined)?.code;
+function isAlreadyExists(error: NodeJS.ErrnoException): boolean {
+  return error.code === "EEXIST";
 }
 
 /**
@@ -50,7 +50,7 @@ async function acquire(lock: string): Promise<void> {
       await mkdir(lock);
       return;
     } catch (error) {
-      if (errorCode(error) !== "EEXIST") throw error;
+      if (!(error instanceof Error && isAlreadyExists(error))) throw error;
     }
     if (await isStale(lock)) {
       await rm(lock, { recursive: true, force: true });

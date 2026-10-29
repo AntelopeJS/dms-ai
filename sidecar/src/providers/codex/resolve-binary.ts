@@ -42,7 +42,7 @@ export interface CodexInstallation {
 }
 
 function hostTriple(): string | undefined {
-  return CODEX_TRIPLE_BY_HOST[`${process.platform}:${process.arch}`];
+  return CODEX_TRIPLE_BY_HOST.get(`${process.platform}:${process.arch}`);
 }
 
 function binaryFileName(): string {
@@ -63,7 +63,7 @@ function computeInstallation(): CodexInstallation | undefined {
       `${CODEX_CLI_PACKAGE}/package.json`,
     );
     const platformManifest = createRequire(launcher).resolve(
-      `${CODEX_PLATFORM_PACKAGE_BY_TRIPLE[triple]}/package.json`,
+      `${CODEX_PLATFORM_PACKAGE_BY_TRIPLE.get(triple)}/package.json`,
     );
     const binaryPath = path.join(
       path.dirname(platformManifest),

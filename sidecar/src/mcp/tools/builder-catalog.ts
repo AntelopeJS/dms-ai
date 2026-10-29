@@ -1,34 +1,45 @@
+import { z } from "zod";
+import { type JsonValue, JsonValueSchema } from "../../protocol/json.js";
 import {
   BUILDER_CATALOG_DETAIL_HINT,
   BUILDER_CATALOG_SECTIONS,
   type BuilderCatalogSection,
 } from "../../constants/builder.js";
 
-type CatalogEntry = Record<string, unknown>;
-type CatalogSummary = Record<string, unknown>;
+const CATALOG_ENTRY = z.record(z.string(), JsonValueSchema);
+const CATALOG = CATALOG_ENTRY.refine((catalog) =>
+  BUILDER_CATALOG_SECTIONS.every((section) => Array.isArray(catalog[section])),
+);
+const TEXT = z.string().min(1);
+const ENTRY_NAME = z.string();
+const CONFIG_CONTAINER = z.union([z.array(JsonValueSchema), CATALOG_ENTRY]);
+
+type CatalogEntry = z.infer<typeof CATALOG_ENTRY>;
+type CatalogSummary = {
+  [key: string]: JsonValue | CatalogSummary | CatalogSummary[] | undefined;
+};
 
 /** The entries whose full schema the agent asked for, by section. */
 export type CatalogSelection = Partial<
   Record<BuilderCatalogSection, string[] | undefined>
 >;
 
-interface SectionShape {
+interface SectionSummarizer {
   /** The key naming an entry (a block's `type`, a DataType's `id`). */
   nameKey: string;
   summarize: (entry: CatalogEntry) => CatalogSummary;
 }
 
-function textOf(value: unknown): string | undefined {
-  return typeof value === "string" && value !== "" ? value : undefined;
+function textOf(value: JsonValue | undefined): string | undefined {
+  return TEXT.safeParse(value).data;
 }
 
 function configKeysOf(entry: CatalogEntry): string[] {
-  const config = entry.config;
-  if (config === null || typeof config !== "object") return [];
-  return Object.keys(config);
+  const config = CONFIG_CONTAINER.safeParse(entry.config);
+  return config.success ? Object.keys(config.data) : [];
 }
 
-function summarizeBlock(entry: CatalogEntry): CatalogSummary {
+function summarizeBlock(entry: CatalogEntry) {
   return {
     type: entry.type,
     description: textOf(entry.description) ?? textOf(entry.label) ?? "",
@@ -38,7 +49,7 @@ function summarizeBlock(entry: CatalogEntry): CatalogSummary {
   };
 }
 
-function summarizeDataType(entry: CatalogEntry): CatalogSummary {
+function summarizeDataType(entry: CatalogEntry) {
   return {
     id: entry.id,
     description: textOf(entry.description),
@@ -46,40 +57,37 @@ function summarizeDataType(entry: CatalogEntry): CatalogSummary {
   };
 }
 
-const SECTION_SHAPES: Record<BuilderCatalogSection, SectionShape> = {
+const SECTION_SUMMARIZERS: Record<BuilderCatalogSection, SectionSummarizer> = {
   blocks: { nameKey: "type", summarize: summarizeBlock },
   dataTypes: { nameKey: "id", summarize: summarizeDataType },
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isEntry(value: JsonValue): value is CatalogEntry {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function entriesOf(
-  catalog: Record<string, unknown>,
+  catalog: CatalogEntry,
   section: BuilderCatalogSection,
 ): CatalogEntry[] {
   const entries = catalog[section];
-  return Array.isArray(entries) ? entries.filter(isRecord) : [];
-}
-
-function isCatalog(value: unknown): value is Record<string, unknown> {
-  if (!isRecord(value)) return false;
-  return BUILDER_CATALOG_SECTIONS.every((s) => Array.isArray(value[s]));
+  return Array.isArray(entries) ? entries.filter(isEntry) : [];
 }
 
 function isSection(key: string): key is BuilderCatalogSection {
-  return (BUILDER_CATALOG_SECTIONS as readonly string[]).includes(key);
+  return BUILDER_CATALOG_SECTIONS.some((section) => section === key);
 }
 
-function buildIndex(catalog: Record<string, unknown>): CatalogSummary {
+function buildIndex(catalog: CatalogEntry) {
   const index: CatalogSummary = {};
   for (const [key, value] of Object.entries(catalog)) {
     if (!isSection(key)) {
       index[key] = value;
       continue;
     }
-    index[key] = entriesOf(catalog, key).map(SECTION_SHAPES[key].summarize);
+    index[key] = entriesOf(catalog, key).map(
+      SECTION_SUMMARIZERS[key].summarize,
+    );
   }
   return { ...index, detail: BUILDER_CATALOG_DETAIL_HINT };
 }
@@ -88,19 +96,26 @@ function unknownKeyOf(section: BuilderCatalogSection): string {
   return `unknown${section.charAt(0).toUpperCase()}${section.slice(1)}`;
 }
 
+function nameOf(entry: CatalogEntry, nameKey: string): string | undefined {
+  return ENTRY_NAME.safeParse(entry[nameKey]).data;
+}
+
 function selectSection(
-  catalog: Record<string, unknown>,
+  catalog: CatalogEntry,
   section: BuilderCatalogSection,
   names: string[],
-): CatalogSummary {
-  const { nameKey } = SECTION_SHAPES[section];
+) {
+  const { nameKey } = SECTION_SUMMARIZERS[section];
   const entries = entriesOf(catalog, section);
-  const selected = entries.filter((e) => names.includes(String(e[nameKey])));
-  const found = new Set(selected.map((e) => String(e[nameKey])));
+  const selected = entries.filter((e) => {
+    const name = nameOf(e, nameKey);
+    return name !== undefined && names.includes(name);
+  });
+  const found = new Set(selected.map((e) => nameOf(e, nameKey)));
   const unknown = names.filter((name) => !found.has(name));
-  const detail: CatalogSummary = { [section]: selected };
-  if (unknown.length > 0) detail[unknownKeyOf(section)] = unknown;
-  return detail;
+  const detail = { [section]: selected };
+  if (unknown.length === 0) return detail;
+  return { ...detail, [unknownKeyOf(section)]: unknown };
 }
 
 function hasSelection(selection: CatalogSelection): boolean {
@@ -113,11 +128,13 @@ function hasSelection(selection: CatalogSelection): boolean {
  * DataTypes whose full schemas it needs. Anything that is not a catalog (an
  * `{ ok: false }` from the builder) passes through untouched.
  */
-export function shapeCatalog(
-  catalog: unknown,
+export function summarizeCatalog<Answer>(
+  answer: Answer,
   selection: CatalogSelection,
-): unknown {
-  if (!isCatalog(catalog)) return catalog;
+): Answer | CatalogSummary {
+  const parsed = CATALOG.safeParse(answer);
+  if (!parsed.success) return answer;
+  const catalog = parsed.data;
   if (!hasSelection(selection)) return buildIndex(catalog);
   return BUILDER_CATALOG_SECTIONS.reduce<CatalogSummary>((detail, section) => {
     const names = selection[section];

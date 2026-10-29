@@ -10,6 +10,7 @@ import {
 import type {
   AllowedBreakdown,
   ChartPayload,
+  KeyValueItem,
   KpiPayload,
   SidecarKpi,
   TopListPayload,
@@ -43,14 +44,14 @@ interface PeriodParams extends QueryParams {
   compareTo?: string;
 }
 
-/** Reads a sidecar metric and shapes it; an empty one while the sidecar is down. */
+/** Reads a sidecar metric and turns it into a payload; an empty one while the sidecar is down. */
 async function readMetric<T, R>(
   path: string,
   params: QueryParams,
   fallback: T,
-  shape: (body: T) => R,
+  toPayload: (body: T) => R,
 ): Promise<R> {
-  return shape(await readSidecar(`${path}${buildQuery(params)}`, fallback));
+  return toPayload(await readSidecar(`${path}${buildQuery(params)}`, fallback));
 }
 
 /**
@@ -127,7 +128,9 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
   }
 
   @Get("usage/summary")
-  usageSummary(@Parameter("days", "query") days?: string): Promise<unknown> {
+  usageSummary(
+    @Parameter("days", "query") days?: string,
+  ): Promise<{ items: KeyValueItem[] }> {
     return readMetric(
       "/metrics/usage",
       { days },

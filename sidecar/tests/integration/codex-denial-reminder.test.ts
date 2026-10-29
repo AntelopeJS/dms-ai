@@ -10,7 +10,7 @@ import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
 } from "../../src/mcp/http-binding.js";
-import type { AiMcpServerDeps } from "../../src/mcp/types.js";
+import { buildInertMcpDeps } from "../helpers/provider-runner.js";
 import { createCodexProvider } from "../../src/providers/codex/provider.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
 import {
@@ -35,16 +35,11 @@ const SAFE_SETTINGS: AppSettings = {
   generationMode: "safe",
 };
 
-interface TurnText {
-  type: string;
-  text?: string;
-}
-
 function turnTexts(trace: ReturnType<typeof readCodexTrace>): string[] {
   return trace
     .filter((entry) => entry.method === TURN_START)
     .map((entry) => {
-      const input = (entry.params?.input ?? []) as TurnText[];
+      const input = entry.params?.input ?? [];
       return input
         .filter((part) => part.type === "text")
         .map((part) => part.text ?? "")
@@ -86,7 +81,7 @@ describe("codex denial reminder", () => {
         settings: SAFE_SETTINGS,
         stateDir: join(dir, ".state"),
         mcpHttpRegistry: registry,
-        createMcpDeps: () => ({}) as unknown as AiMcpServerDeps,
+        createMcpDeps: buildInertMcpDeps,
         getMcpUrl: () => "http://127.0.0.1:1/mcp",
       });
       session = await provider.createSession({

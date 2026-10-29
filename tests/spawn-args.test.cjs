@@ -48,6 +48,7 @@ function loadLauncher(spawns) {
     },
     "node:http": { get: () => ({ on() {}, destroy() {} }) },
     "node:path": path,
+    zod: require("zod"),
     "@antelopejs/interface-core/logging": {
       Logging: { Info() {}, Error() {} },
     },

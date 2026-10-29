@@ -12,7 +12,7 @@ import { toAbsolutePath } from "../../pages/page-filepath.js";
 import type { RegistryClient } from "../../pages/registry-client.js";
 import type { PageCandidate, PagesRegistryEntry } from "../../pages/types.js";
 import type { CurrentPage } from "../../state/host-state.js";
-import { defineTool } from "../define-tool.js";
+import { defineTool, type McpToolResult } from "../define-tool.js";
 
 export interface FindPagesUsingDeps {
   registry: RegistryClient;
@@ -149,9 +149,7 @@ export function computeCandidates(
   return sortCandidates(hits, currentPage.path);
 }
 
-function buildContent(candidates: PageCandidate[]): {
-  content: Array<{ type: "text"; text: string }>;
-} {
+function buildContent(candidates: PageCandidate[]): McpToolResult {
   return {
     content: [{ type: "text", text: JSON.stringify(candidates) }],
   };

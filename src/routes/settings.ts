@@ -1,4 +1,10 @@
-import { Controller, Get, JSONBody, Put } from "@antelopejs/interface-api";
+import {
+  Controller,
+  Get,
+  HTTPResult,
+  JSONBody,
+  Put,
+} from "@antelopejs/interface-api";
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import { ROUTE_PREFIX } from "../constants/module";
 import {
@@ -45,12 +51,14 @@ function sidecarUpdate(body: SettingsBody): SettingsBody {
 @AuthOwnerOnly()
 export class AISettingsController extends Controller(ROUTE_PREFIX) {
   @Get(SETTINGS_PATH)
-  getSettings(): Promise<unknown> {
+  getSettings(): Promise<SettingsBody | HTTPResult> {
     return relay(SETTINGS_PATH, formSettings);
   }
 
   @Put(SETTINGS_PATH)
-  updateSettings(@JSONBody() body?: SettingsBody): Promise<unknown> {
+  updateSettings(
+    @JSONBody() body?: SettingsBody,
+  ): Promise<SettingsBody | HTTPResult> {
     return relay(SETTINGS_PATH, formSettings, {
       method: "PUT",
       body: sidecarUpdate(body ?? {}),

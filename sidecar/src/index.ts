@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { randomBytes } from "node:crypto";
 import os from "node:os";
+import { z } from "zod";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDatabaseClient } from "./database/database-client.js";
@@ -111,49 +112,72 @@ function parseModuleRoots(value: string): string[] {
  * contribute several entries); malformed entries are dropped and invalid JSON
  * degrades to no skill sources.
  */
+const SkillSourceSchema = z.looseObject({
+  module: z.string(),
+  dir: z.string(),
+});
+
 export function parseSkillDirs(value: string): SkillSource[] {
   try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (e): e is SkillSource =>
-        e !== null &&
-        typeof e === "object" &&
-        typeof (e as SkillSource).module === "string" &&
-        typeof (e as SkillSource).dir === "string",
-    );
+    const parsed = z.array(z.unknown()).safeParse(JSON.parse(value));
+    if (!parsed.success) return [];
+    return parsed.data.flatMap((e) => {
+      const source = SkillSourceSchema.safeParse(e);
+      return source.success ? [source.data] : [];
+    });
   } catch {
     return [];
   }
 }
 
-const ARG_PARSERS: Record<string, ArgParser> = {
-  "--module-roots": (v, a) => {
-    a.moduleRoots = parseModuleRoots(v);
-  },
-  "--skill-dirs": (v, a) => {
-    a.skillDirs = parseSkillDirs(v);
-  },
-  "--port": (v, a) => {
-    const n = Number(v);
-    if (!Number.isInteger(n) || n < 0 || n > 65535) {
-      throw new Error(`Invalid --port value: ${v}`);
-    }
-    a.port = n;
-  },
-  "--root": (v, a) => {
-    a.root = v;
-  },
-  "--backend-url": (v, a) => {
-    a.backendUrl = v;
-  },
-  [SIDECAR_BUILD_ID_FLAG]: (v, a) => {
-    a.buildId = v;
-  },
-  [SIDECAR_BUILDER_FLAG]: (v, a) => {
-    a.builderEnabled = v === "1";
-  },
-};
+const ARG_PARSERS = new Map<string, ArgParser>([
+  [
+    "--module-roots",
+    (v, a) => {
+      a.moduleRoots = parseModuleRoots(v);
+    },
+  ],
+  [
+    "--skill-dirs",
+    (v, a) => {
+      a.skillDirs = parseSkillDirs(v);
+    },
+  ],
+  [
+    "--port",
+    (v, a) => {
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 0 || n > 65535) {
+        throw new Error(`Invalid --port value: ${v}`);
+      }
+      a.port = n;
+    },
+  ],
+  [
+    "--root",
+    (v, a) => {
+      a.root = v;
+    },
+  ],
+  [
+    "--backend-url",
+    (v, a) => {
+      a.backendUrl = v;
+    },
+  ],
+  [
+    SIDECAR_BUILD_ID_FLAG,
+    (v, a) => {
+      a.buildId = v;
+    },
+  ],
+  [
+    SIDECAR_BUILDER_FLAG,
+    (v, a) => {
+      a.builderEnabled = v === "1";
+    },
+  ],
+]);
 
 function buildDefaults(): ParsedArgs {
   return {
@@ -173,7 +197,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     if (flag === undefined) continue;
-    const parser = ARG_PARSERS[flag];
+    const parser = ARG_PARSERS.get(flag);
     if (parser === undefined) {
       console.error(`[dms-ai] unknown arg: ${flag}`);
       continue;
@@ -199,7 +223,7 @@ const SHUTDOWN_SIGNALS: readonly NodeJS.Signals[] = [
 ];
 
 export interface ShutdownSignalSource {
-  on(signal: NodeJS.Signals, listener: () => void): unknown;
+  on(signal: NodeJS.Signals, listener: () => void): void;
 }
 
 interface ShutdownDeps {

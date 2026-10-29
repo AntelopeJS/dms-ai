@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { RunnerEvent } from "../../agent/runner-events.js";
 import {
   CODEX_ACTIVITY_BY_METHOD,
@@ -9,50 +10,97 @@ import {
   EDIT_FILE_PATH_ARG,
   TOOL_LEXICON,
 } from "../../constants/tool-lexicon.js";
+import { type JsonValue, JsonValueSchema } from "../../protocol/json.js";
 import type { CodexNotification } from "./client.js";
-import type { v2 } from "./protocol/index.js";
 
 const CALL_ID_INDEX_SEPARATOR = ":";
 const FAILED_ITEM_STATUSES = ["failed", "declined"];
 const INTERRUPTED_RESULT = "interrupted";
 
-const TODO_STATUS_BY_PLAN_STATUS: Record<string, string> = {
-  pending: "pending",
-  inProgress: "in_progress",
-  completed: "completed",
-};
+const TODO_STATUS_BY_PLAN_STATUS = new Map<string, string>([
+  ["pending", "pending"],
+  ["inProgress", "in_progress"],
+  ["completed", "completed"],
+]);
 
-interface ItemEnvelope {
-  item?: { type?: string; id?: string } & Record<string, unknown>;
-}
+const commandExecutionItemSchema = z.object({
+  type: z.literal("commandExecution"),
+  id: z.string(),
+  command: z.string(),
+  status: z.string(),
+  aggregatedOutput: z.string().nullish(),
+  exitCode: z.number().nullish(),
+});
 
-interface CommandExecutionItem {
-  id: string;
-  command: string;
-  status: string;
-  aggregatedOutput: string | null;
-  exitCode: number | null;
-}
+const fileChangeItemSchema = z.object({
+  type: z.literal("fileChange"),
+  id: z.string(),
+  changes: z.array(
+    z.object({
+      path: z.string(),
+      kind: z.object({ type: z.string() }),
+      diff: z.string(),
+    }),
+  ),
+  status: z.string(),
+});
 
-interface FileChangeItem {
-  id: string;
-  changes: v2.FileUpdateChange[];
-  status: string;
-}
+const mcpToolCallItemSchema = z.object({
+  type: z.literal("mcpToolCall"),
+  id: z.string(),
+  tool: z.string(),
+  status: z.string(),
+  arguments: JsonValueSchema.optional(),
+  result: JsonValueSchema.optional(),
+  error: JsonValueSchema.optional(),
+});
 
-interface McpToolCallItem {
-  id: string;
-  tool: string;
-  status: string;
-  arguments: unknown;
-  result: unknown;
-  error: unknown;
-}
+const agentMessageItemSchema = z.object({
+  type: z.literal("agentMessage"),
+  id: z.string(),
+  text: z.string(),
+});
 
-interface AgentMessageItem {
-  id: string;
-  text: string;
-}
+const startedParamsSchema = z.object({
+  item: z.discriminatedUnion("type", [
+    commandExecutionItemSchema,
+    fileChangeItemSchema,
+    mcpToolCallItemSchema,
+  ]),
+});
+
+const completedParamsSchema = z.object({
+  item: z.discriminatedUnion("type", [
+    commandExecutionItemSchema,
+    fileChangeItemSchema,
+    mcpToolCallItemSchema,
+    agentMessageItemSchema,
+  ]),
+});
+
+const planUpdatedParamsSchema = z.object({
+  plan: z.array(z.object({ step: z.string(), status: z.string() })).optional(),
+});
+
+const agentMessageDeltaParamsSchema = z.object({
+  delta: z.string().optional(),
+});
+
+const turnCompletedParamsSchema = z.object({
+  turn: z
+    .object({
+      status: z.string().optional(),
+      error: z.object({ message: z.string() }).nullish(),
+    })
+    .optional(),
+});
+
+type CommandExecutionItem = z.infer<typeof commandExecutionItemSchema>;
+type FileChangeItem = z.infer<typeof fileChangeItemSchema>;
+type McpToolCallItem = z.infer<typeof mcpToolCallItemSchema>;
+type AgentMessageItem = z.infer<typeof agentMessageItemSchema>;
+type StartedItem = z.infer<typeof startedParamsSchema>["item"];
+type CompletedItem = z.infer<typeof completedParamsSchema>["item"];
 
 /** One file of a pending Codex patch, as its approval card shows it. */
 export interface CodexFileChange {
@@ -74,17 +122,17 @@ export interface CodexAdapter {
   getChanges(itemId: string): CodexFileChange[];
 }
 
-function changeKindOf(change: v2.FileUpdateChange): string {
-  return change.kind.type;
-}
-
-function toolUse(callId: string, toolName: string, args: unknown): RunnerEvent {
+function toolUse(
+  callId: string,
+  toolName: string,
+  args: JsonValue,
+): RunnerEvent {
   return { type: "tool_use", callId, toolName, args };
 }
 
 function toolResult(
   callId: string,
-  result: unknown,
+  result: JsonValue | undefined,
   isError: boolean,
 ): RunnerEvent {
   return { type: "tool_result", callId, result, isError };
@@ -104,12 +152,15 @@ function changeCallId(itemId: string, index: number): string {
  * tool_use and its result are emitted back to back: a synthetic tool_use with
  * no result would suspend the inactivity timer for good.
  */
-function planUpdatedEvents(params: unknown, seq: number): RunnerEvent[] {
-  const plan = (params as { plan?: v2.TurnPlanStep[] }).plan ?? [];
+function planUpdatedEvents(
+  params: z.infer<typeof planUpdatedParamsSchema>,
+  seq: number,
+): RunnerEvent[] {
+  const plan = params.plan ?? [];
   const todos = plan.map((step) => ({
     content: step.step,
     activeForm: step.step,
-    status: TODO_STATUS_BY_PLAN_STATUS[step.status] ?? step.status,
+    status: TODO_STATUS_BY_PLAN_STATUS.get(step.status) ?? step.status,
   }));
   const callId = `${TOOL_LEXICON.TODO_WRITE}${CALL_ID_INDEX_SEPARATOR}${seq}`;
   return [
@@ -119,15 +170,31 @@ function planUpdatedEvents(params: unknown, seq: number): RunnerEvent[] {
 }
 
 function activityEvents(method: string): RunnerEvent[] {
-  const kind = CODEX_ACTIVITY_BY_METHOD[method];
+  const kind = CODEX_ACTIVITY_BY_METHOD.get(method);
   if (kind === undefined) return [];
   return [{ type: "activity", kind }];
 }
 
-function agentMessageDeltaEvents(params: unknown): RunnerEvent[] {
-  const delta = (params as { delta?: string }).delta ?? "";
+function agentMessageDeltaEvents(
+  params: z.infer<typeof agentMessageDeltaParamsSchema>,
+): RunnerEvent[] {
+  const delta = params.delta ?? "";
   if (delta === "") return [];
   return [{ type: "assistant_text_delta", text: delta }];
+}
+
+function completeAgentMessage(item: AgentMessageItem): RunnerEvent[] {
+  if (item.text === "") return [];
+  return [{ type: "assistant_text", text: item.text }];
+}
+
+/** What a notification yields without touching the call ledger. */
+function statelessEvents(notification: CodexNotification): RunnerEvent[] {
+  if (notification.method !== "item/agentMessage/delta") {
+    return activityEvents(notification.method);
+  }
+  const parsed = agentMessageDeltaParamsSchema.safeParse(notification.params);
+  return parsed.success ? agentMessageDeltaEvents(parsed.data) : [];
 }
 
 /**
@@ -139,14 +206,18 @@ function agentMessageDeltaEvents(params: unknown): RunnerEvent[] {
 function createCallTracker() {
   const openCallIds = new Set<string>();
 
-  function open(callId: string, toolName: string, args: unknown): RunnerEvent {
+  function open(
+    callId: string,
+    toolName: string,
+    args: JsonValue,
+  ): RunnerEvent {
     openCallIds.add(callId);
     return toolUse(callId, toolName, args);
   }
 
   function close(
     callId: string,
-    result: unknown,
+    result: JsonValue | undefined,
     isError: boolean,
   ): RunnerEvent[] {
     if (!openCallIds.delete(callId)) return [];
@@ -156,7 +227,7 @@ function createCallTracker() {
   /** Closes an item's own call plus the per-index ones a patch fans out into. */
   function closeMatching(
     itemId: string,
-    result: unknown,
+    result: JsonValue | undefined,
     isError: boolean,
   ): RunnerEvent[] {
     const prefix = `${itemId}${CALL_ID_INDEX_SEPARATOR}`;
@@ -189,7 +260,7 @@ export function createCodexAdapter(): CodexAdapter {
       item.id,
       item.changes.map((change) => ({
         path: change.path,
-        kind: changeKindOf(change),
+        kind: change.kind.type,
         diff: change.diff,
       })),
     );
@@ -235,38 +306,33 @@ export function createCodexAdapter(): CodexAdapter {
     return close(item.id, item.error ?? item.result, failed);
   }
 
-  function completeAgentMessage(item: AgentMessageItem): RunnerEvent[] {
-    if (item.text === "") return [];
-    return [{ type: "assistant_text", text: item.text }];
+  /**
+   * Runs the handler for the item type. userMessage, reasoning and the rest
+   * also emit started/completed pairs; they are not tools and must never reach
+   * the outstanding-tool counter, so unknown types yield nothing.
+   */
+  function startItem(item: StartedItem): RunnerEvent[] {
+    switch (item.type) {
+      case "commandExecution":
+        return startCommand(item);
+      case "fileChange":
+        return startFileChange(item);
+      case "mcpToolCall":
+        return startMcpToolCall(item);
+    }
   }
 
-  const START_HANDLERS: Record<string, (item: never) => RunnerEvent[]> = {
-    commandExecution: startCommand as (item: never) => RunnerEvent[],
-    fileChange: startFileChange as (item: never) => RunnerEvent[],
-    mcpToolCall: startMcpToolCall as (item: never) => RunnerEvent[],
-  };
-
-  const COMPLETE_HANDLERS: Record<string, (item: never) => RunnerEvent[]> = {
-    commandExecution: completeCommand as (item: never) => RunnerEvent[],
-    fileChange: completeFileChange as (item: never) => RunnerEvent[],
-    mcpToolCall: completeMcpToolCall as (item: never) => RunnerEvent[],
-    agentMessage: completeAgentMessage as (item: never) => RunnerEvent[],
-  };
-
-  /**
-   * Runs the handler registered for the item type. userMessage, reasoning and
-   * the rest also emit started/completed pairs; they are not tools and must
-   * never reach the outstanding-tool counter, so unknown types yield nothing.
-   */
-  function applyItemHandler(
-    handlers: Record<string, (item: never) => RunnerEvent[]>,
-    params: unknown,
-  ): RunnerEvent[] {
-    const item = (params as ItemEnvelope).item;
-    if (item?.type === undefined) return [];
-    const handler = handlers[item.type];
-    if (handler === undefined) return [];
-    return handler(item as never);
+  function completeItem(item: CompletedItem): RunnerEvent[] {
+    switch (item.type) {
+      case "commandExecution":
+        return completeCommand(item);
+      case "fileChange":
+        return completeFileChange(item);
+      case "mcpToolCall":
+        return completeMcpToolCall(item);
+      case "agentMessage":
+        return completeAgentMessage(item);
+    }
   }
 
   /**
@@ -275,8 +341,10 @@ export function createCodexAdapter(): CodexAdapter {
    * a failure's error: the neutral session ends a turn on `done` alone, so an
    * error on its own would hang the turn forever.
    */
-  function handleTurnCompleted(params: unknown): RunnerEvent[] {
-    const turn = (params as { turn?: v2.Turn }).turn;
+  function handleTurnCompleted(
+    params: z.infer<typeof turnCompletedParamsSchema>,
+  ): RunnerEvent[] {
+    const { turn } = params;
     const status = turn?.status ?? "completed";
     const orphans = [...openCallIds]
       .flatMap((callId) => close(callId, INTERRUPTED_RESULT, true))
@@ -288,23 +356,33 @@ export function createCodexAdapter(): CodexAdapter {
     return [...orphans, { type: "done" }];
   }
 
-  const HANDLERS: Record<string, (params: unknown) => RunnerEvent[]> = {
-    "item/started": (params) => applyItemHandler(START_HANDLERS, params),
-    "item/completed": (params) => applyItemHandler(COMPLETE_HANDLERS, params),
-    "item/agentMessage/delta": agentMessageDeltaEvents,
-    "turn/plan/updated": (params: unknown) =>
-      planUpdatedEvents(params, openCallIds.size),
-    "turn/completed": handleTurnCompleted,
-  };
-
   return {
     getChangedPaths: (itemId) =>
       (changesByItemId.get(itemId) ?? []).map((change) => change.path),
     getChanges: (itemId) => changesByItemId.get(itemId) ?? [],
     handle(notification) {
-      const handler = HANDLERS[notification.method];
-      if (handler === undefined) return activityEvents(notification.method);
-      return handler(notification.params);
+      switch (notification.method) {
+        case "item/started": {
+          const parsed = startedParamsSchema.safeParse(notification.params);
+          return parsed.success ? startItem(parsed.data.item) : [];
+        }
+        case "item/completed": {
+          const parsed = completedParamsSchema.safeParse(notification.params);
+          return parsed.success ? completeItem(parsed.data.item) : [];
+        }
+        case "turn/plan/updated": {
+          const parsed = planUpdatedParamsSchema.safeParse(notification.params);
+          return parsed.success
+            ? planUpdatedEvents(parsed.data, openCallIds.size)
+            : [];
+        }
+        case "turn/completed":
+          return handleTurnCompleted(
+            turnCompletedParamsSchema.safeParse(notification.params).data ?? {},
+          );
+        default:
+          return statelessEvents(notification);
+      }
     },
   };
 }

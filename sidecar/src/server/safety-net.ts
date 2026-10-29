@@ -1,4 +1,5 @@
 import path from "node:path";
+import { z } from "zod";
 import {
   resolveModuleRootForFile,
   runTypecheck,
@@ -19,11 +20,6 @@ import type { LogsClient } from "../logs/logs-client.js";
 import type { BufferedLog } from "../logs/types.js";
 import type { TypecheckOutcome } from "../constants/audit.js";
 
-/** Whatever `toString()` the value carries: its own, or Object's. */
-interface Stringable {
-  toString(): string;
-}
-
 /**
  * A line worth listing in the auto-fix notice: a compiler error, or a reload
  * log line (which the summary prefixes with its channel).
@@ -42,6 +38,20 @@ export function uniqueEditedRoots(
   return [...roots];
 }
 
+/** Whatever `toString()` the value carries: its own, or Object's. */
+interface Stringable {
+  toString(): string;
+}
+
+const ErrorTextSchema = z.object({
+  stack: z.string().optional().catch(undefined),
+  message: z.string().optional().catch(undefined),
+});
+
+function isObject(value: unknown): value is object {
+  return value !== null && typeof value === "object";
+}
+
 /**
  * Renders a log argument as text. `JSON.stringify` throws on a cycle or a
  * nested BigInt; the fallback then uses the value's own `toString()`, which an
@@ -49,15 +59,19 @@ export function uniqueEditedRoots(
  * summary this feeds, and only degrades to "[object Object]" for a plain one.
  */
 function argToText(arg: unknown): string {
-  if (typeof arg === "string") return arg;
-  if (arg !== null && typeof arg === "object") {
-    const candidate = arg as { message?: unknown; stack?: unknown };
-    if (typeof candidate.stack === "string") return candidate.stack;
-    if (typeof candidate.message === "string") return candidate.message;
+  const asString = z.string().safeParse(arg);
+  if (asString.success) return asString.data;
+  if (isObject(arg)) {
+    const errorText = ErrorTextSchema.safeParse(arg);
+    const named = errorText.success
+      ? (errorText.data.stack ?? errorText.data.message)
+      : undefined;
+    if (named !== undefined) return named;
     try {
       return JSON.stringify(arg);
     } catch {
-      return (arg as Stringable).toString();
+      const printable: Stringable = arg;
+      return printable.toString();
     }
   }
   return String(arg);

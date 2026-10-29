@@ -40,7 +40,7 @@ function buildDeps(conversationId: string): AiMcpServerDeps {
     hostProjectRoot: "/tmp",
     moduleRoots: [],
     logsClient: { getLogs: async () => [] },
-    builderClient: { call: async () => undefined },
+    builderClient: { call: async () => null },
     databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     sendToHost: () => {},

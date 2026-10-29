@@ -1,3 +1,4 @@
+import type { JsonValue } from "../../protocol/json.js";
 import { z } from "zod";
 import type { BuilderClient } from "../../builder/builder-client.js";
 import {
@@ -11,6 +12,7 @@ import {
 import {
   type AnyMcpToolDefinition,
   defineTool,
+  type McpToolArgs,
   type McpToolResult,
 } from "../define-tool.js";
 import type { BuilderGate } from "./builder-gate.js";
@@ -18,15 +20,15 @@ import type { BuilderGate } from "./builder-gate.js";
 /** The key the gate reads a config operation's dry-run changes from, for the approval card. */
 export const PLANNED_CHANGES_ARG = "plannedChanges";
 
-interface OpAnswer {
-  ok?: boolean;
-  changes?: unknown[];
-}
+const OP_ANSWER = z.object({
+  ok: z.unknown().optional(),
+  changes: z.unknown().optional(),
+});
 
 /** A Builder answer as a tool result: an `{ ok: false }` answer is a failed call. */
-export function opResult(value: unknown): McpToolResult {
+export function opResult(value: JsonValue): McpToolResult {
   const text = JSON.stringify(value);
-  const failed = (value as OpAnswer | null)?.ok === false;
+  const failed = OP_ANSWER.safeParse(value).data?.ok === false;
   return failed
     ? { content: [{ type: "text", text }], isError: true }
     : { content: [{ type: "text", text }] };
@@ -83,6 +85,8 @@ const STEP = z.discriminatedUnion("op", [
   }),
 ]);
 
+const CONFIGURE_PROJECT_INPUT = { steps: z.array(STEP).min(1) };
+
 const CONFIGURE_PROJECT_DESCRIPTION =
   "Edits antelope.config.ts in one step: adds modules (AddModule), merges into existing ones (ConfigureModule: config, importOverrides pins and connections, exportPriority, env variable names) and scaffolds local modules (CreateLocalModule). Every step is validated before anything is written, and a refused step writes nothing. The user always approves the change, shown as a diff. A restart is needed before new modules load.";
 
@@ -134,6 +138,40 @@ const EXCLUDED = z.object({
   reason: z.string(),
 });
 
+const MAP_RESOURCES_INPUT = {
+  module: z
+    .string()
+    .describe("The project module bound to the connection's database."),
+  connection: z.string().describe("A connection id from DatabaseConnections."),
+  resources: z.array(MAPPED_RESOURCE),
+  excluded: z.array(EXCLUDED).optional(),
+};
+
+const ANALYSE_DATABASE_INPUT = {
+  connection: z
+    .string()
+    .optional()
+    .describe(
+      "A connection id from DatabaseConnections, to start an analysis.",
+    ),
+  module: z
+    .string()
+    .optional()
+    .describe(
+      "The project module bound to the connection's database; relations it mapped or excluded are not proposed again.",
+    ),
+  schemas: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Limit the analysis to these schemas, as a `schemas` open item asks.",
+    ),
+  job: z
+    .string()
+    .optional()
+    .describe("A running analysis's `id`, to read on instead of starting one."),
+};
+
 const MAP_RESOURCES_DESCRIPTION =
   "Maps relations of a connected database into a project module bound to it (created with BuilderConfigureProject): table classes and models with the database's names verbatim, DataAPI controllers and one TableView page per relation that has a key. Only your choices are sent: the Builder reads the relations' descriptions from its own catalog connection and checks every choice against them. A relation mapped before is rewritten from the new choices, its page created, kept or removed. `excluded` records relations decided against, so the next analysis does not propose them. Answers what was written and `leftOut`: columns a TableView cannot show, with why.";
 
@@ -143,10 +181,13 @@ const ANALYSE_DATABASE_DESCRIPTION =
 const MAPPING_DESCRIPTION =
   "The relations a module maps for a connection, read back from its code as their current choices, in the proposal's shape (every rule `mapped`), with `included`: the columns the module declares. Read it before mapping a relation again with BuilderMapResources, so you send its current choices with only what you change.";
 
-interface AnalysisAnswer {
-  ok?: boolean;
-  data?: { id?: string; status?: string };
-}
+const ANALYSIS_ANSWER = z.object({
+  ok: z.unknown().optional(),
+  data: z
+    .object({ id: z.unknown().optional(), status: z.unknown().optional() })
+    .optional()
+    .catch(undefined),
+});
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -155,10 +196,10 @@ function delay(ms: number): Promise<void> {
 /** Starts an analysis, or reads the given job, and waits a while for its proposal. */
 async function analysis(
   client: BuilderClient,
-  args: Record<string, unknown>,
+  args: McpToolArgs<typeof ANALYSE_DATABASE_INPUT>,
 ): Promise<McpToolResult> {
-  const job = typeof args.job === "string" ? args.job : undefined;
-  let state = (await (job
+  const job = args.job;
+  let answer = await (job
     ? client.call("GetAnalysis", [job])
     : client.call("AnalyseDatabase", [
         {
@@ -166,39 +207,40 @@ async function analysis(
           module: args.module,
           schemas: args.schemas,
         },
-      ]))) as AnalysisAnswer;
+      ]));
+  let state = ANALYSIS_ANSWER.safeParse(answer).data ?? {};
   const deadline = Date.now() + BUILDER_ANALYSIS_WAIT_MS;
   while (
-    state?.ok &&
+    state.ok &&
     state.data?.status === "running" &&
     Date.now() < deadline
   ) {
     await delay(BUILDER_ANALYSIS_POLL_MS);
-    state = (await client.call("GetAnalysis", [
-      state.data.id,
-    ])) as AnalysisAnswer;
+    answer = await client.call("GetAnalysis", [state.data.id]);
+    state = ANALYSIS_ANSWER.safeParse(answer).data ?? {};
   }
-  return opResult(state);
+  return opResult(answer);
 }
 
 /** Runs the operation as a dry run, asks the gate with its changes, then runs it for real. */
 async function confirmedRun(
   client: BuilderClient,
   gate: BuilderGate | undefined,
-  args: Record<string, unknown>,
+  args: McpToolArgs<typeof CONFIGURE_PROJECT_INPUT>,
 ): Promise<McpToolResult> {
   const steps = args.steps;
-  const planned = (await client.call("ConfigureProject", [
+  const answer = await client.call("ConfigureProject", [
     steps,
     { dryRun: true },
-  ])) as OpAnswer;
-  if (planned?.ok === false) {
-    return opResult(planned);
+  ]);
+  const planned = OP_ANSWER.safeParse(answer).data ?? {};
+  if (planned.ok === false) {
+    return opResult(answer);
   }
   if (gate) {
     const decision = await gate(BUILDER_CONFIGURE_PROJECT_TOOL_NAME, {
       ...args,
-      [PLANNED_CHANGES_ARG]: planned?.changes ?? [],
+      [PLANNED_CHANGES_ARG]: planned.changes ?? [],
     });
     if (!decision.isAllowed) {
       return {
@@ -219,55 +261,20 @@ export function buildProjectTools(
     defineTool(
       BUILDER_CONFIGURE_PROJECT_TOOL_NAME,
       CONFIGURE_PROJECT_DESCRIPTION,
-      { steps: z.array(STEP).min(1) },
-      (args: Record<string, unknown>) => confirmedRun(client, gate, args),
+      CONFIGURE_PROJECT_INPUT,
+      (args) => confirmedRun(client, gate, args),
     ),
     defineTool(
       BUILDER_MAP_RESOURCES_TOOL_NAME,
       MAP_RESOURCES_DESCRIPTION,
-      {
-        module: z
-          .string()
-          .describe("The project module bound to the connection's database."),
-        connection: z
-          .string()
-          .describe("A connection id from DatabaseConnections."),
-        resources: z.array(MAPPED_RESOURCE),
-        excluded: z.array(EXCLUDED).optional(),
-      },
-      async (input: Record<string, unknown>) =>
-        opResult(await client.call("MapResources", [input])),
+      MAP_RESOURCES_INPUT,
+      async (input) => opResult(await client.call("MapResources", [input])),
     ),
     defineTool(
       BUILDER_ANALYSE_DATABASE_TOOL_NAME,
       ANALYSE_DATABASE_DESCRIPTION,
-      {
-        connection: z
-          .string()
-          .optional()
-          .describe(
-            "A connection id from DatabaseConnections, to start an analysis.",
-          ),
-        module: z
-          .string()
-          .optional()
-          .describe(
-            "The project module bound to the connection's database; relations it mapped or excluded are not proposed again.",
-          ),
-        schemas: z
-          .array(z.string())
-          .optional()
-          .describe(
-            "Limit the analysis to these schemas, as a `schemas` open item asks.",
-          ),
-        job: z
-          .string()
-          .optional()
-          .describe(
-            "A running analysis's `id`, to read on instead of starting one.",
-          ),
-      },
-      (args: Record<string, unknown>) => analysis(client, args),
+      ANALYSE_DATABASE_INPUT,
+      (args) => analysis(client, args),
     ),
     defineTool(
       BUILDER_MAPPING_TOOL_NAME,
@@ -280,7 +287,7 @@ export function buildProjectTools(
           .string()
           .describe("The project module bound to the connection's database."),
       },
-      async (args: Record<string, unknown>) =>
+      async (args) =>
         opResult(
           await client.call("GetMapping", [args.connection, args.module]),
         ),

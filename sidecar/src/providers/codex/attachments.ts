@@ -36,7 +36,7 @@ interface RenderedAttachments {
 }
 
 function isPerceivableImage(mimeType: string): boolean {
-  return (INLINE_IMAGE_MEDIA_TYPES as readonly string[]).includes(mimeType);
+  return INLINE_IMAGE_MEDIA_TYPES.some((type) => type === mimeType);
 }
 
 async function rasterizePdf(filePath: string): Promise<string[]> {

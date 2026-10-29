@@ -11,7 +11,7 @@ import {
   ASK_USER_TOOL_NAME,
 } from "../../constants/mcp.js";
 import { QuestionSchema, type QuestionType } from "../../protocol/events.js";
-import { defineTool } from "../define-tool.js";
+import { defineTool, type McpToolResult } from "../define-tool.js";
 
 export interface AskUserDeps {
   conversationId: string;
@@ -38,9 +38,7 @@ function buildResultText(
   return `${ASK_USER_RESULT_PREFIX}\n${lines.join("\n")}`;
 }
 
-function buildContent(text: string): {
-  content: Array<{ type: "text"; text: string }>;
-} {
+function buildContent(text: string): McpToolResult {
   return { content: [{ type: "text", text }] };
 }
 

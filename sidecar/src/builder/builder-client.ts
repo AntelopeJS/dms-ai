@@ -4,9 +4,10 @@ import {
   BUILDER_OP_PATH,
 } from "../constants/builder.js";
 import { SIDECAR_AUTH_HEADER } from "../constants/daemon.js";
+import { type JsonValue, JsonValueSchema } from "../protocol/json.js";
 
 export interface BuilderClient {
-  call(op: string, args: unknown[]): Promise<unknown>;
+  call(op: string, args: unknown[]): Promise<JsonValue>;
 }
 
 export interface BuilderClientOptions {
@@ -16,14 +17,12 @@ export interface BuilderClientOptions {
   logger?: Pick<Console, "warn">;
 }
 
-function buildHeaders(token: string | undefined): Record<string, string> {
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-  };
-  if (token !== undefined) {
-    headers[SIDECAR_AUTH_HEADER] = token;
-  }
-  return headers;
+const JSON_HEADERS = { "content-type": "application/json" };
+
+function buildHeaders(token: string | undefined) {
+  return token === undefined
+    ? JSON_HEADERS
+    : { ...JSON_HEADERS, [SIDECAR_AUTH_HEADER]: token };
 }
 
 export function createBuilderClient(opts: BuilderClientOptions): BuilderClient {
@@ -57,7 +56,7 @@ export function createBuilderClient(opts: BuilderClientOptions): BuilderClient {
             },
           };
         }
-        return await response.json();
+        return JsonValueSchema.parse(await response.json());
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         logger.warn(`${BUILDER_LOG_PREFIX} op "${op}" failed (${reason})`);

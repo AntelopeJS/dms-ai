@@ -65,6 +65,13 @@ async function turn(
 
 const read = (root: string, file: string) => readFile(join(root, file), "utf8");
 
+function idOf(record: { id: string } | null | undefined): string {
+  if (record === null || record === undefined) {
+    throw new Error("expected a change set record");
+  }
+  return record.id;
+}
+
 describe("checkpoints", () => {
   let root: string;
   let project: Project;
@@ -104,7 +111,7 @@ describe("checkpoints", () => {
       askedBy: "Camille",
       state: "applied",
     });
-    const details = await project.checkpoints.fileDetails(record?.id as string);
+    const details = await project.checkpoints.fileDetails(idOf(record));
     expect(details[0]?.hunks[0]?.lines).toContainEqual({
       kind: "add",
       text: "TWO",
@@ -121,7 +128,7 @@ describe("checkpoints", () => {
       await writeFile(join(root, "a.ts"), "changed\n");
       await writeFile(join(root, "b.ts"), "new\n");
     });
-    const id = record?.id as string;
+    const id = idOf(record);
     const [undone] = await project.checkpoints.undo(id, false, "Camille");
     expect(undone).toMatchObject({
       state: "undone",
@@ -151,11 +158,11 @@ describe("checkpoints", () => {
     await turn(project, "Unrelated", async () => {
       await writeFile(join(root, "c.ts"), "c\n");
     });
-    const preview = project.checkpoints.undoPreview(first?.id as string);
+    const preview = project.checkpoints.undoPreview(idOf(first));
     expect(preview.conflicts).toEqual([
       { changeSetId: second?.id, number: 2, title: "Second", files: ["a.ts"] },
     ]);
-    const undone = await project.checkpoints.undo(first?.id as string, true);
+    const undone = await project.checkpoints.undo(idOf(first), true);
     expect(undone.map((c) => c.number)).toEqual([2, 1]);
     expect(await read(root, "a.ts")).toBe("one\ntwo\nthree\n");
     expect(await read(root, "c.ts")).toBe("c\n");
@@ -201,7 +208,7 @@ describe("checkpoints", () => {
       Date.now() - (RETENTION_DAYS + 1) * MS_PER_DAY;
     await writeFile(file, JSON.stringify(stored));
     const reopened = await openProject(root);
-    expect(reopened.checkpoints.get(record?.id as string)).toBeNull();
+    expect(reopened.checkpoints.get(idOf(record))).toBeNull();
     expect(reopened.checkpoints.all()).toEqual([]);
     await reopened.checkpoints.flush();
   });

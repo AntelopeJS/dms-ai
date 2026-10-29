@@ -6,6 +6,7 @@ import {
   PERMISSION_FEEDBACK_PREFIX,
 } from "../../src/constants/permissions.js";
 import { createTestBus } from "../helpers/permission-bus.js";
+import type { PendingRequest } from "../../src/agent/permission-bus.js";
 
 const CONVERSATION_ID = "conv-1";
 const OTHER_CONVERSATION_ID = "conv-2";
@@ -18,11 +19,16 @@ const DELETE_PAGE = "mcp__dms-ai__BuilderDeletePage";
 const REMOVE_BLOCK = "mcp__dms-ai__BuilderRemoveBlock";
 
 function request(
-  args: unknown,
+  args: Record<string, string>,
   conversationId = CONVERSATION_ID,
   toolName = BASH,
 ) {
   return { conversationId, toolName, args, callId: `call-${Math.random()}` };
+}
+
+function requestIdOf(prompt: PendingRequest | undefined): string {
+  if (prompt === undefined) throw new Error("expected a permission prompt");
+  return prompt.requestId;
 }
 
 describe("permission bus", () => {
@@ -36,7 +42,7 @@ describe("permission bus", () => {
     ]);
     expect(prompt?.expiresAtMs).toBeGreaterThan(prompt?.createdAtMs ?? 0);
     t.bus.resolvePermission({
-      requestId: prompt?.requestId as string,
+      requestId: requestIdOf(prompt),
       decision: PERMISSION_DECISIONS.ALLOW_ONCE,
       actor: "Camille",
     });
@@ -52,7 +58,7 @@ describe("permission bus", () => {
     const first = t.bus.requestPermission(request(TEST_COMMAND));
     const [prompt] = await t.waitForPrompts(1);
     t.bus.resolvePermission({
-      requestId: prompt?.requestId as string,
+      requestId: requestIdOf(prompt),
       decision: PERMISSION_DECISIONS.ALLOW_RULE,
       rule: { kind: "command", value: "pnpm test" },
     });
@@ -78,7 +84,7 @@ describe("permission bus", () => {
     const first = t.bus.requestPermission(request(TEST_COMMAND));
     const [prompt] = await t.waitForPrompts(1);
     t.bus.resolvePermission({
-      requestId: prompt?.requestId as string,
+      requestId: requestIdOf(prompt),
       decision: PERMISSION_DECISIONS.ALLOW_RULE,
       rule: { kind: "command", value: "pnpm test" },
     });
@@ -99,7 +105,7 @@ describe("permission bus", () => {
     const first = t.bus.requestPermission(request(TEST_COMMAND));
     const [prompt] = await t.waitForPrompts(1);
     t.bus.resolvePermission({
-      requestId: prompt?.requestId as string,
+      requestId: requestIdOf(prompt),
       decision: PERMISSION_DECISIONS.ALLOW_RULE,
       rule: { kind: "command", value: "rm" },
     });
@@ -112,14 +118,15 @@ describe("permission bus", () => {
     const first = t.bus.requestPermission(request(TEST_COMMAND));
     const [prompt] = await t.waitForPrompts(1);
     t.bus.resolvePermission({
-      requestId: prompt?.requestId as string,
+      requestId: requestIdOf(prompt),
       decision: PERMISSION_DECISIONS.ALLOW_RULE,
       rule: { kind: "command", value: "pnpm test" },
     });
     await first;
     const [rule] = t.bus.listRules(CONVERSATION_ID);
-    expect(rule?.label).toContain("pnpm test");
-    expect(t.bus.revokeRule(CONVERSATION_ID, rule?.id as string)).toBe(true);
+    if (rule === undefined) throw new Error("expected a remembered rule");
+    expect(rule.label).toContain("pnpm test");
+    expect(t.bus.revokeRule(CONVERSATION_ID, rule.id)).toBe(true);
     expect(t.bus.listRules(CONVERSATION_ID)).toEqual([]);
     expect(t.bus.revokeRule(CONVERSATION_ID, "unknown")).toBe(false);
   });
@@ -129,7 +136,7 @@ describe("permission bus", () => {
     const pending = t.bus.requestPermission(request(TEST_COMMAND));
     const [prompt] = await t.waitForPrompts(1);
     t.bus.resolvePermission({
-      requestId: prompt?.requestId as string,
+      requestId: requestIdOf(prompt),
       decision: PERMISSION_DECISIONS.DENY,
       feedback: "run only the unit tests",
     });
@@ -160,7 +167,7 @@ describe("permission bus", () => {
     const prompts = await t.waitForPrompts(3);
     const own = prompts.find((p) => p.conversationId === CONVERSATION_ID);
     t.bus.resolvePermission({
-      requestId: own?.requestId as string,
+      requestId: requestIdOf(own),
       decision: PERMISSION_DECISIONS.DENY_ALL,
     });
     await expect(first).resolves.toMatchObject({
@@ -254,7 +261,7 @@ describe("permission bus", () => {
       confirmText: "books",
     });
     t.bus.resolvePermission({
-      requestId: prompt?.requestId as string,
+      requestId: requestIdOf(prompt),
       decision: PERMISSION_DECISIONS.ALLOW_ONCE,
       keepData: true,
     });

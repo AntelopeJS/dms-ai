@@ -1,7 +1,6 @@
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createHttpServer } from "../../src/server/http.js";
-import type { SkillCatalog } from "../../src/skills/build-catalog.js";
 import type { SkillSource } from "../../src/skills/types.js";
 
 const FIXTURE_DIR = resolve(__dirname, "../fixtures/skills/dms-ai");
@@ -42,11 +41,15 @@ describe("GET /skills", () => {
       headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
     });
     expect(res.ok).toBe(true);
-    const payload = (await res.json()) as SkillCatalog;
-    const pb = payload.items.find((i) => i.name === "page-builder");
-    expect(pb).toBeDefined();
-    expect(pb?.id).toBe("dms-ai:page-builder");
-    expect(pb?.provenance).toBe("dms-ai");
+    expect(await res.json()).toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({
+          name: "page-builder",
+          id: "dms-ai:page-builder",
+          provenance: "dms-ai",
+        }),
+      ]),
+    });
   });
 
   it("returns an empty catalog when no sources resolve", async () => {
@@ -55,7 +58,6 @@ describe("GET /skills", () => {
       headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
     });
     expect(res.ok).toBe(true);
-    const payload = (await res.json()) as SkillCatalog;
-    expect(payload.items).toEqual([]);
+    expect(await res.json()).toMatchObject({ items: [] });
   });
 });

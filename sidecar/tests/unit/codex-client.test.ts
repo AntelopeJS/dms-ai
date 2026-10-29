@@ -1,5 +1,6 @@
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   CODEX_REQUEST_TIMEOUT_MESSAGE,
   CODEX_TRANSPORT_CLOSED_MESSAGE,
@@ -9,6 +10,12 @@ import {
   createCodexClient,
 } from "../../src/providers/codex/client.js";
 
+const FrameSchema = z.looseObject({
+  id: z.number().optional(),
+  method: z.string().optional(),
+});
+type Frame = z.infer<typeof FrameSchema>;
+
 const ABORT_REASON = "gone";
 const SHORT_TIMEOUT_MS = 20;
 const SETTLE_BUDGET_MS = 500;
@@ -17,7 +24,7 @@ interface Harness {
   client: CodexClient;
   stdout: PassThrough;
   /** Frames the client wrote, as parsed objects. */
-  sent: () => Record<string, unknown>[];
+  sent: () => Frame[];
   /** Reasons the client reported to its owner when it aborted. */
   aborts: () => string[];
 }
@@ -25,11 +32,11 @@ interface Harness {
 function harness(): Harness {
   const stdin = new PassThrough();
   const stdout = new PassThrough();
-  const written: Record<string, unknown>[] = [];
+  const written: Frame[] = [];
   stdin.on("data", (chunk: Buffer) => {
     for (const line of chunk.toString("utf8").split("\n")) {
       if (line.trim() === "") continue;
-      written.push(JSON.parse(line) as Record<string, unknown>);
+      written.push(FrameSchema.parse(JSON.parse(line)));
     }
   });
   const aborts: string[] = [];

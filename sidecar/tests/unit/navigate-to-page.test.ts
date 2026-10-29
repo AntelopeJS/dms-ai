@@ -18,16 +18,6 @@ import {
   type NavigationCompleter,
 } from "../../src/server/navigation-completer.js";
 
-interface ToolHandlerLike {
-  name: string;
-  handler: (
-    args: { path: string },
-    extra: unknown,
-  ) => Promise<{
-    content: Array<{ type: string; text: string }>;
-  }>;
-}
-
 interface SpyDeps {
   calls: AnyServerEventType[];
   sendToHost: (event: AnyServerEventType) => void;
@@ -65,13 +55,13 @@ function buildSpyDeps(routes: string[] = []): SpyDeps {
   };
 }
 
-function buildTool(deps: SpyDeps): ToolHandlerLike {
+function buildTool(deps: SpyDeps) {
   return buildNavigateToPageTool({
     sendToHost: deps.sendToHost,
     navigationCompleter: deps.navigationCompleter,
     registry: deps.registry,
     getCurrentPage: deps.getCurrentPage,
-  }) as unknown as ToolHandlerLike;
+  });
 }
 
 /**

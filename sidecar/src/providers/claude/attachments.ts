@@ -25,19 +25,22 @@ export interface BuildTurnContentOptions {
 }
 
 function isInlineImage(mimeType: string): mimeType is InlineImageMediaType {
-  return (INLINE_IMAGE_MEDIA_TYPES as readonly string[]).includes(mimeType);
+  return INLINE_IMAGE_MEDIA_TYPES.some((type) => type === mimeType);
 }
 
 function isInlinePdf(mimeType: string): boolean {
   return mimeType === PDF_MEDIA_TYPE;
 }
 
-function buildImageBlock(att: AttachmentType): ContentBlock {
+function buildImageBlock(
+  att: AttachmentType,
+  mediaType: InlineImageMediaType,
+): ContentBlock {
   return {
     type: "image",
     source: {
       type: "base64",
-      media_type: att.mimeType as InlineImageMediaType,
+      media_type: mediaType,
       data: att.data,
     },
   };
@@ -72,7 +75,7 @@ export async function buildTurnContent(
   const diskAttachments: { att: AttachmentType; index: number }[] = [];
   attachments.forEach((att, index) => {
     if (isInlineImage(att.mimeType)) {
-      inlineBlocks.push(buildImageBlock(att));
+      inlineBlocks.push(buildImageBlock(att, att.mimeType));
     } else if (isInlinePdf(att.mimeType)) {
       inlineBlocks.push(buildDocumentBlock(att));
     } else {

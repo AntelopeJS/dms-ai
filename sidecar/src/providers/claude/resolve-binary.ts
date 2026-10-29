@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { z } from "zod";
 import { REAL_SDK_PACKAGE } from "../../constants/claude.js";
 import {
   CLAUDE_BINARY_SUBPATH,
@@ -7,14 +8,13 @@ import {
   SDK_NATIVE_MUSL_SUFFIX,
 } from "../../constants/native-binary.js";
 
-interface NodeReport {
-  header?: { glibcVersionRuntime?: string };
-}
+const nodeReportSchema = z.object({
+  header: z.object({ glibcVersionRuntime: z.string().optional() }).optional(),
+});
 
 function isGnuLibc(): boolean {
-  const report = process.report?.getReport() as NodeReport | undefined;
-  if (typeof report !== "object" || report === null) return false;
-  return report.header?.glibcVersionRuntime !== undefined;
+  const report = nodeReportSchema.safeParse(process.report?.getReport());
+  return report.data?.header?.glibcVersionRuntime !== undefined;
 }
 
 function nativePackageOrder(arch: string): string[] {

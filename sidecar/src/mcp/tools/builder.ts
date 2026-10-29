@@ -12,7 +12,7 @@ import {
   opResult,
   TARGET_MODULE,
 } from "./builder-project.js";
-import { type CatalogSelection, shapeCatalog } from "./builder-catalog.js";
+import { type CatalogSelection, summarizeCatalog } from "./builder-catalog.js";
 
 export interface BuilderToolsDeps {
   builderClient: BuilderClient;
@@ -23,18 +23,18 @@ function note(description: string): string {
   return `${description}\n\n${BUILDER_ESCALATION_NOTE}`;
 }
 
+const EXPR_SENTINEL = z.object({ $expr: z.string() });
+const EXPR_CARRIER = z.record(z.string(), z.unknown());
+
 function hasExprSentinel(value: unknown): boolean {
   if (Array.isArray(value)) {
     return value.some(hasExprSentinel);
   }
-  if (value !== null && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    if (typeof record.$expr === "string") {
-      return true;
-    }
-    return Object.values(record).some(hasExprSentinel);
+  if (EXPR_SENTINEL.safeParse(value).success) {
+    return true;
   }
-  return false;
+  const record = EXPR_CARRIER.safeParse(value);
+  return record.success && Object.values(record.data).some(hasExprSentinel);
 }
 
 function exprRefusal(): McpToolResult {
@@ -193,7 +193,7 @@ function buildCatalogTool(builderClient: BuilderClient) {
     },
     async (selection: CatalogSelection) =>
       opResult(
-        shapeCatalog(await builderClient.call("GetCatalog", []), selection),
+        summarizeCatalog(await builderClient.call("GetCatalog", []), selection),
       ),
   );
 }
@@ -228,7 +228,7 @@ function buildPageTools(run: BuilderRun) {
         description: z.string().optional(),
         module: TARGET_MODULE,
       },
-      (input: Record<string, unknown>) => run("CreatePage", [input]),
+      (input) => run("CreatePage", [input]),
     ),
     defineTool(
       "BuilderConfigurePage",
@@ -272,7 +272,7 @@ function buildBlockTools(run: BuilderRun) {
             "Resource ref (from BuilderListResources) for a controller-leading block such as TableView. Required for those types; rejected for others.",
           ),
       },
-      async (input: Record<string, unknown>) =>
+      async (input) =>
         hasExprSentinel(input.config)
           ? exprRefusal()
           : run("AddBlock", [input]),
@@ -336,7 +336,7 @@ function buildBlockTools(run: BuilderRun) {
         order: z.number().optional(),
         module: TARGET_MODULE,
       },
-      (input: Record<string, unknown>) => run("CreateCategory", [input]),
+      (input) => run("CreateCategory", [input]),
     ),
     defineTool(
       "BuilderConfigureCategory",
@@ -400,7 +400,7 @@ function buildResourceTools(run: BuilderRun) {
         routes: z.array(RESOURCE_ROUTE).min(1).optional(),
         module: TARGET_MODULE,
       },
-      async (input: Record<string, unknown>) =>
+      async (input) =>
         hasExprSentinel(input) ? exprRefusal() : run("CreateResource", [input]),
     ),
     defineTool(
@@ -489,7 +489,7 @@ function buildQueryTools(run: BuilderRun) {
         params: QUERY_PARAMS.optional(),
         endpoint: QUERY_ENDPOINT.optional(),
       },
-      async ({ page, ...input }: { page: string } & Record<string, unknown>) =>
+      async ({ page, ...input }) =>
         hasExprSentinel(input) ? exprRefusal() : run("AddQuery", [page, input]),
     ),
     defineTool(

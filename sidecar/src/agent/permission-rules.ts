@@ -6,7 +6,10 @@ import { isCommandCovered } from "./command-analysis.js";
 import {
   editTargetPaths,
   isWithinDirectory,
+  readStringArg,
   resolveInProject,
+  type ToolArgs,
+  ToolArgsSchema,
 } from "./edit-targets.js";
 import { hostOf } from "./permission-preview.js";
 import { isCommandTool, isEditTool, isWebTool } from "./tool-kinds.js";
@@ -24,6 +27,10 @@ interface RuleSubject {
   hostProjectRoot: string;
 }
 
+interface ParsedSubject extends Omit<RuleSubject, "args"> {
+  args: ToolArgs;
+}
+
 /** The standing "allow" rules of every conversation, kept in memory only. */
 export interface PermissionRuleStore {
   add(conversationId: string, rule: PermissionRuleType): ActiveRuleType;
@@ -33,20 +40,18 @@ export interface PermissionRuleStore {
   forget(conversationId: string): void;
 }
 
-function argString(args: unknown, key: string): string {
-  if (args === null || typeof args !== "object") return "";
-  const value = (args as Record<string, unknown>)[key];
-  return typeof value === "string" ? value : "";
+function argString(args: ToolArgs, key: string): string {
+  return readStringArg(args, key) ?? "";
 }
 
-function resolvedTargets(subject: RuleSubject): string[] {
+function resolvedTargets(subject: ParsedSubject): string[] {
   return editTargetPaths(subject.args).map((target) =>
     resolveInProject(subject.hostProjectRoot, target),
   );
 }
 
 function coversEveryTarget(
-  subject: RuleSubject,
+  subject: ParsedSubject,
   covers: (target: string) => boolean,
 ): boolean {
   if (!isEditTool(subject.toolName)) return false;
@@ -54,7 +59,7 @@ function coversEveryTarget(
   return targets.length > 0 && targets.every(covers);
 }
 
-type RuleMatcher = (rules: ActiveRuleType[], subject: RuleSubject) => boolean;
+type RuleMatcher = (rules: ActiveRuleType[], subject: ParsedSubject) => boolean;
 
 function valuesOf(rules: ActiveRuleType[], kind: RuleKind): string[] {
   return rules.filter((rule) => rule.kind === kind).map((rule) => rule.value);
@@ -62,7 +67,7 @@ function valuesOf(rules: ActiveRuleType[], kind: RuleKind): string[] {
 
 function matchesEditRules(
   rules: ActiveRuleType[],
-  subject: RuleSubject,
+  subject: ParsedSubject,
 ): boolean {
   const resolveValue = (value: string): string =>
     resolveInProject(subject.hostProjectRoot, value);
@@ -78,7 +83,7 @@ function matchesEditRules(
 
 function matchesCommandRules(
   rules: ActiveRuleType[],
-  subject: RuleSubject,
+  subject: ParsedSubject,
 ): boolean {
   if (!isCommandTool(subject.toolName)) return false;
   return isCommandCovered(
@@ -89,7 +94,7 @@ function matchesCommandRules(
 
 function matchesDomainRules(
   rules: ActiveRuleType[],
-  subject: RuleSubject,
+  subject: ParsedSubject,
 ): boolean {
   if (!isWebTool(subject.toolName)) return false;
   const host = hostOf(argString(subject.args, "url"));
@@ -138,7 +143,8 @@ export function createPermissionRuleStore(): PermissionRuleStore {
     matches(conversationId, subject) {
       const rules = rulesOf(conversationId);
       if (rules.length === 0) return false;
-      return RULE_MATCHERS.some((matcher) => matcher(rules, subject));
+      const parsed = { ...subject, args: ToolArgsSchema.parse(subject.args) };
+      return RULE_MATCHERS.some((matcher) => matcher(rules, parsed));
     },
     forget(conversationId) {
       byConversation.delete(conversationId);

@@ -8,7 +8,7 @@ function buildEntries(): PagesRegistryEntry[] {
   return [{ id: "x", path: "/x", moduleId: "dms" }];
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: PagesRegistryEntry[], status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },
@@ -18,10 +18,10 @@ function jsonResponse(body: unknown, status = 200): Response {
 describe("createRegistryClient", () => {
   it("fetches and caches the registry within TTL", async () => {
     const entries = buildEntries();
-    const fetchImpl = vi.fn(async () => jsonResponse(entries));
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse(entries));
     const client = createRegistryClient({
       backendBaseUrl: BASE_URL,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl,
       now: () => 1000,
       ttlMs: 30_000,
     });
@@ -35,10 +35,10 @@ describe("createRegistryClient", () => {
   it("refreshes after TTL expires", async () => {
     let nowMs = 0;
     const entries = buildEntries();
-    const fetchImpl = vi.fn(async () => jsonResponse(entries));
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse(entries));
     const client = createRegistryClient({
       backendBaseUrl: BASE_URL,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl,
       now: () => nowMs,
       ttlMs: 30_000,
     });
@@ -51,13 +51,13 @@ describe("createRegistryClient", () => {
   it("falls back to cache on fetch failure", async () => {
     const entries = buildEntries();
     let mustFail = false;
-    const fetchImpl = vi.fn(async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => {
       if (mustFail) throw new Error("boom");
       return jsonResponse(entries);
     });
     const client = createRegistryClient({
       backendBaseUrl: BASE_URL,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl,
       now: () => 0,
       ttlMs: 0,
       logger: { warn: () => {} },
@@ -72,14 +72,14 @@ describe("createRegistryClient", () => {
     const entries = buildEntries();
     let mustFail = false;
     let nowMs = 1000;
-    const fetchImpl = vi.fn(async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => {
       if (mustFail) throw new Error("boom");
       return jsonResponse(entries);
     });
     const warn = vi.fn();
     const client = createRegistryClient({
       backendBaseUrl: BASE_URL,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl,
       now: () => nowMs,
       ttlMs: 0,
       logger: { warn },
@@ -101,14 +101,14 @@ describe("createRegistryClient", () => {
     const entries = buildEntries();
     let mustFail = false;
     let nowMs = 1000;
-    const fetchImpl = vi.fn(async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => {
       if (mustFail) throw new Error("boom");
       return jsonResponse(entries);
     });
     const warn = vi.fn();
     const client = createRegistryClient({
       backendBaseUrl: BASE_URL,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl,
       now: () => nowMs,
       ttlMs: 0,
       logger: { warn },
@@ -130,22 +130,22 @@ describe("createRegistryClient", () => {
   });
 
   it("throws when fetch fails and no cache exists", async () => {
-    const fetchImpl = vi.fn(async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => {
       throw new Error("boom");
     });
     const client = createRegistryClient({
       backendBaseUrl: BASE_URL,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     });
     await expect(client.getRegistry()).rejects.toThrow("boom");
   });
 
   it("invalidate forces a refetch", async () => {
     const entries = buildEntries();
-    const fetchImpl = vi.fn(async () => jsonResponse(entries));
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse(entries));
     const client = createRegistryClient({
       backendBaseUrl: BASE_URL,
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl,
       now: () => 0,
       ttlMs: 30_000,
     });

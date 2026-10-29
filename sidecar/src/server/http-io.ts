@@ -7,9 +7,8 @@ export function sendResponse(
   res: ServerResponse,
   status: number,
   contentType: string,
-  payload: unknown,
+  body: string,
 ): void {
-  const body = typeof payload === "string" ? payload : JSON.stringify(payload);
   res.writeHead(status, {
     "Content-Type": contentType,
     "Content-Length": Buffer.byteLength(body),
@@ -22,7 +21,7 @@ export function sendJson(
   status: number,
   payload: unknown,
 ): void {
-  sendResponse(res, status, CONTENT_TYPE.JSON, payload);
+  sendResponse(res, status, CONTENT_TYPE.JSON, JSON.stringify(payload));
 }
 
 export function readBody(req: IncomingMessage): Promise<string> {

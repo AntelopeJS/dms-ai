@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import {
   CHATGPT_TOKEN_SECRET_ENV,
@@ -170,14 +171,27 @@ async function startTokenServer(
     res.end(isAuthorized ? body : "");
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const { port } = server.address() as AddressInfo;
+  const address = server.address();
+  if (!isAddressInfo(address)) throw new Error("server has no TCP address");
+  const { port } = address;
   return { server, url: `http://127.0.0.1:${port}/codex/access-token` };
 }
+
+function isAddressInfo(
+  address: ReturnType<Server["address"]>,
+): address is AddressInfo {
+  return address !== null && typeof address === "object";
+}
+
+const StringListSchema = z.array(z.string());
+const ExecFailureSchema = z.object({ code: z.number(), stderr: z.string() });
 
 /** The TOML array is written with JSON string escapes, so it reads back as JSON. */
 function authCommandArgs(toml: string): string[] {
   const line = toml.split("\n").find((entry) => entry.startsWith("args = "));
-  return JSON.parse(line?.slice("args = ".length) ?? "[]") as string[];
+  return StringListSchema.parse(
+    JSON.parse(line?.slice("args = ".length) ?? "[]"),
+  );
 }
 
 describe("ChatGPT plan provider", () => {
@@ -218,8 +232,8 @@ describe("ChatGPT plan provider", () => {
 
   it("fails with the sidecar's reason when there is no token to give", async () => {
     tokenServer = await startTokenServer(503, "sign in again");
-    const failure = await runAuthCommand(tokenServer.url).catch(
-      (error: unknown) => error as { code: number; stderr: string },
+    const failure = await runAuthCommand(tokenServer.url).catch((error) =>
+      ExecFailureSchema.parse(error),
     );
     expect(failure).toMatchObject({ code: 1, stderr: "sign in again" });
   });

@@ -1,3 +1,4 @@
+import type { JsonValue } from "../../protocol/json.js";
 import { z } from "zod";
 import {
   DATABASE_CONNECTIONS_PATH,
@@ -20,17 +21,11 @@ export interface DatabaseToolsDeps {
   databaseClient: DatabaseClient;
 }
 
-function isFailed(value: unknown): boolean {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    (value as Record<string, unknown>).ok === false
-  );
-}
+const FAILED_ANSWER = z.object({ ok: z.literal(false) });
 
-function answer(value: unknown): McpToolResult {
+function answer(value: JsonValue): McpToolResult {
   const text = JSON.stringify(value);
-  return isFailed(value)
+  return FAILED_ANSWER.safeParse(value).success
     ? { content: [{ type: "text", text }], isError: true }
     : { content: [{ type: "text", text }] };
 }

@@ -22,7 +22,10 @@ describe("permission previews and rules", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  const describeCall = (toolName: string, args: unknown) =>
+  const describeCall = (
+    toolName: string,
+    args: Parameters<typeof describeRequest>[0]["args"],
+  ) =>
     describeRequest({
       toolName,
       args,
@@ -103,7 +106,7 @@ describe("permission previews and rules", () => {
   it("matches file and directory rules on every file an edit touches", () => {
     const rules = createPermissionRuleStore();
     rules.add(CONVERSATION_ID, { kind: "directory", value: "src" });
-    const subject = (args: unknown) => ({
+    const subject = (args: Parameters<typeof rules.matches>[1]["args"]) => ({
       toolName: "Edit",
       args,
       hostProjectRoot: root,

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { z } from "zod";
 import type { ProviderName } from "../../src/state/types.js";
 
 const CLAUDE_SCRIPTS = "../fixtures/mock-claude/scripts";
@@ -120,12 +121,28 @@ export function claudeScript(file: string): string {
   return fixtureFor(CLAUDE_SCRIPTS, file);
 }
 
-export interface TracedRequest {
-  kind: string;
-  method?: string;
-  params?: Record<string, unknown>;
-  decision?: unknown;
-}
+const TRACED_REQUEST = z.object({
+  kind: z.string(),
+  method: z.string().optional(),
+  params: z
+    .looseObject({
+      extraRoots: z.array(z.string()).optional().catch(undefined),
+      path: z.string().optional().catch(undefined),
+      input: z
+        .array(
+          z.looseObject({
+            type: z.string(),
+            text: z.string().optional().catch(undefined),
+          }),
+        )
+        .optional()
+        .catch(undefined),
+    })
+    .optional(),
+  decision: z.unknown().optional(),
+});
+
+export type TracedRequest = z.infer<typeof TRACED_REQUEST>;
 
 /**
  * What the fake binary saw. The sidecar drives it exactly as it drives the real
@@ -137,7 +154,7 @@ export function readCodexTrace(file: string): TracedRequest[] {
     return readFileSync(file, "utf8")
       .split("\n")
       .filter((line) => line.trim() !== "")
-      .map((line) => JSON.parse(line) as TracedRequest);
+      .map((line) => TRACED_REQUEST.parse(JSON.parse(line)));
   } catch {
     return [];
   }
@@ -191,15 +208,17 @@ export function readTrace(provider: ProviderName, file: string): string {
   return JSON.stringify(TRACE_READERS[provider](file));
 }
 
-export interface TracedClaudeEntry {
-  kind: string;
-  plugins?: { path: string }[];
-  skills?: string[];
-  permissionMode?: string;
-  name?: string;
-  decidedBy?: string;
-  isAllowed?: boolean;
-}
+const TRACED_CLAUDE_ENTRY = z.object({
+  kind: z.string(),
+  plugins: z.array(z.looseObject({ path: z.string() })).optional(),
+  skills: z.array(z.string()).optional(),
+  permissionMode: z.string().optional(),
+  name: z.string().optional(),
+  decidedBy: z.string().optional(),
+  isAllowed: z.boolean().optional(),
+});
+
+export type TracedClaudeEntry = z.infer<typeof TRACED_CLAUDE_ENTRY>;
 
 /**
  * What the SDK was asked to load, the permission mode it was switched to and
@@ -210,7 +229,7 @@ export function readClaudeTrace(file: string): TracedClaudeEntry[] {
     return readFileSync(file, "utf8")
       .split("\n")
       .filter((line) => line.trim() !== "")
-      .map((line) => JSON.parse(line) as TracedClaudeEntry);
+      .map((line) => TRACED_CLAUDE_ENTRY.parse(JSON.parse(line)));
   } catch {
     return [];
   }

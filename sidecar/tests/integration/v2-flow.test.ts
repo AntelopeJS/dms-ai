@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type WebSocket from "ws";
+import { z } from "zod";
 import { PERMISSION_DECISIONS } from "../../src/constants/permissions.js";
 import {
   answerPermission,
@@ -9,6 +10,7 @@ import {
   createCollector,
   isTerminal,
   openChat,
+  requireValue,
   sendHello,
   sendUserMessage,
   sendWire,
@@ -57,9 +59,22 @@ async function waitTurns(session: Session, count: number) {
   );
 }
 
-async function json<T>(response: Response): Promise<T> {
+const NODE = z.looseObject({
+  id: z.string().optional(),
+  label: z.string().optional(),
+  category: z.array(z.string()).optional(),
+});
+
+const NODE_LIST = z.looseObject({ results: z.array(NODE) });
+
+const DETAIL = z.looseObject({ decisionTrail: z.array(NODE) });
+
+async function json<Schema extends z.ZodType>(
+  response: Response,
+  schema: Schema,
+): Promise<z.infer<Schema>> {
   expect(response.ok).toBe(true);
-  return (await response.json()) as T;
+  return schema.parse(await response.json());
 }
 
 describe("v2 assistant flow over the socket", () => {
@@ -89,7 +104,7 @@ describe("v2 assistant flow over the socket", () => {
         (e) => e.type === "permission_request",
       );
       expect(prompt).toMatchObject({ kind: "edit", alwaysAsk: false });
-      expect((prompt.ruleOptions as WireMessage[]).map((r) => r.kind)).toEqual([
+      expect((prompt.ruleOptions ?? []).map((r) => r.kind)).toEqual([
         "file",
         "directory",
       ]);
@@ -100,7 +115,8 @@ describe("v2 assistant flow over the socket", () => {
       const changeSetEvent = await collector.next(
         (e) => e.type === "change_set",
       );
-      const changeSet = changeSetEvent.changeSet as WireMessage;
+      const changeSet = requireValue(changeSetEvent.changeSet);
+      const changeSetId = requireValue(changeSet.id);
       expect(changeSet).toMatchObject({
         number: 1,
         title: "Say hello to the world",
@@ -112,72 +128,70 @@ describe("v2 assistant flow over the socket", () => {
       });
       await collector.next((e) => e.type === "usage");
 
-      const activity = await json<{ results: WireMessage[]; total: number }>(
+      const activity = await json(
         await callApi(harness.port, "/activity?category=changed"),
+        NODE_LIST,
       );
+      const activityId = requireValue(activity.results[0]?.id);
       expect(activity.results[0]).toMatchObject({
         tool: "Edit",
         allowedBy: "approved",
         result: "done",
-        changeSetId: changeSet.id,
+        changeSetId,
         changeSetNumber: 1,
       });
       expect(activity.results[0]?.category).toEqual(["changed", "asked"]);
-      const detail = await json<WireMessage>(
+      const detail = await json(
         await callApi(
           harness.port,
-          `/activity/${encodeURIComponent(activity.results[0]?.id as string)}`,
+          `/activity/${encodeURIComponent(activityId)}`,
         ),
+        DETAIL,
       );
-      expect(
-        (detail.decisionTrail as WireMessage[]).map((s) => s.label),
-      ).toContain("Asked you");
+      expect(detail.decisionTrail.map((s) => s.label)).toContain("Asked you");
       expect(detail.diff).toHaveLength(1);
-      const relayedId = encodeURIComponent(
-        encodeURIComponent(activity.results[0]?.id as string),
-      );
+      const relayedId = encodeURIComponent(encodeURIComponent(activityId));
       const relayed = await callApi(harness.port, `/activity/${relayedId}`);
       expect(relayed.status).toBe(200);
       const malformed = await callApi(harness.port, "/activity/%E0%A4%A");
       expect(malformed.status).toBe(400);
 
-      const preview = await json<WireMessage>(
-        await callApi(
-          harness.port,
-          `/changes/${changeSet.id as string}/undo-preview`,
-        ),
+      const preview = await json(
+        await callApi(harness.port, `/changes/${changeSetId}/undo-preview`),
+        NODE,
       );
       expect(preview).toMatchObject({ files: [EDITED_FILE], conflicts: [] });
-      const undone = await json<WireMessage>(
-        await callApi(harness.port, `/changes/${changeSet.id as string}/undo`, {
+      const undone = await json(
+        await callApi(harness.port, `/changes/${changeSetId}/undo`, {
           method: "POST",
           body: JSON.stringify({ actor: "Camille" }),
         }),
+        NODE,
       );
-      expect(undone.undone).toEqual([changeSet.id]);
+      expect(undone.undone).toEqual([changeSetId]);
       expect(await readFile(file, "utf8")).toBe("<p>Hello</p>\n");
       const again = await callApi(
         harness.port,
-        `/changes/${changeSet.id as string}/undo`,
+        `/changes/${changeSetId}/undo`,
         {
           method: "POST",
         },
       );
       expect(again.status).toBe(409);
-      const changes = await json<{ results: WireMessage[] }>(
+      const changes = await json(
         await callApi(harness.port, "/changes?scope=vibe"),
+        NODE_LIST,
       );
       expect(changes.results[0]).toMatchObject({
         state: "undone",
         stateChangedBy: "Camille",
       });
-      const approved = await json<WireMessage>(
+      const approved = await json(
         await callApi(harness.port, "/metrics/kpi/approved"),
+        NODE,
       );
       expect(approved).toMatchObject({ value: 1, total: 1 });
-      const status = await json<WireMessage>(
-        await callApi(harness.port, "/status"),
-      );
+      const status = await json(await callApi(harness.port, "/status"), NODE);
       expect(status).toMatchObject({
         status: "ready",
         checkpointsAvailable: true,
@@ -233,8 +247,9 @@ describe("v2 assistant flow over the socket", () => {
       answerPermission(client, prompt, PERMISSION_DECISIONS.DENY_ALL);
       await collector.next((e) => e.type === "permission_resolved");
       await waitTurns(session, 1);
-      const activity = await json<{ results: WireMessage[] }>(
+      const activity = await json(
         await callApi(session.harness.port, "/activity?category=denied"),
+        NODE_LIST,
       );
       expect(activity.results[0]).toMatchObject({
         tool: "Bash",
@@ -265,24 +280,24 @@ describe("v2 assistant flow over the socket", () => {
         client,
         prompt,
         PERMISSION_DECISIONS.ALLOW_RULE,
-        (prompt.ruleOptions as unknown[])[0],
+        prompt.ruleOptions?.[0],
       );
       const state = await collector.next(
-        (e) => e.type === "rules_state" && (e.rules as unknown[]).length === 1,
+        (e) => e.type === "rules_state" && e.rules?.length === 1,
       );
       await waitTurns(session, 1);
       sendUserMessage(client, CONVERSATION_ID, "again");
       await waitTurns(session, 2);
       const ends = collector.events.filter((e) => e.type === "tool_call_end");
       expect(ends.map((e) => e.allowedBy)).toEqual(["approved", "rule"]);
-      const [rule] = state.rules as WireMessage[];
+      const [rule] = state.rules ?? [];
       sendWire(client, {
         type: "revoke_rule",
         conversationId: CONVERSATION_ID,
         ruleId: rule?.id,
       });
       await collector.next(
-        (e) => e.type === "rules_state" && (e.rules as unknown[]).length === 0,
+        (e) => e.type === "rules_state" && e.rules?.length === 0,
       );
     },
     TEST_TIMEOUT_MS,
@@ -344,7 +359,7 @@ describe("v2 assistant flow over the socket", () => {
         });
       }
       const queueOf = (e: WireMessage) =>
-        (e.items as WireMessage[]).map((i) => i.content).join("");
+        (e.items ?? []).map((i) => i.content).join("");
       const enqueued = await collector.next(
         (e) => e.type === "queue_state" && queueOf(e) === "abc",
       );
@@ -408,11 +423,9 @@ describe("v2 assistant flow over the socket", () => {
       const list = await collector.next(
         (e) =>
           e.type === "conversation_list" &&
-          (e.conversations as WireMessage[]).some(
-            (c) => c.pendingApprovals === 1,
-          ),
+          (e.conversations ?? []).some((c) => c.pendingApprovals === 1),
       );
-      expect((list.conversations as WireMessage[])[0]).toMatchObject({
+      expect(list.conversations?.[0]).toMatchObject({
         id: CONVERSATION_ID,
         isRunning: true,
         provider: "claude",
@@ -431,9 +444,9 @@ describe("v2 assistant flow over the socket", () => {
         generationMode: "vibe",
         fullAuto: null,
       });
-      const roles = (snapshot.messages as WireMessage[]).map((m) => m.role);
+      const roles = (snapshot.messages ?? []).map((m) => m.role);
       expect(roles).not.toContain("permission");
-      const result = (snapshot.messages as WireMessage[]).find(
+      const result = (snapshot.messages ?? []).find(
         (m) => m.role === "tool_result",
       );
       expect(result).toMatchObject({ outcome: "done", allowedBy: "approved" });
