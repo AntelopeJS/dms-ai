@@ -14,7 +14,7 @@ import type { BlockPreviewType } from "../protocol/preview.js";
 import type { NavigationCompleter } from "../server/navigation-completer.js";
 import type { CurrentPage } from "../state/host-state.js";
 
-// Deps shared by every conversation's MCP server. Assembled once at startup.
+/** Deps shared by every conversation's MCP server. Assembled once at startup. */
 export interface AiMcpServerStaticDeps {
   getCurrentPage: () => CurrentPage;
   registry: RegistryClient;
@@ -28,9 +28,11 @@ export interface AiMcpServerStaticDeps {
   navigationCompleter: NavigationCompleter;
 }
 
-// The MCP server is built per conversation so conversation-scoped tools (AskUser)
-// can route to the right chat — the SDK does not pass our conversationId to tool
-// handlers, so we bind it here at construction instead.
+/**
+ * The MCP server is built per conversation so conversation-scoped tools (AskUser)
+ * can route to the right chat — the SDK does not pass our conversationId to tool
+ * handlers, so we bind it here at construction instead.
+ */
 export interface AiMcpServerDeps extends AiMcpServerStaticDeps {
   conversationId: string;
   sendToHost: (event: AnyServerEventType) => void;
@@ -38,12 +40,14 @@ export interface AiMcpServerDeps extends AiMcpServerStaticDeps {
   getLastEditedFile: () => string | undefined;
   showPreview: (preview: BlockPreviewType) => void;
   listAttachedImages: () => string[];
-  // Absent in tests and tools-only boots: every Builder op then runs as is.
+  /** Absent in tests and tools-only boots: every Builder op then runs as is. */
   gateBuilderOp?: BuilderGate;
 }
 
-// The in-process server handed to the Claude SDK. Described locally so the MCP
-// layer carries no provider type; the Claude binding narrows it at its edge.
+/**
+ * The in-process server handed to the Claude SDK. Described locally so the MCP
+ * layer carries no provider type; the Claude binding narrows it at its edge.
+ */
 export interface AiMcpServer {
   type: typeof MCP_SERVER_TYPE_SDK;
   name: string;

@@ -18,8 +18,10 @@ import {
 
 const FULL_AUTO_TIMED_MINUTES = 30;
 
-// How long each Full auto duration lasts on the clock; the others end on an
-// event (the turn ending, the chat closing).
+/**
+ * How long each Full auto duration lasts on the clock; the others end on an
+ * event (the turn ending, the chat closing).
+ */
 const FULL_AUTO_CLOCK_MS: Partial<Record<FullAutoDuration, number>> = {
   "30m": FULL_AUTO_TIMED_MINUTES * MS_PER_MINUTE,
 };
@@ -68,8 +70,10 @@ interface FullAutoEntry {
 
 interface ModesState extends ConversationModesDeps {
   fullAuto: Map<string, FullAutoEntry>;
-  // Modes chosen for a conversation that has no transcript yet: kept here so
-  // picking a mode never lists an empty chat in the history.
+  /**
+   * Modes chosen for a conversation that has no transcript yet: kept here so
+   * picking a mode never lists an empty chat in the history.
+   */
   drafts: Map<string, ConversationModesPatch>;
 }
 
@@ -176,9 +180,11 @@ function update(
   state.onChanged(conversationId, false);
 }
 
-// Called when a conversation runs a turn (it exists from then on) and before a
-// change: whatever was in force is written down, so a later change of the
-// defaults leaves the conversation alone.
+/**
+ * Called when a conversation runs a turn (it exists from then on) and before a
+ * change: whatever was in force is written down, so a later change of the
+ * defaults leaves the conversation alone.
+ */
 function pinDefaults(state: ModesState, conversationId: string): void {
   const stored = state.conversationStore.get(conversationId);
   if (stored === null) return;

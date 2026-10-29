@@ -29,19 +29,24 @@ import type { CallDecision } from "../audit/call-audit.js";
 import type { SidecarServices } from "./services.js";
 import type { ActiveTurn } from "./turn-registry.js";
 
-// What a call that ran without any recorded decision was allowed by. Claude
-// runs the commands it deems read-only and, in Accept edits, the edits, without
-// asking; Codex runs sandboxed commands the same way.
+/**
+ * What a call that ran without any recorded decision was allowed by. Claude
+ * runs the commands it deems read-only and, in Accept edits, the edits, without
+ * asking; Codex runs sandboxed commands the same way.
+ */
 interface AllowedByMatcher {
   allowedBy: AllowedBy;
   matches: (toolName: string, isFullAuto: boolean) => boolean;
 }
 
+/**
+ * Tried in order. The `rule` entry covers edits accepted by the conversation's
+ * Accept edits mode, a standing rule.
+ */
 const DEFAULT_ALLOWED_BY: readonly AllowedByMatcher[] = [
   { allowedBy: "builder_auto", matches: (name) => isMutatingBuilderTool(name) },
   { allowedBy: "read_auto", matches: (name) => isReadOnlyTool(name) },
   { allowedBy: "full_auto", matches: (_name, isFullAuto) => isFullAuto },
-  // Accepted by the conversation's Accept edits mode, a standing rule.
   { allowedBy: "rule", matches: (name) => isEditTool(name) },
   { allowedBy: "read_auto", matches: (name) => isCommandTool(name) },
 ];

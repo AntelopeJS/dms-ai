@@ -1,9 +1,11 @@
 import type { DiffHunkType, DiffLineType } from "../protocol/events.js";
 
-// Lines of unchanged context kept around each change, as `git diff` does.
+/** Lines of unchanged context kept around each change, as `git diff` does. */
 const DIFF_CONTEXT_LINES = 3;
-// Above this many cells the line-matching table is not worth building: the
-// changed region is shown as a whole removal plus a whole addition instead.
+/**
+ * Above this many cells the line-matching table is not worth building: the
+ * changed region is shown as a whole removal plus a whole addition instead.
+ */
 const MAX_MATCH_CELLS = 2_000_000;
 const LINE_BREAK = /\r?\n/;
 const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;

@@ -20,15 +20,17 @@ function buildContent(text: string): {
   return { content: [{ type: "text", text }] };
 }
 
+/**
+ * Builds the tool that lists registered pages. A page just created or edited
+ * only shows up once the backend has re-registered it; `refresh` drops the 30s
+ * sidecar cache so the agent can see it without waiting.
+ */
 export function buildListPagesTool(deps: ListPagesDeps) {
   return defineTool(
     LIST_PAGES_TOOL_NAME,
     LIST_PAGES_TOOL_DESCRIPTION,
     INPUT_SCHEMA,
     async ({ refresh }: { refresh?: boolean }) => {
-      // A page just created/edited only shows up once the backend has
-      // re-registered it; refresh drops the 30s sidecar cache so the agent can
-      // see it without waiting.
       if (refresh === true) deps.registry.invalidate();
       let entries: Awaited<ReturnType<RegistryClient["getRegistry"]>>;
       try {

@@ -40,8 +40,6 @@ describe.each(PROVIDER_FIXTURES)(
         const collected = collectUntil(client, {
           timeoutMs: RUN_TIMEOUT_MS,
           until: isTerminal,
-          // A recorded turn may need a decision on its way through; the flow
-          // under test is the event plumbing, not the verdict.
           onMessage: (msg, socket) => {
             if (msg.type !== "permission_request") return;
             answerPermission(socket, msg, PERMISSION_DECISIONS.ALLOW_ONCE);
@@ -50,8 +48,6 @@ describe.each(PROVIDER_FIXTURES)(
         sendHello(client, CONVERSATION_ID);
         sendUserMessage(client, CONVERSATION_ID, "list");
         const events = await collected;
-        // Bookkeeping (the drawer's list, the change set, the usage) may
-        // follow the terminal event; the turn's own events end with it.
         const ended = events.slice(0, events.findIndex(isTerminal) + 1);
         const types = ended.map((e) => e.type);
         expect(types).toContain("assistant_message_chunk");

@@ -11,8 +11,6 @@ const CONVERSATION_ID = "conv-stream-1";
 const TMP_PREFIX = "dms-ai-stream-";
 const TEST_TIMEOUT_MS = 30_000;
 
-// The neutral vocabulary both adapters are meant to produce: text streams in as
-// deltas, a tool call is opened and closed, and the turn ends on `done`.
 describe.each(PROVIDER_FIXTURES)("runner event stream on $name", (fixture) => {
   let dir: string;
   let handle: RunnerHandle | undefined;

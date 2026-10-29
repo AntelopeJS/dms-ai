@@ -6,11 +6,13 @@ import type {
 } from "../state/settings-types.js";
 import type { FullAutoState } from "../state/types.js";
 
-// The provider mode a Full auto conversation runs in. In Code mode the agent
-// keeps asking (`normal`) and the permission bus answers for the user, so every
-// call is still seen, recorded as `full_auto`, and the always-ask set still
-// reaches the user. Safe mode caps Full auto at `acceptEdits`: the prompts that
-// remain there (reads outside the workspace, web access) must reach the user.
+/**
+ * The provider mode a Full auto conversation runs in. In Code mode the agent
+ * keeps asking (`normal`) and the permission bus answers for the user, so every
+ * call is still seen, recorded as `full_auto`, and the always-ask set still
+ * reaches the user. Safe mode caps Full auto at `acceptEdits`: the prompts that
+ * remain there (reads outside the workspace, web access) must reach the user.
+ */
 const FULL_AUTO_PROVIDER_MODE: Record<GenerationMode, ChatMode> = {
   safe: "acceptEdits",
   vibe: "normal",

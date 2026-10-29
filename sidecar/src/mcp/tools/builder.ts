@@ -46,8 +46,10 @@ function exprRefusal(): McpToolResult {
 
 const CONFIG = z.record(z.string(), z.unknown());
 
-// Every block path returned by BuilderPageStructure follows this shape; the
-// separators are easy to guess wrong (`/` between blocks, not `.` or `#`).
+/**
+ * Every block path returned by BuilderPageStructure follows this shape; the
+ * separators are easy to guess wrong (`/` between blocks, not `.` or `#`).
+ */
 const BLOCK_PATH_FORMAT =
   "A block path from BuilderPageStructure: `<pageRef>#<block>` for a top-level block, then `/<child>` per nesting level (e.g. `/dashboard#grid/row/kpi`). Separators: `#` after the page, `/` between blocks.";
 const BLOCK_PATH = z.string().describe(BLOCK_PATH_FORMAT);

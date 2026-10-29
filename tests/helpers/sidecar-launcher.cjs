@@ -5,8 +5,10 @@ const DIST_DIR = path.resolve(__dirname, "../../dist");
 const FAKE_SIDECAR_PATH = path.resolve(__dirname, "fake-sidecar.cjs");
 const SIDECAR_BIN_REQUEST = "@antelopejs/dms-ai-sidecar/dist/index.js";
 const SILENT_LOGGING = { Logging: { Info() {}, Warn() {}, Error() {} } };
-// The launcher's five-second grace before SIGKILL, shortened: the case of a
-// sidecar that ignores SIGTERM would otherwise sit through all of it.
+/**
+ * The launcher's five-second grace before SIGKILL, shortened: the case of a
+ * sidecar that ignores SIGTERM would otherwise sit through all of it.
+ */
 const TEST_STOP_TIMEOUT_MS = 500;
 
 /** Build id the launcher computes; a test changes it to simulate a rebuild. */
@@ -17,8 +19,10 @@ const stubs = {
   "./build-id": () => ({ computeBuildId: () => build.id }),
 };
 
-// The launcher starts the fake sidecar instead of the real one, which needs a
-// build, and runs outside the core, so its logs go nowhere.
+/**
+ * The launcher starts the fake sidecar instead of the real one, which needs a
+ * build, and runs outside the core, so its logs go nowhere.
+ */
 function stubLauncherDependencies() {
   const originalLoad = Module._load;
   const originalResolve = Module._resolveFilename;

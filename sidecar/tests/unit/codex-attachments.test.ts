@@ -8,7 +8,7 @@ import { buildCodexTurnInput } from "../../src/providers/codex/attachments.js";
 const TMP_PREFIX = "dms-ai-attach-";
 const CONVERSATION = "conv-attach";
 
-// Smallest valid one-page PDF: enough for a rasterizer to produce a page.
+/** Smallest valid one-page PDF: enough for a rasterizer to produce a page. */
 const MINIMAL_PDF = [
   "%PDF-1.4",
   "1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj",
@@ -94,8 +94,6 @@ describe("codex turn input", () => {
     );
     const images = input.filter((item) => item.type === "localImage");
     const text = (input[0] as { text: string }).text;
-    // Either poppler produced pages, or the file is referenced by path —
-    // never silently dropped.
     expect(images.length > 0 || text.includes("[Attached file:")).toBe(true);
   });
 });

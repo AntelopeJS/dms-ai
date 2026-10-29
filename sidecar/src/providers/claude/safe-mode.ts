@@ -31,7 +31,9 @@ const SAFE_MODE_DENIAL: SyncHookJSONOutput = {
 
 const NO_DECISION: SyncHookJSONOutput = { continue: true };
 
-// Where plan mode writes its plan before ExitPlanMode reads it back for the plan card.
+/**
+ * Where plan mode writes its plan before ExitPlanMode reads it back for the plan card.
+ */
 const PLANS_DIRECTORY = join(homedir(), ".claude", "plans");
 
 interface FileToolInput {

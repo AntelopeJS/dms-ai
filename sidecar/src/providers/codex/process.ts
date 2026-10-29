@@ -137,9 +137,11 @@ function queryProcessTable(pid: number): string | undefined {
   );
 }
 
-// procfs where there is one, the platform's own process table elsewhere. Linux
-// is not the only host: a macOS or Windows sidecar that cannot read a command
-// line would never recognize an orphan, and would therefore never reap one.
+/**
+ * procfs where there is one, the platform's own process table elsewhere. Linux
+ * is not the only host: a macOS or Windows sidecar that cannot read a command
+ * line would never recognize an orphan, and would therefore never reap one.
+ */
 const COMMAND_READERS: Record<string, (pid: number) => string | undefined> = {
   linux: readProcCmdline,
 };
@@ -158,9 +160,11 @@ export function readProcessCommand(pid: number): string | undefined {
   }
 }
 
-// A recorded pid may have been recycled by an unrelated process, so the command
-// line is checked before signalling anything. Windows reports the image name
-// (`codex.exe`), which carries the binary name just the same.
+/**
+ * A recorded pid may have been recycled by an unrelated process, so the command
+ * line is checked before signalling anything. Windows reports the image name
+ * (`codex.exe`), which carries the binary name just the same.
+ */
 export function isCodexProcess(pid: number): boolean {
   return readProcessCommand(pid)?.includes(CODEX_BINARY_NAME) === true;
 }
@@ -284,10 +288,12 @@ export async function reapOrphanCodexProcesses(
   return killed;
 }
 
-// Read-modify-write on a shared file: two conversations disposed at the same
-// time would otherwise each write back a list computed before the other's
-// change, dropping a pid that is still running — the very orphan the registry
-// exists to catch.
+/**
+ * Read-modify-write on a shared file: two conversations disposed at the same
+ * time would otherwise each write back a list computed before the other's
+ * change, dropping a pid that is still running — the very orphan the registry
+ * exists to catch.
+ */
 let registryQueue: Promise<unknown> = Promise.resolve();
 
 function updateRegistry(
@@ -371,9 +377,11 @@ interface StderrTail {
   read: () => string;
 }
 
-// Drained whatever happens: an unread stderr pipe fills at 64 KiB and blocks
-// the child itself. What it said is kept, bounded, because it is the only
-// account of why a binary that died on startup did so.
+/**
+ * Drained whatever happens: an unread stderr pipe fills at 64 KiB and blocks
+ * the child itself. What it said is kept, bounded, because it is the only
+ * account of why a binary that died on startup did so.
+ */
 function drainStderr(child: ChildProcess): StderrTail {
   let tail = "";
   child.stderr?.setEncoding("utf8");
@@ -456,9 +464,11 @@ async function retireChild(
   return true;
 }
 
-// The whole home goes, not just sessions/: a fresh home already carries state,
-// logs, memories, goals and queue databases, all of which end up holding the
-// client's code.
+/**
+ * The whole home goes, not just sessions/: a fresh home already carries state,
+ * logs, memories, goals and queue databases, all of which end up holding the
+ * client's code.
+ */
 async function removeHome(codexHome: string): Promise<void> {
   await rm(codexHome, { recursive: true, force: true }).catch(
     (error: unknown) => {
@@ -526,13 +536,17 @@ async function registerPid(
   }
 }
 
+/**
+ * Spawns the app-server and wires its lifecycle. The watchdog and the stderr
+ * drain are attached before any `await` and before the pipe check, because a
+ * spawn failure is reported on the next tick and an unhandled `error` event is
+ * fatal.
+ */
 export async function spawnCodexProcess(
   options: CodexProcessOptions,
 ): Promise<CodexProcess> {
   const codexHome = await prepareCodexHome(options);
   const child = spawnChild(options, codexHome);
-  // Both before any `await` and before the pipe check below: a spawn failure is
-  // reported on the next tick, and an unhandled `error` event is fatal.
   const watchdog = watchChild(child, drainStderr(child));
   sweepOnExit(child);
   if (child.stdin === null || child.stdout === null) {

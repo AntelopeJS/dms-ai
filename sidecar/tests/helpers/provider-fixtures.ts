@@ -36,8 +36,10 @@ function fixtureFor(dir: string, file: string): string {
   return resolve(import.meta.dirname, dir, file);
 }
 
-// The mock SDK replays its script once per session, and a session is recreated
-// on the turn that follows its end, so one script covers a repeated turn too.
+/**
+ * The mock SDK replays its script once per session, and a session is recreated
+ * on the turn that follows its end, so one script covers a repeated turn too.
+ */
 const CLAUDE_BY_KIND: Record<TurnKind, string> = {
   simple: fixtureFor(CLAUDE_SCRIPTS, "list-files.json"),
   plain: fixtureFor(CLAUDE_SCRIPTS, "list-files.json"),
@@ -47,10 +49,12 @@ const CLAUDE_BY_KIND: Record<TurnKind, string> = {
   failing: fixtureFor(CLAUDE_SCRIPTS, "does-not-exist.json"),
 };
 
-// The fake binary replays one recorded turn per turn/start, so a repeated turn
-// is the same capture listed twice.
 const DENIED_DUMP = "recette-3-command-denied.jsonl";
 
+/**
+ * The fake binary replays one recorded turn per turn/start, so a repeated turn
+ * is the same capture listed twice.
+ */
 const CODEX_BY_KIND: Record<TurnKind, string> = {
   simple: fixtureFor(CODEX_DUMPS, "recette-1-simple-message.jsonl"),
   plain: fixtureFor(CODEX_DUMPS, "recette-2-file-edit.jsonl"),

@@ -241,7 +241,6 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
       getCurrentPage: () => ({ path: "unknown" }),
     }) as unknown as ToolHandlerLike;
     const handlerPromise = toolDef.handler({ path: "/x" }, undefined);
-    // Let the handler's async route-validation step run before completing.
     await settle();
     handle.navigationCompleter.complete("/x");
     const result = await handlerPromise;

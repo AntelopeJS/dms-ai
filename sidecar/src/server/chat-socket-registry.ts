@@ -65,10 +65,12 @@ function recipients(
   ]);
 }
 
-// A socket maps to exactly one active conversation: drop any prior mapping
-// for this socket so events from the conversation the user switched away from
-// stop streaming here (they keep buffering in liveTurns and replay on
-// switch-back). Other tabs on the same conversation keep receiving.
+/**
+ * A socket maps to exactly one active conversation: drop any prior mapping
+ * for this socket so events from the conversation the user switched away from
+ * stop streaming here (they keep buffering in liveTurns and replay on
+ * switch-back). Other tabs on the same conversation keep receiving.
+ */
 function attach(
   state: RegistryState,
   conversationId: string,

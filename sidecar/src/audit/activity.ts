@@ -59,7 +59,7 @@ export interface ActivityRecord extends ActivityRow {
   isAlwaysAsk: boolean;
   args: unknown;
   resultText?: string;
-  // The approval of the call, when the user was asked.
+  /** The approval of the call, when the user was asked. */
   permission?: StoredMessage;
   endedAtMs?: number;
 }
@@ -68,7 +68,7 @@ export interface ActivitySources {
   entries: readonly ConversationEntry[];
   changeSets: readonly ChangeSetRecord[];
   pending: readonly PendingRequest[];
-  // Conversations with a turn running: their open calls are still pending.
+  /** Conversations with a turn running: their open calls are still pending. */
   running: ReadonlySet<string>;
   hostProjectRoot: string;
 }
@@ -115,8 +115,10 @@ function indexConversation(
   };
 }
 
-// A call no decision was recorded for (still running, or cut short) carries no
-// `allowedBy`: read it off what it does.
+/**
+ * A call no decision was recorded for (still running, or cut short) carries no
+ * `allowedBy`: read it off what it does.
+ */
 function undecidedAllowedBy(toolName: string): AllowedBy {
   if (isReadOnlyTool(toolName)) return "read_auto";
   return isMutatingBuilderTool(toolName) ? "builder_auto" : "approved";
@@ -134,8 +136,10 @@ function resultOf(
   return result.status === "error" ? "failed" : "done";
 }
 
-// A shell command may or may not have touched the project: only a change set
-// says so. File edits and Builder ops are changes as soon as they succeed.
+/**
+ * A shell command may or may not have touched the project: only a change set
+ * says so. File edits and Builder ops are changes as soon as they succeed.
+ */
 function isChange(record: ActivityRecord): boolean {
   if (record.result !== "done") return false;
   if (record.changeSetId !== undefined) return true;

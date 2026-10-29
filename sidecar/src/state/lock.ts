@@ -54,8 +54,10 @@ async function readLockPid(lockPath: string): Promise<number | null> {
   }
 }
 
-// Removes the lock only when this process owns it, so a retired/orphaned instance
-// can't delete the live sidecar's lock and cause the backend to spawn a duplicate.
+/**
+ * Removes the lock only when this process owns it, so a retired/orphaned instance
+ * can't delete the live sidecar's lock and cause the backend to spawn a duplicate.
+ */
 export async function removeLock(
   root: string,
   ownerPid: number = process.pid,

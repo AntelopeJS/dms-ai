@@ -100,7 +100,8 @@ export function readOrCreateAuthRecord(): ChatGptAuthRecord {
 /**
  * Written to a sibling then renamed over the file, so a reader in another
  * sidecar never sees half a record, and created 0600 so no other account on
- * the machine can read the tokens.
+ * the machine can read the tokens. The mode is applied again with chmod
+ * because the `mode` option is masked by the umask and the tokens must not be.
  */
 export async function writeAuthRecord(
   record: ChatGptAuthRecord,
@@ -118,7 +119,6 @@ export async function writeAuthRecord(
   await writeFile(temporary, JSON.stringify(saved, null, 2), {
     mode: CHATGPT_AUTH_FILE_MODE,
   });
-  // `mode` is masked by the umask; the tokens must not be.
   await chmod(temporary, CHATGPT_AUTH_FILE_MODE);
   await rename(temporary, file);
 }

@@ -1,7 +1,9 @@
-// Normalize a route for comparison: drop any query/hash, collapse leading and
-// trailing slashes to a single leading slash. Registry paths are stored as
-// `/modules/demo/pages/contact` (leading slash, no trailing), so this lets a
-// loosely-typed agent path match the canonical form.
+/**
+ * Normalize a route for comparison: drop any query/hash, collapse leading and
+ * trailing slashes to a single leading slash. Registry paths are stored as
+ * `/modules/demo/pages/contact` (leading slash, no trailing), so this lets a
+ * loosely-typed agent path match the canonical form.
+ */
 export function normalizeRoute(path: string): string {
   const pathOnly = path.split(/[?#]/, 1)[0] ?? path;
   const trimmed = pathOnly.replace(/^\/+|\/+$/g, "");

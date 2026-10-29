@@ -5,11 +5,13 @@ import {
 } from "./constants/pages-registry";
 import type { PagesRegistryEntry } from "./types/pages-registry";
 
+/**
+ * Reaches into an AntelopeJS internal: the runtime's registry is not on the
+ * public type, and the source and target do not overlap, so a single assertion
+ * is not expressible.
+ */
 function readRegisteredMap(): Map<unknown, unknown> {
-  // Reaching into an AntelopeJS internal: the runtime's registry is
-  // not on the public type, and the source and target do not overlap,
-  // so a single assertion is not expressible.
-  // oxlint-disable-next-line anti-slop/no-chained-type-assertions
+  // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- the runtime's registry is not on the public type and the source and target do not overlap
   const proxy = internal.RegisterPage as unknown as Record<string, unknown>;
   const map = proxy[REGISTERED_FIELD];
   if (!(map instanceof Map)) {

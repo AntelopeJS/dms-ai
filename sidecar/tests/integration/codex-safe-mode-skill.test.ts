@@ -55,6 +55,7 @@ function withoutSafeModeSkill(turns: number): string {
   return [dumps, codexScript(EMPTY_SKILL_INDEX)].join(SCRIPT_SEPARATOR);
 }
 
+/** Consumes every event of one turn: the turn is only over once its events are consumed. */
 async function drainTurn(
   session: ProviderSession,
   settings: AppSettings,
@@ -63,7 +64,6 @@ async function drainTurn(
     { text: "hello", attachments: [] },
     settings,
   )) {
-    // Drained: the turn is only over once its events are consumed.
   }
 }
 

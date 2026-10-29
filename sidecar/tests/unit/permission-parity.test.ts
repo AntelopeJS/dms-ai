@@ -63,7 +63,6 @@ async function askAndAnswer(
   return pending;
 }
 
-// One prompt, one verdict, one effect: whichever binding carries it.
 describe.each(PROVIDERS)("permission parity on %s", (provider) => {
   const ask = BINDINGS[provider];
 

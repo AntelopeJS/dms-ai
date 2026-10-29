@@ -35,7 +35,9 @@ const FAKE_TOKEN = "0123456789abcdef";
 const CONVERSATION = "conv-codex-proc";
 const SPAWN_TIMEOUT_MS = 60_000;
 
-// Never throws inside the suite: it is skipped when the extension is absent.
+/**
+ * Never throws inside the suite: it is skipped when the extension is absent.
+ */
 function requireInstallation(): CodexInstallation {
   if (installation === undefined)
     throw new Error("codex extension not installed");
@@ -85,8 +87,6 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
         },
       });
 
-      // A --strict-config spawn fails outright on an unknown config key, so
-      // reaching a handshake also proves the generated config.toml is valid.
       const initialized = await running.client.request<InitializeResult>(
         "initialize",
         {
@@ -149,9 +149,6 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
       );
       expect(owned.length).toBeGreaterThan(0);
 
-      // Scoped rather than counted: Codex also indexes the developer's own
-      // skills, which `allowLocalSkills` is entitled to keep, and asserting on
-      // the total made the suite depend on what happens to sit in ~/.agents.
       const disabled = selectSkillsToDisable(listed.data, {
         extraRoots: [],
         allowLocalSkills: true,
@@ -170,7 +167,6 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
   );
 });
 
-// Not gated on the extension: the point is a binary that is *not* there.
 describe("codex app-server spawn failure", () => {
   const MISSING_BINARY = "/nonexistent/codex";
   const REQUEST_BUDGET_MS = 5_000;
@@ -232,9 +228,6 @@ const SIGTERM_CASES: SigtermCase[] = [
   { behaviour: "ignore", story: "ignores SIGTERM until it is killed" },
 ];
 
-// Not gated on the extension: the mock stands in for an app-server that is
-// still writing into its home when it is told to stop, which the real one does
-// too briefly to be caught on purpose.
 describe("codex app-server teardown", () => {
   const HANDSHAKE_BUDGET_MS = 10_000;
   let stateDir: string | undefined;
@@ -249,6 +242,7 @@ describe("codex app-server teardown", () => {
     stateDir = undefined;
   });
 
+  /** Spawns the mock and completes its handshake, which is answered only once the mock runs, so its SIGTERM handler is in place. */
   async function spawnMock(dir: string): Promise<CodexProcess> {
     const mock = resolveCodexInstallation();
     if (mock === undefined) throw new Error("the mock binary did not resolve");
@@ -266,7 +260,6 @@ describe("codex app-server teardown", () => {
       },
       stopGraces: TEST_STOP_GRACES,
     });
-    // Answered only once the mock runs, so its SIGTERM handler is in place.
     await spawned.client.request(
       "initialize",
       {},
@@ -310,8 +303,6 @@ describe("codex app-server teardown", () => {
     SPAWN_TIMEOUT_MS,
   );
 
-  // Same conversation, same home path: the previous teardown, still waiting for
-  // its process, must not remove the home the reopened one was just given.
   it(
     "prepares a reopened conversation's home only once the previous app-server let go of it",
     async () => {

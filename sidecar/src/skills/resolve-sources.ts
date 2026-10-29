@@ -3,9 +3,11 @@ import type { SkillSource } from "./types.js";
 
 export const LOCAL_SKILLS_PROVENANCE = "local";
 
-// The final set of skill dirs the agent loads and the catalog scans: the
-// module-contributed dirs plus the machine-local `~/.claude/skills` dir, the
-// latter only when `allowLocalSkills` is on and not already declared by a module.
+/**
+ * The final set of skill dirs the agent loads and the catalog scans: the
+ * module-contributed dirs plus the machine-local `~/.claude/skills` dir, the
+ * latter only when `allowLocalSkills` is on and not already declared by a module.
+ */
 export function resolveSkillSources(
   moduleDirs: readonly SkillSource[],
   allowLocalSkills: boolean,

@@ -69,6 +69,14 @@ function decline(): CodexApprovalDecisionResponse {
   return { decision: CODEX_APPROVAL_DECISIONS.DECLINE };
 }
 
+/**
+ * Answers the app-server's approval requests. Any other server request that
+ * expects a decision is refused rather than blindly accepted, and said out
+ * loud: a decision method added by a later Codex release would otherwise turn
+ * into a silent refusal loop with nothing pointing at it. Safe and plan modes
+ * decline every escalation, evaluated per request rather than baked into the
+ * session, so the switch is immediate.
+ */
 export function createCodexPermissionHandler(
   deps: CodexPermissionDeps,
 ): CodexPermissionHandler {
@@ -84,9 +92,11 @@ export function createCodexPermissionHandler(
     };
   }
 
-  // The request itself carries no paths, only the item they belong to. The
-  // first file's diff feeds the card; every path feeds the rule check, so a
-  // rule for one file never approves a patch that also touches another.
+  /**
+   * The request itself carries no paths, only the item they belong to. The
+   * first file's diff feeds the card; every path feeds the rule check, so a
+   * rule for one file never approves a patch that also touches another.
+   */
   function describeFileChange(params: unknown): ApprovalSubject {
     const { itemId } = params as FileChangeApprovalParams;
     const changes = itemId === undefined ? [] : deps.getChanges(itemId);
@@ -131,7 +141,7 @@ export function createCodexPermissionHandler(
     return accept();
   }
 
-  // Safe and plan modes refuse without asking: the mode blocked the call.
+  /** Safe and plan modes refuse without asking: the mode blocked the call. */
   function block(subject: ApprovalSubject): CodexApprovalDecisionResponse {
     deps.onToolDecision?.({
       callId: subject.callId,
@@ -145,10 +155,6 @@ export function createCodexPermissionHandler(
   return {
     async handle(request) {
       const describe = SUBJECT_BY_METHOD[request.method];
-      // Any other server request that expects a decision is refused rather
-      // than blindly accepted. It is also said out loud: a decision method
-      // added by a later Codex release would otherwise turn into a silent
-      // refusal loop with nothing pointing at it.
       if (describe === undefined) {
         console.warn(
           `${CODEX_LOG_PREFIX} ${CODEX_UNKNOWN_APPROVAL_METHOD} ${request.method}`,
@@ -157,8 +163,6 @@ export function createCodexPermissionHandler(
       }
       if (cancelled) return decline();
       const subject = describe(request.params);
-      // Safe and plan modes decline every escalation, evaluated here rather
-      // than baked into the session, so the switch is immediate.
       if (resolveModePolicy(deps.getSettings()).autoDeclineEscalations) {
         return block(subject);
       }

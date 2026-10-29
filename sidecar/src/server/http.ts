@@ -43,8 +43,10 @@ export interface SidecarBridge {
   services?: SidecarServices;
 }
 
-// What both frontends read: the stored settings plus the read-only capabilities
-// that gate them, and the defaults the settings form offers to go back to.
+/**
+ * What both frontends read: the stored settings plus the read-only capabilities
+ * that gate them, and the defaults the settings form offers to go back to.
+ */
 interface SettingsPayload extends AppSettings {
   builderAvailable: boolean;
   providers: ProviderAvailabilityMap;
@@ -59,7 +61,7 @@ interface CreateHttpServerOptions {
   conversationStore?: ConversationStore;
   settingsStore?: SettingsStore;
   settingsApplier?: SettingsApplier;
-  // Recomputed per request so the `allowLocalSkills` toggle takes effect live.
+  /** Recomputed per request so the `allowLocalSkills` toggle takes effect live. */
   getSkillSources?: () => SkillSource[];
   mcpHttpRegistry?: McpHttpRegistry;
   bridge?: SidecarBridge;
@@ -128,6 +130,13 @@ async function putSettings(
 
 const PastedCallbackSchema = z.object({ url: z.string().min(1) });
 
+/**
+ * The Settings page's routes. `GET /codex/account` is what the page shows
+ * about Codex's ChatGPT account, with a fresh sign-in link when there is none.
+ * `POST /codex/callback` takes the address of OpenAI's redirect, pasted by a
+ * user whose browser could not reach this sidecar's loopback callback (a DMS on
+ * another machine).
+ */
 const SETTINGS_ROUTES: readonly ApiRoute[] = [
   {
     method: "GET",
@@ -141,8 +150,6 @@ const SETTINGS_ROUTES: readonly ApiRoute[] = [
   },
   { method: "PUT", pattern: /^\/settings$/, handle: putSettings },
   {
-    // What the Settings page shows about Codex's ChatGPT account, with a fresh
-    // sign-in link when there is none.
     method: "GET",
     pattern: /^\/codex\/account$/,
     handle: async (_req, res, deps) => {
@@ -154,8 +161,6 @@ const SETTINGS_ROUTES: readonly ApiRoute[] = [
     },
   },
   {
-    // The address of OpenAI's redirect, pasted by a user whose browser could
-    // not reach this sidecar's loopback callback (a DMS on another machine).
     method: "POST",
     pattern: /^\/codex\/callback$/,
     handle: async (req, res) => {
@@ -194,7 +199,7 @@ function buildDeps(ctx: RouteContext): ApiDeps | null {
 
 interface MatchedRoute {
   route: ApiRoute;
-  // `null` when a parameter is malformed.
+  /** `null` when a parameter is malformed. */
   params: string[] | null;
 }
 

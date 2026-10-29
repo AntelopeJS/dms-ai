@@ -12,8 +12,10 @@ import {
 } from "../../constants/attachments.js";
 import type { AttachmentType } from "../../protocol/messages.js";
 
-// The content shape the SDK accepts for a user turn: either a bare string
-// (the pre-attachment path) or an array of Anthropic content blocks.
+/**
+ * The content shape the SDK accepts for a user turn: either a bare string
+ * (the pre-attachment path) or an array of Anthropic content blocks.
+ */
 export type TurnContent = SDKUserMessage["message"]["content"];
 type ContentBlock = Exclude<TurnContent, string>[number];
 
@@ -53,10 +55,12 @@ function uploadsDirFor(opts: BuildTurnContentOptions): string {
   return sharedUploadsDirFor(opts.hostProjectRoot, opts.conversationId);
 }
 
-// Turn the user's text plus their attachments into the SDK turn content:
-// images/PDFs become inline base64 blocks (native perception); every other
-// file is written to disk and referenced by absolute path in the text. When
-// there are no attachments the original string is passed through untouched.
+/**
+ * Turn the user's text plus their attachments into the SDK turn content:
+ * images/PDFs become inline base64 blocks (native perception); every other
+ * file is written to disk and referenced by absolute path in the text. When
+ * there are no attachments the original string is passed through untouched.
+ */
 export async function buildTurnContent(
   text: string,
   attachments: readonly AttachmentType[],
@@ -89,8 +93,6 @@ export async function buildTurnContent(
 
   const combinedText = joinTextSections(text, diskPaths);
 
-  // No image/PDF to inline → keep the simple string path (with any disk-file
-  // references folded into the text).
   if (inlineBlocks.length === 0) return combinedText;
 
   const blocks: ContentBlock[] = [];

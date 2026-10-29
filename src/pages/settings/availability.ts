@@ -82,7 +82,6 @@ function offerDefault(
   defaults: Record<string, unknown>,
 ): FormFieldSerialized {
   if (!(field.id in defaults)) return field;
-  // The sidecar's settings are text, numbers and switches.
   const defaultValue = defaults[field.id] as DefaultValue;
   return { ...field, defaultValue, offersDefault: true };
 }

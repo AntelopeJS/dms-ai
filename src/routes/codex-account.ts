@@ -71,9 +71,11 @@ function signedInBanner(account: CodexAccount): BannerContent {
   };
 }
 
-// OpenAI only redirects back to 127.0.0.1. On the machine running the DMS that
-// is the sidecar, and the sign-in completes by itself; anywhere else the page
-// fails to load, and its address is pasted here instead.
+/**
+ * OpenAI only redirects back to 127.0.0.1. On the machine running the DMS that
+ * is the sidecar, and the sign-in completes by itself; anywhere else the page
+ * fails to load, and its address is pasted here instead.
+ */
 const PASTE_ACTION: BannerButtonAction = {
   label: text("paste", "action"),
   icon: "i-ph-clipboard-text",

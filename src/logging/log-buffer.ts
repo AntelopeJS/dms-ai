@@ -13,6 +13,12 @@ interface Stringable {
   toString(): string;
 }
 
+/**
+ * Keeps an argument the buffer can serialise as it is. An Error becomes
+ * `{ name, message, stack }`. Anything else that cannot be serialised (a cycle,
+ * or a BigInt nested inside) becomes `toString()`'s result, which keeps a
+ * custom `toString()` and only degrades to "[object Object]" for a plain object.
+ */
 function sanitizeArg(arg: unknown): unknown {
   if (arg instanceof Error) {
     return { name: arg.name, message: arg.message, stack: arg.stack };
@@ -22,9 +28,6 @@ function sanitizeArg(arg: unknown): unknown {
       JSON.stringify(arg);
       return arg;
     } catch {
-      // A cycle, or a BigInt nested inside. `String(arg)` keeps a custom
-      // `toString()`, and only degrades to "[object Object]" for a plain
-      // object -- which is what the buffer showed before either way.
       return (arg as Stringable).toString();
     }
   }

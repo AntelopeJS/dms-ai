@@ -51,12 +51,14 @@ function binaryFileName(): string {
     : CODEX_BINARY_NAME;
 }
 
+/**
+ * `@openai/codex` is an optional peer dependency, absent unless the consumer
+ * opted in, so it is resolved by specifier and never imported.
+ */
 function computeInstallation(): CodexInstallation | undefined {
   const triple = hostTriple();
   if (triple === undefined) return undefined;
   try {
-    // `@openai/codex` is an optional peer dependency: absent unless the
-    // consumer opted in, so it is resolved by specifier and never imported.
     const launcher = createRequire(import.meta.url).resolve(
       `${CODEX_CLI_PACKAGE}/package.json`,
     );
@@ -96,10 +98,13 @@ function mockInstallation(): CodexInstallation | undefined {
 
 let cached: { value: CodexInstallation | undefined } | null = null;
 
-/** The installed Codex extension, or undefined when it is not installed. */
+/**
+ * The installed Codex extension, or undefined when it is not installed. The
+ * mock installation is deliberately outside the cache: tests turn the flag on
+ * and off between cases, and the real resolution is the only part worth
+ * memoizing.
+ */
 export function resolveCodexInstallation(): CodexInstallation | undefined {
-  // Deliberately outside the cache: tests turn the flag on and off between
-  // cases, and the real resolution is the only part worth memoizing.
   const mock = mockInstallation();
   if (mock !== undefined) return mock;
   if (cached !== null) return cached.value;

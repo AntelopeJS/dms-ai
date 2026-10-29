@@ -18,7 +18,8 @@ interface Stringable {
  * Total by construction: the ws `message` listener has no try/catch, so a throw
  * here would leave the EventEmitter and take the process down. An unexpected
  * shape degrades to its own `toString()`, which is what the caller's own
- * parsing already refuses.
+ * parsing already refuses. The fallback exists for a shape `@types/ws` does not
+ * model, such as a Blob under `binaryType: "blob"`.
  */
 export function rawDataToText(data: RawData): string {
   if (Buffer.isBuffer(data)) return data.toString("utf8");
@@ -26,7 +27,6 @@ export function rawDataToText(data: RawData): string {
   try {
     return Buffer.from(data).toString("utf8");
   } catch {
-    // A shape @types/ws does not model -- a Blob under `binaryType: "blob"`.
     return (data as Stringable).toString();
   }
 }

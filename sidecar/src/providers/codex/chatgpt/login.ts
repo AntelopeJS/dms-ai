@@ -41,12 +41,15 @@ export interface LoginResponse {
 
 const attempts = new Map<string, PendingAttempt>();
 
+/**
+ * Drops expired attempts, then the oldest ones beyond
+ * CHATGPT_MAX_PENDING_ATTEMPTS (oldest first: a Map keeps insertion order).
+ */
 function sweepExpired(): void {
   const now = Date.now();
   for (const [state, attempt] of attempts) {
     if (attempt.expiresAt <= now) attempts.delete(state);
   }
-  // Oldest first: a Map keeps insertion order.
   while (attempts.size > CHATGPT_MAX_PENDING_ATTEMPTS) {
     const oldest = attempts.keys().next();
     if (oldest.done === true) return;
@@ -64,8 +67,10 @@ const EXPIRED_LINK = page(
   "Go back to Assistant › Settings in the dashboard and press “Sign in with ChatGPT” again.",
 );
 
-// The host id has to be stable before the first authorization: it is what
-// OpenAI binds the registration to.
+/**
+ * The host id has to be stable before the first authorization: it is what
+ * OpenAI binds the registration to.
+ */
 async function ensureRecord(): Promise<ChatGptAuthRecord> {
   const existing = readAuthRecord();
   if (existing !== undefined) return existing;
@@ -121,6 +126,11 @@ function resolveClientId(
   return attempt.clientId;
 }
 
+/**
+ * Exchanges the code and stores the account's tokens. When the client id is
+ * bound to another account than the one that just signed in, it is forgotten,
+ * which lets the next attempt register this account instead.
+ */
 async function completeLogin(
   attempt: PendingAttempt,
   clientId: string,
@@ -150,8 +160,6 @@ async function completeLogin(
       record.clientId === clientId &&
       record.subject !== claims.sub;
     if (isOtherAccount) {
-      // The client id is bound to the account that registered it. Forgetting
-      // it lets the next attempt register this account instead.
       await writeAuthRecord({ hostId: record.hostId });
       return page(
         HTTP_STATUS.CONFLICT,

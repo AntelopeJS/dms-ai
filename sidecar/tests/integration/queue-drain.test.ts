@@ -57,10 +57,6 @@ describe.each(PROVIDER_FIXTURES)(
         fixture.use("plain");
         harness = await startWsHarness({ provider: fixture.name });
         client = await openChat(harness.port);
-        // The server owns the queue: once the immediate turn completes it
-        // dequeues the follow-up itself and echoes its user bubble. Each mock
-        // replays one recorded turn, so the drained turn produces no model
-        // events of its own — the exactly-once dequeue is what this asserts.
         const collected = collectUntil(client, {
           timeoutMs: RUN_TIMEOUT_MS,
           until: (e) =>
@@ -92,8 +88,6 @@ describe.each(PROVIDER_FIXTURES)(
         fixture.use("plain");
         harness = await startWsHarness({ provider: fixture.name });
         client = await openChat(harness.port);
-        // The server queue is empty; re-attach must still send queue_state so a
-        // client whose queue the server drained while away drops its phantoms.
         const collected = collectUntil(client, {
           timeoutMs: RUN_TIMEOUT_MS,
           until: (e) => e.type === "queue_state",

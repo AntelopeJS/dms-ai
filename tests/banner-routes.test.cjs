@@ -190,7 +190,6 @@ void test("offers to sign in with ChatGPT, to paste the return address, or to si
     url: loginUrl,
     newTab: true,
   });
-  // Away from the sidecar's machine, the return address is pasted instead.
   const paste = signedOut.actions[1];
   assert.equal(paste.target.url, "/ai/codex/callback");
   assert.deepEqual(

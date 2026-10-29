@@ -40,7 +40,9 @@ function includeLaterField() {
 /**
  * The dialog Undo asks in, worded from the sidecar's preview: how many files
  * go back, and the later change sets touching the same files, with the choice
- * to undo them together (the safe default).
+ * to undo them together (the safe default). DMS pluralizes the text on `count`,
+ * here the files restored; the later change sets get a key of their own, one or
+ * several.
  */
 export function undoConfirmDialog(preview: UndoPreview) {
   const conflicts = preview.conflicts.length;
@@ -48,8 +50,6 @@ export function undoConfirmDialog(preview: UndoPreview) {
   const dialog: ConfirmDialog = {
     title: text("title"),
     description: text(descriptionKey(conflicts)),
-    // DMS pluralizes a dialog text on `count`: here the files restored. The
-    // later change sets get a key of their own, one or several.
     params: { count: preview.files.length, conflicts },
     icon: "i-ph-arrow-counter-clockwise",
     color: "warning",

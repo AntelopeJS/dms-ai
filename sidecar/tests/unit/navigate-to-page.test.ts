@@ -51,7 +51,7 @@ function buildRegistry(paths: string[]): RegistryClient {
   };
 }
 
-// Empty registry → validation fails open (navigation always proceeds).
+/** Empty registry → validation fails open (navigation always proceeds). */
 function buildSpyDeps(routes: string[] = []): SpyDeps {
   const calls: AnyServerEventType[] = [];
   return {
@@ -74,8 +74,10 @@ function buildTool(deps: SpyDeps): ToolHandlerLike {
   }) as unknown as ToolHandlerLike;
 }
 
-// Let the handler progress past its async registry-validation step so the
-// navigation waiter is registered before we complete it.
+/**
+ * Let the handler progress past its async registry-validation step so the
+ * navigation waiter is registered before we complete it.
+ */
 function tick(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }

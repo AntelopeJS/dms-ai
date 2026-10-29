@@ -21,8 +21,10 @@ const execFileAsync = promisify(execFile);
 const NUL = "\0";
 const TAB = "\t";
 const EXCLUDE_FILE_SEGMENTS = ["info", "exclude"];
-// Global options on every call: pathspecs are literal file names, never globs,
-// and a path is never quoted or escaped in the output.
+/**
+ * Global options on every call: pathspecs are literal file names, never globs,
+ * and a path is never quoted or escaped in the output.
+ */
 const GIT_GLOBAL_ARGS = [
   "--literal-pathspecs",
   "-c",
@@ -39,7 +41,7 @@ const REPO_CONFIG: ReadonlyArray<readonly [string, string]> = [
 export interface ShadowGitOptions {
   gitDir: string;
   workTree: string;
-  // Paths under the work tree to leave out, besides CHECKPOINT_EXCLUDES.
+  /** Paths under the work tree to leave out, besides CHECKPOINT_EXCLUDES. */
   extraExcludes: string[];
 }
 

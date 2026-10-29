@@ -20,9 +20,9 @@ import type {
 } from "../state/types.js";
 import type { SidecarServices } from "./services.js";
 
-// Audit-only records: they drive the activity log, not the visible transcript.
+/** Audit-only records: they drive the activity log, not the visible transcript. */
 const HIDDEN_ROLES: readonly StoredMessage["role"][] = ["permission"];
-// Fields of a stored message the chat never reads back.
+/** Fields of a stored message the chat never reads back. */
 const AUDIT_ONLY_FIELDS: ReadonlyArray<keyof StoredMessage> = [
   "requestId",
   "kind",

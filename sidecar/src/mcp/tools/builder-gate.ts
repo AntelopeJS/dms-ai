@@ -7,9 +7,9 @@ import type { AnyMcpToolDefinition, McpToolResult } from "../define-tool.js";
 /** Whether one Builder operation may run, decided before it does. */
 export interface BuilderGateDecision {
   isAllowed: boolean;
-  // Why not, in words the agent reads.
+  /** Why not, in words the agent reads. */
   message?: string;
-  // BuilderDeleteResource: the user chose to keep the table's data.
+  /** BuilderDeleteResource: the user chose to keep the table's data. */
   keepData?: boolean;
 }
 

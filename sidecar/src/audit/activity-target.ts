@@ -1,7 +1,7 @@
 import { isAbsolute } from "node:path";
 import { projectRelative } from "../agent/edit-targets.js";
 
-// Argument keys naming what a call acts on, most telling first.
+/** Argument keys naming what a call acts on, most telling first. */
 const TARGET_KEYS: readonly string[] = [
   "file_path",
   "notebook_path",

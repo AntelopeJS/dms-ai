@@ -29,8 +29,10 @@ import {
 import { readPidRecords, readRecordedPids } from "../helpers/codex-pids.js";
 
 const TEST_TIMEOUT_MS = 30_000;
-// One process per conversation, capped: opening past the cap disposes the
-// oldest rather than piling up model connections.
+/**
+ * One process per conversation, capped: opening past the cap disposes the
+ * oldest rather than piling up model connections.
+ */
 const LIVE_SESSION_CAP = 4;
 const SETTLE_MS = 400;
 const STRAY_HOME = "conv-life-stray";
@@ -106,6 +108,7 @@ describe("codex process lifecycle", () => {
     return session;
   }
 
+  /** Runs one turn to its end; draining the events is what opens the session and runs it. */
   async function runTurn(
     runner: AgentRunner,
     conversationId: string,
@@ -115,7 +118,6 @@ describe("codex process lifecycle", () => {
       hostProjectRoot: dir,
       getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
     })) {
-      // Draining is what opens the session and runs its turn.
     }
   }
 
@@ -251,10 +253,6 @@ describe("codex process lifecycle", () => {
     TEST_TIMEOUT_MS,
   );
 
-  // The evicted app-server ignores SIGTERM, so it is still stopping when the
-  // runner is disposed, and nothing holds its session any more. Whether it has
-  // already been killed by then is left unasserted: that only depends on how
-  // fast the last turn ran, and the runner's own tests pin the bookkeeping.
   it(
     "waits, on the runner's dispose, for an evicted app-server that is still stopping",
     async () => {

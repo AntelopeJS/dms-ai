@@ -12,11 +12,6 @@ import {
 const PROCFS_PLATFORMS = ["linux"];
 const SUPPORTED_PLATFORMS = ["linux", "darwin", "win32"];
 
-// A pid recorded by a previous sidecar is only worth a signal if it is still a
-// codex process, and answering that question is what makes orphan reaping work
-// at all. Reading /proc answers it on Linux only, so the other hosts have to be
-// covered too — an unreapable orphan holds a model connection and writes to
-// disk.
 describe("process identification", () => {
   it("covers every platform the codex binary ships for", () => {
     const covered = [
@@ -49,7 +44,7 @@ const EXIT_COMMAND_BY_PLATFORM: Record<string, readonly string[]> = {
 };
 const EXIT_COMMAND = ["node", "-e", ""] as const;
 
-// A pid that certainly belonged to a process and certainly does not any more.
+/** A pid that certainly belonged to a process and certainly does not any more. */
 function spawnAndReap(): number {
   const [command, ...args] =
     EXIT_COMMAND_BY_PLATFORM[process.platform] ?? EXIT_COMMAND;

@@ -42,8 +42,11 @@ function isBoolean(value: unknown): boolean {
   return typeof value === "boolean";
 }
 
-// One validator per stored field: anything else in the file (an unknown key, a
-// value it does not accept) falls back to the default.
+/**
+ * One validator per stored field: anything else in the file (an unknown key, a
+ * value it does not accept) is ignored and the field keeps its current value
+ * (the default when parsing a stored file).
+ */
 const FIELD_VALIDATORS: Record<keyof AppSettings, FieldValidator> = {
   provider: isOneOf(PROVIDER_NAMES),
   mode: isOneOf(CHAT_MODES),

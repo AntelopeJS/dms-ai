@@ -98,8 +98,12 @@ function changeCallId(itemId: string, index: number): string {
   return `${itemId}${CALL_ID_INDEX_SEPARATOR}${index}`;
 }
 
-/** The plan turned into one synthetic TodoWrite call. `seq` only has to be
- * unique within the conversation, so the count of open calls serves. */
+/**
+ * The plan turned into one synthetic TodoWrite call. `seq` only has to be
+ * unique within the conversation, so the count of open calls serves. The
+ * tool_use and its result are emitted back to back: a synthetic tool_use with
+ * no result would suspend the inactivity timer for good.
+ */
 function planUpdatedEvents(params: unknown, seq: number): RunnerEvent[] {
   const plan = (params as { plan?: v2.TurnPlanStep[] }).plan ?? [];
   const todos = plan.map((step) => ({
@@ -108,8 +112,6 @@ function planUpdatedEvents(params: unknown, seq: number): RunnerEvent[] {
     status: TODO_STATUS_BY_PLAN_STATUS[step.status] ?? step.status,
   }));
   const callId = `${TOOL_LEXICON.TODO_WRITE}${CALL_ID_INDEX_SEPARATOR}${seq}`;
-  // Emitted back to back: a synthetic tool_use with no result would suspend
-  // the inactivity timer for good.
   return [
     toolUse(callId, TOOL_LEXICON.TODO_WRITE, { todos }),
     toolResult(callId, null, false),
@@ -178,8 +180,10 @@ export function createCodexAdapter(): CodexAdapter {
     ];
   }
 
-  // One tool_use per changed file: that is what the edit tracker reads to drive
-  // the change animation, and a patch commonly touches several files.
+  /**
+   * Opens one tool_use per changed file: that is what the edit tracker reads to
+   * drive the change animation, and a patch commonly touches several files.
+   */
   function startFileChange(item: FileChangeItem): RunnerEvent[] {
     changesByItemId.set(
       item.id,
@@ -214,13 +218,15 @@ export function createCodexAdapter(): CodexAdapter {
     );
   }
 
+  /**
+   * Closes the per-file calls, then anything opened at start but missing from
+   * the completion payload, or its call id would stay outstanding forever.
+   */
   function completeFileChange(item: FileChangeItem): RunnerEvent[] {
     const failed = isFailure(item.status);
     const paired = item.changes.flatMap((change, index) =>
       close(changeCallId(item.id, index), { diff: change.diff }, failed),
     );
-    // Anything opened at start but missing from the completion payload still
-    // has to be closed, or its call id stays outstanding forever.
     return [...paired, ...closeMatching(item.id, null, failed)];
   }
 
@@ -247,6 +253,11 @@ export function createCodexAdapter(): CodexAdapter {
     agentMessage: completeAgentMessage as (item: never) => RunnerEvent[],
   };
 
+  /**
+   * Runs the handler registered for the item type. userMessage, reasoning and
+   * the rest also emit started/completed pairs; they are not tools and must
+   * never reach the outstanding-tool counter, so unknown types yield nothing.
+   */
   function applyItemHandler(
     handlers: Record<string, (item: never) => RunnerEvent[]>,
     params: unknown,
@@ -254,24 +265,24 @@ export function createCodexAdapter(): CodexAdapter {
     const item = (params as ItemEnvelope).item;
     if (item?.type === undefined) return [];
     const handler = handlers[item.type];
-    // userMessage, reasoning and the rest also emit started/completed pairs.
-    // They are not tools and must never reach the outstanding-tool counter.
     if (handler === undefined) return [];
     return handler(item as never);
   }
 
+  /**
+   * Closes every call still open as interrupted, since an interruption leaves
+   * items in flight with no item/completed of their own. `done` still follows
+   * a failure's error: the neutral session ends a turn on `done` alone, so an
+   * error on its own would hang the turn forever.
+   */
   function handleTurnCompleted(params: unknown): RunnerEvent[] {
     const turn = (params as { turn?: v2.Turn }).turn;
     const status = turn?.status ?? "completed";
-    // Interruption leaves items in flight with no item/completed of their own,
-    // so the adapter closes them itself.
     const orphans = [...openCallIds]
       .flatMap((callId) => close(callId, INTERRUPTED_RESULT, true))
       .map((event) => ({ ...event, isStopped: true }));
     if (status === "failed") {
       const message = turn?.error?.message ?? CODEX_TURN_FAILED_MESSAGE;
-      // `done` still follows the error: the neutral session ends a turn on
-      // `done` alone, so an error on its own would hang the turn forever.
       return [...orphans, { type: "error", message }, { type: "done" }];
     }
     return [...orphans, { type: "done" }];

@@ -16,12 +16,23 @@ export interface SkillCatalogItem {
 
 export interface SkillCatalog {
   items: SkillCatalogItem[];
-  // Names contributed by more than one module. Claude namespaces skills per
-  // plugin, so a collision is harmless there; Codex keys them by bare name and
-  // keeps only one, so the loser silently disappears from the agent's index.
+  /**
+   * Names contributed by more than one module. Claude namespaces skills per
+   * plugin, so a collision is harmless there; Codex keys them by bare name and
+   * keeps only one, so the loser silently disappears from the agent's index.
+   */
   duplicateNames: string[];
 }
 
+/**
+ * Reads every `<name>/SKILL.md` under a source directory. Symlinked skill
+ * directories are accepted too: `~/.claude/skills` entries are commonly
+ * symlinks (e.g. into a shared `~/.agents/skills`), and `withFileTypes`
+ * reports those as symlinks, not directories. A bad target just fails the
+ * SKILL.md read and is skipped. The id is `module:name`, the same string the
+ * loader's `skills` allowlist needs (`plugin:skill`, plugin name = module), so
+ * the two must stay in lockstep.
+ */
 async function scanDir(src: SkillSource): Promise<SkillCatalogItem[]> {
   let entries: import("node:fs").Dirent[];
   try {
@@ -31,10 +42,6 @@ async function scanDir(src: SkillSource): Promise<SkillCatalogItem[]> {
   }
   const items: SkillCatalogItem[] = [];
   for (const e of entries) {
-    // Accept symlinked skill dirs too: `~/.claude/skills` entries are commonly
-    // symlinks (e.g. into a shared `~/.agents/skills`), and `withFileTypes`
-    // reports those as symlinks, NOT directories. A bad target just fails the
-    // SKILL.md read below and is skipped.
     if (!e.isDirectory() && !e.isSymbolicLink()) continue;
     const file = path.join(src.dir, e.name, "SKILL.md");
     let raw: string;
@@ -45,8 +52,6 @@ async function scanDir(src: SkillSource): Promise<SkillCatalogItem[]> {
     }
     const parsed = parseSkillFile(raw);
     if (parsed === null) continue;
-    // The id is `module:name` — the SAME string the loader's `skills` allowlist
-    // needs (`plugin:skill`, plugin name = module). Keep these in lockstep.
     items.push({
       id: `${src.module}:${parsed.name}`,
       provenance: src.module,

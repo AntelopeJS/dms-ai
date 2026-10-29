@@ -11,8 +11,10 @@ const TOOL_USE: RunnerEvent = {
   args: { command: "sleep infinity" },
 };
 
-// Emits one tool_use, then goes silent for good — the shape of a tool whose
-// result never comes back.
+/**
+ * Emits one tool_use, then goes silent for good — the shape of a tool whose
+ * result never comes back.
+ */
 function buildStalledEvents(): AsyncIterator<RunnerEvent, void> {
   let emitted = false;
   return {
@@ -37,8 +39,10 @@ function buildSession(abortController: AbortController) {
   });
 }
 
-// Consumes without ever leaving the loop: returning early would end the
-// generator and disarm the timer under test.
+/**
+ * Consumes without ever leaving the loop: returning early would end the
+ * generator and disarm the timer under test.
+ */
 async function drain(
   session: ReturnType<typeof buildSession>,
   seen: RunnerEvent[],

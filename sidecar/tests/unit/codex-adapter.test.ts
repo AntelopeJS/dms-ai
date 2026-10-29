@@ -90,7 +90,6 @@ describe("turn completion", () => {
     const events = replay("q2-interrupt-mid-tool.jsonl");
     expect(events.at(-1)).toEqual({ type: "done" });
     expect(events.some((e) => e.type === "error")).toBe(false);
-    // The interrupted command never received an item/completed of its own.
     expect(unpairedCallIds(events)).toEqual([]);
     expect(events.some((e) => e.type === "tool_use")).toBe(true);
   });
@@ -156,8 +155,6 @@ describe("synthesized events", () => {
         },
       },
     });
-    // `done` has to follow: the session ends a turn on `done` alone, so an
-    // error on its own would leave the turn running forever.
     expect(events).toEqual([
       { type: "error", message: "stream disconnected" },
       { type: "done" },

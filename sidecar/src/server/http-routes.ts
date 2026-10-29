@@ -67,7 +67,7 @@ interface RouteMatch {
 export interface ApiRoute {
   method: string;
   pattern: RegExp;
-  // Served even without the conversation and settings stores.
+  /** Served even without the conversation and settings stores. */
   isStandalone?: boolean;
   handle: (
     req: IncomingMessage,

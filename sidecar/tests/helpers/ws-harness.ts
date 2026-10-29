@@ -50,8 +50,10 @@ export const HOST_ROOT = "/tmp";
 
 export interface HarnessOptions {
   provider: ProviderName;
-  // A fresh project directory under the harness's temp dir, with change sets
-  // recorded in a shadow repository; the shared HOST_ROOT otherwise.
+  /**
+   * A fresh project directory under the harness's temp dir, with change sets
+   * recorded in a shadow repository; the shared HOST_ROOT otherwise.
+   */
   withProject?: boolean;
   settings?: Partial<AppSettings>;
   permissionBus?: PermissionBus;
@@ -97,8 +99,10 @@ function buildMcpDeps(
   };
 }
 
-// In-memory settings: the harness never writes them back to disk, and every
-// test that cares about a value passes it in.
+/**
+ * In-memory settings: the harness never writes them back to disk, and every
+ * test that cares about a value passes it in.
+ */
 function buildSettingsStore(settings: AppSettings): SettingsStore {
   let current = settings;
   return {
@@ -111,8 +115,10 @@ function buildSettingsStore(settings: AppSettings): SettingsStore {
   };
 }
 
-// The API key is not passed in any more: a provider reads its own environment,
-// exactly as it does in production. CODEX_FIXTURE.use() puts one there.
+/**
+ * The API key is not passed in any more: a provider reads its own environment,
+ * exactly as it does in production. CODEX_FIXTURE.use() puts one there.
+ */
 export function buildProviderRuntime(
   stateDir: string,
   registry: McpHttpRegistry,
@@ -126,13 +132,10 @@ export function buildProviderRuntime(
 }
 
 /**
- * The full connection stack — HTTP server, WS endpoints, runner — wired to one
- * provider. Both providers go through the same code path from here on, so a
- * test written once runs against either.
+ * A provider whose mock is not set up would fail every turn with an
+ * availability error, which reads as a broken test rather than a missing
+ * fixture. Say so here instead.
  */
-// A provider whose mock is not set up would fail every turn with an
-// availability error, which reads as a broken test rather than a missing
-// fixture. Say so here instead.
 function assertProviderReachable(provider: ProviderName): void {
   if (isProviderAvailable(provider)) return;
   throw new Error(
@@ -159,6 +162,11 @@ async function startProjectCheckpoints(root: string): Promise<Checkpoints> {
   return checkpoints;
 }
 
+/**
+ * The full connection stack — HTTP server, WS endpoints, runner — wired to one
+ * provider. Both providers go through the same code path from here on, so a
+ * test written once runs against either.
+ */
 export async function startWsHarness(
   options: HarnessOptions,
 ): Promise<WsHarness> {
@@ -385,16 +393,20 @@ export function createCollector(
   return { events, next };
 }
 
-// `object`, not a message type: several cases send a frame the protocol should
-// reject, and not `unknown`, which would let `sendWire(socket, undefined)`
-// compile.
-// oxlint-disable-next-line anti-slop/no-object-parameters
+/**
+ * `object`, not a message type: several cases send a frame the protocol should
+ * reject, and not `unknown`, which would let `sendWire(socket, undefined)`
+ * compile.
+ */
+// oxlint-disable-next-line anti-slop/no-object-parameters -- a message type would forbid the frames the protocol should reject, and unknown would let sendWire(socket, undefined) compile
 export function sendWire(socket: WebSocket, msg: object): void {
   socket.send(JSON.stringify(msg));
 }
 
-// Deliberately without `provider`: that is how the chat changes a behaviour
-// setting, and sending the default would switch the backend as a side effect.
+/**
+ * Deliberately without `provider`: that is how the chat changes a behaviour
+ * setting, and sending the default would switch the backend as a side effect.
+ */
 export function sendSettings(
   socket: WebSocket,
   settings: Partial<Omit<AppSettings, "provider">>,
@@ -421,13 +433,15 @@ export function sendUserMessageWithAttachment(
   });
 }
 
-/** Calls one of the sidecar's HTTP routes the way the DMS backend does. */
+/**
+ * Calls one of the sidecar's HTTP routes the way the DMS backend does. The
+ * caller's headers win, whichever shape `HeadersInit` they come in.
+ */
 export async function callApi(
   port: number,
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  // The caller's headers win, whichever shape `HeadersInit` they come in.
   const headers = new Headers({
     Authorization: `Bearer ${CLIENT_TOKEN}`,
     "content-type": "application/json",

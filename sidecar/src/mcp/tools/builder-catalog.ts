@@ -13,7 +13,7 @@ export type CatalogSelection = Partial<
 >;
 
 interface SectionShape {
-  // The key naming an entry (a block's `type`, a DataType's `id`).
+  /** The key naming an entry (a block's `type`, a DataType's `id`). */
   nameKey: string;
   summarize: (entry: CatalogEntry) => CatalogSummary;
 }

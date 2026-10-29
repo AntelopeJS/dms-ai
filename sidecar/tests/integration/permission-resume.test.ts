@@ -39,7 +39,6 @@ describe.each(PROVIDER_FIXTURES)(
         fixture.use("permission");
         harness = await startWsHarness({ provider: fixture.name });
 
-        // A real turn, paused on an approval the user never answered.
         first = await openChat(harness.port);
         const firstEvents = createCollector(first, WAIT_TIMEOUT_MS);
         sendHello(first, CONVERSATION_ID);
@@ -48,8 +47,6 @@ describe.each(PROVIDER_FIXTURES)(
         first.close();
         first = undefined;
 
-        // The tab comes back: the server owns the pending request, so it is
-        // re-sent on hello alongside the transcript.
         second = await openChat(harness.port);
         const secondEvents = createCollector(second, WAIT_TIMEOUT_MS);
         sendHello(second, CONVERSATION_ID);

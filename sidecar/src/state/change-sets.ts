@@ -57,7 +57,7 @@ async function readContents(filePath: string): Promise<ChangeSetFileContents> {
   }
 }
 
-// Writes are chained so two quick changes land in order.
+/** Queues the write behind the previous one so two quick changes land in order. */
 function persist(state: StoreState): void {
   const json = JSON.stringify(state.contents, null, STATE_JSON_INDENT);
   state.inflight = state.inflight

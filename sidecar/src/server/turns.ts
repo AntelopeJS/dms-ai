@@ -22,9 +22,9 @@ const AUTO_FIX_TITLE_PREFIX = "Auto-fix: ";
 /** One turn to run: what the agent is sent and what the user asked. */
 export interface TurnRequest {
   conversationId: string;
-  // The text the agent is sent.
+  /** The text the agent is sent. */
   content: string;
-  // The user's request, for the change set title.
+  /** The user's request, for the change set title. */
   request: string;
   attachments?: AttachmentType[];
   isAutoFix: boolean;
@@ -200,11 +200,14 @@ function buildRunnerContext(
   };
 }
 
+/**
+ * Opens a turn's live state. It records the selected provider on the
+ * conversation up front, so what the conversation shows as having answered is
+ * what was chosen.
+ */
 function beginTurn(services: SidecarServices, request: TurnRequest): void {
   const { conversationId } = request;
   services.liveTurns.begin(conversationId);
-  // The selected provider is the one that runs, or the turn fails: there is no
-  // longer a gap between what was chosen and what answered.
   services.conversationStore.markProvider(
     conversationId,
     services.settingsStore.get().provider,
@@ -259,8 +262,10 @@ export function sendChangeSet(
   });
 }
 
-// Builder operations typecheck before they write anything, so a turn that
-// changed the project through them alone passed a typecheck.
+/**
+ * Builder operations typecheck before they write anything, so a turn that
+ * changed the project through them alone passed a typecheck.
+ */
 export function turnTypecheck(turn: ActiveTurn): ChangeSetRecord["typecheck"] {
   const isBuilderOnly =
     turn.builderOps > 0 && turn.builderOps >= turn.mutatingCallIds.length;
@@ -435,9 +440,13 @@ async function runSafetyNet(
   });
 }
 
-// One turn end-to-end: fresh edit tracking, the model turn, then the auto-heal
-// safety net. A setup failure (before any stream event) emits a terminal
-// run_error so the client never strands in its optimistic running state.
+/**
+ * One turn end-to-end: fresh edit tracking, the model turn, then the auto-heal
+ * safety net. A setup failure (before any stream event) emits a terminal
+ * run_error so the client never strands in its optimistic running state. The
+ * auto-heal pass is best-effort; a failure in it must never propagate, or it
+ * would abort the queue drain and strand the remaining follow-ups.
+ */
 export async function runTurnWithHealing(
   services: SidecarServices,
   request: TurnRequest,
@@ -448,8 +457,6 @@ export async function runTurnWithHealing(
   const sinceMs = Date.now();
   const changeSet = await streamTurnOrFail(services, request);
   if (changeSet === undefined) return;
-  // The auto-heal pass is best-effort; a failure in it must never propagate, or
-  // it would abort the queue drain and strand the remaining follow-ups.
   try {
     await runSafetyNet(services, conversationId, {
       request: request.request,
