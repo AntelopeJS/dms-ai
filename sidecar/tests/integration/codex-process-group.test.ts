@@ -1,27 +1,19 @@
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   type CodexProcess,
   reapOrphanCodexProcesses,
   spawnCodexProcess,
 } from "../../src/providers/codex/process.js";
 import { resolveCodexInstallation } from "../../src/providers/codex/resolve-binary.js";
-import { isRunning } from "../helpers/processes.js";
+import { isRunning, TEST_STOP_GRACES } from "../helpers/processes.js";
 import {
   CODEX_FIXTURE,
   codexScript,
   codexStartGrandchildInto,
 } from "../helpers/provider-fixtures.js";
-
-// The real graces only matter against a wedged app-server in the field; the
-// cases that outwait them here would otherwise sit through seconds each.
-vi.mock("../../src/constants/codex.js", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  CODEX_TERMINATE_GRACE_MS: 300,
-  CODEX_KILL_GRACE_MS: 300,
-}));
 
 const TMP_PREFIX = "dms-ai-pgroup-";
 const CONVERSATION = "conv-codex-pgroup";
@@ -76,6 +68,11 @@ describe.skipIf(process.platform === "win32")(
       stateDir = undefined;
     });
 
+    function requireStateDir(): string {
+      if (stateDir === undefined) throw new Error("no turn was started");
+      return stateDir;
+    }
+
     async function spawnMock(dir: string): Promise<CodexProcess> {
       const mock = resolveCodexInstallation();
       if (mock === undefined)
@@ -92,6 +89,7 @@ describe.skipIf(process.platform === "win32")(
           onNotification: () => {},
           onServerRequest: async () => ({}),
         },
+        stopGraces: TEST_STOP_GRACES,
       });
     }
 
@@ -127,7 +125,7 @@ describe.skipIf(process.platform === "win32")(
         const orphan = await startTurnLeavingGrandchild();
         expect(isRunning(grandchild)).toBe(true);
 
-        await reapOrphanCodexProcesses(stateDir as string);
+        await reapOrphanCodexProcesses(requireStateDir(), TEST_STOP_GRACES);
         expect(await isGoneWithin(orphan.pid as number)).toBe(true);
         expect(await isGoneWithin(grandchild as number)).toBe(true);
       },

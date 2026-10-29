@@ -37,6 +37,7 @@ import type { CodexInstallation } from "./resolve-binary.js";
 import {
   isWindowsHost,
   runStopSteps,
+  type StopGraces,
   type StoppedWithin,
   sweepProcessTree,
 } from "./stop.js";
@@ -51,6 +52,8 @@ export interface CodexProcessOptions {
   /** The sidecar route the app-server's auth command reads its token from. */
   accessTokenUrl: string;
   handlers: CodexClientHandlers;
+  /** How long each stop step waits for the app-server to exit. */
+  stopGraces?: StopGraces;
 }
 
 export interface CodexProcess {
@@ -196,9 +199,13 @@ function exitsWithin(child: ChildProcess, waitMs: number): Promise<boolean> {
   });
 }
 
-async function stopChild(child: ChildProcess, pid: number): Promise<boolean> {
+async function stopChild(
+  child: ChildProcess,
+  pid: number,
+  graces: StopGraces | undefined,
+): Promise<boolean> {
   if (hasExited(child)) return true;
-  return runStopSteps(pid, (waitMs) => exitsWithin(child, waitMs));
+  return runStopSteps(pid, (waitMs) => exitsWithin(child, waitMs), graces);
 }
 
 interface ReapOutcome {
@@ -206,10 +213,14 @@ interface ReapOutcome {
   isStopped: boolean;
 }
 
-async function stopOrphan(record: PidRecord): Promise<ReapOutcome> {
+async function stopOrphan(
+  record: PidRecord,
+  graces: StopGraces | undefined,
+): Promise<ReapOutcome> {
   const isStopped = await runStopSteps(
     record.pid,
     orphanGoneWithin(record.pid),
+    graces,
   );
   return { record, isStopped };
 }
@@ -252,10 +263,13 @@ async function forgetReaped(
  */
 export async function reapOrphanCodexProcesses(
   stateDir: string,
+  graces?: StopGraces,
 ): Promise<number[]> {
   const recorded = await readPidRegistry(stateDir);
   const orphans = recorded.filter((record) => isCodexProcess(record.pid));
-  const outcomes = await Promise.all(orphans.map(stopOrphan));
+  const outcomes = await Promise.all(
+    orphans.map((record) => stopOrphan(record, graces)),
+  );
   const survivors = outcomes
     .filter((outcome) => !outcome.isStopped)
     .map((outcome) => outcome.record);
@@ -426,10 +440,11 @@ function describeError(error: unknown): string {
 async function retireChild(
   stateDir: string,
   child: ChildProcess,
+  graces: StopGraces | undefined,
 ): Promise<boolean> {
   const { pid } = child;
   if (pid === undefined) return true;
-  if (!(await stopChild(child, pid))) {
+  if (!(await stopChild(child, pid, graces))) {
     console.warn(`${CODEX_LOG_PREFIX} ${CODEX_SURVIVED_STOP_MESSAGE} ${pid}`);
     return false;
   }
@@ -460,6 +475,7 @@ interface ProcessTeardown {
   client: CodexClient;
   watchdog: Watchdog;
   child: ChildProcess;
+  graces: StopGraces | undefined;
 }
 
 async function disposeProcess(teardown: ProcessTeardown): Promise<void> {
@@ -467,7 +483,7 @@ async function disposeProcess(teardown: ProcessTeardown): Promise<void> {
   teardown.client.abort(
     new Error(`${CODEX_LOG_PREFIX} ${CODEX_CLIENT_ABORTED_MESSAGE}`),
   );
-  if (await retireChild(teardown.stateDir, teardown.child)) {
+  if (await retireChild(teardown.stateDir, teardown.child, teardown.graces)) {
     await removeHome(teardown.codexHome);
   }
 }
@@ -530,6 +546,7 @@ export async function spawnCodexProcess(
     client,
     watchdog,
     child,
+    graces: options.stopGraces,
   });
   await registerPid(options.stateDir, spawned);
   return spawned;

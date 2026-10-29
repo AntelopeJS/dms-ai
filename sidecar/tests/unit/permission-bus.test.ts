@@ -87,7 +87,11 @@ describe("permission bus", () => {
       request({ command: "pnpm test && rm -rf src" }),
     );
     void t.bus.requestPermission(request({ command: "pnpm test > out.txt" }));
-    await t.waitForPrompts(3);
+    const prompts = await t.waitForPrompts(3);
+    expect(prompts.slice(1).map((asked) => asked.args)).toEqual([
+      { command: "pnpm test && rm -rf src" },
+      { command: "pnpm test > out.txt" },
+    ]);
   });
 
   it("ignores a rule the request did not offer", async () => {

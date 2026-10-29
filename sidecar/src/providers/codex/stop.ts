@@ -56,33 +56,47 @@ interface StopPlan {
 /** Whether the app-server is gone within that wait, once signalled. */
 export type StoppedWithin = (waitMs: number) => Promise<boolean>;
 
-const POSIX_STOP_STEPS: readonly StopStep[] = [
-  {
-    send: (pid) => signalTree(pid, "SIGTERM"),
-    waitMs: CODEX_TERMINATE_GRACE_MS,
-  },
-  { send: (pid) => signalTree(pid, "SIGKILL"), waitMs: CODEX_KILL_GRACE_MS },
-];
-const WINDOWS_STOP_STEPS: readonly StopStep[] = [
-  { send: terminateWindows, waitMs: CODEX_KILL_GRACE_MS },
-];
+/** How long each stop step waits for the app-server to be gone. */
+export interface StopGraces {
+  terminateMs: number;
+  killMs: number;
+}
 
-const POSIX_STOP_PLAN: StopPlan = {
-  steps: POSIX_STOP_STEPS,
-  sweep: sweepGroup,
+export const DEFAULT_STOP_GRACES: StopGraces = {
+  terminateMs: CODEX_TERMINATE_GRACE_MS,
+  killMs: CODEX_KILL_GRACE_MS,
 };
-const WINDOWS_STOP_PLAN: StopPlan = {
-  steps: WINDOWS_STOP_STEPS,
-  sweep: () => {},
-};
+
+function posixStopPlan(graces: StopGraces): StopPlan {
+  return {
+    steps: [
+      {
+        send: (pid) => signalTree(pid, "SIGTERM"),
+        waitMs: graces.terminateMs,
+      },
+      {
+        send: (pid) => signalTree(pid, "SIGKILL"),
+        waitMs: graces.killMs,
+      },
+    ],
+    sweep: sweepGroup,
+  };
+}
+
+function windowsStopPlan(graces: StopGraces): StopPlan {
+  return {
+    steps: [{ send: terminateWindows, waitMs: graces.killMs }],
+    sweep: () => {},
+  };
+}
 
 /** Windows kills a process tree through taskkill, every other host by signal. */
 export function isWindowsHost(): boolean {
   return process.platform === WINDOWS_PLATFORM;
 }
 
-function platformStopPlan(): StopPlan {
-  return isWindowsHost() ? WINDOWS_STOP_PLAN : POSIX_STOP_PLAN;
+function platformStopPlan(graces: StopGraces): StopPlan {
+  return isWindowsHost() ? windowsStopPlan(graces) : posixStopPlan(graces);
 }
 
 /**
@@ -90,7 +104,7 @@ function platformStopPlan(): StopPlan {
  * on Windows, where the tree went down with it.
  */
 export function sweepProcessTree(pid: number): void {
-  platformStopPlan().sweep(pid);
+  platformStopPlan(DEFAULT_STOP_GRACES).sweep(pid);
 }
 
 /**
@@ -100,8 +114,9 @@ export function sweepProcessTree(pid: number): void {
 export async function runStopSteps(
   pid: number,
   stoppedWithin: StoppedWithin,
+  graces: StopGraces = DEFAULT_STOP_GRACES,
 ): Promise<boolean> {
-  const plan = platformStopPlan();
+  const plan = platformStopPlan(graces);
   for (const step of plan.steps) {
     await step.send(pid);
     if (!(await stoppedWithin(step.waitMs))) continue;

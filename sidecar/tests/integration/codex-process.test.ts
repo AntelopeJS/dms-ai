@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   CODEX_CLIENT_NAME,
   CODEX_CONFIG_FILE_NAME,
@@ -20,21 +20,13 @@ import {
   resolveCodexInstallation,
 } from "../../src/providers/codex/resolve-binary.js";
 import { selectSkillsToDisable } from "../../src/providers/codex/skills.js";
-import { isRunning } from "../helpers/processes.js";
+import { isRunning, TEST_STOP_GRACES } from "../helpers/processes.js";
 import {
   CODEX_FIXTURE,
   type CodexSigtermBehaviour,
   codexOnSigterm,
 } from "../helpers/provider-fixtures.js";
 import { readRecordedPids } from "../helpers/codex-pids.js";
-
-// The real graces only matter against a wedged app-server in the field; the
-// cases that outwait them here would otherwise sit through seconds each.
-vi.mock("../../src/constants/codex.js", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  CODEX_TERMINATE_GRACE_MS: 300,
-  CODEX_KILL_GRACE_MS: 300,
-}));
 
 const installation = resolveCodexInstallation();
 const TMP_PREFIX = "dms-ai-codex-";
@@ -272,6 +264,7 @@ describe("codex app-server teardown", () => {
         onNotification: () => {},
         onServerRequest: async () => ({}),
       },
+      stopGraces: TEST_STOP_GRACES,
     });
     // Answered only once the mock runs, so its SIGTERM handler is in place.
     await spawned.client.request(

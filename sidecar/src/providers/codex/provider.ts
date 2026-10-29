@@ -59,6 +59,7 @@ import {
 import { createRunnerEventStream } from "./event-stream.js";
 import { createCodexPermissionHandler } from "./permissions.js";
 import { type CodexProcess, spawnCodexProcess } from "./process.js";
+import type { StopGraces } from "./stop.js";
 import type { v2 } from "./protocol/index.js";
 import {
   describeVersionMismatch,
@@ -77,6 +78,8 @@ interface CodexRuntimeDeps {
   stateDir: string;
   mcpHttpRegistry: McpHttpRegistry;
   getMcpUrl: () => string;
+  /** How long each stop step waits for an app-server to exit. */
+  stopGraces?: StopGraces;
 }
 
 export interface CodexProviderOptions
@@ -364,6 +367,7 @@ async function openCodexProcess(
         options.getMcpUrl(),
       ).toString(),
       handlers,
+      stopGraces: options.stopGraces,
     });
     const outcome = await handshake(codexProcess, options, ctx);
     return { codexProcess, ...outcome };

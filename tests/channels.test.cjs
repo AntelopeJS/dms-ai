@@ -1,5 +1,4 @@
 const assert = require("node:assert/strict");
-const { readdirSync, readFileSync } = require("node:fs");
 const Module = require("node:module");
 const { afterEach, test } = require("node:test");
 const { HTTPResult } = require("@antelopejs/interface-api");
@@ -23,6 +22,8 @@ const { openBridge } = require(dist("channels/bridge.js"));
 const { openChannel } = require(dist("channels/channel-service.js"));
 const { closeAllBridges } = require(dist("channels/registry.js"));
 const { createSseStream } = require(dist("channels/sse-stream.js"));
+
+const SETTLE_MS = 50;
 
 afterEach(closeEverything);
 
@@ -145,6 +146,8 @@ void test("leaves nothing open when the browser left during the sidecar handshak
   };
   await openChannel(context.ctx, actorOf(OWNER), slowConnect);
   await waitFor(() => sidecar.closed === 1, "sidecar socket closes");
+  await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+  assert.equal(sidecar.closed, 1, "the socket closes once and stays closed");
 });
 
 void test("answers 503 without streaming when the sidecar cannot be reached", async () => {
@@ -274,13 +277,13 @@ void test("serves the channel routes to owners only", () => {
 });
 
 void test("serves no chat document: the chat is a dashboard component", () => {
-  const routeModules = readdirSync(dist("routes")).filter((file) =>
-    file.endsWith(".js"),
+  const { routes } = loadRoutes(["routes/index.js"]);
+  assert.deepEqual(
+    routes
+      .filter((route) => /chat/i.test(route.location))
+      .map((route) => `${route.method} ${route.location}`),
+    [],
   );
-  for (const file of routeModules) {
-    const source = readFileSync(dist(`routes/${file}`), "utf8");
-    assert.doesNotMatch(source, /chatbox/i, file);
-  }
 });
 
 void test("keeps the sidecar port and client credential out of /ai/sidecar-info", async () => {

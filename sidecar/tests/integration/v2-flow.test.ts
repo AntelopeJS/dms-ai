@@ -345,34 +345,50 @@ describe("v2 assistant flow over the socket", () => {
       }
       const queueOf = (e: WireMessage) =>
         (e.items as WireMessage[]).map((i) => i.content).join("");
-      await collector.next(
+      const enqueued = await collector.next(
         (e) => e.type === "queue_state" && queueOf(e) === "abc",
       );
+      expect(enqueued.items).toMatchObject([
+        { id: "a", content: "a" },
+        { id: "b", content: "b" },
+        { id: "c", content: "c" },
+      ]);
       sendWire(client, {
         type: "queue_update",
         conversationId: CONVERSATION_ID,
         id: "b",
         content: "B",
       });
-      await collector.next(
+      const edited = await collector.next(
         (e) => e.type === "queue_state" && queueOf(e) === "aBc",
       );
+      expect(edited.items).toMatchObject([
+        { id: "a", content: "a" },
+        { id: "b", content: "B" },
+        { id: "c", content: "c" },
+      ]);
       sendWire(client, {
         type: "queue_move",
         conversationId: CONVERSATION_ID,
         id: "c",
         toIndex: 0,
       });
-      await collector.next(
+      const moved = await collector.next(
         (e) => e.type === "queue_state" && queueOf(e) === "caB",
       );
+      expect(moved.items).toMatchObject([
+        { id: "c", content: "c" },
+        { id: "a", content: "a" },
+        { id: "b", content: "B" },
+      ]);
       sendWire(client, {
         type: "queue_clear",
         conversationId: CONVERSATION_ID,
       });
-      await collector.next(
+      const cleared = await collector.next(
         (e) => e.type === "queue_state" && queueOf(e) === "",
       );
+      expect(cleared.items).toEqual([]);
       answerPermission(client, prompt, PERMISSION_DECISIONS.DENY);
       await waitTurns(session, 1);
     },

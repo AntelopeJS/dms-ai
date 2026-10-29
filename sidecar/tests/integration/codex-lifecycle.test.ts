@@ -20,21 +20,13 @@ import {
   type CodexProviderOptions,
   createCodexProvider,
 } from "../../src/providers/codex/provider.js";
-import { isRunning } from "../helpers/processes.js";
+import { isRunning, TEST_STOP_GRACES } from "../helpers/processes.js";
 import {
   CODEX_FIXTURE,
   codexFailOn,
   codexOnSigterm,
 } from "../helpers/provider-fixtures.js";
 import { readPidRecords, readRecordedPids } from "../helpers/codex-pids.js";
-
-// The real graces only matter against a wedged app-server in the field; the
-// cases that outwait them here would otherwise sit through seconds each.
-vi.mock("../../src/constants/codex.js", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  CODEX_TERMINATE_GRACE_MS: 300,
-  CODEX_KILL_GRACE_MS: 300,
-}));
 
 const TEST_TIMEOUT_MS = 30_000;
 // One process per conversation, capped: opening past the cap disposes the
@@ -94,6 +86,7 @@ describe("codex process lifecycle", () => {
       createMcpDeps: (conversationId) =>
         ({ conversationId }) as unknown as AiMcpServerDeps,
       getMcpUrl: () => "http://127.0.0.1:1/mcp",
+      stopGraces: TEST_STOP_GRACES,
     };
     return createCodexProvider(options);
   }
@@ -188,7 +181,7 @@ describe("codex process lifecycle", () => {
       expect(isAlive(pid)).toBe(true);
       expect(existsSync(home)).toBe(true);
 
-      const reaped = await reapOrphanCodexProcesses(stateDir);
+      const reaped = await reapOrphanCodexProcesses(stateDir, TEST_STOP_GRACES);
       await settle();
       expect(reaped).toContain(pid);
       expect(isAlive(pid)).toBe(false);
@@ -207,7 +200,7 @@ describe("codex process lifecycle", () => {
       const stray = await leaveStrayHome();
       vi.spyOn(process, "kill").mockImplementation(() => true);
       try {
-        await reapOrphanCodexProcesses(stateDir);
+        await reapOrphanCodexProcesses(stateDir, TEST_STOP_GRACES);
         expect(isAlive(pid)).toBe(true);
         expect(existsSync(home)).toBe(true);
         expect(existsSync(stray)).toBe(false);
