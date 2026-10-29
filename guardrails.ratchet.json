@@ -7,8 +7,5 @@
     "anti-slop/no-unsafe-dictionary-type": 6,
     "anti-slop/require-safety-comment-for-type-assertion": 27
   },
-  "oversizeFiles": {
-    "frontend-vue/app/chat/components/ChatView.vue": 21713,
-    "frontend-vue/tests/panel-states.test.ts": 24951
-  }
+  "oversizeFiles": {}
 }
