@@ -1,9 +1,10 @@
 import { resolve } from "node:path";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vitest/config";
+import { backendBoundary } from "./build/backend-boundary.ts";
 
 export default defineConfig({
-	plugins: [vue()],
+	plugins: [backendBoundary(), vue()],
 	resolve: {
 		alias: {
 			// The renderer's runtime exists in the generated application only.

@@ -6,7 +6,7 @@
 	"license": "Apache-2.0",
 	"packageManager": "pnpm@10.6.5",
 	"engines": {
-		"@antelopejs/dms-frontend": ">=0.9.0 <0.10.0"
+		"@antelopejs/dms-frontend": ">=0.9.1 <0.10.0"
 	},
 	"scripts": {
 		"build": "pnpm --dir \"${DMS_FRONTEND_WORKSPACE:?Set DMS_FRONTEND_WORKSPACE to the generated Inertia workspace}\" build",
@@ -37,6 +37,7 @@
 		"prettier-plugin-tailwindcss": "^0.6.11",
 		"typescript": "^5.8.2",
 		"typescript-eslint": "^8.0.0",
+		"vite": "^7.3.2",
 		"vitest": "^4.1.5",
 		"vue-tsc": "^3.1.1"
 	}
