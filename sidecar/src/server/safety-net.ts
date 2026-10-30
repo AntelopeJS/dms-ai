@@ -18,6 +18,7 @@ import {
 } from "../constants/safety-net.js";
 import type { LogsClient } from "../logs/logs-client.js";
 import type { BufferedLog } from "../logs/types.js";
+import type { JsonValue } from "../protocol/json.js";
 import type { TypecheckOutcome } from "../constants/audit.js";
 
 /**
@@ -48,7 +49,9 @@ const ErrorTextSchema = z.object({
   message: z.string().optional().catch(undefined),
 });
 
-function isObject(value: unknown): value is object {
+function isContainer(
+  value: JsonValue,
+): value is JsonValue[] | { [key: string]: JsonValue | undefined } {
   return value !== null && typeof value === "object";
 }
 
@@ -58,10 +61,10 @@ function isObject(value: unknown): value is object {
  * error object usually customises and which is the whole content of the
  * summary this feeds, and only degrades to "[object Object]" for a plain one.
  */
-function argToText(arg: unknown): string {
+function argToText(arg: JsonValue): string {
   const asString = z.string().safeParse(arg);
   if (asString.success) return asString.data;
-  if (isObject(arg)) {
+  if (isContainer(arg)) {
     const errorText = ErrorTextSchema.safeParse(arg);
     const named = errorText.success
       ? (errorText.data.stack ?? errorText.data.message)

@@ -29,3 +29,41 @@ export type Serializable<T> = unknown extends T
 
 /** Any value `JSON.parse` can produce. */
 export const JsonValueSchema: z.ZodType<JsonValue> = z.json();
+
+function isScalar(node: unknown): node is string | number | boolean | null {
+  return (
+    node === null ||
+    typeof node === "string" ||
+    typeof node === "number" ||
+    typeof node === "boolean"
+  );
+}
+
+function isPlainObject(node: unknown): node is object {
+  return (
+    node !== null &&
+    typeof node === "object" &&
+    Object.getPrototypeOf(node) === Object.prototype
+  );
+}
+
+/**
+ * Whether `value` is a tree of what `JSON.parse` builds. Unlike
+ * `JsonValueSchema` it hands the value back as it is: it reads every own key,
+ * `__proto__` included, and accepts a number `JSON.parse` reads as infinite.
+ * It walks the tree with a stack, so a deeply nested body cannot overflow it.
+ */
+export function isJsonValue(value: unknown): value is JsonValue {
+  const pending: unknown[] = [value];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (Array.isArray(node)) {
+      for (const item of node) pending.push(item);
+    } else if (isPlainObject(node)) {
+      for (const member of Object.values(node)) pending.push(member);
+    } else if (!isScalar(node)) {
+      return false;
+    }
+  }
+  return true;
+}

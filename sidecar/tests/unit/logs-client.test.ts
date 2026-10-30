@@ -70,4 +70,17 @@ describe("createLogsClient", () => {
     });
     expect(await client.getLogs({})).toEqual([]);
   });
+
+  it("hands a log argument back as the backend sent it, an own __proto__ key included", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          '[{"time":1,"channel":"c","levelId":40,"args":[{"__proto__":{"x":1}},"text",1e999]}]',
+        ),
+    );
+    const client = createLogsClient({ backendBaseUrl: BASE_URL, fetchImpl });
+    const [log] = await client.getLogs({});
+    expect(Object.getOwnPropertyNames(log?.args[0])).toEqual(["__proto__"]);
+    expect(log?.args.slice(1)).toEqual(["text", Number.POSITIVE_INFINITY]);
+  });
 });
