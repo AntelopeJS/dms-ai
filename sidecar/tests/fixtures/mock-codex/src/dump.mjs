@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { z } from "zod";
 import {
   DIRECTION_IN,
   DIRECTION_OUT,
@@ -6,17 +7,56 @@ import {
   TURN_START_METHOD,
 } from "./constants.mjs";
 
+export const FrameSchema = z.looseObject({
+  id: z.union([z.number(), z.string()]).optional(),
+  method: z.string().optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  result: z.unknown().optional(),
+});
+
+const EntrySchema = z.looseObject({ dir: z.string(), msg: FrameSchema });
+
+/**
+ * One JSON-RPC frame as a dump records it. Fields the mock does not read ride
+ * along untouched, so a replayed frame goes out exactly as it was recorded.
+ *
+ * @typedef {z.infer<typeof FrameSchema>} Frame
+ */
+
+/**
+ * @typedef {Frame & { id: number | string, method: string }} RequestFrame
+ */
+
+/**
+ * @typedef {object} LoadedDump
+ * @property {Map<string, unknown>} responses Recorded reply per client method,
+ * replayed instead of an invented one.
+ * @property {Frame[][]} turns Server frames of each recorded turn, in order.
+ */
+
+/**
+ * @param {string} path
+ * @returns {z.infer<typeof EntrySchema>[]}
+ */
 function parseLines(path) {
   return readFileSync(path, "utf8")
     .split("\n")
     .filter((line) => line.trim() !== "")
-    .map((line) => JSON.parse(line));
+    .map((line) => EntrySchema.parse(JSON.parse(line)));
 }
 
+/**
+ * @param {Frame} msg
+ * @returns {msg is RequestFrame}
+ */
 function isServerRequest(msg) {
   return msg.id !== undefined && msg.method !== undefined;
 }
 
+/**
+ * @param {Frame} msg
+ * @returns {msg is Frame & { id: number | string }}
+ */
 function isResponse(msg) {
   return msg.id !== undefined && msg.method === undefined;
 }
@@ -24,9 +64,14 @@ function isResponse(msg) {
 /**
  * A dump records both directions, so a client request and the reply it got are
  * two separate lines linked only by their id.
+ *
+ * @param {z.infer<typeof EntrySchema>[]} entries
+ * @returns {Map<string, unknown>}
  */
 function collectResponses(entries) {
+  /** @type {Map<number | string, string>} */
   const methodById = new Map();
+  /** @type {Map<string, unknown>} */
   const byMethod = new Map();
   for (const { dir, msg } of entries) {
     if (dir === DIRECTION_OUT && isServerRequest(msg)) {
@@ -46,9 +91,14 @@ function collectResponses(entries) {
  * replies to the client's own calls. Notifications that belong to the session
  * rather than the turn (thread/started, and the like) ride along; the adapter
  * ignores what it does not handle, exactly as it does in production.
+ *
+ * @param {z.infer<typeof EntrySchema>[]} entries
+ * @returns {Frame[][]}
  */
 function collectTurns(entries) {
+  /** @type {Frame[][]} */
   const turns = [];
+  /** @type {Frame[] | null} */
   let current = null;
   for (const { dir, msg } of entries) {
     if (dir === DIRECTION_OUT && msg.method === TURN_START_METHOD) {
@@ -67,6 +117,9 @@ function collectTurns(entries) {
  * Loads one or more dumps. Responses merge (the last file wins), turns
  * concatenate — so a scenario can borrow a skills scan from one capture and its
  * turn from another, and a repeated file replays the same turn twice.
+ *
+ * @param {string} spec
+ * @returns {LoadedDump}
  */
 export function loadDump(spec) {
   const entries = spec
@@ -74,7 +127,9 @@ export function loadDump(spec) {
     .map((path) => path.trim())
     .filter((path) => path !== "")
     .map((path) => parseLines(path));
+  /** @type {Map<string, unknown>} */
   const responses = new Map();
+  /** @type {Frame[][]} */
   const turns = [];
   for (const parsed of entries) {
     for (const [method, result] of collectResponses(parsed)) {

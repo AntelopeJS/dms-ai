@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
+import { z } from "zod";
 import {
   COMPLETED_ITEM_STATUS,
   DEFAULT_DELAY_MS,
@@ -24,13 +25,47 @@ import {
   TURN_INTERRUPT_METHOD,
   TURN_START_METHOD,
 } from "./constants.mjs";
+import { FrameSchema } from "./dump.mjs";
 import { callMcpTool } from "./mcp.mjs";
+
+/**
+ * @typedef {import("./dump.mjs").Frame} Frame
+ * @typedef {import("./dump.mjs").RequestFrame} RequestFrame
+ * @typedef {import("./dump.mjs").LoadedDump} LoadedDump
+ */
+
+/**
+ * @typedef {object} Transport
+ * @property {(payload: Record<string, unknown>) => void} write
+ * @property {(handler: (frame: Frame) => void) => void} onFrame
+ */
+
+/**
+ * @typedef {object} State
+ * @property {LoadedDump} dump
+ * @property {number} turnIndex
+ * @property {number} nextRequestId
+ * @property {Map<number | string, (result: unknown) => void>} pending
+ * @property {boolean} interrupted
+ */
+
+const McpToolCallItemSchema = z.looseObject({
+  type: z.literal(MCP_TOOL_CALL_ITEM),
+  tool: z.string(),
+  arguments: z.record(z.string(), z.unknown()).optional(),
+});
+
+const ExitParamsSchema = z.object({ code: z.number().optional() });
 
 function delayMs() {
   const raw = Number.parseInt(process.env[DELAY_ENV_VAR] ?? "", 10);
   return Number.isNaN(raw) ? DEFAULT_DELAY_MS : raw;
 }
 
+/**
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -39,6 +74,8 @@ function sleep(ms) {
  * Appends one entry to the trace file named by the environment, if any. A trace
  * that cannot be written must never take the server down with it, so a failed
  * write is swallowed.
+ *
+ * @param {Record<string, unknown>} entry
  */
 function trace(entry) {
   const file = process.env[TRACE_ENV_VAR];
@@ -48,6 +85,11 @@ function trace(entry) {
   } catch {}
 }
 
+/**
+ * @param {import("node:stream").Readable} stdin
+ * @param {import("node:stream").Writable} stdout
+ * @returns {Transport}
+ */
 function createTransport(stdin, stdout) {
   let buffer = "";
   return {
@@ -58,19 +100,23 @@ function createTransport(stdin, stdout) {
     },
     onFrame(handler) {
       stdin.setEncoding("utf8");
-      stdin.on("data", (chunk) => {
+      stdin.on("data", (/** @type {string} */ chunk) => {
         buffer += chunk;
         const lines = buffer.split(LINE_SEPARATOR);
         buffer = lines.pop() ?? "";
         for (const line of lines) {
           if (line.trim() === "") continue;
-          handler(JSON.parse(line));
+          handler(FrameSchema.parse(JSON.parse(line)));
         }
       });
     },
   };
 }
 
+/**
+ * @param {LoadedDump} dump
+ * @returns {State}
+ */
 function createState(dump) {
   return {
     dump,
@@ -81,6 +127,9 @@ function createState(dump) {
   };
 }
 
+/**
+ * @param {string} status
+ */
 function turnCompleted(status) {
   return {
     method: TURN_COMPLETED_METHOD,
@@ -88,16 +137,15 @@ function turnCompleted(status) {
   };
 }
 
-function itemOf(frame) {
-  return frame.params?.item;
-}
-
 /**
  * A replayed mcpToolCall is executed for real against the sidecar's MCP
  * binding, then its completion carries whatever came back.
+ *
+ * @param {Frame} frame
+ * @param {z.infer<typeof McpToolCallItemSchema>} item
+ * @returns {Promise<Frame>}
  */
-async function completeMcpToolCall(frame) {
-  const item = itemOf(frame);
+async function completeMcpToolCall(frame, item) {
   const { result, error } = await callMcpTool(item.tool, item.arguments);
   return {
     ...frame,
@@ -114,16 +162,31 @@ async function completeMcpToolCall(frame) {
   };
 }
 
+/**
+ * @param {Frame} frame
+ * @returns {Promise<Frame>}
+ */
 async function resolveFrame(frame) {
   if (frame.method !== ITEM_COMPLETED_METHOD) return frame;
-  if (itemOf(frame)?.type !== MCP_TOOL_CALL_ITEM) return frame;
-  return completeMcpToolCall(frame);
+  const item = McpToolCallItemSchema.safeParse(frame.params?.item);
+  if (!item.success) return frame;
+  return completeMcpToolCall(frame, item.data);
 }
 
+/**
+ * @param {Frame} frame
+ * @returns {frame is RequestFrame}
+ */
 function isServerRequest(frame) {
   return frame.id !== undefined && frame.method !== undefined;
 }
 
+/**
+ * @param {State} state
+ * @param {Transport} transport
+ * @param {RequestFrame} frame
+ * @returns {Promise<unknown>}
+ */
 function sendServerRequest(state, transport, frame) {
   const id = state.nextRequestId++;
   return new Promise((resolve) => {
@@ -132,9 +195,14 @@ function sendServerRequest(state, transport, frame) {
   });
 }
 
+/**
+ * @param {State} state
+ * @param {Transport} transport
+ * @param {Frame} frame
+ */
 async function replayFrame(state, transport, frame) {
   if (frame.method === EXIT_DIRECTIVE_METHOD) {
-    process.exit(frame.params?.code ?? 1);
+    process.exit(ExitParamsSchema.parse(frame.params ?? {}).code ?? 1);
   }
   if (isServerRequest(frame)) {
     const decision = await sendServerRequest(state, transport, frame);
@@ -148,6 +216,9 @@ async function replayFrame(state, transport, frame) {
  * Replays the next recorded turn. A dump always ends its turn itself; a
  * hand-built script need not, so a turn-completed frame is appended when the
  * last frame is not one.
+ *
+ * @param {State} state
+ * @param {Transport} transport
  */
 async function replayTurn(state, transport) {
   const frames = state.dump.turns[state.turnIndex] ?? [];
@@ -167,12 +238,21 @@ async function replayTurn(state, transport) {
   }
 }
 
+/**
+ * @param {State} state
+ * @param {string} method
+ * @returns {unknown}
+ */
 function resultFor(state, method) {
   return (
     state.dump.responses.get(method) ?? FALLBACK_RESULTS[method] ?? EMPTY_RESULT
   );
 }
 
+/**
+ * @param {Transport} transport
+ * @param {RequestFrame} frame
+ */
 function refuse(transport, frame) {
   transport.write({
     id: frame.id,
@@ -192,6 +272,11 @@ function startGrandchild() {
   writeFileSync(pidFile, String(grandchild.pid));
 }
 
+/**
+ * @param {State} state
+ * @param {Transport} transport
+ * @param {RequestFrame} frame
+ */
 function handleClientRequest(state, transport, frame) {
   if (frame.method === process.env[FAIL_METHOD_ENV_VAR]) {
     refuse(transport, frame);
@@ -207,8 +292,14 @@ function handleClientRequest(state, transport, frame) {
   void replayTurn(state, transport);
 }
 
+/**
+ * @param {State} state
+ * @param {Transport} transport
+ * @param {Frame} frame
+ */
 function handleFrame(state, transport, frame) {
   if (frame.method === undefined) {
+    if (frame.id === undefined) return;
     const waiter = state.pending.get(frame.id);
     if (waiter === undefined) return;
     state.pending.delete(frame.id);
@@ -216,10 +307,15 @@ function handleFrame(state, transport, frame) {
     return;
   }
   trace({ kind: "request", method: frame.method, params: frame.params });
-  if (frame.id === undefined) return;
+  if (!isServerRequest(frame)) return;
   handleClientRequest(state, transport, frame);
 }
 
+/**
+ * @param {LoadedDump} dump
+ * @param {import("node:stream").Readable} stdin
+ * @param {import("node:stream").Writable} stdout
+ */
 export function runAppServer(dump, stdin, stdout) {
   const state = createState(dump);
   const transport = createTransport(stdin, stdout);

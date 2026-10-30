@@ -98,6 +98,7 @@ const SAFE_MODE_SKILL_INDEX = {
  * Answers for calls the loaded dump does not cover. Anything the dump does
  * answer is replayed from it instead.
  */
+/** @type {Record<string, unknown>} */
 export const FALLBACK_RESULTS = {
   initialize: {
     userAgent: "mock-codex",

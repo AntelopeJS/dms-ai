@@ -26,6 +26,15 @@ function readMcpUrl() {
   }
 }
 
+/**
+ * @typedef {import("@modelcontextprotocol/sdk/client/index.js").Client} McpClient
+ */
+
+/**
+ * @param {string} url
+ * @param {string} token
+ * @returns {Promise<McpClient>}
+ */
 async function connect(url, token) {
   const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
   const { StreamableHTTPClientTransport } =
@@ -45,9 +54,17 @@ async function connect(url, token) {
 }
 
 /**
+ * @typedef {{ result?: unknown, error?: string }} McpOutcome
+ */
+
+/**
  * Really calls the tool over the sidecar's MCP HTTP binding, so a replayed
  * mcpToolCall item exercises the same path the real binary takes — including
  * the per-conversation bearer that keeps two conversations apart.
+ *
+ * @param {string} tool
+ * @param {Record<string, unknown> | undefined} args
+ * @returns {Promise<McpOutcome>}
  */
 export async function callMcpTool(tool, args) {
   const url = readMcpUrl();
@@ -55,6 +72,7 @@ export async function callMcpTool(tool, args) {
   if (url === undefined || token === undefined) {
     return { error: "mock-codex: no MCP endpoint configured" };
   }
+  /** @type {McpClient | undefined} */
   let client;
   try {
     client = await connect(url, token);
