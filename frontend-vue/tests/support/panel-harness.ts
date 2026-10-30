@@ -94,8 +94,8 @@ export function createHarness(): Harness {
 			intents.push({ kind: "open", conversationId });
 			panel.open();
 		},
-		startConversation: (prompt) => {
-			intents.push({ kind: "start", prompt });
+		startConversation: (prompt, mode) => {
+			intents.push({ kind: "start", prompt, mode });
 			panel.open();
 		},
 		holdStream: () => {
