@@ -8,7 +8,6 @@ import type {
 import type { DefaultValue } from "@antelopejs/interface-dms/base/types/form-values";
 import { asFormValues, type SettingsBody } from "../../sidecar/settings-values";
 import { readSidecar } from "../../sidecar";
-import type { VocabularyOption } from "../../vocabulary";
 import { CODEX_PROVIDER, SAFE_SCOPE, settingsText } from "./options";
 
 const SETTINGS_PATH = "/settings";
@@ -26,9 +25,9 @@ interface SidecarCapabilities {
   defaults?: SettingsBody;
 }
 
-interface OptionsWithItems {
-  items?: VocabularyOption[];
-}
+const OPTIONS_WITH_ITEMS = z.looseObject({
+  items: z.array(z.looseObject({ value: z.string() })).optional(),
+});
 
 /** An option turned off for this request, with why in place of its text. */
 interface OptionLock {
@@ -41,7 +40,9 @@ function lockItems(
   component: ComponentInfoSerialized,
   lock: OptionLock,
 ): ComponentInfoSerialized {
-  const options = (component.options ?? {}) as OptionsWithItems;
+  const parsed = OPTIONS_WITH_ITEMS.safeParse(component.options ?? {});
+  if (!parsed.success) return component;
+  const options = parsed.data;
   const items = (options.items ?? []).map((item) =>
     item.value === lock.value
       ? { ...item, disabled: true, description: lock.reason }
