@@ -10,9 +10,14 @@ const { test } = require("node:test");
 const root = path.resolve(__dirname, "..");
 const sidecarEntry = path.join(root, "sidecar", "dist", "index.js");
 
+/**
+ * @param {import("node:child_process").ChildProcessByStdio<null, import("node:stream").Readable, import("node:stream").Readable>} child
+ * @returns {Promise<number>}
+ */
 function waitForPort(child) {
   return new Promise((resolve, reject) => {
     let output = "";
+    /** @param {Buffer} chunk */
     const onData = (chunk) => {
       output += chunk.toString();
       const match = output.match(/DMS_AI_SIDECAR_PORT=(\d+)/);
@@ -27,6 +32,10 @@ function waitForPort(child) {
   });
 }
 
+/**
+ * @param {number} port
+ * @returns {Promise<{ statusCode: number | undefined; body: string }>}
+ */
 function requestHealth(port) {
   return new Promise((resolve, reject) => {
     const req = request({ host: "127.0.0.1", port, path: "/health" }, (res) => {

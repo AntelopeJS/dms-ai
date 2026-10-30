@@ -8,21 +8,22 @@ const {
   actorOf,
   closeEverything,
   delay,
-  dist,
   fakeContext,
   openOn,
   startSidecar,
 } = require("./helpers/channels.cjs");
 
-const { openBridge } = require(dist("channels/bridge.js"));
-const { openChannel } = require(dist("channels/channel-service.js"));
-const { reserveMessageBytes } = require(dist("channels/message-budget.js"));
+const { openBridge } = require("../dist/channels/bridge.js");
+const { openChannel } = require("../dist/channels/channel-service.js");
+const { reserveMessageBytes } = require("../dist/channels/message-budget.js");
 const {
   CHANNEL_MAX_SOCKETS_PER_USER,
   CHANNEL_MESSAGE_MAX_BYTES,
   CHANNEL_PENDING_MESSAGES_MAX_BYTES,
-} = require(dist("constants/channels.js"));
-const { SIDECAR_UNAVAILABLE_BODY } = require(dist("constants/sidecar.js"));
+} = require("../dist/constants/channels.js");
+const { SIDECAR_UNAVAILABLE_BODY } = require("../dist/constants/sidecar.js");
+
+/** @typedef {import("../dist/channels/sse-stream.js").SseStream} SseStream */
 
 afterEach(closeEverything);
 
@@ -45,7 +46,9 @@ void test("counts a stream still connecting against the cap", async () => {
   const sidecar = await startSidecar();
   for (let i = 0; i < CHANNEL_MAX_SOCKETS_PER_USER - 1; i += 1)
     await openOn(sidecar);
+  /** @type {() => void} */
   let release = () => undefined;
+  /** @type {Promise<void>} */
   const held = new Promise((resolve) => {
     release = resolve;
   });
@@ -76,6 +79,7 @@ void test("answers 503 with the shared sidecar_unavailable body", async () => {
   assert.deepEqual(result.getBody(), JSON.stringify(SIDECAR_UNAVAILABLE_BODY));
 });
 
+/** @param {number} [contentLength] */
 function messageContext(contentLength) {
   const headers =
     contentLength === undefined
@@ -104,7 +108,9 @@ void test("refuses a posted message once the memory budget is spent, until one e
 void test("pauses a sidecar socket once per full sink, however many frames arrive", async () => {
   const sidecar = await startSidecar();
   const socket = await sidecar.connect();
+  /** @type {Array<() => void>} */
   const drains = [];
+  /** @type {SseStream} */
   const stream = {
     send: (name) => name === "ready",
     onDrain: (listener) => drains.push(listener),
