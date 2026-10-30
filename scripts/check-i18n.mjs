@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 import { TOOL_VERB_KEYS } from "../frontend-vue/app/chat/utils/tool-lexicon.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../frontend-vue");
@@ -58,6 +59,19 @@ const VIEWS_DYNAMIC_FAMILIES = {
   "dms_ai.views.skills.source": ["module", "local"],
 };
 
+/**
+ * @typedef {object} Surface
+ * @property {string} name
+ * @property {string} locale
+ * @property {string[]} sources
+ * @property {string[]} excluded
+ * @property {RegExp} literalKey
+ * @property {Record<string, string[]>} dynamicFamilies
+ * @property {string[]} extraKeys
+ * @property {string[] | undefined} namespaces
+ */
+
+/** @type {Surface[]} */
 const SURFACES = [
   {
     name: "panel",
@@ -87,10 +101,20 @@ const SURFACES = [
   },
 ];
 
+/**
+ * @param {string} left
+ * @param {string} right
+ * @returns {number}
+ */
 function byName(left, right) {
   return left.localeCompare(right);
 }
 
+/**
+ * @param {string} path
+ * @param {string[]} excluded
+ * @returns {string[]}
+ */
 function sourceFiles(path, excluded) {
   const full = join(ROOT, path);
   if (!statSync(full).isDirectory()) return [full];
@@ -99,6 +123,21 @@ function sourceFiles(path, excluded) {
     .flatMap((entry) => sourceFiles(join(path, entry), excluded));
 }
 
+/**
+ * @typedef {{ [key: string]: string | LocaleTree }} LocaleTree
+ */
+
+/** @type {z.ZodType<LocaleTree>} */
+const LocaleTreeSchema = z.record(
+  z.string(),
+  z.union([z.string(), z.lazy(() => LocaleTreeSchema)]),
+);
+
+/**
+ * @param {LocaleTree} tree
+ * @param {string} prefix
+ * @returns {string[]}
+ */
 function flatten(tree, prefix = "") {
   return Object.entries(tree).flatMap(([key, value]) =>
     value instanceof Object
@@ -107,12 +146,20 @@ function flatten(tree, prefix = "") {
   );
 }
 
+/**
+ * @param {Surface} surface
+ * @param {string} tag
+ * @returns {LocaleTree}
+ */
 function readLocale(surface, tag) {
-  return JSON.parse(
-    readFileSync(join(LOCALES, `${surface.locale}-${tag}.json`), "utf8"),
-  );
+  const file = join(LOCALES, `${surface.locale}-${tag}.json`);
+  return LocaleTreeSchema.parse(JSON.parse(readFileSync(file, "utf8")));
 }
 
+/**
+ * @param {Surface} surface
+ * @returns {string[]}
+ */
 function usedKeys(surface) {
   const source = surface.sources
     .flatMap((path) => sourceFiles(path, surface.excluded))
@@ -123,12 +170,20 @@ function usedKeys(surface) {
   ];
 }
 
+/**
+ * @param {Record<string, string[]>} families
+ * @returns {string[]}
+ */
 function dynamicKeys(families) {
   return Object.entries(families).flatMap(([prefix, values]) =>
     values.map((value) => `${prefix}.${value}`),
   );
 }
 
+/**
+ * @param {Surface} surface
+ * @returns {string[]}
+ */
 function problems(surface) {
   const en = readLocale(surface, "en-GB");
   const fr = readLocale(surface, "fr-FR");
@@ -161,10 +216,12 @@ function problems(surface) {
       );
     }
   }
-  for (const [tag, locale] of [
+  /** @type {[string, LocaleTree][]} */
+  const locales = [
     ["en-GB", en],
     ["fr-FR", fr],
-  ]) {
+  ];
+  for (const [tag, locale] of locales) {
     if (SYNTAX_CHARACTER.test(JSON.stringify(locale))) {
       found.push(
         `${surface.name} ${tag}: holds a character vue-i18n reads as syntax (@ or $)`,
