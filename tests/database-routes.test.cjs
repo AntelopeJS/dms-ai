@@ -1,10 +1,13 @@
 const assert = require("node:assert/strict");
-const Module = require("node:module");
 const path = require("node:path");
 const { test } = require("node:test");
 const { HTTPResult } = require("@antelopejs/interface-api");
+const { z } = require("zod");
+const { installRequireMocks } = require("./helpers/require-mocks.cjs");
 
-const dist = (file) => path.resolve(__dirname, "../dist", file);
+const DIST_DIR = path.resolve(__dirname, "../dist");
+const TextSchema = z.string();
+const UnknownConnectionSchema = z.object({ known: z.array(z.string()) });
 const SIDECAR_TOKEN = "sidecar-secret";
 const CATALOG_PATH =
   "@ajs.connection/erp/@antelopejs/interface-database-catalog";
@@ -27,7 +30,12 @@ const ACCOUNTS = {
 const context = { module: "dms-ai" };
 
 /** What the stand-in catalog and Builder were called with. */
-const calls = { describe: [], mapResources: [] };
+const calls = {
+  /** @type {string[][]} */
+  describe: [],
+  /** @type {{ input: unknown }[]} */
+  mapResources: [],
+};
 
 const catalog = {
   Info: async () => ({
@@ -37,6 +45,7 @@ const catalog = {
     role: "reader",
   }),
   ListRelations: async () => [],
+  /** @param {string[]} relations */
   DescribeRelations: async (relations) => {
     calls.describe.push(relations);
     return relations.map(() => ACCOUNTS);
@@ -47,50 +56,63 @@ const catalog = {
 
 function loadRoutes() {
   const decorator = () => () => undefined;
-  const mocks = {
-    "@antelopejs/interface-api": {
-      HTTPResult,
-      Controller: () => class {},
-      Get: decorator,
-      Post: decorator,
-      Parameter: decorator,
-      JSONBody: decorator,
-    },
-    "@antelopejs/interface-core": {
-      GetResponsibleModule: () => context.module,
-      RunWithResponsibleModule: (module, callback) => {
-        const previous = context.module;
-        context.module = module;
-        try {
-          return callback();
-        } finally {
-          context.module = previous;
-        }
+  /** @type {Map<string, unknown>} */
+  const mocks = new Map([
+    [
+      "@antelopejs/interface-api",
+      {
+        HTTPResult,
+        Controller: () => class {},
+        Get: decorator,
+        Post: decorator,
+        Parameter: decorator,
+        JSONBody: decorator,
       },
-      GetInterfaceInstances: () =>
-        context.module === "dms-ai"
-          ? [{ id: "erp", path: CATALOG_PATH, provider: "postgres-erp" }]
-          : [],
-    },
-    [CATALOG_PATH]: catalog,
-    "@antelopejs/interface-dms-builder": {
-      MapResources: async (input) => {
-        calls.mapResources.push({ input });
-        return { ok: true, data: {}, changes: [] };
+    ],
+    [
+      "@antelopejs/interface-core",
+      {
+        GetResponsibleModule: () => context.module,
+        /**
+         * @param {string} module
+         * @param {() => unknown} callback
+         */
+        RunWithResponsibleModule: (module, callback) => {
+          const previous = context.module;
+          context.module = module;
+          try {
+            return callback();
+          } finally {
+            context.module = previous;
+          }
+        },
+        GetInterfaceInstances: () =>
+          context.module === "dms-ai"
+            ? [{ id: "erp", path: CATALOG_PATH, provider: "postgres-erp" }]
+            : [],
       },
-    },
-    "../builder/presence": { isBuilderAvailable: async () => true },
-    "../lifecycle/spawn-sidecar": { getSidecarToken: () => SIDECAR_TOKEN },
-  };
-  const originalLoad = Module._load;
-  Module._load = (request, parent, isMain) =>
-    request in mocks ? mocks[request] : originalLoad(request, parent, isMain);
+    ],
+    [CATALOG_PATH, catalog],
+    [
+      "@antelopejs/interface-dms-builder",
+      {
+        /** @param {unknown} input */
+        MapResources: async (input) => {
+          calls.mapResources.push({ input });
+          return { ok: true, data: {}, changes: [] };
+        },
+      },
+    ],
+    ["../builder/presence", { isBuilderAvailable: async () => true }],
+    ["../lifecycle/spawn-sidecar", { getSidecarToken: () => SIDECAR_TOKEN }],
+  ]);
+  installRequireMocks(mocks);
   for (const file of Object.keys(require.cache)) {
-    if (file.startsWith(dist(""))) delete require.cache[file];
+    if (file.startsWith(DIST_DIR)) delete require.cache[file];
   }
   return {
-    ...require(dist("routes/database.js")),
-    ...require(dist("routes/builder.js")),
+    ...require("../dist/routes/database.js"),
+    ...require("../dist/routes/builder.js"),
   };
 }
 
@@ -109,6 +131,7 @@ void test("database routes answer nothing to a caller without the sidecar's toke
 void test("lists dms-ai's own connections while a request runs in the HTTP module's context", async () => {
   const controller = new routes.AIDatabaseController();
   const listed = await controller.connections(SIDECAR_TOKEN);
+  assert.ok(!(listed instanceof HTTPResult));
   assert.deepEqual(
     listed.map((entry) => entry.connection),
     ["erp"],
@@ -122,8 +145,14 @@ void test("an unknown connection answers 404, naming the connections the project
     connection: "crm",
     relations: ["a.b"],
   });
+  assert.ok(missing instanceof HTTPResult);
   assert.equal(missing.getStatus(), 404);
-  assert.deepEqual(JSON.parse(missing.getBody()).known, ["erp"]);
+  assert.deepEqual(
+    UnknownConnectionSchema.parse(
+      JSON.parse(TextSchema.parse(missing.getBody())),
+    ).known,
+    ["erp"],
+  );
 });
 
 void test("MapResources reaches the Builder as the agent's choices, without dms-ai reading the catalog", async () => {
