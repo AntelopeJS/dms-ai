@@ -330,6 +330,24 @@ void test("stamps Undo and Redo with the signed-in user", async () => {
   assert.deepEqual(sidecar.requests[1].body, { actor: "c@acme.test" });
 });
 
+void test("forwards a change set as the sidecar wrote it, an own __proto__ key included", async () => {
+  reset();
+  answer(
+    "GET",
+    "/changes/set-1",
+    200,
+    JSON.parse('{"title":"Top","args":{"__proto__":{"x":1},"note":"n"}}'),
+  );
+  const forwarded = await new harness.routes.AIChangesController().detail(
+    "set-1",
+  );
+  assert.equal(forwarded.title, "Top");
+  assert.deepEqual(Object.getOwnPropertyNames(forwarded.args), [
+    "__proto__",
+    "note",
+  ]);
+});
+
 void test("asks Undo's confirmation with the later change sets it collides with", async () => {
   reset();
   answer("GET", "/changes/set-1/undo-preview", 200, {
