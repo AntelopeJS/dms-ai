@@ -29,12 +29,12 @@ function startAppServer() {
   runAppServer(loadDump(spec), process.stdin, process.stdout);
 }
 
-const COMMANDS = {
-  [VERSION_ARGUMENT]: printVersion,
-  [APP_SERVER_COMMAND]: startAppServer,
-};
+const COMMANDS = new Map([
+  [VERSION_ARGUMENT, printVersion],
+  [APP_SERVER_COMMAND, startAppServer],
+]);
 
-const command = COMMANDS[process.argv[2] ?? ""];
+const command = COMMANDS.get(process.argv[2] ?? "");
 if (command === undefined) {
   process.stderr.write(`mock-codex: unsupported command ${process.argv[2]}\n`);
   process.exit(UNKNOWN_COMMAND_EXIT);
