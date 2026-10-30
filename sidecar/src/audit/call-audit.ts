@@ -28,7 +28,8 @@ export function createCallAudit(): CallAudit {
   const byConversation = new Map<string, Map<string, CallDecision>>();
   return {
     record(conversationId, callId, decision) {
-      const calls = byConversation.get(conversationId) ?? new Map();
+      const calls =
+        byConversation.get(conversationId) ?? new Map<string, CallDecision>();
       calls.set(callId, decision);
       byConversation.set(conversationId, calls);
     },
