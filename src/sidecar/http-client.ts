@@ -12,7 +12,7 @@ const JSON_CONTENT_TYPE = "application/json";
 /** What the sidecar answered: its status and its JSON body, when it sent one. */
 export interface SidecarResponse {
   status: number;
-  body: unknown;
+  body: JsonBody | undefined;
   isOk: boolean;
 }
 

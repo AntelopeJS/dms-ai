@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ComponentInfoSerialized } from "@antelopejs/interface-dms/component";
 import type {
   FormFieldOrGroupSerialized,
@@ -77,13 +78,24 @@ function locksFor(capabilities: SidecarCapabilities): OptionLock[] {
   return locks;
 }
 
+const DEFAULT_VALUE: z.ZodType<DefaultValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(DEFAULT_VALUE),
+  ]),
+);
+
 function offerDefault(
   field: FormFieldSerialized,
   defaults: SettingsBody,
 ): FormFieldSerialized {
   if (!(field.id in defaults)) return field;
-  const defaultValue = defaults[field.id] as DefaultValue;
-  return { ...field, defaultValue, offersDefault: true };
+  const parsed = DEFAULT_VALUE.safeParse(defaults[field.id]);
+  if (!parsed.success) return field;
+  return { ...field, defaultValue: parsed.data, offersDefault: true };
 }
 
 /** Each field the sidecar has a default for offers it ("Use default"). */
