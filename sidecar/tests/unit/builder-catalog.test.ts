@@ -117,10 +117,7 @@ describe("Builder tool results", () => {
   }
 
   it("serves the catalog index through the tool", async () => {
-    const result = await tool("BuilderCatalog", CATALOG).handler(
-      NO_SELECTION,
-      {},
-    );
+    const result = await tool("BuilderCatalog", CATALOG).handler(NO_SELECTION);
     expect(result.isError).toBeUndefined();
     const text = result.content[0]?.text ?? "";
     expect(JSON.parse(text).blocks[0]).not.toHaveProperty("config");
@@ -128,10 +125,12 @@ describe("Builder tool results", () => {
 
   it("marks an ok:false answer as a failed call", async () => {
     const failure = { ok: false, error: { code: "typecheck_failed" } };
-    const result = await tool("BuilderAddBlock", failure).handler(
-      { page: "/p", name: "kpi", type: "KpiCard", config: {} },
-      {},
-    );
+    const result = await tool("BuilderAddBlock", failure).handler({
+      page: "/p",
+      name: "kpi",
+      type: "KpiCard",
+      config: {},
+    });
     expect(result).toMatchObject({
       isError: true,
       content: [{ text: JSON.stringify(failure) }],
@@ -139,23 +138,22 @@ describe("Builder tool results", () => {
   });
 
   it("leaves a successful answer unmarked", async () => {
-    const result = await tool("BuilderAddBlock", { ok: true }).handler(
-      { page: "/p", name: "kpi", type: "KpiCard", config: {} },
-      {},
-    );
+    const result = await tool("BuilderAddBlock", { ok: true }).handler({
+      page: "/p",
+      name: "kpi",
+      type: "KpiCard",
+      config: {},
+    });
     expect(result.isError).toBeUndefined();
   });
 
   it("marks a refused $expr as a failed call", async () => {
-    const result = await tool("BuilderAddBlock", { ok: true }).handler(
-      {
-        page: "/p",
-        name: "kpi",
-        type: "KpiCard",
-        config: { value: { $expr: "x" } },
-      },
-      {},
-    );
+    const result = await tool("BuilderAddBlock", { ok: true }).handler({
+      page: "/p",
+      name: "kpi",
+      type: "KpiCard",
+      config: { value: { $expr: "x" } },
+    });
     expect(result.isError).toBe(true);
   });
 });

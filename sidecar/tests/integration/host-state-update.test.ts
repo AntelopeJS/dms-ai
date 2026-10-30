@@ -175,7 +175,7 @@ describe("host_state_update WS message", () => {
     const toolDef = buildGetCurrentPageTool(() =>
       handle.hostState.getCurrentPage(),
     );
-    const result = await toolDef.handler({}, undefined);
+    const result = await toolDef.handler({});
     const text = result.content[0]?.text ?? "";
     expect(JSON.parse(text)).toEqual({ path: "/dashboard" });
   });
@@ -184,7 +184,7 @@ describe("host_state_update WS message", () => {
     const toolDef = buildGetCurrentPageTool(() =>
       handle.hostState.getCurrentPage(),
     );
-    const result = await toolDef.handler({}, undefined);
+    const result = await toolDef.handler({});
     const text = result.content[0]?.text ?? "";
     expect(JSON.parse(text)).toEqual({ path: UNKNOWN_PAGE_PATH });
   });

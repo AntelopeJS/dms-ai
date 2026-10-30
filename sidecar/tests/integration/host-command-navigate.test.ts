@@ -159,10 +159,7 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
       },
       getCurrentPage: () => ({ path: "unknown" }),
     });
-    const handlerPromise = toolDef.handler(
-      { path: NAVIGATE_TARGET },
-      undefined,
-    );
+    const handlerPromise = toolDef.handler({ path: NAVIGATE_TARGET });
     const received = await incoming;
     handle.navigationCompleter.complete(NAVIGATE_TARGET);
     await handlerPromise;
@@ -201,10 +198,7 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
       },
       getCurrentPage: () => ({ path: "unknown" }),
     });
-    const handlerPromise = toolDef.handler(
-      { path: NAVIGATE_TARGET },
-      undefined,
-    );
+    const handlerPromise = toolDef.handler({ path: NAVIGATE_TARGET });
     await settle();
     handle.navigationCompleter.complete(NAVIGATE_TARGET);
     await handlerPromise;
@@ -232,7 +226,7 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
       },
       getCurrentPage: () => ({ path: "unknown" }),
     });
-    const handlerPromise = toolDef.handler({ path: "/x" }, undefined);
+    const handlerPromise = toolDef.handler({ path: "/x" });
     await settle();
     handle.navigationCompleter.complete("/x");
     const result = await handlerPromise;

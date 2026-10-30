@@ -33,7 +33,7 @@ describe("Builder gate", () => {
       isAllowed: false,
       message: "no",
     }));
-    const result = await deletePage?.handler({ pageRef: "/p" }, {});
+    const result = await deletePage?.handler({ pageRef: "/p" });
     expect(result).toMatchObject({ isError: true, content: [{ text: "no" }] });
     expect(builderClient.call).not.toHaveBeenCalled();
   });
@@ -44,7 +44,7 @@ describe("Builder gate", () => {
       isAllowed: true,
       keepData: true,
     }));
-    await remove?.handler({ ref: "books" }, {});
+    await remove?.handler({ ref: "books" });
     expect(builderClient.call).toHaveBeenCalledWith("DeleteResource", [
       "books",
       { keepData: true },
@@ -53,7 +53,7 @@ describe("Builder gate", () => {
 
   it("never gates a read tool", async () => {
     const gate = vi.fn(async () => ({ isAllowed: false }));
-    await tool("BuilderCatalog", gate)?.handler({}, {});
+    await tool("BuilderCatalog", gate)?.handler({});
     expect(gate).not.toHaveBeenCalled();
   });
 });
@@ -143,7 +143,7 @@ describe("AskUser", () => {
         { label: "B", description: "" },
       ],
     }));
-    const result = await askUser.handler({ questions }, {});
+    const result = await askUser.handler({ questions });
     expect(result.content[0]?.text).toContain(
       `- Size: ${ASK_USER_RESULT_SKIPPED}`,
     );
