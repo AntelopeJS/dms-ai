@@ -21,10 +21,14 @@ import { OFFLINE_STATUS, statusBanner, statusFacts } from "./status-shapes";
 const STATUS_PATH = "/status";
 const NO_STORE = { "Cache-Control": "no-store" };
 
-/** What the sidecar says of itself: the fields of `AssistantStatus` it owns. */
+/**
+ * What the sidecar says of itself, its fields in the order it writes them so
+ * the answer keeps that order; the ones it adds beyond `AssistantStatus` pass.
+ */
 const SidecarStatus = z.looseObject({
   status: z.string(),
   provider: z.string().optional(),
+  providers: z.unknown().optional(),
   builderAvailable: z.boolean().optional(),
   mode: z.string().optional(),
   generationMode: z.string().optional(),
@@ -34,6 +38,7 @@ const SidecarStatus = z.looseObject({
   port: z.number().optional(),
   version: z.string().optional(),
   lastError: z.string().optional(),
+  checkpointsAvailable: z.boolean().optional(),
 });
 
 /** What the backend knows of the sidecar process, beside what it says itself. */
