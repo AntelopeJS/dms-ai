@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { appendFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -314,10 +315,33 @@ function buildInterruptedResult(): SDKMessage {
   return {
     type: "result",
     subtype: "success",
+    duration_ms: 0,
+    duration_api_ms: 0,
     is_error: false,
+    num_turns: 0,
     result: MOCK_INTERRUPTED_RESULT,
-    usage: {},
-  } as unknown as SDKMessage;
+    stop_reason: null,
+    total_cost_usd: 0,
+    usage: {
+      cache_creation: {
+        ephemeral_1h_input_tokens: 0,
+        ephemeral_5m_input_tokens: 0,
+      },
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0,
+      inference_geo: "",
+      input_tokens: 0,
+      iterations: [],
+      output_tokens: 0,
+      server_tool_use: { web_fetch_requests: 0, web_search_requests: 0 },
+      service_tier: "standard",
+      speed: "standard",
+    },
+    modelUsage: {},
+    permission_denials: [],
+    uuid: randomUUID(),
+    session_id: "",
+  };
 }
 
 async function* replayOnce(
