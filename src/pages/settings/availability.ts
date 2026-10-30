@@ -5,7 +5,7 @@ import type {
   FormPropsSerialized,
 } from "@antelopejs/interface-dms/base/form-types";
 import type { DefaultValue } from "@antelopejs/interface-dms/base/types/form-values";
-import { asFormValues } from "../../sidecar/settings-values";
+import { asFormValues, type SettingsBody } from "../../sidecar/settings-values";
 import { readSidecar } from "../../sidecar";
 import type { VocabularyOption } from "../../vocabulary";
 import { CODEX_PROVIDER, SAFE_SCOPE, settingsText } from "./options";
@@ -22,7 +22,7 @@ interface SidecarCapabilities {
   providers?: Record<string, ProviderAvailability | undefined>;
   builderAvailable?: boolean;
   /** The sidecar's `DEFAULT_SETTINGS`: the one source of the module defaults. */
-  defaults?: Record<string, unknown>;
+  defaults?: SettingsBody;
 }
 
 interface OptionsWithItems {
@@ -79,7 +79,7 @@ function locksFor(capabilities: SidecarCapabilities): OptionLock[] {
 
 function offerDefault(
   field: FormFieldSerialized,
-  defaults: Record<string, unknown>,
+  defaults: SettingsBody,
 ): FormFieldSerialized {
   if (!(field.id in defaults)) return field;
   const defaultValue = defaults[field.id] as DefaultValue;
@@ -89,7 +89,7 @@ function offerDefault(
 /** Each field the sidecar has a default for offers it ("Use default"). */
 function withDefaults(
   entry: FormFieldOrGroupSerialized,
-  defaults: Record<string, unknown>,
+  defaults: SettingsBody,
 ): FormFieldOrGroupSerialized {
   if (!("fields" in entry)) return offerDefault(entry, defaults);
   return {
