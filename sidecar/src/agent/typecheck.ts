@@ -22,7 +22,7 @@ const execFileAsync = promisify(execFile);
 interface ExecFailure {
   stdout?: string | Buffer;
   stderr?: string | Buffer;
-  code?: number | string;
+  code?: number | string | null;
 }
 
 type ExecFn = (
@@ -70,8 +70,31 @@ export function parseTscOutput(
   };
 }
 
+function isText(value: unknown): value is string | Buffer | undefined {
+  return (
+    value === undefined || typeof value === "string" || Buffer.isBuffer(value)
+  );
+}
+
+function isExitCode(
+  value: unknown,
+): value is number | string | null | undefined {
+  return (
+    value === undefined ||
+    value === null ||
+    typeof value === "number" ||
+    typeof value === "string"
+  );
+}
+
 function isExecFailure(err: unknown): err is ExecFailure {
-  return typeof err === "object" && err !== null;
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (!("stdout" in err) || isText(err.stdout)) &&
+    (!("stderr" in err) || isText(err.stderr)) &&
+    (!("code" in err) || isExitCode(err.code))
+  );
 }
 
 function skipped(summary: string): TypecheckResult {
