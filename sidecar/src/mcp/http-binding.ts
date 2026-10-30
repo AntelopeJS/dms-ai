@@ -58,7 +58,7 @@ async function buildServer(deps: AiMcpServerDeps): Promise<McpServer> {
 
 function readBearerToken(req: IncomingMessage): string | null {
   const header = req.headers[MCP_AUTHORIZATION_HEADER];
-  const value = Array.isArray(header) ? header[0] : header;
+  const [value] = [header].flat();
   if (value === undefined) return null;
   if (!value.toLowerCase().startsWith(MCP_BEARER_PREFIX)) return null;
   return value.slice(MCP_BEARER_PREFIX.length).trim();

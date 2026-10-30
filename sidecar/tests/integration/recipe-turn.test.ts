@@ -122,7 +122,7 @@ describe.each(PROVIDER_FIXTURES)(
         );
         expect(edits).not.toHaveLength(0);
         for (const edit of edits) {
-          expect(edit.args).toMatchObject({ file_path: expect.any(String) });
+          expect(edit.args).toHaveProperty("file_path", expect.any(String));
         }
       },
       TEST_TIMEOUT_MS,

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
 import {
   type AnyServerEventType,
   EVENT_TYPES,
@@ -14,11 +14,11 @@ function buildFakeSocket(): SocketSender {
 
 interface FakeHost {
   socket: SocketSender;
-  send: ReturnType<typeof vi.fn>;
+  send: Mock<(data: string) => void>;
 }
 
 function buildFakeHost(): FakeHost {
-  const send = vi.fn();
+  const send = vi.fn<(data: string) => void>();
   return { socket: { send }, send };
 }
 

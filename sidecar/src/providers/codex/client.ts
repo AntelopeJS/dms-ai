@@ -157,8 +157,9 @@ export function createCodexClient(
         params: frame.params,
       })
       .then((result) => write({ id, result }))
-      .catch((error: Error) => {
-        write({ id, error: { code: -32603, message: error.message } });
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        write({ id, error: { code: -32603, message } });
       });
   }
 

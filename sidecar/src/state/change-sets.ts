@@ -68,7 +68,7 @@ function persist(state: StoreState): void {
       await mkdir(dirname(state.filePath), { recursive: true });
       await writeFile(state.filePath, json, STATE_FILE_ENCODING);
     })
-    .catch((err) => {
+    .catch((err: unknown) => {
       console.warn(`${CHECKPOINTS_LOG_PREFIX} write failed: ${String(err)}`);
     });
 }

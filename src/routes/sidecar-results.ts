@@ -30,7 +30,7 @@ export function assistantUnavailable(): HTTPResult {
 const REFUSAL_TEXT = z.string().min(1);
 const REFUSAL_BODY = z.object({ message: z.string() });
 
-function messageOf(body: unknown): string {
+function messageOf(body: JsonBody | undefined): string {
   const text = REFUSAL_TEXT.safeParse(body);
   if (text.success) return text.data;
   const refusal = REFUSAL_BODY.safeParse(body);

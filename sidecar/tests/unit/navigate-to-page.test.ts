@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import {
   NAVIGATE_RESULT_COMPLETED_SUFFIX,
   NAVIGATE_RESULT_TIMEOUT_SUFFIX,
@@ -6,6 +7,7 @@ import {
   NAVIGATE_UNKNOWN_ROUTE_PREFIX,
 } from "../../src/constants/mcp.js";
 import { NAVIGATE_TIMEOUT_MS } from "../../src/constants/timing.js";
+import type { McpToolResult } from "../../src/mcp/define-tool.js";
 import { buildNavigateToPageTool } from "../../src/mcp/tools/navigate-to-page.js";
 import type { RegistryClient } from "../../src/pages/registry-client.js";
 import type { PagesRegistryEntry } from "../../src/pages/types.js";
@@ -27,6 +29,26 @@ interface SpyDeps {
 }
 
 const STUB_CURRENT_PAGE = { path: "/stub-current" };
+
+const NavigatedAnswer = z.object({
+  ok: z.literal(true),
+  message: z.string(),
+  data: z.object({
+    path: z.string(),
+    navigation: z.string(),
+    currentPage: z.unknown(),
+  }),
+});
+
+const RefusedAnswer = z.object({
+  ok: z.literal(false),
+  message: z.string(),
+  error: z.object({ code: z.string(), suggestions: z.array(z.string()) }),
+});
+
+function textOf(result: McpToolResult): string {
+  return result.content[0]?.text ?? "";
+}
 
 function buildRegistry(paths: string[]): RegistryClient {
   const entries: PagesRegistryEntry[] = paths.map((path, i) => ({
@@ -100,7 +122,7 @@ describe("buildNavigateToPageTool", () => {
     await tick();
     deps.navigationCompleter.complete("/about");
     const result = await promise;
-    const payload = JSON.parse(result.content[0]?.text ?? "");
+    const payload = NavigatedAnswer.parse(JSON.parse(textOf(result)));
     expect(payload.ok).toBe(true);
     expect(payload.data.path).toBe("/about");
     expect(payload.data.navigation).toBe("completed");
@@ -117,7 +139,7 @@ describe("buildNavigateToPageTool", () => {
       const promise = toolDef.handler({ path: "/never" });
       await vi.advanceTimersByTimeAsync(NAVIGATE_TIMEOUT_MS + 1);
       const result = await promise;
-      const payload = JSON.parse(result.content[0]?.text ?? "");
+      const payload = NavigatedAnswer.parse(JSON.parse(textOf(result)));
       expect(payload.ok).toBe(true);
       expect(payload.data.path).toBe("/never");
       expect(payload.data.navigation).toBe("timeout");
@@ -131,7 +153,7 @@ describe("buildNavigateToPageTool", () => {
     const deps = buildSpyDeps(["/form/form-simple", "/examples/overview"]);
     const toolDef = buildTool(deps);
     const result = await toolDef.handler({ path: "/pages?" });
-    const payload = JSON.parse(result.content[0]?.text ?? "");
+    const payload = RefusedAnswer.parse(JSON.parse(textOf(result)));
     expect(payload.ok).toBe(false);
     expect(payload.error.code).toBe("unknown_route");
     expect(payload.message.startsWith(NAVIGATE_UNKNOWN_ROUTE_PREFIX)).toBe(

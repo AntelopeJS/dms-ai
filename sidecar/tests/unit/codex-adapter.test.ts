@@ -55,7 +55,7 @@ describe("normalization to the Claude display vocabulary", () => {
       (e) => e.toolName === TOOL_LEXICON.EDIT,
     );
     expect(edits.length).toBeGreaterThan(0);
-    expect(edits[0]?.args).toMatchObject({ file_path: expect.any(String) });
+    expect(edits[0]?.args).toHaveProperty("file_path", expect.any(String));
   });
 
   it("turns a command execution into a Bash carrying command", () => {
@@ -63,7 +63,7 @@ describe("normalization to the Claude display vocabulary", () => {
       replay("q1b-readonly-command-no-write.jsonl"),
     ).filter((e) => e.toolName === TOOL_LEXICON.BASH);
     expect(commands.length).toBeGreaterThan(0);
-    expect(commands[0]?.args).toMatchObject({ command: expect.any(String) });
+    expect(commands[0]?.args).toHaveProperty("command", expect.any(String));
   });
 
   it("emits no tool_use for userMessage, reasoning or agentMessage", () => {

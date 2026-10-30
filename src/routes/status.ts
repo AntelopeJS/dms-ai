@@ -1,4 +1,5 @@
 import { Controller, Get, HTTPResult, Post } from "@antelopejs/interface-api";
+import { z } from "zod";
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import { ROUTE_PREFIX } from "../constants/module";
 import {
@@ -19,6 +20,26 @@ import { OFFLINE_STATUS, statusBanner, statusFacts } from "./status-shapes";
 
 const STATUS_PATH = "/status";
 const NO_STORE = { "Cache-Control": "no-store" };
+
+/**
+ * What the sidecar says of itself, its fields in the order it writes them so
+ * the answer keeps that order; the ones it adds beyond `AssistantStatus` pass.
+ */
+const SidecarStatus = z.looseObject({
+  status: z.string(),
+  provider: z.string().optional(),
+  providers: z.unknown().optional(),
+  builderAvailable: z.boolean().optional(),
+  mode: z.string().optional(),
+  generationMode: z.string().optional(),
+  workingConversations: z.number().optional(),
+  pendingApprovals: z.number().optional(),
+  pendingQuestions: z.number().optional(),
+  port: z.number().optional(),
+  version: z.string().optional(),
+  lastError: z.string().optional(),
+  checkpointsAvailable: z.boolean().optional(),
+});
 
 /** What the backend knows of the sidecar process, beside what it says itself. */
 interface ProcessState {
@@ -43,9 +64,11 @@ function processState(): ProcessState {
 async function readStatus(): Promise<AssistantStatus> {
   try {
     const response = await requestSidecar(STATUS_PATH);
-    const reported = response.isOk ? (response.body as object) : {};
-    const status = response.isOk ? {} : { status: OFFLINE_STATUS };
-    return { ...status, ...reported, ...processState() } as AssistantStatus;
+    const reported = SidecarStatus.safeParse(response.body);
+    if (!response.isOk || !reported.success) {
+      return { status: OFFLINE_STATUS, ...processState() };
+    }
+    return { ...reported.data, ...processState() };
   } catch {
     return { status: OFFLINE_STATUS, ...processState() };
   }

@@ -58,7 +58,7 @@ function resolveScriptPath(explicit: string | undefined): string {
 
 async function loadScript(path: string): Promise<SDKMessage[]> {
   const raw = await readFile(path, "utf8");
-  const parsed = JSON.parse(raw);
+  const parsed: unknown = JSON.parse(raw);
   if (!Array.isArray(parsed)) {
     throw new Error(`mock-claude: script ${path} must be a JSON array`);
   }
