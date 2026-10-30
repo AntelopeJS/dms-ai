@@ -4,19 +4,32 @@ const Module = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
+const { z } = require("zod");
 
 const SKILLS_DIR = "skills";
 const LOADED_MODULE = "loaded-module";
 
+/**
+ * @param {string} dir - Directory of the package, created when missing.
+ * @param {object} manifest - The package.json to write.
+ */
 function writePackage(dir, manifest) {
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify(manifest));
 }
 
+/**
+ * @param {string} name - Package name.
+ * @param {object} [extra] - Further package.json fields.
+ */
 function skillPackage(name, extra = {}) {
   return { name, antelopeJs: { skills: [`./${SKILLS_DIR}`] }, ...extra };
 }
 
+/**
+ * @param {string} root - Directory holding a node_modules.
+ * @param {string} name - Package name, scope included.
+ */
 function installed(root, name) {
   return path.join(root, "node_modules", ...name.split("/"));
 }
@@ -52,28 +65,40 @@ function createFixture() {
   return { base, moduleDir, projectDir };
 }
 
+/**
+ * @param {Record<string, string>} modules - Local path of each loaded module by id.
+ */
 function loadCollector(modules) {
-  const filename = path.resolve(
-    __dirname,
-    "../dist/lifecycle/skill-sources.js",
-  );
+  const filename = require.resolve("../dist/lifecycle/skill-sources.js");
+  /** @type {Record<string, unknown>} */
   const mocks = {
     "@antelopejs/interface-core/logging": {
       Logging: { Warn() {}, Error() {} },
     },
     "@antelopejs/interface-core/modules": {
       ListModules: async () => Object.keys(modules),
+      /** @param {string} id - Id of a loaded module. */
       GetModuleInfo: async (id) => ({ localPath: modules[id] }),
     },
   };
-  const originalLoad = Module._load;
-  Module._load = (request, parent, isMain) =>
-    mocks[request] ?? originalLoad(request, parent, isMain);
+  const originalRequire = z
+    .instanceof(Function)
+    .parse(Object.getOwnPropertyDescriptor(Module.prototype, "require")?.value);
+  /**
+   * @this {Module}
+   * @param {string} request - The specifier being required.
+   * @returns {unknown} The mock of the specifier, else the module it resolves to.
+   */
+  Module.prototype.require = function (request) {
+    return mocks[request] ?? originalRequire.call(this, request);
+  };
   try {
     delete require.cache[filename];
-    return require(filename);
+    return require("../dist/lifecycle/skill-sources.js");
   } finally {
-    Module._load = originalLoad;
+    Object.defineProperty(Module.prototype, "require", {
+      value: originalRequire,
+    });
   }
 }
 

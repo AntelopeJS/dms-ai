@@ -1,5 +1,6 @@
 const Module = require("node:module");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 
 const DIST_DIR = path.resolve(__dirname, "../../dist");
 const FAKE_SIDECAR_PATH = path.resolve(__dirname, "fake-sidecar.cjs");
@@ -15,25 +16,44 @@ const TEST_STOP_TIMEOUT_MS = 500;
 const build = { id: "build-1" };
 
 const stubs = {
-  "@antelopejs/interface-core/logging": () => SILENT_LOGGING,
-  "./build-id": () => ({ computeBuildId: () => build.id }),
+  [require.resolve("@antelopejs/interface-core/logging")]: SILENT_LOGGING,
+  [path.join(DIST_DIR, "lifecycle/build-id.js")]: {
+    computeBuildId: () => build.id,
+  },
 };
+
+/**
+ * Seeds the module cache with the stubs, which `require` then returns in place
+ * of the real modules.
+ */
+function installStubs() {
+  for (const [filename, exports] of Object.entries(stubs)) {
+    const stub = new Module(filename);
+    stub.filename = filename;
+    stub.exports = exports;
+    stub.loaded = true;
+    require.cache[filename] = stub;
+  }
+}
 
 /**
  * The launcher starts the fake sidecar instead of the real one, which needs a
  * build, and runs outside the core, so its logs go nowhere.
  */
 function stubLauncherDependencies() {
-  const originalLoad = Module._load;
-  const originalResolve = Module._resolveFilename;
-  Module._load = function (request, ...rest) {
-    const stub = stubs[request];
-    return stub ? stub() : originalLoad.call(this, request, ...rest);
-  };
-  Module._resolveFilename = function (request, ...rest) {
-    if (request === SIDECAR_BIN_REQUEST) return FAKE_SIDECAR_PATH;
-    return originalResolve.call(this, request, ...rest);
-  };
+  installStubs();
+  Module.registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier !== SIDECAR_BIN_REQUEST) {
+        return nextResolve(specifier, context);
+      }
+      return {
+        url: pathToFileURL(FAKE_SIDECAR_PATH).href,
+        format: "commonjs",
+        shortCircuit: true,
+      };
+    },
+  });
 }
 
 /**
@@ -44,9 +64,10 @@ function loadLauncherGeneration() {
   for (const file of Object.keys(require.cache)) {
     if (file.startsWith(DIST_DIR)) delete require.cache[file];
   }
-  const constants = require(path.join(DIST_DIR, "constants/sidecar.js"));
+  installStubs();
+  const constants = require("../../dist/constants/sidecar.js");
   constants.SIDECAR_STOP_TIMEOUT_MS = TEST_STOP_TIMEOUT_MS;
-  return require(path.join(DIST_DIR, "lifecycle/spawn-sidecar.js"));
+  return require("../../dist/lifecycle/spawn-sidecar.js");
 }
 
 stubLauncherDependencies();

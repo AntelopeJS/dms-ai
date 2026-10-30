@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const Module = require("node:module");
 const { afterEach, test } = require("node:test");
 const { HTTPResult } = require("@antelopejs/interface-api");
+const { z } = require("zod");
 const {
   INTRUDER,
   OWNER,
@@ -18,12 +19,18 @@ const {
   waitFor,
 } = require("./helpers/channels.cjs");
 
-const { openBridge } = require(dist("channels/bridge.js"));
-const { openChannel } = require(dist("channels/channel-service.js"));
-const { closeAllBridges } = require(dist("channels/registry.js"));
-const { createSseStream } = require(dist("channels/sse-stream.js"));
+const { openBridge } = require("../dist/channels/bridge.js");
+const { openChannel } = require("../dist/channels/channel-service.js");
+const { closeAllBridges } = require("../dist/channels/registry.js");
+const { createSseStream } = require("../dist/channels/sse-stream.js");
+
+/** @typedef {import("../dist/channels/sse-stream.js").SseStream} SseStream */
+/** @typedef {{ new (): object; location: string }} ControllerClass */
 
 const SETTLE_MS = 50;
+const JsonObjectSchema = z.record(z.string(), z.unknown());
+/** @type {{ require: (request: string) => unknown }} */
+const moduleMethods = Module.prototype;
 
 afterEach(closeEverything);
 
@@ -162,8 +169,10 @@ void test("answers 503 without streaming when the sidecar cannot be reached", as
 void test("pauses the sidecar socket while the stream is full and resumes it on drain", async () => {
   const sidecar = await startSidecar();
   const socket = await sidecar.connect();
+  /** @type {() => void} */
   let drain = () => undefined;
   let isFull = false;
+  /** @type {SseStream} */
   const stream = {
     send: (name) => name === "ready" || !isFull,
     onDrain: (listener) => {
@@ -190,21 +199,38 @@ void test("pauses the sidecar socket while the stream is full and resumes it on 
 });
 
 void test("writes multi-line data as one data line per line", () => {
+  /** @type {string[]} */
   const writes = [];
-  const sink = {
-    write: (chunk) => writes.push(chunk) > 0,
-    end: () => undefined,
-    once: () => undefined,
-  };
-  const stream = createSseStream({ sink, onClientGone: () => undefined });
+  const stream = createSseStream({
+    sink: {
+      write: (chunk) => writes.push(chunk) > 0,
+      end: () => undefined,
+      once: () => undefined,
+    },
+    onClientGone: () => undefined,
+  });
   stream.send("message", "first\nsecond");
   stream.close();
   assert.deepEqual(writes, ["event: message\ndata: first\ndata: second\n\n"]);
 });
 
-function loadRoutes(files) {
+/**
+ * Requires a route file with the framework and the launcher replaced by
+ * recorders: which routes it declares, and which controllers are owner-only.
+ * @template T
+ * @param {string} file Path under `dist` of the route file `load` requires.
+ * @param {() => T} load
+ */
+function loadRoutes(file, load) {
+  /** @type {Set<ControllerClass>} */
   const owned = new Set();
+  /** @type {Array<{ method: string; location: string; owner: ControllerClass; key: string | symbol }>} */
   const routes = [];
+  /**
+   * @param {string} method
+   * @param {string} location
+   * @returns {(target: { constructor: ControllerClass }, key: string | symbol) => void}
+   */
   const record = (method, location) => (target, key) => {
     routes.push({
       method,
@@ -217,16 +243,21 @@ function loadRoutes(files) {
     });
   };
   const decorator = () => () => undefined;
+  /** @param {ControllerClass} target */
+  const markOwned = (target) => {
+    owned.add(target);
+  };
   const api = {
     HTTPResult,
+    /** @param {string} location */
     Controller: (location) => {
       class Base {}
       Base.location = location;
       return Base;
     },
-    Get: (location) => record("GET", location),
-    Post: (location) => record("POST", location),
-    Put: (location) => record("PUT", location),
+    Get: (/** @type {string} */ location) => record("GET", location),
+    Post: (/** @type {string} */ location) => record("POST", location),
+    Put: (/** @type {string} */ location) => record("PUT", location),
     Context: decorator,
     Parameter: decorator,
     RawBody: decorator,
@@ -234,9 +265,7 @@ function loadRoutes(files) {
     SetParameterProvider: () => undefined,
   };
   const auth = {
-    AuthOwnerOnly: () => (target) => {
-      owned.add(target);
-    },
+    AuthOwnerOnly: () => markOwned,
     AuthRawUser: decorator,
   };
   const spawn = {
@@ -247,28 +276,35 @@ function loadRoutes(files) {
     getSidecarPort: () => 4242,
     getSidecarClientToken: () => "secret",
   };
+  /** @type {Record<string, unknown>} */
   const mocks = {
     "@antelopejs/interface-api": api,
     "@antelopejs/interface-dms/auth": auth,
     "../lifecycle/spawn-sidecar": spawn,
   };
-  const originalLoad = Module._load;
-  Module._load = (request, parent, isMain) =>
-    mocks[request] ?? originalLoad(request, parent, isMain);
+  const originalRequire = moduleMethods.require;
+  /**
+   * @this {Module}
+   * @param {string} request
+   * @returns {unknown}
+   */
+  function requireWithMocks(request) {
+    return mocks[request] ?? originalRequire.call(this, request);
+  }
+  Module.prototype.require = requireWithMocks;
   try {
-    const exports = files.map((file) => {
-      delete require.cache[dist(file)];
-      return require(dist(file));
-    });
-    return { owned, routes, exports };
+    delete require.cache[dist(file)];
+    return { owned, routes, exports: load() };
   } finally {
-    Module._load = originalLoad;
-    for (const file of files) delete require.cache[dist(file)];
+    Module.prototype.require = originalRequire;
+    delete require.cache[dist(file)];
   }
 }
 
 void test("serves the channel routes to owners only", () => {
-  const { owned, routes } = loadRoutes(["routes/channels.js"]);
+  const { owned, routes } = loadRoutes("routes/channels.js", () =>
+    require("../dist/routes/channels.js"),
+  );
   assert.deepEqual(
     routes.map((route) => `${route.method} ${route.location}`).sort(byText),
     ["GET /ai/channel/events", "POST /ai/channel/:connectionId/messages"],
@@ -277,7 +313,9 @@ void test("serves the channel routes to owners only", () => {
 });
 
 void test("serves no chat document: the chat is a dashboard component", () => {
-  const { routes } = loadRoutes(["routes/index.js"]);
+  const { routes } = loadRoutes("routes/index.js", () =>
+    require("../dist/routes/index.js"),
+  );
   assert.deepEqual(
     routes
       .filter((route) => /chat/i.test(route.location))
@@ -287,10 +325,15 @@ void test("serves no chat document: the chat is a dashboard component", () => {
 });
 
 void test("keeps the sidecar port and client credential out of /ai/sidecar-info", async () => {
-  const { exports } = loadRoutes(["routes/sidecar-info.js"]);
-  const controller = new exports[0].AISidecarInfoController();
+  const { exports } = loadRoutes("routes/sidecar-info.js", () =>
+    require("../dist/routes/sidecar-info.js"),
+  );
+  const controller = new exports.AISidecarInfoController();
   const result = await controller.sidecarInfo();
-  assert.deepEqual(Object.keys(JSON.parse(result.getBody())).sort(byText), [
+  const body = JsonObjectSchema.parse(
+    JSON.parse(z.string().parse(result.getBody())),
+  );
+  assert.deepEqual(Object.keys(body).sort(byText), [
     "disabled",
     "hasGivenUp",
     "isRunning",

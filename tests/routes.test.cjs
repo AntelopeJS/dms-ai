@@ -1,16 +1,24 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
+const { z } = require("zod");
 const { HTTPResult } = require("@antelopejs/interface-api");
 const {
   CLIENT_TOKEN,
   OWNER,
   answer,
+  bodyOf,
   context,
   reset,
   sidecar,
+  textOf,
   useRouteHarness,
 } = require("./helpers/route-harness.cjs");
 
+const StatusSchema = z.looseObject({
+  status: z.string(),
+  isRunning: z.boolean(),
+  hasGivenUp: z.boolean(),
+});
 const harness = useRouteHarness();
 
 const ROW = {
@@ -82,6 +90,7 @@ void test("draws the action's target under its name, in red for a destructive to
   const page = await new harness.routes.AIActivityController().list(
     context(""),
   );
+  assert.ok(!(page instanceof HTTPResult));
   assert.deepEqual(
     page.results.map((row) => row.actionDetail),
     [{ text: "sales/overview" }, { text: "orders", tone: "error" }, null],
@@ -130,7 +139,7 @@ void test("answers 503 with a message from lists and settings while the sidecar 
   for (const result of answers) {
     assert.ok(result instanceof HTTPResult);
     assert.equal(result.getStatus(), 503);
-    assert.deepEqual(JSON.parse(result.getBody()), {
+    assert.deepEqual(bodyOf(z.json(), result), {
       message: "The assistant isn't running.",
     });
   }
@@ -261,6 +270,7 @@ void test("offers the sidecar's defaults on the settings form, numbers as text",
       notifyRequests: true,
     },
   });
+  /** @param {string} id */
   const field = (id) => ({ id, type: "select", component: { type: "x" } });
   const options = await harness.routes.applySidecarSettings(new Set(), {
     fields: [
@@ -274,6 +284,7 @@ void test("offers the sidecar's defaults on the settings form, numbers as text",
     ],
   });
   const [provider, mode, unanswered, deletions] = options.fields;
+  assert.ok("fields" in unanswered);
   assert.equal(provider.defaultValue, "claude");
   assert.equal(provider.offersDefault, true);
   assert.equal(mode.defaultValue, "normal");
@@ -310,7 +321,7 @@ void test("forwards one instant-saved field, and the sidecar's refusal with its 
   );
   assert.deepEqual(sidecar.requests[0].body, { requestTimeoutMinutes: 15 });
   assert.equal(result.getStatus(), 400);
-  assert.deepEqual(JSON.parse(result.getBody()), {
+  assert.deepEqual(bodyOf(z.json(), result), {
     message: "mode auto is not a default",
   });
 });
@@ -360,6 +371,7 @@ void test("asks Undo's confirmation with the later change sets it collides with"
   const dialog = await new harness.routes.AIChangesController().undoConfirm(
     "set-1",
   );
+  assert.ok(!(dialog instanceof HTTPResult));
   assert.equal(dialog.title, "$dms_ai.changes_table.undo_confirm.title");
   assert.equal(
     dialog.description,
@@ -411,6 +423,7 @@ void test("keys the change sets for the Overview table", async () => {
 
 void test("lists the latest change sets as one page for the Overview", async () => {
   reset();
+  /** @param {string} id */
   const set = (id) => ({
     id,
     number: 1,
@@ -432,6 +445,7 @@ void test("lists the latest change sets as one page for the Overview", async () 
     limit: "4",
     state: "applied",
   });
+  assert.ok(!(page instanceof HTTPResult));
   assert.equal(page.total, 4);
   assert.deepEqual(
     page.results.map((row) => row._id),
@@ -452,7 +466,7 @@ void test("exports the audit log as CSV, cells escaped and formulas neutralized"
   assert.match(result.getHeaders()["Content-Disposition"], /attachment/);
   assert.equal(sidecar.requests[0].query.category, "failed");
   assert.equal(sidecar.requests[0].query.offset, undefined);
-  const [header, line] = result.getBody().trim().split("\r\n");
+  const [header, line] = textOf(result).trim().split("\r\n");
   assert.ok(header.startsWith("time,tool,target,"));
   assert.ok(line.includes(`"'=HYPERLINK(""x"")"`));
   assert.ok(line.includes('"a, b"'));
@@ -483,6 +497,8 @@ void test("lists the skills as table rows, filtered by source for the tabs", asy
   const skills = new harness.routes.AISkillsController();
   const all = await skills.catalog(context(""));
   const local = await skills.catalog(context("filter_source=is:local"));
+  assert.ok(!(all instanceof HTTPResult));
+  assert.ok(!(local instanceof HTTPResult));
   assert.deepEqual(
     all.results.map((row) => [row._id, row.source, row.origin]),
     [
@@ -501,7 +517,7 @@ void test("reports the assistant offline, with the process state, when it does n
   reset();
   sidecar.isDown = true;
   const result = await new harness.routes.AIStatusController().status();
-  const body = JSON.parse(result.getBody());
+  const body = bodyOf(StatusSchema, result);
   assert.equal(body.status, "offline");
   assert.equal(body.isRunning, false);
   assert.equal(body.hasGivenUp, false);

@@ -1,10 +1,7 @@
 const assert = require("node:assert/strict");
-const path = require("node:path");
 const { test } = require("node:test");
 
-const { isJsonBody } = require(
-  path.resolve(__dirname, "../dist/sidecar/json-body.js"),
-);
+const { isJsonBody } = require("../dist/sidecar/json-body.js");
 
 const PARSED = [
   "null",

@@ -15,6 +15,12 @@ function selectTarget(requestUrl = "/") {
   return { target: isBackend ? backendUrl : frontendUrl, path: isBackend ? path.slice(backendPrefix.length) || "/" : path };
 }
 
+/**
+ * @param {http.IncomingMessage} request
+ * @param {URL} target
+ * @param {boolean} [upgrade]
+ * @returns {http.OutgoingHttpHeaders}
+ */
 function upstreamHeaders(request, target, upgrade = false) {
   const headers = { ...request.headers, host: target.host };
   if (upgrade) {
@@ -32,6 +38,11 @@ function isString(value) {
   return typeof value === "string";
 }
 
+/**
+ * @param {http.IncomingHttpHeaders} headers
+ * @param {URL} target
+ * @returns {http.OutgoingHttpHeaders}
+ */
 function responseHeaders(headers, target) {
   const forwarded = { ...headers };
   const location = forwarded.location;
