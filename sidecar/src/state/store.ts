@@ -28,14 +28,22 @@ interface StoreState {
   inflight: Promise<void> | null;
 }
 
+function isObject(value: unknown): value is object {
+  return typeof value === "object" && value !== null;
+}
+
+function isObjectOrNull(value: unknown): value is object | null {
+  return typeof value === "object";
+}
+
 function parseStateContents(raw: string): StoredState {
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (parsed === null || typeof parsed !== "object") return STATE_INITIAL;
+    if (!isObject(parsed)) return STATE_INITIAL;
     const candidate = parsed as Partial<StoredState>;
     if (
       candidate.conversations === undefined ||
-      typeof candidate.conversations !== "object"
+      !isObjectOrNull(candidate.conversations)
     ) {
       return STATE_INITIAL;
     }
