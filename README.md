@@ -50,6 +50,18 @@ Claude Code runs with its own credentials (its login, or `ANTHROPIC_API_KEY` in 
 
 ## Compatibility
 
+<!-- antelopejs-docs-compat:start -->
+
+| Package                                  | Supported         | Tested with |
+| ---------------------------------------- | ----------------- | ----------- |
+| `@antelopejs/interface-api`              | `>=0.0.15 <1.0.0` | `0.0.15`    |
+| `@antelopejs/interface-core`             | `>=0.2.4 <1.0.0`  | `0.2.4`     |
+| `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`  | `0.0.2`     |
+| `@antelopejs/interface-dms`              | `>=0.9.0 <1.0.0`  | `0.9.0`     |
+| `@antelopejs/interface-dms-builder`      | `>=0.2.3 <1.0.0`  | `0.2.3`     |
+
+<!-- antelopejs-docs-compat:end -->
+
 | Package | Version |
 | --- | --- |
 | `@antelopejs/dms` | `>=0.11.0 <1.0.0` |
