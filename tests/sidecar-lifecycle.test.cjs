@@ -23,12 +23,14 @@ const WAIT_STEP_MS = 50;
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "dms-ai-sidecar-"));
 process.chdir(root);
 const lockPath = path.join(root, "node_modules/.cache/dms-ai/sidecar.lock");
+/** @type {Set<number>} */
 const startedPids = new Set();
 
 function readLock() {
   return readLockFile(lockPath);
 }
 
+/** @param {number} pid */
 function isRunning(pid) {
   try {
     process.kill(pid, 0);
@@ -38,10 +40,18 @@ function isRunning(pid) {
   return !isZombie(pid);
 }
 
+/**
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * @param {() => boolean} check
+ * @param {string} label
+ */
 async function waitFor(check, label) {
   const deadline = Date.now() + WAIT_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -51,6 +61,7 @@ async function waitFor(check, label) {
   assert.fail(`timed out waiting for ${label}`);
 }
 
+/** @param {number} pid */
 function track(pid) {
   startedPids.add(pid);
   return pid;
@@ -68,6 +79,7 @@ async function startSidecar() {
 /**
  * A sidecar a previous run left behind, of the same build: not a child of the
  * launcher's owner, with its lock in place.
+ * @param {Record<string, string>} [env]
  */
 async function startLeftover(env = {}) {
   const args = [FAKE_SIDECAR_PATH, "--build-id", build.id];
@@ -77,11 +89,17 @@ async function startLeftover(env = {}) {
     stdio: "ignore",
     env: { ...process.env, ...env },
   });
-  track(leftover.pid);
-  await waitFor(() => readLock()?.pid === leftover.pid, "the leftover lock");
-  return leftover.pid;
+  const leftoverPid = leftover.pid;
+  assert.ok(leftoverPid !== undefined, "the leftover started");
+  track(leftoverPid);
+  await waitFor(() => readLock()?.pid === leftoverPid, "the leftover lock");
+  return leftoverPid;
 }
 
+/**
+ * @param {number[]} pids
+ * @param {NodeJS.Signals} name
+ */
 function signal(pids, name) {
   for (const pid of pids) {
     try {
@@ -167,7 +185,9 @@ void test("stopping the backend with Ctrl+C stops its sidecar", async () => {
   assert.ok(backendPid !== undefined, "the backend started");
   track(backendPid);
   await events.once(backend.stdout, "data");
-  const sidecarPid = track(readLock().pid);
+  const lock = readLock();
+  assert.ok(lock, "the sidecar claimed the lock");
+  const sidecarPid = track(lock.pid);
   process.kill(-backendPid, "SIGINT");
   await waitFor(() => !isRunning(sidecarPid), "the sidecar to stop");
   assert.equal(readLock(), null);
