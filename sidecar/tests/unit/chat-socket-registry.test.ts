@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
+import { z } from "zod";
 import {
   type AnyServerEventType,
   EVENT_TYPES,
@@ -12,11 +13,11 @@ const PALETTE_CONVERSATION = "conv-palette";
 
 interface Tab {
   socket: SocketSender;
-  send: ReturnType<typeof vi.fn>;
+  send: Mock<(data: string) => void>;
 }
 
 function buildTab(): Tab {
-  const send = vi.fn();
+  const send = vi.fn<(data: string) => void>();
   return { socket: { send }, send };
 }
 
@@ -24,9 +25,11 @@ function runDone(conversationId: string): AnyServerEventType {
   return { type: EVENT_TYPES.RUN_DONE, conversationId };
 }
 
-function sentConversations(tab: Tab): unknown[] {
+const SentFrame = z.object({ conversationId: z.string() });
+
+function sentConversations(tab: Tab): string[] {
   return tab.send.mock.calls.map(
-    ([raw]) => JSON.parse(String(raw)).conversationId,
+    ([raw]) => SentFrame.parse(JSON.parse(String(raw))).conversationId,
   );
 }
 

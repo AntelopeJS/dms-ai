@@ -41,15 +41,16 @@ describe("GET /skills", () => {
       headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
     });
     expect(res.ok).toBe(true);
-    expect(await res.json()).toMatchObject({
-      items: expect.arrayContaining([
+    expect(await res.json()).toHaveProperty(
+      "items",
+      expect.arrayContaining([
         expect.objectContaining({
           name: "page-builder",
           id: "dms-ai:page-builder",
           provenance: "dms-ai",
         }),
       ]),
-    });
+    );
   });
 
   it("returns an empty catalog when no sources resolve", async () => {

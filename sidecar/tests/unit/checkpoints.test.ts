@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   ChangeSetActionError,
   type Checkpoints,
@@ -17,6 +18,9 @@ import { createChangeSetStore } from "../../src/state/change-sets.js";
 const STATE_SEGMENTS = ["node_modules", ".cache", "dms-ai"];
 const RETENTION_DAYS = 30;
 const MS_PER_DAY = 86_400_000;
+const StoredChangeSets = z.looseObject({
+  changeSets: z.array(z.looseObject({ createdAtMs: z.number() })),
+});
 
 function meta(title: string): TurnChangeMeta {
   return {
@@ -203,10 +207,19 @@ describe("checkpoints", () => {
     });
     await project.checkpoints.flush();
     const file = join(project.stateDir, "change-sets.json");
-    const stored = JSON.parse(await readFile(file, "utf8"));
-    stored.changeSets[0].createdAtMs =
-      Date.now() - (RETENTION_DAYS + 1) * MS_PER_DAY;
-    await writeFile(file, JSON.stringify(stored));
+    const stored = StoredChangeSets.parse(
+      JSON.parse(await readFile(file, "utf8")),
+    );
+    const expiredAtMs = Date.now() - (RETENTION_DAYS + 1) * MS_PER_DAY;
+    await writeFile(
+      file,
+      JSON.stringify({
+        ...stored,
+        changeSets: stored.changeSets.map((changeSet, index) =>
+          index === 0 ? { ...changeSet, createdAtMs: expiredAtMs } : changeSet,
+        ),
+      }),
+    );
     const reopened = await openProject(root);
     expect(reopened.checkpoints.get(idOf(record))).toBeNull();
     expect(reopened.checkpoints.all()).toEqual([]);
