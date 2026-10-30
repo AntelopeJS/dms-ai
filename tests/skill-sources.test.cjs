@@ -96,7 +96,9 @@ function loadCollector(modules) {
     delete require.cache[filename];
     return require("../dist/lifecycle/skill-sources.js");
   } finally {
-    Module.prototype.require = originalRequire;
+    Object.defineProperty(Module.prototype, "require", {
+      value: originalRequire,
+    });
   }
 }
 
