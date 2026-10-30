@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const { z } = require("zod");
 const { test } = require("node:test");
+const { HTTPResult } = require("@antelopejs/interface-api");
 const {
   PAGE_LOCALES: PAGE_LOCALE_FILES,
   readLocale,
@@ -13,23 +14,71 @@ const {
 } = require("./helpers/route-harness.cjs");
 
 const TextSchema = z.string();
+const GroupSchema = z.record(z.string(), z.unknown());
+const FactSchema = z.looseObject({
+  id: z.string(),
+  value: z.unknown().optional(),
+  tone: z.unknown().optional(),
+  detail: z.unknown().optional(),
+});
+const FactsSchema = z.looseObject({ items: z.array(FactSchema) });
+const ActionSchema = z.looseObject({
+  to: z.unknown().optional(),
+  target: z.looseObject({ url: z.unknown().optional() }).optional(),
+  confirm: z
+    .looseObject({
+      fields: z
+        .array(
+          z.looseObject({
+            id: z.unknown().optional(),
+            required: z.unknown().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
+});
+const LabelSchema = z.looseObject({ params: z.unknown().optional() });
+const BannerBodySchema = z.looseObject({
+  tone: z.unknown().optional(),
+  title: z.union([z.string(), LabelSchema]).optional(),
+  description: z.union([z.string(), LabelSchema]).optional(),
+});
+const ActionBannerSchema = BannerBodySchema.extend({
+  actions: z.array(ActionSchema),
+});
+const ErrorBannerSchema = ActionBannerSchema.extend({
+  description: LabelSchema,
+});
+const AccountBannerSchema = ActionBannerSchema.extend({ title: LabelSchema });
 const harness = useRouteHarness();
 
 const PAGE_LOCALES = PAGE_LOCALE_FILES.map(readLocale);
 const I18N_KEY = /\$dms_ai\.[A-Za-z0-9_.-]+/g;
 
-/** The `$dms_ai` keys an answer holds that a page locale does not translate. */
+/**
+ * @param {unknown} locale
+ * @param {string[]} parts
+ */
+function nodeAt(locale, parts) {
+  let node = locale;
+  for (const part of parts) {
+    const group = GroupSchema.safeParse(node);
+    node = group.success ? group.data[part] : undefined;
+  }
+  return node;
+}
+
+/**
+ * The `$dms_ai` keys an answer holds that a page locale does not translate.
+ * @param {unknown} answer
+ */
 function untranslated(answer) {
   const keys = JSON.stringify(answer).match(I18N_KEY) ?? [];
   return PAGE_LOCALES.flatMap((locale) =>
     keys.filter(
       (key) =>
-        !TextSchema.safeParse(
-          key
-            .slice(1)
-            .split(".")
-            .reduce((node, part) => node?.[part], locale),
-        ).success,
+        !TextSchema.safeParse(nodeAt(locale, key.slice(1).split("."))).success,
     ),
   );
 }
@@ -47,12 +96,22 @@ const ONLINE_STATUS = {
   checkpointsAvailable: true,
 };
 
-function bodyOf(result) {
-  return JSON.parse(result.getBody());
+/**
+ * @template {z.ZodType} Schema
+ * @param {Schema} schema
+ * @param {HTTPResult} result
+ * @returns {z.output<Schema>}
+ */
+function bodyOf(schema, result) {
+  return schema.parse(JSON.parse(TextSchema.parse(result.getBody())));
 }
 
 void test("warns once about every skill name several skills share, linking to the skill sources", async () => {
   reset();
+  /**
+   * @param {string} source
+   * @param {string} origin
+   */
   const copy = (source, origin) => ({ source, origin });
   answer("GET", "/skills/conflicts", 200, {
     conflicts: [
@@ -69,6 +128,7 @@ void test("warns once about every skill name several skills share, linking to th
     ],
   });
   const banner = await new harness.routes.AISkillsController().conflicts();
+  assert.ok(!(banner instanceof HTTPResult));
   assert.equal(banner.tone, "warning");
   const count = { type: "count", value: 2 };
   assert.deepEqual(banner.title, {
@@ -99,6 +159,7 @@ void test("lists the assistant's status as key / value rows, the sidecar's addre
   reset();
   answer("GET", "/status", 200, { ...ONLINE_STATUS, pendingApprovals: 2 });
   const { items } = bodyOf(
+    FactsSchema,
     await new harness.routes.AIStatusController().facts(),
   );
   assert.deepEqual(
@@ -124,6 +185,7 @@ void test("shows the scope turns run in: Code mode when Safe mode lacks Builder"
   reset();
   answer("GET", "/status", 200, { ...ONLINE_STATUS, builderAvailable: false });
   const { items } = bodyOf(
+    FactsSchema,
     await new harness.routes.AIStatusController().facts(),
   );
   const scope = items.find((item) => item.id === "scope");
@@ -137,6 +199,7 @@ void test("keeps only the state and the stopped sidecar while the assistant is o
   reset();
   sidecar.isDown = true;
   const { items } = bodyOf(
+    FactsSchema,
     await new harness.routes.AIStatusController().facts(),
   );
   assert.deepEqual(
@@ -153,7 +216,7 @@ void test("raises the most pressing status banner: offline with Restart, a faile
   reset();
   const status = new harness.routes.AIStatusController();
   sidecar.isDown = true;
-  const offline = bodyOf(await status.banner());
+  const offline = bodyOf(ActionBannerSchema, await status.banner());
   assert.equal(offline.tone, "error");
   assert.deepEqual(offline.actions[0].target, {
     type: "api",
@@ -167,11 +230,11 @@ void test("raises the most pressing status banner: offline with Restart, a faile
     pendingQuestions: 1,
     lastError: "Agent exited",
   });
-  const failed = bodyOf(await status.banner());
+  const failed = bodyOf(ErrorBannerSchema, await status.banner());
   assert.deepEqual(failed.description.params, { error: "Agent exited" });
   assert.equal(failed.actions[0].to, "/modules/ai/activity");
   answer("GET", "/status", 200, { ...ONLINE_STATUS, pendingQuestions: 1 });
-  const waiting = bodyOf(await status.banner());
+  const waiting = bodyOf(BannerBodySchema, await status.banner());
   assert.equal(waiting.tone, "warning");
   assert.deepEqual(untranslated([offline, failed, waiting]), []);
 });
@@ -188,7 +251,7 @@ void test("offers to sign in with ChatGPT, to paste the return address, or to si
   const account = new harness.routes.AICodexAccountController();
   const loginUrl = "https://auth.openai.com/api/accounts/authorize?state=s";
   answer("GET", "/codex/account", 200, { isSignedIn: false, loginUrl });
-  const signedOut = bodyOf(await account.banner());
+  const signedOut = bodyOf(ActionBannerSchema, await account.banner());
   assert.deepEqual(signedOut.actions[0].target, {
     type: "external",
     url: loginUrl,
@@ -204,7 +267,7 @@ void test("offers to sign in with ChatGPT, to paste the return address, or to si
     isSignedIn: true,
     email: "dev@example.com",
   });
-  const signedIn = bodyOf(await account.banner());
+  const signedIn = bodyOf(AccountBannerSchema, await account.banner());
   assert.deepEqual(signedIn.title.params, { email: "dev@example.com" });
   assert.equal(signedIn.actions[0].target.url, "/ai/codex/logout");
   assert.ok(signedIn.actions[0].confirm);
@@ -222,6 +285,8 @@ void test("hands a pasted return address to the sidecar, and its refusal back", 
   });
   const refused = await account.finishSignIn({ url: pasted });
   assert.equal(refused.getStatus(), 400);
-  assert.deepEqual(bodyOf(refused), { message: "Not the sign-in address" });
+  assert.deepEqual(bodyOf(z.json(), refused), {
+    message: "Not the sign-in address",
+  });
   assert.deepEqual(sidecar.requests.at(-1).body, { url: pasted });
 });
