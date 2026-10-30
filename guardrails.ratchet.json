@@ -4,10 +4,10 @@
     "antelopejs/no-inherited-key-lookup": 3,
     "anti-slop/no-known-value-widening": 1,
     "anti-slop/no-runtime-typeof": 4,
-    "anti-slop/no-unknown-parameters": 4,
-    "anti-slop/no-unknown-returns": 2,
+    "anti-slop/no-unknown-parameters": 3,
+    "anti-slop/no-unknown-returns": 1,
     "anti-slop/no-unsafe-dictionary-type": 1,
-    "anti-slop/require-safety-comment-for-type-assertion": 12,
+    "anti-slop/require-safety-comment-for-type-assertion": 11,
     "typescript/no-unsafe-argument": 83,
     "typescript/no-unsafe-assignment": 247,
     "typescript/no-unsafe-return": 91

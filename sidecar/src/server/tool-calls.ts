@@ -107,16 +107,6 @@ function outcomeOf(
   return ev.isError ? "failed" : "done";
 }
 
-function resultText(result: unknown): string {
-  const asString = z.string().safeParse(result);
-  if (asString.success) return asString.data;
-  try {
-    return JSON.stringify(result ?? "");
-  } catch {
-    return "";
-  }
-}
-
 const TYPECHECK_OUTCOME_MARKERS: ReadonlyArray<[string, TypecheckOutcome]> = [
   [TYPECHECK_ERRORS_PREFIX, "failed"],
   [TYPECHECK_CLEAN_MESSAGE, "passed"],
@@ -128,7 +118,17 @@ function noteTypecheck(
   ev: RunnerToolResult,
 ) {
   if (bareToolName(toolName) !== TYPECHECK_TOOL_NAME) return;
-  const text = resultText(ev.result);
+  const asString = z.string().safeParse(ev.result);
+  let text = "";
+  if (asString.success) {
+    text = asString.data;
+  } else {
+    try {
+      text = JSON.stringify(ev.result ?? "");
+    } catch {
+      text = "";
+    }
+  }
   const marker = TYPECHECK_OUTCOME_MARKERS.find(([m]) => text.includes(m));
   if (marker !== undefined) turn.typecheck = marker[1];
 }
