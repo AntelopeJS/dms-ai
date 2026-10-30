@@ -1,9 +1,9 @@
 const assert = require("node:assert/strict");
 const { z } = require("zod");
-const Module = require("node:module");
 const path = require("node:path");
 const { test } = require("node:test");
 const { Component } = require("@antelopejs/interface-dms/component");
+const { interceptRequire } = require("./helpers/intercept-require.cjs");
 const { PAGE_LOCALES, readLocale } = require("./helpers/page-locales.cjs");
 
 /**
@@ -14,146 +14,6 @@ const { PAGE_LOCALES, readLocale } = require("./helpers/page-locales.cjs");
  * @typedef {import("@antelopejs/interface-dms/component").ComponentMetadata} ComponentMetadata
  * @typedef {import("./helpers/page-locales.cjs").LocaleNode} LocaleNode
  */
-
-const BACKEND_URL = "http://127.0.0.1:41234";
-
-const RequireMethod = z.instanceof(Function);
-
-/**
- * Makes the requires of the modules loaded from now on resolve to the mocks.
- *
- * @param {Record<string, unknown>} mocks - Exports by module specifier.
- * @param {boolean} stubUnmocked - Whether a specifier with no mock resolves to an empty module, instead of the real one, for the modules this test did not load itself.
- * @returns {() => void} Puts the real require back.
- */
-function interceptRequire(mocks, stubUnmocked) {
-  const originalRequire = RequireMethod.parse(
-    Object.getOwnPropertyDescriptor(Module.prototype, "require")?.value,
-  );
-  /**
-   * @this {Module}
-   * @param {string} request - The specifier being required.
-   * @returns {unknown} The mock of the specifier, else the module it resolves to.
-   */
-  Module.prototype.require = function (request) {
-    return (
-      mocks[request] ??
-      (stubUnmocked && this !== module
-        ? {}
-        : originalRequire.call(this, request))
-    );
-  };
-  return () => {
-    Object.defineProperty(Module.prototype, "require", {
-      value: originalRequire,
-    });
-  };
-}
-
-/**
- * @param {unknown[]} registrations - Receives each frontend module registered.
- * @param {unknown[]} sidecars - Receives the options of each sidecar spawned.
- */
-function loadModule(registrations, sidecars) {
-  const filename = require.resolve("../dist/index.js");
-  /** @type {Record<string, unknown>} */
-  const mocks = {
-    "@antelopejs/interface-dms/page": {
-      /** @param {unknown} registration - The frontend module being registered. */
-      AddFrontendModule: (registration) => registrations.push(registration),
-    },
-    "@antelopejs/interface-core/logging": {
-      Logging: { Error() {} },
-    },
-    "./builder/presence": { isBuilderAvailable: () => true },
-    "./lifecycle/module-roots": {
-      collectModuleRoots: () => ["fixture-module"],
-    },
-    "./lifecycle/skill-sources": {
-      collectSkillSources: () => ["fixture-skills"],
-    },
-    "./lifecycle/spawn-sidecar": {
-      /** @param {unknown} options - The options the sidecar is spawned with. */
-      spawnSidecar: async (options) => {
-        sidecars.push(options);
-      },
-    },
-    "./logging/log-buffer": { startLogCapture() {} },
-    "./frontend-module": require("../dist/frontend-module.js"),
-    "node:path": path,
-    zod: require("zod"),
-    "./constants/sidecar": require("../dist/constants/sidecar.js"),
-    "./config": require("../dist/config.js"),
-  };
-  const restoreRequire = interceptRequire(mocks, true);
-  try {
-    delete require.cache[filename];
-    return require("../dist/index.js");
-  } finally {
-    restoreRequire();
-    delete require.cache[filename];
-  }
-}
-
-void test("registers Vue with its /ai backend prefix and preserves sidecar inputs without launching an agent", async () => {
-  /** @type {unknown[]} */
-  const registrations = [];
-  /** @type {unknown[]} */
-  const sidecars = [];
-  const loaded = loadModule(registrations, sidecars);
-  loaded.construct({ backendUrl: BACKEND_URL });
-  await loaded.start();
-  assert.deepEqual(registrations, [
-    {
-      name: "@antelopejs/dms-ai-frontend-vue",
-      sourcePath: path.resolve(__dirname, "../frontend-vue"),
-      renderer: { name: "vue", version: "3" },
-      priority: 100,
-      backendProxies: [{ path: "/ai/**", auth: "session" }],
-    },
-  ]);
-  assert.deepEqual(sidecars, [
-    {
-      hostProjectRoot: process.cwd(),
-      backendUrl: BACKEND_URL,
-      moduleRoots: ["fixture-module"],
-      skillDirs: ["fixture-skills"],
-      builderEnabled: true,
-    },
-  ]);
-});
-
-void test("omits the origins the project did not configure", async () => {
-  /** @type {unknown[]} */
-  const sidecars = [];
-  const loaded = loadModule([], sidecars);
-  loaded.construct(undefined);
-  await loaded.start();
-  assert.deepEqual(sidecars, [
-    {
-      hostProjectRoot: process.cwd(),
-      moduleRoots: ["fixture-module"],
-      skillDirs: ["fixture-skills"],
-      builderEnabled: true,
-    },
-  ]);
-});
-
-void test("ignores config entries that are not usable origins", async () => {
-  /** @type {unknown[]} */
-  const sidecars = [];
-  const loaded = loadModule([], sidecars);
-  loaded.construct({ backendUrl: "   ", unknown: 5010 });
-  await loaded.start();
-  assert.deepEqual(sidecars, [
-    {
-      hostProjectRoot: process.cwd(),
-      moduleRoots: ["fixture-module"],
-      skillDirs: ["fixture-skills"],
-      builderEnabled: true,
-    },
-  ]);
-});
 
 const I18N_KEY = /\$dms_ai\.[A-Za-z0-9_.-]+/g;
 const MODULE_PAGES = ["overview", "changes", "activity", "skills", "settings"];
@@ -219,6 +79,7 @@ function loadPages() {
   const restoreRequire = interceptRequire(
     { "@antelopejs/interface-dms/page": pageApi },
     false,
+    module,
   );
   try {
     for (const file of Object.keys(require.cache)) {
@@ -273,6 +134,11 @@ async function collectPositions(prefix, component, positions) {
   }
 }
 
+const ContainerSchema = z.union([
+  z.array(z.unknown()),
+  z.record(z.string(), z.unknown()),
+]);
+
 /**
  * @param {unknown} value - A node of a serialized tree.
  * @param {Set<string>} keys - Receives each `$dms_ai` key found.
@@ -283,8 +149,11 @@ function collectKeys(value, keys) {
     for (const match of text.data.matchAll(I18N_KEY)) keys.add(match[0]);
     return;
   }
-  if (value && typeof value === "object") {
-    for (const entry of Object.values(value)) collectKeys(entry, keys);
+  const container = ContainerSchema.safeParse(value);
+  if (container.success) {
+    for (const entry of Object.values(container.data)) {
+      collectKeys(entry, keys);
+    }
   }
 }
 
@@ -412,10 +281,13 @@ const DrawerSchema = z.looseObject({
  * @returns {Drawer[]} The drawers.
  */
 function findDrawers(value, drawers) {
-  if (!value || typeof value !== "object") return drawers;
+  const container = ContainerSchema.safeParse(value);
+  if (!container.success) return drawers;
   const drawer = DrawerSchema.safeParse(value);
   if (drawer.success) drawers.push(drawer.data);
-  for (const entry of Object.values(value)) findDrawers(entry, drawers);
+  for (const entry of Object.values(container.data)) {
+    findDrawers(entry, drawers);
+  }
   return drawers;
 }
 
@@ -473,10 +345,11 @@ const CardHolderSchema = z.looseObject({
  * @returns {Card[]} The cards.
  */
 function findCards(value, cards) {
-  if (!value || typeof value !== "object") return cards;
+  const container = ContainerSchema.safeParse(value);
+  if (!container.success) return cards;
   const holder = CardHolderSchema.safeParse(value);
   if (holder.success) cards.push(holder.data.card);
-  for (const entry of Object.values(value)) findCards(entry, cards);
+  for (const entry of Object.values(container.data)) findCards(entry, cards);
   return cards;
 }
 
