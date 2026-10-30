@@ -5,7 +5,7 @@
     "anti-slop/no-unknown-parameters": 9,
     "anti-slop/no-unknown-returns": 13,
     "anti-slop/no-unsafe-dictionary-type": 6,
-    "anti-slop/require-safety-comment-for-type-assertion": 24
+    "anti-slop/require-safety-comment-for-type-assertion": 18
   },
   "oversizeFiles": {}
 }
