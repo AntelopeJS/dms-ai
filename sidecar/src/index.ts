@@ -98,7 +98,7 @@ type ArgParser = (value: string, acc: ParsedArgs) => void;
  */
 function parseModuleRoots(value: string): string[] {
   try {
-    const parsed = JSON.parse(value);
+    const parsed: unknown = JSON.parse(value);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((p): p is string => typeof p === "string");
   } catch {
@@ -529,7 +529,7 @@ function isEntryPoint(): boolean {
 }
 
 if (isEntryPoint()) {
-  main().catch((err) => {
+  main().catch((err: unknown) => {
     console.error(err);
     process.exit(1);
   });

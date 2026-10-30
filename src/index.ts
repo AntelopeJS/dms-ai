@@ -36,7 +36,7 @@ export async function start() {
     moduleRoots,
     skillDirs,
     builderEnabled,
-  }).catch((err) => {
+  }).catch((err: unknown) => {
     Logging.Error(`${SIDECAR_LOG_PREFIX} spawn failed:`, err);
   });
 }

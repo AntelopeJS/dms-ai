@@ -232,8 +232,8 @@ describe("ChatGPT plan provider", () => {
 
   it("fails with the sidecar's reason when there is no token to give", async () => {
     tokenServer = await startTokenServer(503, "sign in again");
-    const failure = await runAuthCommand(tokenServer.url).catch((error) =>
-      ExecFailureSchema.parse(error),
+    const failure = await runAuthCommand(tokenServer.url).catch(
+      (error: unknown) => ExecFailureSchema.parse(error),
     );
     expect(failure).toMatchObject({ code: 1, stderr: "sign in again" });
   });

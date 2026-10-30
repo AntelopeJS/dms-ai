@@ -50,7 +50,11 @@ function harness(): Harness {
 
 function settles<T>(promise: Promise<T>): Promise<string> {
   return Promise.race([
-    promise.then(() => "resolved").catch((err: Error) => err.message),
+    promise
+      .then(() => "resolved")
+      .catch((err: unknown) =>
+        err instanceof Error ? err.message : String(err),
+      ),
     new Promise<string>((resolve) =>
       setTimeout(() => resolve("still pending"), SETTLE_BUDGET_MS),
     ),

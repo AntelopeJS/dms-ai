@@ -386,17 +386,19 @@ const handleSetSettings = on(MESSAGE_TYPES.SET_SETTINGS, (_s, msg, ctx) => {
 const handleChangeSet = on(
   MESSAGE_TYPES.CHANGE_SET_ACTION,
   async (socket, msg, ctx) => {
-    await handleChangeSetAction(ctx, msg, ctx.actor?.name).catch((err) => {
-      logFailure(
-        "change set action failed",
-        err instanceof Error ? err.message : String(err),
-      );
-      send(socket, {
-        type: EVENT_TYPES.RUN_ERROR,
-        conversationId: msg.conversationId ?? "",
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
+    await handleChangeSetAction(ctx, msg, ctx.actor?.name).catch(
+      (err: unknown) => {
+        logFailure(
+          "change set action failed",
+          err instanceof Error ? err.message : String(err),
+        );
+        send(socket, {
+          type: EVENT_TYPES.RUN_ERROR,
+          conversationId: msg.conversationId ?? "",
+          error: err instanceof Error ? err.message : String(err),
+        });
+      },
+    );
   },
 );
 
@@ -428,7 +430,7 @@ const MESSAGE_HANDLERS = {
 
 function parseMessage(raw: string): AnyClientMessageType | null {
   try {
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     const result = AnyClientMessage.safeParse(parsed);
     if (!result.success) return null;
     return result.data;
