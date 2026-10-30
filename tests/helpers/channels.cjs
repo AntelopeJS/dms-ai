@@ -3,12 +3,18 @@ const { EventEmitter } = require("node:events");
 const path = require("node:path");
 const { HTTPResult } = require("@antelopejs/interface-api");
 const { WebSocket, WebSocketServer } = require("ws");
+const { z } = require("zod");
+const {
+  openChannel,
+  postChannelMessage,
+} = require("../../dist/channels/channel-service.js");
+const { closeAllBridges } = require("../../dist/channels/registry.js");
 
+/**
+ * @param {string} file
+ * @returns {string}
+ */
 const dist = (file) => path.resolve(__dirname, "../../dist", file);
-const { openChannel, postChannelMessage } = require(
-  dist("channels/channel-service.js"),
-);
-const { closeAllBridges } = require(dist("channels/registry.js"));
 
 const OWNER = "owner-1";
 const INTRUDER = "owner-2";
@@ -16,22 +22,51 @@ const INTRUDER = "owner-2";
 const SIDECAR_SOCKET_PATH = "/ws";
 const WAIT_TIMEOUT_MS = 2_000;
 const WAIT_STEP_MS = 10;
-const byText = (a, b) => a.localeCompare(b);
 const ACTOR_FRAME_TYPE = "actor";
+const ActorFrameSchema = z.looseObject({ type: z.literal(ACTOR_FRAME_TYPE) });
+const ListeningAddressSchema = z.object({ port: z.number() });
+const ReadyDataSchema = z.object({ connectionId: z.string() });
 
-/** The signed-in user a stream is opened for, as the channel route passes it. */
+/**
+ * @param {string} a
+ * @param {string} b
+ * @returns {number}
+ */
+const byText = (a, b) => a.localeCompare(b);
+
+/**
+ * The signed-in user a stream is opened for, as the channel route passes it.
+ * @param {string} userId
+ */
 function actorOf(userId) {
   return { userId, name: `Name of ${userId}` };
 }
 
-function isActorFrame(text) {
+/**
+ * The frame when `text` is the actor frame, which the bridge sends first.
+ * @param {string} text
+ */
+function parseActorFrame(text) {
   try {
-    return JSON.parse(text).type === ACTOR_FRAME_TYPE;
+    const frame = ActorFrameSchema.safeParse(JSON.parse(text));
+    return frame.success ? frame.data : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
+/**
+ * @typedef {object} FakeSidecar
+ * @property {string[]} received Frames the browser side posted.
+ * @property {Array<z.infer<typeof ActorFrameSchema>>} actors Actor frames received.
+ * @property {Array<string | undefined>} paths URL path of each connection.
+ * @property {import("ws").WebSocket[]} sockets Server-side sockets, in connection order.
+ * @property {number} closed Connections closed so far.
+ * @property {() => Promise<import("ws").WebSocket>} connect Opens a paused client socket.
+ * @property {() => Promise<void>} close Terminates every connection and stops listening.
+ */
+
+/** @type {FakeSidecar[]} */
 const sidecars = [];
 
 async function closeEverything() {
@@ -39,10 +74,18 @@ async function closeEverything() {
   await Promise.all(sidecars.splice(0).map((sidecar) => sidecar.close()));
 }
 
+/**
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * @param {() => boolean} check
+ * @param {string} label
+ */
 async function waitFor(check, label) {
   const deadline = Date.now() + WAIT_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -52,6 +95,10 @@ async function waitFor(check, label) {
   assert.fail(`timed out waiting for ${label}`);
 }
 
+/**
+ * @param {number} port
+ * @returns {Promise<import("ws").WebSocket>}
+ */
 function connectTo(port) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(
@@ -65,19 +112,32 @@ function connectTo(port) {
   });
 }
 
+/**
+ * @param {import("ws").WebSocketServer} server
+ * @returns {number}
+ */
+function portOf(server) {
+  return ListeningAddressSchema.parse(server.address()).port;
+}
+
+/**
+ * @param {(socket: import("ws").WebSocket) => void} [onConnection]
+ * @returns {Promise<FakeSidecar>}
+ */
 async function startSidecar(onConnection = () => undefined) {
   const server = new WebSocketServer({ port: 0 });
   await new Promise((resolve) => server.once("listening", resolve));
+  /** @type {FakeSidecar} */
   const sidecar = {
     received: [],
     actors: [],
     paths: [],
     sockets: [],
     closed: 0,
-    connect: () => connectTo(server.address().port),
+    connect: () => connectTo(portOf(server)),
     close: () => {
       for (const client of server.clients) client.terminate();
-      return new Promise((resolve) => server.close(resolve));
+      return new Promise((resolve) => server.close(() => resolve()));
     },
   };
   server.on("connection", (socket, request) => {
@@ -85,7 +145,8 @@ async function startSidecar(onConnection = () => undefined) {
     sidecar.paths.push(request.url);
     socket.on("message", (data) => {
       const text = Buffer.concat([data].flat()).toString("utf8");
-      if (isActorFrame(text)) sidecar.actors.push(JSON.parse(text));
+      const actor = parseActorFrame(text);
+      if (actor) sidecar.actors.push(actor);
       else sidecar.received.push(text);
     });
     socket.on("close", () => {
@@ -126,6 +187,10 @@ function fakeContext() {
   return { ctx, output, capture, leave };
 }
 
+/**
+ * @param {string} text
+ * @returns {Array<{ name: string; data: string }>}
+ */
 function parseEvents(text) {
   return text
     .split("\n\n")
@@ -141,6 +206,10 @@ function parseEvents(text) {
     });
 }
 
+/**
+ * @param {FakeSidecar} sidecar
+ * @param {string} [userId]
+ */
 async function openOn(sidecar, userId = OWNER) {
   const context = fakeContext();
   const result = await openChannel(
@@ -153,10 +222,15 @@ async function openOn(sidecar, userId = OWNER) {
   await waitFor(() => parseEvents(context.output.text).length > 0, "ready");
   const ready = parseEvents(context.output.text)[0];
   assert.equal(ready.name, "ready");
-  const { connectionId } = JSON.parse(ready.data);
+  const { connectionId } = ReadyDataSchema.parse(JSON.parse(ready.data));
   return { ...context, connectionId };
 }
 
+/**
+ * @param {string} connectionId
+ * @param {string} body
+ * @param {string} [userId]
+ */
 function post(connectionId, body, userId = OWNER) {
   return postChannelMessage(connectionId, userId, Buffer.from(body));
 }
