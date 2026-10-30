@@ -342,13 +342,6 @@ async function conflictsRoute(res: ServerResponse, match: RouteMatch) {
   sendJson(res, HTTP_STATUS.OK, { conflicts: skillConflicts(catalog) });
 }
 
-function json<T>(
-  build: (deps: ApiDeps, match: RouteMatch) => T,
-): StoreRoute["handle"] {
-  return (_req, res, deps, match) =>
-    sendJson(res, HTTP_STATUS.OK, build(deps, match));
-}
-
 export const API_ROUTES: readonly ApiRoute[] = [
   {
     method: "GET",
@@ -363,25 +356,36 @@ export const API_ROUTES: readonly ApiRoute[] = [
   {
     method: "GET",
     pattern: /^\/metrics\/series$/,
-    handle: json((d, m) => buildSeries(metricSources(d), parseWindow(m.query))),
+    handle: (_q, res, d, m) =>
+      sendJson(
+        res,
+        HTTP_STATUS.OK,
+        buildSeries(metricSources(d), parseWindow(m.query)),
+      ),
   },
   {
     method: "GET",
     pattern: /^\/metrics\/top-tools$/,
-    handle: json((d, m) =>
-      buildTopTools(
-        metricSources(d),
-        parseWindow(m.query),
-        parseLimit(m.query, DEFAULT_TOP_LIMIT),
+    handle: (_q, res, d, m) =>
+      sendJson(
+        res,
+        HTTP_STATUS.OK,
+        buildTopTools(
+          metricSources(d),
+          parseWindow(m.query),
+          parseLimit(m.query, DEFAULT_TOP_LIMIT),
+        ),
       ),
-    ),
   },
   {
     method: "GET",
     pattern: /^\/metrics\/allowed$/,
-    handle: json((d, m) =>
-      buildAllowed(metricSources(d), parseWindow(m.query)),
-    ),
+    handle: (_q, res, d, m) =>
+      sendJson(
+        res,
+        HTTP_STATUS.OK,
+        buildAllowed(metricSources(d), parseWindow(m.query)),
+      ),
   },
   {
     method: "GET",
@@ -391,9 +395,12 @@ export const API_ROUTES: readonly ApiRoute[] = [
   {
     method: "GET",
     pattern: /^\/activity$/,
-    handle: json((d, m) =>
-      queryActivity(activityRecords(d), parseActivityQuery(m.query)),
-    ),
+    handle: (_q, res, d, m) =>
+      sendJson(
+        res,
+        HTTP_STATUS.OK,
+        queryActivity(activityRecords(d), parseActivityQuery(m.query)),
+      ),
   },
   {
     method: "GET",
