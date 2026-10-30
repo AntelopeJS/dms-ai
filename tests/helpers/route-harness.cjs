@@ -6,6 +6,7 @@ const { z } = require("zod");
 const { installRequireMocks } = require("./require-mocks.cjs");
 
 const JsonSchema = z.json();
+const TextSchema = z.string();
 const AddressSchema = z.object({ port: z.number() });
 const DIST_DIR = path.resolve(__dirname, "../../dist");
 const OWNER = { _id: "user-1", name: "Camille Laurent", email: "c@acme.test" };
@@ -141,6 +142,22 @@ function loadControllers() {
   }
 }
 
+/**
+ * @template {z.ZodType} Schema
+ * @param {Schema} schema
+ * @param {HTTPResult} result
+ * @returns {z.output<Schema>}
+ */
+function bodyOf(schema, result) {
+  return schema.parse(JSON.parse(TextSchema.parse(result.getBody())));
+}
+
+/** @param {HTTPResult} result */
+function textOf(result) {
+  return TextSchema.parse(result.getBody());
+}
+
+/** @param {string} query */
 function context(query) {
   return { url: new URL(`http://backend.test/ai/x?${query}`) };
 }
@@ -170,8 +187,10 @@ module.exports = {
   CLIENT_TOKEN,
   OWNER,
   answer,
+  bodyOf,
   context,
   reset,
   sidecar,
+  textOf,
   useRouteHarness,
 };

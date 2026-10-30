@@ -8,6 +8,7 @@ const {
 } = require("./helpers/page-locales.cjs");
 const {
   answer,
+  bodyOf,
   reset,
   sidecar,
   useRouteHarness,
@@ -95,16 +96,6 @@ const ONLINE_STATUS = {
   port: 4123,
   checkpointsAvailable: true,
 };
-
-/**
- * @template {z.ZodType} Schema
- * @param {Schema} schema
- * @param {HTTPResult} result
- * @returns {z.output<Schema>}
- */
-function bodyOf(schema, result) {
-  return schema.parse(JSON.parse(TextSchema.parse(result.getBody())));
-}
 
 void test("warns once about every skill name several skills share, linking to the skill sources", async () => {
   reset();
