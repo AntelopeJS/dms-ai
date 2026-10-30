@@ -1,5 +1,48 @@
 # Changelog
 
+## v0.7.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.6.1...v0.7.0)
+
+### 🚀 Enhancements
+
+- **skills:** Connect and map MongoDB and RethinkDB databases ([#96](https://github.com/AntelopeJS/dms-ai/pull/96))
+- **frontend:** Enforce the backend boundary in production builds ([#103](https://github.com/AntelopeJS/dms-ai/pull/103))
+- **frontend:** A public entry to start a conversation ([#107](https://github.com/AntelopeJS/dms-ai/pull/107))
+
+### 🩹 Fixes
+
+- **builder:** The approval card reads the Builder's unified config diff, and a tables module records its connection ([#95](https://github.com/AntelopeJS/dms-ai/pull/95))
+
+### 💅 Refactors
+
+- **test:** Bring the test-rule ceilings to zero ([#99](https://github.com/AntelopeJS/dms-ai/pull/99))
+- Replace comments with TSDoc or delete them ([#100](https://github.com/AntelopeJS/dms-ai/pull/100))
+- Replace type assertions and unknown contracts with guards, schemas and owner types ([#101](https://github.com/AntelopeJS/dms-ai/pull/101))
+- **frontend:** Split ChatView and the panel-states tests under the size ceiling ([#102](https://github.com/AntelopeJS/dms-ai/pull/102))
+
+### 📖 Documentation
+
+- **changelog:** Upgrade notes of dms-ai 0.6.1 ([#91](https://github.com/AntelopeJS/dms-ai/pull/91))
+
+### 📦 Build
+
+- Adopt the AntelopeJS guardrail pack ([#93](https://github.com/AntelopeJS/dms-ai/pull/93))
+- Upgrade the guardrail pack to 0.2.11 ([#98](https://github.com/AntelopeJS/dms-ai/pull/98))
+
+### 🏡 Chore
+
+- Configure Renovate with the shared preset ([#94](https://github.com/AntelopeJS/dms-ai/pull/94))
+
+### ✅ Tests
+
+- **skills:** Add eval cases for dms-ai skills ([#97](https://github.com/AntelopeJS/dms-ai/pull/97))
+
+### ❤️ Contributors
+
+- Thomas ([@Thomasims](http://github.com/Thomasims))
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v0.6.1
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.6.0...v0.6.1)
