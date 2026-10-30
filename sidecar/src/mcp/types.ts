@@ -1,3 +1,4 @@
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type {
   QuestionAnswers,
   QuestionRequest,
@@ -45,11 +46,12 @@ export interface AiMcpServerDeps extends AiMcpServerStaticDeps {
 }
 
 /**
- * The in-process server handed to the Claude SDK. Described locally so the MCP
- * layer carries no provider type; the Claude binding narrows it at its edge.
+ * The in-process server handed to the Claude SDK. Described locally with the MCP
+ * SDK's own server type, so the MCP layer carries no provider type and the
+ * Claude binding accepts it as its SDK server config.
  */
 export interface AiMcpServer {
   type: typeof MCP_SERVER_TYPE_SDK;
   name: string;
-  instance: unknown;
+  instance: McpServer;
 }

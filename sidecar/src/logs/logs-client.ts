@@ -6,6 +6,7 @@ import {
   LOGS_LOG_PREFIX,
   LOGS_PATH,
 } from "../constants/logs.js";
+import { isJsonValue } from "../protocol/json.js";
 import type { BufferedLog, LogQuery } from "./types.js";
 
 export interface LogsClient {
@@ -52,7 +53,7 @@ const BufferedLogSchema = z.object({
   time: z.number(),
   channel: z.string(),
   levelId: z.number(),
-  args: z.array(z.unknown()),
+  args: z.array(z.unknown().refine(isJsonValue)),
 });
 
 const BufferedLogListSchema = z.array(z.unknown()).catch([]);

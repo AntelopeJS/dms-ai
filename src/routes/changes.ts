@@ -13,7 +13,12 @@ import type { ConfirmDialogSerialized } from "@antelopejs/interface-dms/base";
 import type { User } from "@antelopejs/interface-dms/auth/db";
 import { ROUTE_PREFIX } from "../constants/module";
 import { RECENT_CHANGE_SETS } from "../constants/pages";
-import { buildQuery, pathSegment, type QueryParams } from "../sidecar";
+import {
+  buildQuery,
+  type JsonBody,
+  pathSegment,
+  type QueryParams,
+} from "../sidecar";
 import type {
   ChangeSetSummary,
   ChangeSetTableRow,
@@ -108,12 +113,16 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
   }
 
   @Get(`${CHANGES_PATH}/:id`)
-  detail(@Parameter("id", "param") id: string): Promise<unknown> {
+  detail(
+    @Parameter("id", "param") id: string,
+  ): Promise<JsonBody | HTTPResult | undefined> {
     return relay(changeSetPath(id), asIs);
   }
 
   @Get(`${CHANGES_PATH}/:id/undo-preview`)
-  undoPreview(@Parameter("id", "param") id: string): Promise<unknown> {
+  undoPreview(
+    @Parameter("id", "param") id: string,
+  ): Promise<JsonBody | HTTPResult | undefined> {
     return relay(changeSetPath(id, "undo-preview"), asIs);
   }
 
@@ -129,7 +138,7 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
     @Parameter("id", "param") id: string,
     @AuthRawUser() user: User,
     @JSONBody() body?: UndoBody,
-  ): Promise<unknown> {
+  ): Promise<JsonBody | HTTPResult | undefined> {
     return relay(changeSetPath(id, "undo"), asIs, {
       method: "POST",
       body: {
@@ -143,7 +152,7 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
   redo(
     @Parameter("id", "param") id: string,
     @AuthRawUser() user: User,
-  ): Promise<unknown> {
+  ): Promise<JsonBody | HTTPResult | undefined> {
     return relay(changeSetPath(id, "redo"), asIs, {
       method: "POST",
       body: { actor: actorName(user) },

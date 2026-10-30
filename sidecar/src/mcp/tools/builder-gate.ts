@@ -35,12 +35,12 @@ function withGate(
   if (isConfigBuilderTool(definition.name)) return definition;
   return {
     ...definition,
-    handler: async (args, extra) => {
+    handler: async (args) => {
       const decision = await gate(definition.name, args);
       if (!decision.isAllowed) return refusal(decision.message);
       const granted =
         decision.keepData === true ? { ...args, keepData: true } : args;
-      return definition.handler(granted, extra);
+      return definition.handler(granted);
     },
   };
 }

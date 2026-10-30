@@ -5,6 +5,7 @@ import {
   getSidecarPort,
 } from "../lifecycle/spawn-sidecar";
 import { SidecarUnavailableError } from "../lifecycle/sidecar-unavailable-error";
+import { isJsonBody, type JsonBody } from "./json-body";
 
 const JSON_CONTENT_TYPE = "application/json";
 
@@ -21,11 +22,12 @@ export interface SidecarRequest {
   body?: unknown;
 }
 
-async function readJson(response: Response): Promise<unknown> {
+async function readJson(response: Response): Promise<JsonBody | undefined> {
   const text = await response.text();
   if (text.length === 0) return undefined;
   try {
-    return JSON.parse(text);
+    const parsed: unknown = JSON.parse(text);
+    return isJsonBody(parsed) ? parsed : text;
   } catch {
     return text;
   }

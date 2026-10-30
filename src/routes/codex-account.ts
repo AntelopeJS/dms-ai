@@ -15,7 +15,7 @@ import { DefaultDataTypes } from "@antelopejs/interface-dms/base/data-types";
 import { I18N_SECTIONS } from "../constants/i18n";
 import { ROUTE_PREFIX } from "../constants/module";
 import { PAGE_ROUTES } from "../constants/pages";
-import { requestSidecar } from "../sidecar";
+import { type JsonBody, requestSidecar } from "../sidecar";
 import { i18nKey } from "../vocabulary";
 import { bannerAnswer } from "./banner";
 import { asIs, relay } from "./sidecar-results";
@@ -155,7 +155,9 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
   }
 
   @Post(CALLBACK_PATH)
-  finishSignIn(@JSONBody() body?: PastedCallbackBody): Promise<unknown> {
+  finishSignIn(
+    @JSONBody() body?: PastedCallbackBody,
+  ): Promise<JsonBody | HTTPResult | undefined> {
     return relay(CALLBACK_PATH, asIs, {
       method: "POST",
       body: { url: body?.[PASTED_URL_FIELD] },
@@ -163,7 +165,7 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
   }
 
   @Post(LOGOUT_PATH)
-  logout(): Promise<unknown> {
+  logout(): Promise<JsonBody | HTTPResult | undefined> {
     return relay(LOGOUT_PATH, asIs, { method: "POST" });
   }
 }

@@ -26,9 +26,21 @@ import {
   STATUS,
   type ToolCallEndEventType,
 } from "../protocol/events.js";
-import type { CallDecision } from "../audit/call-audit.js";
-import type { SidecarServices } from "./services.js";
-import type { ActiveTurn } from "./turn-registry.js";
+import type { ConversationModes } from "../agent/conversation-modes.js";
+import type { CallAudit, CallDecision } from "../audit/call-audit.js";
+import type { ConversationStore } from "../state/conversations.js";
+import type { ActiveTurn, TurnRegistry } from "./turn-registry.js";
+
+/** What starting, ending and stopping a tool call reads and writes. */
+export interface ToolCallServices {
+  turns: Pick<TurnRegistry, "get">;
+  conversationStore: Pick<
+    ConversationStore,
+    "get" | "appendMessage" | "patchMessages"
+  >;
+  callAudit: Pick<CallAudit, "lookup">;
+  conversationModes: Pick<ConversationModes, "isFullAuto">;
+}
 
 /**
  * What a call that ran without any recorded decision was allowed by. Claude
@@ -63,7 +75,7 @@ const OUTCOME_BY_DECISION: Partial<Record<AllowedBy, ToolOutcome>> = {
 const STOPPED_RESULT = "stopped";
 
 function defaultAllowedBy(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
   toolName: string,
 ): AllowedBy {
@@ -75,7 +87,7 @@ function defaultAllowedBy(
 }
 
 function decisionOf(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
   callId: string,
 ): CallDecision | undefined {
@@ -123,7 +135,7 @@ function noteTypecheck(
 
 /** Persists a call as it starts and tracks it on the running turn. */
 export function startToolCall(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
   ev: RunnerToolUse,
 ): void {
@@ -147,7 +159,7 @@ export function startToolCall(
 }
 
 function toolNameOf(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
   callId: string,
 ): string {
@@ -178,7 +190,7 @@ function trackEnd(
  * answers the event the chat is sent.
  */
 export function endToolCall(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
   ev: RunnerToolResult,
 ): ToolCallEndEventType {
@@ -216,7 +228,7 @@ export function endToolCall(
 
 /** The calls a cut-short turn left open, ended as `stopped`. */
 export function stopOpenCalls(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
 ): ToolCallEndEventType[] {
   const turn = services.turns.get(conversationId);

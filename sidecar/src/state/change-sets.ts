@@ -33,15 +33,18 @@ function emptyContents(): ChangeSetFileContents {
   return { nextNumber: FIRST_CHANGE_SET_NUMBER, changeSets: [] };
 }
 
+function isNumber(value: unknown): value is number {
+  return typeof value === "number";
+}
+
 function parseContents(raw: string): ChangeSetFileContents {
   try {
     const parsed = JSON.parse(raw) as Partial<ChangeSetFileContents>;
     if (!Array.isArray(parsed.changeSets)) return emptyContents();
     return {
-      nextNumber:
-        typeof parsed.nextNumber === "number"
-          ? parsed.nextNumber
-          : parsed.changeSets.length + FIRST_CHANGE_SET_NUMBER,
+      nextNumber: isNumber(parsed.nextNumber)
+        ? parsed.nextNumber
+        : parsed.changeSets.length + FIRST_CHANGE_SET_NUMBER,
       changeSets: parsed.changeSets,
     };
   } catch {

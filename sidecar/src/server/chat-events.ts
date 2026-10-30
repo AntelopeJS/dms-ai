@@ -1,3 +1,4 @@
+import type { ConversationModes } from "../agent/conversation-modes.js";
 import type { PendingRequest } from "../agent/permission-bus.js";
 import type { PendingQuestion } from "../agent/question-bus.js";
 import { getBuilderAvailable } from "../builder/capability.js";
@@ -12,13 +13,29 @@ import {
   type SettingsUpdateEventType,
 } from "../protocol/events.js";
 import type { BlockPreviewType } from "../protocol/preview.js";
+import type { Checkpoints } from "../checkpoints/checkpoints.js";
 import { getProviderAvailability } from "../providers/registry.js";
+import type { ConversationStore } from "../state/conversations.js";
 import type {
   Notice,
   StoredConversationSummary,
   StoredMessage,
 } from "../state/types.js";
+import type { ChatSocketRegistry } from "./chat-socket-registry.js";
 import type { SidecarServices } from "./services.js";
+
+/** What a conversation's snapshot reads. */
+export interface SnapshotServices {
+  conversationStore: Pick<ConversationStore, "get">;
+  checkpoints: Pick<Checkpoints, "forConversation">;
+  conversationModes: Pick<ConversationModes, "describe">;
+}
+
+/** What showing a block preview writes to. */
+export interface BlockPreviewServices {
+  conversationStore: Pick<ConversationStore, "appendMessage">;
+  chatSocketRegistry: Pick<ChatSocketRegistry, "send">;
+}
 
 /** Audit-only records: they drive the activity log, not the visible transcript. */
 const HIDDEN_ROLES: readonly StoredMessage["role"][] = ["permission"];
@@ -43,7 +60,7 @@ function toSnapshotMessage(message: StoredMessage): StoredMessage {
 }
 
 export function buildSnapshotEvent(
-  services: SidecarServices,
+  services: SnapshotServices,
   conversationId: string,
 ): ConversationSnapshotEventType | null {
   const conversation = services.conversationStore.get(conversationId);
@@ -157,7 +174,7 @@ export function emitNotice(
 
 /** Stores a block preview in the transcript and shows it live. */
 export function emitBlockPreview(
-  services: SidecarServices,
+  services: BlockPreviewServices,
   conversationId: string,
   preview: BlockPreviewType,
 ): void {
@@ -176,7 +193,7 @@ export function emitBlockPreview(
 
 /** Names of the images the user attached in the conversation, oldest first. */
 export function listAttachedImages(
-  services: SidecarServices,
+  services: Pick<SidecarServices, "conversationStore">,
   conversationId: string,
 ): string[] {
   const messages =

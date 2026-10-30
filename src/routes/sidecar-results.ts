@@ -6,6 +6,7 @@ import {
   HTTP_STATUS,
 } from "../constants/http";
 import {
+  type JsonBody,
   requestSidecar,
   type SidecarRequest,
   type SidecarResponse,
@@ -63,6 +64,6 @@ export async function relay<T, Answer>(
 }
 
 /** Forwards the sidecar's answer unchanged. */
-export function asIs(body: unknown): unknown {
+export function asIs(body: JsonBody | undefined): JsonBody | undefined {
   return body;
 }

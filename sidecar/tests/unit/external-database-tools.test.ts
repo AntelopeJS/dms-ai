@@ -50,7 +50,7 @@ function configureProject(client: BuilderClient, gate: BuilderGate) {
     (definition) => definition.name === "BuilderConfigureProject",
   );
   if (!tool) throw new Error("BuilderConfigureProject is missing");
-  return (args: ToolArgs) => tool.handler(args, {});
+  return (args: ToolArgs) => tool.handler(args);
 }
 
 describe("the external-database tools", () => {
@@ -158,7 +158,7 @@ describe("the Builder's analysis tool", () => {
       (definition) => definition.name === "BuilderAnalyseDatabase",
     );
     if (!tool) throw new Error("BuilderAnalyseDatabase is missing");
-    return (args: ToolArgs) => tool.handler(args, {});
+    return (args: ToolArgs) => tool.handler(args);
   }
 
   it("reads without a prompt and in plan mode", () => {
@@ -217,7 +217,7 @@ describe("the Builder's analysis tool", () => {
     const tool = buildProjectTools(recordingClient(calls), undefined).find(
       (definition) => definition.name === "BuilderMapping",
     );
-    await tool?.handler({ connection: "erp", module: "erp-tables" }, {});
+    await tool?.handler({ connection: "erp", module: "erp-tables" });
     expect(calls).toEqual([{ op: "GetMapping", args: ["erp", "erp-tables"] }]);
   });
 

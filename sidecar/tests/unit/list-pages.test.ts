@@ -33,10 +33,7 @@ describe("buildListPagesTool", () => {
     const registry = buildRegistry([
       { id: "p1", path: "/form/form-simple", moduleId: "dms" },
     ]);
-    const result = await buildTool(registry).handler(
-      { refresh: undefined },
-      undefined,
-    );
+    const result = await buildTool(registry).handler({ refresh: undefined });
     const parsed = JSON.parse(result.content[0]?.text ?? "[]");
     expect(parsed).toEqual([
       { id: "p1", path: "/form/form-simple", moduleId: "dms" },
@@ -44,10 +41,9 @@ describe("buildListPagesTool", () => {
   });
 
   it("reports when no pages are registered", async () => {
-    const result = await buildTool(buildRegistry([])).handler(
-      { refresh: undefined },
-      undefined,
-    );
+    const result = await buildTool(buildRegistry([])).handler({
+      refresh: undefined,
+    });
     expect(result.content[0]?.text).toBe(LIST_PAGES_EMPTY_MESSAGE);
   });
 
@@ -57,7 +53,7 @@ describe("buildListPagesTool", () => {
       [{ id: "p1", path: "/x", moduleId: "dms" }],
       { invalidate },
     );
-    await buildTool(registry).handler({ refresh: true }, undefined);
+    await buildTool(registry).handler({ refresh: true });
     expect(invalidate).toHaveBeenCalledOnce();
   });
 
@@ -67,10 +63,7 @@ describe("buildListPagesTool", () => {
         throw new Error("backend down");
       },
     });
-    const result = await buildTool(registry).handler(
-      { refresh: undefined },
-      undefined,
-    );
+    const result = await buildTool(registry).handler({ refresh: undefined });
     expect(result.content[0]?.text).toBe(LIST_PAGES_ERROR_MESSAGE);
   });
 });

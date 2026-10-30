@@ -42,11 +42,15 @@ export const THINKING_TOKENS: Record<ThinkingLevel, number> = {
 
 export type ClaudeProcessEnv = Record<string, string | undefined>;
 
+/** The sidecar's environment with the MCP tool timeout set. */
+type ClaudeEnv = ClaudeProcessEnv &
+  Record<typeof CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR, string>;
+
 /**
  * The CLI's environment: the sidecar's own (the SDK replaces it rather than
  * merging), with an MCP tool timeout that outlasts every wait on the user.
  */
-export function buildClaudeEnv(baseEnv: ClaudeProcessEnv): ClaudeProcessEnv {
+export function buildClaudeEnv(baseEnv: ClaudeProcessEnv): ClaudeEnv {
   return {
     ...baseEnv,
     [CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR]: String(MCP_TOOL_TIMEOUT_MS),

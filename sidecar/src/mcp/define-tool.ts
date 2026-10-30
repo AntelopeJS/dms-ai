@@ -26,7 +26,6 @@ export type McpToolArgs<Schema extends McpToolInputSchema> = {
 
 export type McpToolHandler<Schema extends McpToolInputSchema> = (
   args: McpToolArgs<Schema>,
-  extra: unknown,
 ) => Promise<McpToolResult>;
 
 /**
