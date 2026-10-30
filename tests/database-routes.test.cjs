@@ -176,3 +176,18 @@ void test("MapResources reaches the Builder as the agent's choices, without dms-
   assert.deepEqual(calls.mapResources[0].input, input);
   assert.deepEqual(calls.describe, []);
 });
+
+for (const op of ["constructor", "toString", "hasOwnProperty", "__proto__"]) {
+  void test(`the Builder op route refuses the inherited name ${op} as an unknown op`, async () => {
+    calls.mapResources = [];
+    const controller = new routes.AIBuilderController();
+    const refused = await controller.op(SIDECAR_TOKEN, { op, args: [] });
+    assert.ok(refused instanceof HTTPResult);
+    assert.equal(refused.getStatus(), 400);
+    assert.deepEqual(JSON.parse(TextSchema.parse(refused.getBody())), {
+      error: "unknown_op",
+      op,
+    });
+    assert.deepEqual(calls.mapResources, []);
+  });
+}
