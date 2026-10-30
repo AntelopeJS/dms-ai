@@ -7,9 +7,9 @@ request should trace back to one answer below.
 
 Inputs:
 
-- `@antelopejs/dms` 0.6.0, `@antelopejs/interface-dms` 0.4.0 (the v2 design port, dms#119, and its
+- `dms` 0.6.0, `interface-dms` 0.4.0 (the v2 design port, dms#119, and its
   breaking release, dms#166).
-- `@antelopejs/dms-frontend` 0.5.0 (component prefixes, no private components, dms-frontend#103) and
+- `dms-frontend` 0.5.0 (component prefixes, no private components, dms-frontend#103) and
   0.4.0 (opt-in auto-imports, dms-frontend#101).
 - The v2 design mockup, `modules/ai/*` (Overview, Changes, Activity, Skills, Settings, and the
   assistant panel states), and its UX review of dms-ai, findings AI-01 to AI-19.
@@ -54,15 +54,15 @@ navigation contract today.
 
 **Decision:**
 
-- `@antelopejs/interface-dms`: `>=0.4.0 <1.0.0` (Tone vocabulary, `card`/`actions` block options,
+- `interface-dms`: from 0.4.0 (Tone vocabulary, `card`/`actions` block options,
   `TableView.fromSource`, row drawers, form sections and instant save are 0.4-only).
-- `frontend-vue` engines: `@antelopejs/dms-frontend` `>=0.5.0 <0.6.0` (component prefix contract).
-- Playground: `@antelopejs/dms` `>=0.6.0 <1.0.0`, `@antelopejs/dms-frontend` `0.5.0`,
-  `@antelopejs/dms-builder` latest, `@antelopejs/core` `>=1.13.4 <2`.
+- `frontend-vue` engines: `dms-frontend` from 0.5.0 (component prefix contract).
+- Playground: `dms` from 0.6.0, `dms-frontend` `0.5.0`,
+  `dms-builder` latest, `core` from 1.13.4.
 - `@antelopejs/interface-api`, `interface-core`, `interface-dms-builder`: latest published ranges.
-- Since dms 0.7 (Q45 to Q48): `@antelopejs/interface-dms` `>=0.5.0 <1.0.0`, engines
-  `@antelopejs/dms-frontend` `>=0.5.1 <0.6.0`, playground `@antelopejs/dms` `>=0.7.1 <1.0.0` and
-  `@antelopejs/dms-frontend` `0.5.1`.
+- Since dms 0.7 (Q45 to Q48): `interface-dms` from 0.5.0, engines
+  `dms-frontend` from 0.5.1, playground `dms` from 0.7.1 and
+  `dms-frontend` `0.5.1`.
 
 ### Q5. How do component names change with dms-frontend 0.5?
 
@@ -483,7 +483,7 @@ browser. Change sets and undo/redo record that actor.
   expiry, checkpoints and undo with conflicts, queue edit and reorder, question skip, audit fields.
 - Frontend unit tests for the lexicon, the diff renderer, the panel state machines.
 - Backend registration test for the pages and their permission metadata.
-- A real run: the playground with MongoDB, `@antelopejs/dms` 0.6, `dms-builder`, the dms-ai sidecar
+- A real run: the playground with MongoDB, `dms` 0.6, `dms-builder`, the dms-ai sidecar
   driven by the repository's mock Claude, exercised in a browser (Playwright) on every page and panel
   state, in light and dark. Bugs found on the way are fixed in this pull request.
 
@@ -491,10 +491,10 @@ browser. Change sets and undo/redo record that actor.
 
 ## 10. Follow-up after dms 0.7
 
-Inputs: `@antelopejs/dms` 0.7.1 and `@antelopejs/interface-dms` 0.5.0 (docked side panels, dms#168;
+Inputs: `dms` 0.7.1 and `interface-dms` 0.5.0 (docked side panels, dms#168;
 the palette's assistant mode, dms#169; permission ancestors and member-open settings, dms#172),
 0.6.1/0.6.2 and interface-dms 0.4.1/0.4.2 (route tokens in block data URLs, dms#170; composed block
-texts, dms#173; cell sub-lines and `two_line`, dms#175), `@antelopejs/dms-frontend` 0.5.1. dms 0.7.0
+texts, dms#173; cell sub-lines and `two_line`, dms#175), `dms-frontend` 0.5.1. dms 0.7.0
 on npm needs interface files that only shipped with interface-dms 0.5.0, so the playground asks for
 0.7.1.
 
@@ -551,7 +551,7 @@ the stream open while it answers (`holdStream`), as an open panel or a busy chat
 
 ## 11. Follow-up after dms 0.7.2
 
-Inputs: `@antelopejs/dms` 0.7.2, `@antelopejs/interface-dms` 0.5.1 and `@antelopejs/dms-frontend`
+Inputs: `dms` 0.7.2, `interface-dms` 0.5.1 and `dms-frontend`
 0.5.2: banners read from a route (dms#186), drawers from a chosen edge (dms#188), `DmsMasterDetail`
 laid out from its own width (dms#183), the `CodeBlock` block and `DmsCodeSnippet` (dms#182), tone
 pills per row (dms#181), copy buttons on `KeyValueList` rows (dms#180), composed texts in more
@@ -647,7 +647,7 @@ are the assistant itself. The backend registration test pins this list.
 
 ## 12. Follow-up after dms 0.7.21
 
-Inputs: `@antelopejs/dms` 0.7.21, `@antelopejs/interface-dms` 0.5.13 and `@antelopejs/dms-frontend`
+Inputs: `dms` 0.7.21, `interface-dms` 0.5.13 and `dms-frontend`
 0.5.5: `download` action targets (dms#246), table views without the built-in grid (dms#255),
 `useConfirmFrom` (dms#232), header buttons hidden by availability (dms#237), visible query param
 filters (dms#228), `showRow` in row containers (dms#252) and public endpoints (dms#230).
@@ -673,7 +673,7 @@ through the frontend server's proxy.
 
 ### Q56. Does the playground still load `dms-builder`?
 
-**Decision:** no. `@antelopejs/dms-builder` 0.2.6, its latest release, accepts
+**Decision:** no. `dms-builder` 0.2.6, its latest release, accepts
 `@antelopejs/dms-frontend` below 0.4.0 only, so the dashboard cannot build with it. The Builder is
 optional to dms-ai (`@antelopejs/interface-dms-builder` is an optional dependency, and every
 Builder feature is gated on its presence), so the playground runs without it until a release
