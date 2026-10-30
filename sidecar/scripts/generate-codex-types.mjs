@@ -12,6 +12,7 @@ import {
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 
 const SIDECAR_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = path.dirname(SIDECAR_ROOT);
@@ -57,6 +58,8 @@ const PROTOCOL_ROOTS = [
  * flattened into. The root namespace lands in `common.ts` rather than in
  * `index.ts` so the barrel the package's `exports` map points at holds only
  * re-exports, which keeps the public shape identical to the generated tree.
+ *
+ * @type {Record<string, string>}
  */
 const MODULE_BY_NAMESPACE = {
   ".": "common",
@@ -76,9 +79,20 @@ const GENERATED_HEADER = [
   "// sidecar/scripts/generate-codex-types.mjs. Run `pnpm generate:codex-types`.",
 ].join("\n");
 
+const ManifestSchema = z.object({
+  peerDependencies: z.record(z.string(), z.string()).optional(),
+});
+
+/**
+ * @typedef {object} ParsedFile
+ * @property {string[]} imports
+ * @property {string} body
+ */
+
 const IMPORT_PATTERN = /^import type \{ (\w+) \} from "([^"]+)";$/;
 const JS_SUFFIX_PATTERN = /\.js$/;
 
+/** @type {Record<string, string>} */
 const PLATFORM_PACKAGE_BY_TARGET = {
   "x86_64-unknown-linux-musl": "@openai/codex-linux-x64",
   "aarch64-unknown-linux-musl": "@openai/codex-linux-arm64",
@@ -88,6 +102,7 @@ const PLATFORM_PACKAGE_BY_TARGET = {
   "aarch64-pc-windows-msvc": "@openai/codex-win32-arm64",
 };
 
+/** @type {Record<string, string>} */
 const TARGET_TRIPLE_BY_HOST = {
   "linux:x64": "x86_64-unknown-linux-musl",
   "linux:arm64": "aarch64-unknown-linux-musl",
@@ -102,10 +117,12 @@ const TARGET_TRIPLE_BY_HOST = {
  * optional peer dependency — the one declaration a consumer's package manager
  * sees — and is stamped into the generated barrel, so the spawn-time gate has a
  * single source of truth to compare the installed binary against.
+ *
+ * @returns {string}
  */
 function readPinnedVersion() {
-  const manifest = JSON.parse(
-    readFileSync(path.join(REPO_ROOT, "package.json"), "utf8"),
+  const manifest = ManifestSchema.parse(
+    JSON.parse(readFileSync(path.join(REPO_ROOT, "package.json"), "utf8")),
   );
   const pinned = manifest.peerDependencies?.["@openai/codex"];
   if (!pinned || !/^\d+\.\d+\.\d+$/.test(pinned)) {
@@ -116,6 +133,9 @@ function readPinnedVersion() {
   return pinned;
 }
 
+/**
+ * @returns {string}
+ */
 function resolveCodexBinary() {
   const triple = TARGET_TRIPLE_BY_HOST[`${process.platform}:${process.arch}`];
   if (!triple) {
@@ -141,6 +161,11 @@ function resolveCodexBinary() {
   return binary;
 }
 
+/**
+ * @param {string} binary
+ * @param {string} pinnedVersion
+ * @returns {string}
+ */
 function assertBinaryMatchesPin(binary, pinnedVersion) {
   const reported = execFileSync(binary, ["--version"], {
     encoding: "utf8",
@@ -153,6 +178,10 @@ function assertBinaryMatchesPin(binary, pinnedVersion) {
   return reported;
 }
 
+/**
+ * @param {string} dir
+ * @returns {string[]}
+ */
 function listGeneratedFiles(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
@@ -161,20 +190,38 @@ function listGeneratedFiles(dir) {
   });
 }
 
-/** Stable, locale-independent ordering for the emitted declarations. */
+/**
+ * Stable, locale-independent ordering for the emitted declarations.
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {number}
+ */
 function byName(a, b) {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+/**
+ * @param {string} key
+ * @returns {string}
+ */
 function namespaceOf(key) {
   const separator = key.lastIndexOf("/");
   return separator === -1 ? "." : key.slice(0, separator);
 }
 
+/**
+ * @param {string} key
+ * @returns {string}
+ */
 function nameOf(key) {
   return key.slice(key.lastIndexOf("/") + 1);
 }
 
+/**
+ * @param {string} key
+ * @returns {string}
+ */
 function fileOf(key) {
   return path.join(OUTPUT_DIR, `${key}.ts`);
 }
@@ -183,9 +230,13 @@ function fileOf(key) {
  * Splits one generated file into its imports and its declaration. The layout is
  * fixed: banner comments, then one single-line `import type` per dependency,
  * then the doc comment and the type itself.
+ *
+ * @param {string} key
+ * @returns {ParsedFile}
  */
 function parseGeneratedFile(key) {
   const lines = readFileSync(fileOf(key), "utf8").split("\n");
+  /** @type {string[]} */
   const imports = [];
   let cursor = 0;
   for (; cursor < lines.length; cursor += 1) {
@@ -202,7 +253,13 @@ function parseGeneratedFile(key) {
   return { imports, body };
 }
 
-/** Turns a relative specifier into the `<namespace>/<type>` key it points at. */
+/**
+ * Turns a relative specifier into the `<namespace>/<type>` key it points at.
+ *
+ * @param {string} fromKey
+ * @param {string} specifier
+ * @returns {string}
+ */
 function resolveSpecifier(fromKey, specifier) {
   const target = path.posix.normalize(
     path.posix.join(
@@ -219,12 +276,14 @@ function resolveSpecifier(fromKey, specifier) {
  * import that names a directory is a barrel re-export: it carries no
  * declaration of its own, so there is nothing to pull in. Any other import that
  * resolves to no file is an error.
+ *
+ * @returns {Map<string, ParsedFile>}
  */
 function collectClosure() {
+  /** @type {Map<string, ParsedFile>} */
   const closure = new Map();
   const pending = [...PROTOCOL_ROOTS];
-  while (pending.length > 0) {
-    const key = pending.pop();
+  for (let key = pending.pop(); key !== undefined; key = pending.pop()) {
     if (closure.has(key)) continue;
     if (!existsSync(fileOf(key))) {
       throw new Error(
@@ -249,11 +308,16 @@ function collectClosure() {
   return closure;
 }
 
+/**
+ * @param {Map<string, ParsedFile>} closure
+ * @returns {Map<string, string[]>}
+ */
 function groupByNamespace(closure) {
+  /** @type {Map<string, string[]>} */
   const grouped = new Map();
   for (const key of [...closure.keys()].sort(byName)) {
     const namespace = namespaceOf(key);
-    if (!(namespace in MODULE_BY_NAMESPACE)) {
+    if (!Object.hasOwn(MODULE_BY_NAMESPACE, namespace)) {
       throw new Error(`Unknown protocol namespace "${namespace}" (${key})`);
     }
     grouped.set(namespace, [...(grouped.get(namespace) ?? []), key]);
@@ -264,8 +328,14 @@ function groupByNamespace(closure) {
 /**
  * Imports one flattened module needs from its siblings. Types of the same
  * namespace become same-file references and drop out.
+ *
+ * @param {Map<string, ParsedFile>} closure
+ * @param {string[]} keys
+ * @param {string} namespace
+ * @returns {Map<string, Set<string>>}
  */
 function crossNamespaceImports(closure, keys, namespace) {
+  /** @type {Map<string, Set<string>>} */
   const byModule = new Map();
   for (const key of keys) {
     for (const specifier of closure.get(key).imports) {
@@ -286,6 +356,11 @@ function crossNamespaceImports(closure, keys, namespace) {
  * Writes one flattened module. Flattening puts imports and declarations in one
  * scope, so a name carried by two namespaces would silently shadow. Codex has a
  * few such pairs; this refuses rather than emit types that mean the wrong thing.
+ *
+ * @param {Map<string, ParsedFile>} closure
+ * @param {string} namespace
+ * @param {string[]} keys
+ * @returns {string}
  */
 function writeNamespaceModule(closure, namespace, keys) {
   const declared = new Set(keys.map(nameOf));
@@ -311,6 +386,10 @@ function writeNamespaceModule(closure, namespace, keys) {
   return file;
 }
 
+/**
+ * @param {Map<string, string[]>} grouped
+ * @param {string} pinnedVersion
+ */
 function writeBarrel(grouped, pinnedVersion) {
   const lines = [
     GENERATED_HEADER,
@@ -337,7 +416,12 @@ function writeBarrel(grouped, pinnedVersion) {
   writeFileSync(path.join(OUTPUT_DIR, "index.ts"), `${lines.join("\n")}\n`);
 }
 
-/** Replaces the file-per-type tree with one module per protocol namespace. */
+/**
+ * Replaces the file-per-type tree with one module per protocol namespace.
+ *
+ * @param {string} pinnedVersion
+ * @returns {{ types: number, modules: number }}
+ */
 function pruneAndFlatten(pinnedVersion) {
   const closure = collectClosure();
   const grouped = groupByNamespace(closure);
