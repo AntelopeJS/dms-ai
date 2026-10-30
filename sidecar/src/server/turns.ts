@@ -83,7 +83,11 @@ function endTurnEvents(
   );
 }
 
-const TURN_EVENT_HANDLERS = {
+type TurnEventHandlers = {
+  [K in RunnerEvent["type"]]: TurnEventHandler<K>;
+};
+
+const TURN_EVENT_HANDLERS: TurnEventHandlers = {
   assistant_text: (services, conversationId, ev) => {
     services.conversationStore.appendMessage(conversationId, {
       role: "assistant",
@@ -132,9 +136,13 @@ const TURN_EVENT_HANDLERS = {
     };
   },
   activity: () => null,
-} satisfies {
-  [K in RunnerEvent["type"]]: TurnEventHandler<K>;
 };
+
+function handlerFor<K extends RunnerEvent["type"]>(
+  type: K,
+): TurnEventHandler<K> {
+  return TURN_EVENT_HANDLERS[type];
+}
 
 export function handleTurnEvent(
   services: SidecarServices,
@@ -142,10 +150,7 @@ export function handleTurnEvent(
   ev: RunnerEvent,
 ): void {
   recordEditIfAny(services, conversationId, ev);
-  const handler = TURN_EVENT_HANDLERS[ev.type] as TurnEventHandler<
-    RunnerEvent["type"]
-  >;
-  const wireEvent = handler(services, conversationId, ev);
+  const wireEvent = handlerFor(ev.type)(services, conversationId, ev);
   if (wireEvent === null) return;
   const isTerminal = ev.type === "done" || ev.type === "error";
   dispatch(services, conversationId, wireEvent, isTerminal);

@@ -55,6 +55,13 @@ type MessageOf<T extends AnyClientMessageType["type"]> = Extract<
   { type: T }
 >;
 
+function isMessageOf<T extends AnyClientMessageType["type"]>(
+  msg: AnyClientMessageType,
+  type: T,
+): msg is MessageOf<T> {
+  return msg.type === type;
+}
+
 /** A handler bound to one message type: others never reach it. */
 function on<T extends AnyClientMessageType["type"]>(
   type: T,
@@ -65,7 +72,7 @@ function on<T extends AnyClientMessageType["type"]>(
   ) => void | Promise<void>,
 ): ClientMessageHandler {
   return (socket, msg, ctx) =>
-    msg.type === type ? handle(socket, msg as MessageOf<T>, ctx) : undefined;
+    isMessageOf(msg, type) ? handle(socket, msg, ctx) : undefined;
 }
 
 function send(socket: WebSocket, event: AnyServerEventType): void {
