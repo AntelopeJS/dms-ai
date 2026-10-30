@@ -2,7 +2,6 @@ import os from "node:os";
 import path from "node:path";
 import type {
   CanUseTool,
-  McpSdkServerConfigWithInstance,
   McpServerConfig,
   PermissionMode,
   PermissionResult,
@@ -143,7 +142,7 @@ function buildBasePromptOptions(input: PromptOptionsInput): PromptOptions {
 }
 
 function buildMcpServersMap(mcpServer: AiMcpServer) {
-  return { [MCP_SERVER_KEY]: mcpServer as McpSdkServerConfigWithInstance };
+  return { [MCP_SERVER_KEY]: mcpServer };
 }
 
 /**
