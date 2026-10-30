@@ -13,9 +13,18 @@ import type { ChangeSetRecord, TokenUsage } from "../state/types.js";
 import { broadcastConversationList, emitNotice } from "./chat-events.js";
 import { cancelCallRequests, cancelTurnRequests } from "./permission-events.js";
 import { inspectBuild } from "./safety-net.js";
+import type { EditTracker } from "../agent/edit-tracker.js";
+import type { ChatSocketRegistry } from "./chat-socket-registry.js";
+import type { LiveTurnStore } from "./live-turns.js";
+import type { RequestCancelServices } from "./permission-events.js";
 import type { SidecarServices } from "./services.js";
-import type { ActiveTurn } from "./turn-registry.js";
-import { endToolCall, startToolCall, stopOpenCalls } from "./tool-calls.js";
+import type { ActiveTurn, TurnRegistry } from "./turn-registry.js";
+import {
+  endToolCall,
+  startToolCall,
+  stopOpenCalls,
+  type ToolCallServices,
+} from "./tool-calls.js";
 import { startTurnProgress } from "./turn-progress.js";
 
 const AUTO_FIX_TITLE_PREFIX = "Auto-fix: ";
@@ -32,8 +41,21 @@ export interface TurnRequest {
   includePageContext?: boolean;
 }
 
+/** Where a turn's wire events go: the live replay and the chat sockets. */
+interface DispatchServices {
+  liveTurns: Pick<LiveTurnStore, "append" | "end">;
+  chatSocketRegistry: Pick<ChatSocketRegistry, "send">;
+}
+
+/** What handling one runner event reads and writes. */
+export interface TurnEventServices
+  extends DispatchServices, ToolCallServices, RequestCancelServices {
+  turns: Pick<TurnRegistry, "get" | "recordError">;
+  editTracker: Pick<EditTracker, "record">;
+}
+
 function dispatch(
-  services: SidecarServices,
+  services: DispatchServices,
   conversationId: string,
   event: AnyServerEventType,
   isTerminal: boolean,
@@ -47,7 +69,7 @@ function dispatch(
 }
 
 function dispatchAll(
-  services: SidecarServices,
+  services: DispatchServices,
   conversationId: string,
   events: AnyServerEventType[],
 ): void {
@@ -55,7 +77,7 @@ function dispatchAll(
 }
 
 function recordEditIfAny(
-  services: SidecarServices,
+  services: TurnEventServices,
   conversationId: string,
   ev: RunnerEvent,
 ): void {
@@ -66,13 +88,13 @@ function recordEditIfAny(
 }
 
 type TurnEventHandler<T extends RunnerEvent["type"]> = (
-  services: SidecarServices,
+  services: TurnEventServices,
   conversationId: string,
   ev: Extract<RunnerEvent, { type: T }>,
 ) => AnyServerEventType | null;
 
 function endTurnEvents(
-  services: SidecarServices,
+  services: TurnEventServices,
   conversationId: string,
 ): void {
   cancelTurnRequests(services, conversationId);
@@ -145,7 +167,7 @@ function handlerFor<K extends RunnerEvent["type"]>(
 }
 
 export function handleTurnEvent(
-  services: SidecarServices,
+  services: TurnEventServices,
   conversationId: string,
   ev: RunnerEvent,
 ): void {

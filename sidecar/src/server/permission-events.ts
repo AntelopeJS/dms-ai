@@ -1,11 +1,16 @@
 import {
   denialMessage,
   type PendingRequest,
+  type PermissionBus,
   type PermissionDecisionRecord,
   type PermissionPolicy,
   type PermissionPrompt,
 } from "../agent/permission-bus.js";
-import type { PendingQuestion, QuestionReply } from "../agent/question-bus.js";
+import type {
+  PendingQuestion,
+  QuestionBus,
+  QuestionReply,
+} from "../agent/question-bus.js";
 import {
   isBlockRemovalTool,
   isConfigBuilderTool,
@@ -27,6 +32,12 @@ import {
   sendRulesState,
 } from "./chat-events.js";
 import type { SidecarServices } from "./services.js";
+
+/** What cancelling a turn's or a call's open requests reaches. */
+export interface RequestCancelServices {
+  permissionBus: Pick<PermissionBus, "cancelCall" | "cancelConversation">;
+  questionBus: Pick<QuestionBus, "cancelCall" | "cancelConversation">;
+}
 
 const ALLOWED: BuilderGateDecision = { isAllowed: true };
 
@@ -142,7 +153,7 @@ export function onPermissionDecided(
 
 /** The turn ended: nothing it asked the user can still be answered. */
 export function cancelTurnRequests(
-  services: SidecarServices,
+  services: RequestCancelServices,
   conversationId: string,
 ): void {
   services.permissionBus.cancelConversation(conversationId);
@@ -151,7 +162,7 @@ export function cancelTurnRequests(
 
 /** A call ended (or the provider gave up on it): its card is moot. */
 export function cancelCallRequests(
-  services: SidecarServices,
+  services: RequestCancelServices,
   conversationId: string,
   callId: string,
 ): void {

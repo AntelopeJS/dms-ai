@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { createQuestionBus } from "../../src/agent/question-bus.js";
+import type { PermissionBus } from "../../src/agent/permission-bus.js";
+import {
+  createQuestionBus,
+  type QuestionBus,
+} from "../../src/agent/question-bus.js";
 import {
   type AnyServerEventType,
   EVENT_TYPES,
 } from "../../src/protocol/events.js";
-import type { SidecarServices } from "../../src/server/services.js";
-import { handleTurnEvent } from "../../src/server/turns.js";
+import {
+  handleTurnEvent,
+  type TurnEventServices,
+} from "../../src/server/turns.js";
 import { createTestBus } from "../helpers/permission-bus.js";
 
 const CONVERSATION_ID = "conv-ended";
@@ -22,7 +28,9 @@ const QUESTIONS = [
 ];
 
 interface Harness {
-  services: SidecarServices;
+  services: TurnEventServices;
+  questionBus: QuestionBus;
+  permissionBus: PermissionBus;
   sent: AnyServerEventType[];
 }
 
@@ -45,19 +53,24 @@ function buildHarness(): Harness {
   const services = {
     questionBus,
     permissionBus: permissions.bus,
-    turns: { get: () => undefined },
+    turns: { get: () => undefined, recordError: () => {} },
     conversationStore: {
-      get: () => undefined,
+      get: () => null,
       patchMessages: () => {},
       appendMessage: () => {},
     },
-    callAudit: { lookup: () => undefined, record: () => {} },
+    callAudit: { lookup: () => undefined },
     conversationModes: { isFullAuto: () => false },
     chatSocketRegistry: { send },
     liveTurns: { append: () => {}, end: () => {} },
     editTracker: { record: () => {} },
-  } as unknown as SidecarServices;
-  return { services, sent };
+  };
+  return {
+    services,
+    questionBus,
+    permissionBus: permissions.bus,
+    sent,
+  };
 }
 
 async function settle(): Promise<void> {
@@ -66,8 +79,8 @@ async function settle(): Promise<void> {
 
 describe("a provider-side call end", () => {
   it("expires the question its AskUser call was waiting on", async () => {
-    const { services, sent } = buildHarness();
-    const answer = services.questionBus.requestQuestion({
+    const { services, questionBus, sent } = buildHarness();
+    const answer = questionBus.requestQuestion({
       conversationId: CONVERSATION_ID,
       questions: QUESTIONS,
       callId: "call-ask",
@@ -84,8 +97,8 @@ describe("a provider-side call end", () => {
   });
 
   it("settles the Builder permission its call was waiting on", async () => {
-    const { services } = buildHarness();
-    const outcome = services.permissionBus.requestPermission({
+    const { services, permissionBus } = buildHarness();
+    const outcome = permissionBus.requestPermission({
       conversationId: CONVERSATION_ID,
       toolName: "mcp__dms-ai__BuilderDeletePage",
       args: { pageRef: "/p" },
@@ -99,12 +112,12 @@ describe("a provider-side call end", () => {
       isError: true,
     });
     await expect(outcome).resolves.toMatchObject({ isAllowed: false });
-    expect(services.permissionBus.countPending(CONVERSATION_ID)).toBe(0);
+    expect(permissionBus.countPending(CONVERSATION_ID)).toBe(0);
   });
 
   it("expires every question still open when the turn ends", async () => {
-    const { services, sent } = buildHarness();
-    const answer = services.questionBus.requestQuestion({
+    const { services, questionBus, sent } = buildHarness();
+    const answer = questionBus.requestQuestion({
       conversationId: CONVERSATION_ID,
       questions: QUESTIONS,
     });

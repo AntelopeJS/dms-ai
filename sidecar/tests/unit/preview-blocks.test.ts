@@ -24,11 +24,13 @@ import type {
   PreviewNodeType,
 } from "../../src/protocol/preview.js";
 import {
+  type BlockPreviewServices,
   buildSnapshotEvent,
   emitBlockPreview,
   listAttachedImages,
+  type SnapshotServices,
 } from "../../src/server/chat-events.js";
-import type { SidecarServices } from "../../src/server/services.js";
+import type { ConversationStore } from "../../src/state/conversations.js";
 import { createConversationStore } from "../../src/state/conversations.js";
 import { createStore } from "../../src/state/store.js";
 
@@ -414,7 +416,8 @@ describe("PreviewBlocks sketches", () => {
 describe("block preview transcript", () => {
   let dir: string;
   let sent: AnyServerEventType[];
-  let services: SidecarServices;
+  let services: SnapshotServices &
+    BlockPreviewServices & { conversationStore: ConversationStore };
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "dms-ai-preview-"));
@@ -436,7 +439,7 @@ describe("block preview transcript", () => {
           fullAuto: null,
         }),
       },
-    } as unknown as SidecarServices;
+    };
   });
 
   afterEach(async () => {
