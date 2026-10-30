@@ -10,7 +10,7 @@ const NUMERIC_SETTINGS = [
 export function withNumbersAs(
   settings: SettingsBody,
   convert: (value: unknown) => unknown,
-): SettingsBody {
+) {
   const converted = { ...settings };
   for (const key of NUMERIC_SETTINGS) {
     if (converted[key] !== undefined && converted[key] !== null) {
