@@ -24,18 +24,18 @@ function note(description: string): string {
 }
 
 const EXPR_SENTINEL = z.object({ $expr: z.string() });
-const EXPR_CARRIER = z.record(z.string(), z.unknown());
 
-function hasExprSentinel(value: unknown): boolean {
-  if (Array.isArray(value)) {
-    return value.some(hasExprSentinel);
-  }
-  if (EXPR_SENTINEL.safeParse(value).success) {
-    return true;
-  }
-  const record = EXPR_CARRIER.safeParse(value);
-  return record.success && Object.values(record.data).some(hasExprSentinel);
-}
+/** Whether an agent-supplied value holds a `{ $expr }` sentinel at any depth of arrays and records. */
+const containsExprSentinel: z.ZodType<boolean> = z.lazy(() =>
+  z.union([
+    EXPR_SENTINEL.transform(() => true),
+    z.array(containsExprSentinel).transform((items) => items.some(Boolean)),
+    z
+      .record(z.string(), containsExprSentinel)
+      .transform((members) => Object.values(members).some(Boolean)),
+    z.unknown().transform(() => false),
+  ]),
+);
 
 function exprRefusal(): McpToolResult {
   return opResult({
@@ -237,7 +237,7 @@ function buildPageTools(run: BuilderRun) {
       ),
       { pageRef: z.string(), patch: CONFIG },
       async ({ pageRef, patch }: { pageRef: string; patch: unknown }) =>
-        hasExprSentinel(patch)
+        containsExprSentinel.parse(patch)
           ? exprRefusal()
           : run("ConfigurePage", [pageRef, patch]),
     ),
@@ -273,7 +273,7 @@ function buildBlockTools(run: BuilderRun) {
           ),
       },
       async (input) =>
-        hasExprSentinel(input.config)
+        containsExprSentinel.parse(input.config)
           ? exprRefusal()
           : run("AddBlock", [input]),
     ),
@@ -292,7 +292,7 @@ function buildBlockTools(run: BuilderRun) {
         patch: unknown;
         replace?: boolean;
       }) =>
-        hasExprSentinel(patch)
+        containsExprSentinel.parse(patch)
           ? exprRefusal()
           : run("ConfigureBlock", [path, patch, { replace }]),
     ),
@@ -343,7 +343,7 @@ function buildBlockTools(run: BuilderRun) {
       note("Updates a category's metadata (displayName, icon, order)."),
       { ref: z.string(), patch: CONFIG },
       async ({ ref, patch }: { ref: string; patch: unknown }) =>
-        hasExprSentinel(patch)
+        containsExprSentinel.parse(patch)
           ? exprRefusal()
           : run("ConfigureCategory", [ref, patch]),
     ),
@@ -401,7 +401,9 @@ function buildResourceTools(run: BuilderRun) {
         module: TARGET_MODULE,
       },
       async (input) =>
-        hasExprSentinel(input) ? exprRefusal() : run("CreateResource", [input]),
+        containsExprSentinel.parse(input)
+          ? exprRefusal()
+          : run("CreateResource", [input]),
     ),
     defineTool(
       "BuilderDeleteResource",
@@ -422,7 +424,9 @@ function buildResourceTools(run: BuilderRun) {
       ),
       { ref: z.string(), field: FIELD_SPEC },
       async ({ ref, field }: { ref: string; field: unknown }) =>
-        hasExprSentinel(field) ? exprRefusal() : run("AddField", [ref, field]),
+        containsExprSentinel.parse(field)
+          ? exprRefusal()
+          : run("AddField", [ref, field]),
     ),
     defineTool(
       "BuilderConfigureField",
@@ -431,7 +435,7 @@ function buildResourceTools(run: BuilderRun) {
       ),
       { path: FIELD_PATH, patch: FIELD_ASPECTS_PATCH },
       async ({ path, patch }: { path: string; patch: unknown }) =>
-        hasExprSentinel(patch)
+        containsExprSentinel.parse(patch)
           ? exprRefusal()
           : run("ConfigureField", [path, patch]),
     ),
@@ -490,7 +494,9 @@ function buildQueryTools(run: BuilderRun) {
         endpoint: QUERY_ENDPOINT.optional(),
       },
       async ({ page, ...input }) =>
-        hasExprSentinel(input) ? exprRefusal() : run("AddQuery", [page, input]),
+        containsExprSentinel.parse(input)
+          ? exprRefusal()
+          : run("AddQuery", [page, input]),
     ),
     defineTool(
       "BuilderConfigureQuery",
@@ -507,7 +513,7 @@ function buildQueryTools(run: BuilderRun) {
         }),
       },
       async ({ query, patch }: { query: string; patch: unknown }) =>
-        hasExprSentinel(patch)
+        containsExprSentinel.parse(patch)
           ? exprRefusal()
           : run("ConfigureQuery", [query, patch]),
     ),

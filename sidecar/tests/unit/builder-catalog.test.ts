@@ -156,4 +156,24 @@ describe("Builder tool results", () => {
     });
     expect(result.isError).toBe(true);
   });
+
+  it("refuses a $expr nested inside arrays and records", async () => {
+    const result = await tool("BuilderAddBlock", { ok: true }).handler({
+      page: "/p",
+      name: "kpi",
+      type: "KpiCard",
+      config: { rows: [{ cells: [1, { label: { $expr: "x" } }] }] },
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  it("leaves a call whose $expr is not a string unmarked", async () => {
+    const result = await tool("BuilderAddBlock", { ok: true }).handler({
+      page: "/p",
+      name: "kpi",
+      type: "KpiCard",
+      config: { rows: [{ $expr: 1 }, [null, undefined]] },
+    });
+    expect(result.isError).toBeUndefined();
+  });
 });
