@@ -25,6 +25,12 @@ const QUERY_PARAMS = z
     "The template's parameters, keyed exactly as the `params` schema BuilderQueryTemplates reports for it — that schema documents every key and value shape, and an unrecognised key is rejected.",
   );
 
+const QUERY_RESPONSE = z
+  .enum(["series", "card", "value", "items"])
+  .describe(
+    "How the route arranges a `series` template's points for the block that reads them: `series` (the default) one point per group, for a bare chart such as ChartLine, ChartColumn or ChartBar; `card` a figure above its series, for a ChartCard; `value` a figure and its sparkline, for a KpiCard; `items` ranked entries, for a TopListCard. A block reads only its own arrangement, so match the block. A `count` or `aggregate` query answers `{ value }` whatever you pass.",
+  );
+
 /** The tools that list, add, reconfigure and remove a page's queries. */
 export function buildQueryTools(run: BuilderRun) {
   return [
@@ -47,7 +53,7 @@ export function buildQueryTools(run: BuilderRun) {
     defineTool(
       "BuilderAddQuery",
       note(
-        "Adds a query — a page-hosted GET route serving one computed number that the DataAPI cannot give you. Compiles the template into a method on the resource's model and a route on the page, atomically. Returns `{ query, route }`; `route` is the full URL to pass as a KpiCard's `fetchUrl`, and it serves `{ \"value\": <number> }`.",
+        "Adds a query — a page-hosted GET route serving a computed number, or one per group, that the DataAPI cannot give you. Compiles the template into a method on the resource's model and a route on the page, atomically. Returns `{ query, route }`; `route` is the full URL to pass as the reading block's `fetchUrl`. A `count` or `aggregate` route serves `{ \"value\": <number> }`; a `series` route serves the arrangement `response` names.",
       ),
       {
         page: z
@@ -67,6 +73,7 @@ export function buildQueryTools(run: BuilderRun) {
           .string()
           .describe("A template id from BuilderQueryTemplates."),
         params: QUERY_PARAMS.optional(),
+        response: QUERY_RESPONSE.optional(),
         endpoint: QUERY_ENDPOINT.optional(),
       },
       async ({ page, ...input }) =>
@@ -83,6 +90,7 @@ export function buildQueryTools(run: BuilderRun) {
           resource: z.string().optional(),
           template: z.string().optional(),
           params: QUERY_PARAMS.optional(),
+          response: QUERY_RESPONSE.optional(),
           endpoint: QUERY_ENDPOINT.optional(),
         }),
       },
