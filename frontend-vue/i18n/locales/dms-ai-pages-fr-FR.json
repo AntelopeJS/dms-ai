@@ -332,6 +332,7 @@
 				"BuilderRemoveField": "Retirer un champ",
 				"BuilderQueryTemplates": "Lire les modèles de requêtes",
 				"BuilderAddQuery": "Ajouter une requête",
+				"BuilderPreviewQuery": "Aperçu de la requête",
 				"BuilderConfigureQuery": "Configurer une requête",
 				"BuilderRemoveQuery": "Retirer une requête",
 				"UndoChangeSet": "Annuler un lot de modifications",

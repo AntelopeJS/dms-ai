@@ -32,6 +32,7 @@ export const BUILDER_TOOL_NAMES = [
   "BuilderRemoveField",
   "BuilderQueryTemplates",
   "BuilderAddQuery",
+  "BuilderPreviewQuery",
   "BuilderConfigureQuery",
   "BuilderRemoveQuery",
   "BuilderConfigureProject",

@@ -475,6 +475,12 @@ const BUILDER_TOOLS: Record<string, ToolLexiconEntry> = {
 		icon: ICONS.DATA,
 		target: firstOf("name"),
 	},
+	BuilderPreviewQuery: {
+		verb: "preview_query",
+		icon: ICONS.DATA,
+		target: firstOf("name"),
+		isReadOnly: true,
+	},
 	BuilderConfigureQuery: {
 		verb: "configure_query",
 		icon: ICONS.DATA,

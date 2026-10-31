@@ -446,6 +446,7 @@
 			"remove_field": "Retirer le champ",
 			"browse_queries": "Parcourir les modèles de requête",
 			"add_query": "Ajouter une requête",
+			"preview_query": "Aperçu de la requête",
 			"configure_query": "Configurer la requête",
 			"remove_query": "Retirer la requête",
 			"search_tools": "Charger des outils",

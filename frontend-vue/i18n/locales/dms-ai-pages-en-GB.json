@@ -332,6 +332,7 @@
 				"BuilderRemoveField": "Remove field",
 				"BuilderQueryTemplates": "Read query templates",
 				"BuilderAddQuery": "Add query",
+				"BuilderPreviewQuery": "Preview query",
 				"BuilderConfigureQuery": "Configure query",
 				"BuilderRemoveQuery": "Remove query",
 				"UndoChangeSet": "Undo change set",

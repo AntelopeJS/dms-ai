@@ -78,6 +78,7 @@ const MODULE_TOOLS = {
   },
   BuilderQueryTemplates: { icon: "i-ph-books", source: "builder" },
   BuilderAddQuery: { icon: "i-ph-database", source: "builder" },
+  BuilderPreviewQuery: { icon: "i-ph-eye", source: "builder" },
   BuilderConfigureQuery: { icon: "i-ph-database", source: "builder" },
   BuilderRemoveQuery: {
     icon: "i-ph-trash",
