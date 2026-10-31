@@ -80,7 +80,8 @@ export class AIBuilderController extends Controller(ROUTE_PREFIX) {
     if (!isSidecarRequest(token)) {
       return sidecarForbidden();
     }
-    const fn = body?.op ? OPS[body.op] : undefined;
+    const fn =
+      body?.op && Object.hasOwn(OPS, body.op) ? OPS[body.op] : undefined;
     if (!fn) {
       return new HTTPResult(HTTP_BAD_REQUEST, {
         error: "unknown_op",
