@@ -36,7 +36,7 @@ ajs project modules add @antelopejs/dms-builder   # recommended: enables Safe mo
 
 Point the sidecar at the origin the `api` module reserved:
 
-```ts
+```ts fragment
 // antelope.config.ts
 "dms-ai": {
   source: { type: "package", package: "@antelopejs/dms-ai" },
@@ -62,14 +62,7 @@ Claude Code runs with its own credentials (its login, or `ANTHROPIC_API_KEY` in 
 
 <!-- antelopejs-docs-compat:end -->
 
-| Package | Version |
-| --- | --- |
-| `@antelopejs/dms` | `>=0.11.0 <1.0.0` |
-| `@antelopejs/interface-dms` | `>=0.9.0 <1.0.0` |
-| `@antelopejs/dms-frontend` (renderer) | `>=0.6.0 <0.7.0` |
-| `@antelopejs/dms-builder` (optional, Safe mode) | `>=0.4.0` |
-
-On DMS 0.8, use `@antelopejs/dms-ai` 0.2.
+The module also needs a DMS backend in a release that implements the `@antelopejs/interface-dms` range above, and the `@antelopejs/dms-frontend` renderer in the range its frontend module declares in `engines["@antelopejs/dms-frontend"]` of `frontend-vue/package.json`; the `ajs dms` CLI refuses to build it with a renderer outside that range. `@antelopejs/dms-builder` is optional and enables Safe mode.
 
 ## Documentation
 
