@@ -33,3 +33,32 @@ void test("a skills conflicts answer of the wrong shape shows no banner (Antelop
 
   assert.equal(await new harness.routes.AISkillsController().conflicts(), null);
 });
+
+void test("a settings answer of the wrong shape locks and defaults nothing on the form (AntelopeJS/dms-ai#111)", async () => {
+  reset();
+  answer("GET", "/settings", 200, {
+    providers: { codex: "down" },
+    builderAvailable: "no",
+    defaults: "none",
+  });
+
+  const options = await harness.routes.applySidecarSettings(new Set(), {
+    fields: [
+      {
+        id: "provider",
+        type: "select",
+        component: {
+          type: "select",
+          options: { items: [{ value: "claude" }, { value: "codex" }] },
+        },
+      },
+    ],
+  });
+
+  const [provider] = options.fields;
+  assert.deepEqual(provider.component.options.items, [
+    { value: "claude" },
+    { value: "codex" },
+  ]);
+  assert.equal(provider.offersDefault, undefined);
+});
