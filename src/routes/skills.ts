@@ -10,7 +10,7 @@ import type { BannerContent } from "@antelopejs/interface-dms/base";
 import { I18N_SECTIONS } from "../constants/i18n";
 import { ROUTE_PREFIX } from "../constants/module";
 import { PAGE_LINKS } from "../constants/pages";
-import { readSidecar } from "../sidecar";
+import { CONFLICTS_ANSWER, readSidecar } from "../sidecar";
 import type {
   SidecarList,
   SidecarSkill,
@@ -120,7 +120,11 @@ export class AISkillsController extends Controller(ROUTE_PREFIX) {
 
   @Get(CONFLICTS_PATH)
   async conflicts(): Promise<BannerContent | HTTPResult> {
-    const shared = await readSidecar(CONFLICTS_PATH, NO_CONFLICTS);
+    const shared = await readSidecar(
+      CONFLICTS_PATH,
+      CONFLICTS_ANSWER,
+      NO_CONFLICTS,
+    );
     return bannerAnswer(conflictsBanner(shared));
   }
 }
