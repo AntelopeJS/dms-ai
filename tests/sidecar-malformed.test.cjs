@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { HTTPResult } = require("@antelopejs/interface-api");
 const { test } = require("node:test");
 const {
   answer,
@@ -27,11 +28,14 @@ void test("a metric the sidecar answers with the wrong shape reads as the empty 
   assert.equal((await metrics.usageSummary("14")).items.length, 2);
 });
 
-void test("a skills conflicts answer of the wrong shape shows no banner (AntelopeJS/dms-ai#111)", async () => {
+void test("a skills conflicts answer of the wrong shape answers no content (AntelopeJS/dms-ai#111)", async () => {
   reset();
   answer("GET", "/skills/conflicts", 200, { conflicts: "several" });
 
-  assert.equal(await new harness.routes.AISkillsController().conflicts(), null);
+  const banner = await new harness.routes.AISkillsController().conflicts();
+
+  assert.ok(banner instanceof HTTPResult);
+  assert.equal(banner.getStatus(), 204);
 });
 
 void test("a settings answer of the wrong shape locks and defaults nothing on the form (AntelopeJS/dms-ai#111)", async () => {
