@@ -17,7 +17,7 @@ An AI development assistant inside the [AntelopeJS DMS](https://github.com/Antel
 
 - Docks a chat panel next to any page (`Ctrl` `Shift` `K`), with the page as context.
 - Runs a coding agent (Claude Code by default, or OpenAI's Codex) in a local sidecar that reads the project, its loaded modules and their skills.
-- Edits pages through the [Builder](https://github.com/AntelopeJS/dms-builder) in Safe mode, or writes code, then typechecks and shows the result.
+- Edits pages through the [Builder](https://github.com/AntelopeJS/dms-builder) in Safe mode, or writes code, then typechecks and shows the result live.
 - Saves every turn that touches the project as a change set you can review, undo and redo.
 - Adds an owner-only **Assistant** module: Overview, Changes, Activity, Skills and Settings.
 
