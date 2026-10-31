@@ -56,12 +56,12 @@ navigation contract today.
 
 - `interface-dms`: from 0.4.0 (Tone vocabulary, `card`/`actions` block options,
   `TableView.fromSource`, row drawers, form sections and instant save are 0.4-only).
-- `frontend-vue` engines: `dms-frontend` from 0.5.0 (component prefix contract).
+- `frontend-vue` engines: `dms-frontend` in the 0.5 line (component prefix contract).
 - Playground: `dms` from 0.6.0, `dms-frontend` `0.5.0`,
   `dms-builder` latest, `core` from 1.13.4.
 - `@antelopejs/interface-api`, `interface-core`, `interface-dms-builder`: latest published ranges.
 - Since dms 0.7 (Q45 to Q48): `interface-dms` from 0.5.0, engines
-  `dms-frontend` from 0.5.1, playground `dms` from 0.7.1 and
+  `dms-frontend` in the 0.5 line from 0.5.1, playground `dms` from 0.7.1 and
   `dms-frontend` `0.5.1`.
 
 ### Q5. How do component names change with dms-frontend 0.5?
