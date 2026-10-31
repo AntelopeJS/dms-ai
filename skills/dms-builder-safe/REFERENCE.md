@@ -43,16 +43,15 @@ resource, then `BuilderAddBlock` a `TableView` with `controller` = the resource 
 and display options in `config`. Relation columns work via `$ref` (see
 "DataType, component, and reference values" in SKILL.md).
 
-## Queries (computed numbers a DataAPI can't serve)
+## Queries (computed data a DataAPI can't serve)
 
-A **query** is a derived-data endpoint on a *page*: a GET route returning one computed
-number — a count, a sum, an average — backed by a generated method on the resource's
-model. The DataAPI serves rows; a query serves an aggregate over them. Reach for one
-whenever a block needs a number rather than a list — a **KpiCard** is the usual consumer.
+A **query** is a derived-data endpoint on a *page*: a GET route serving an aggregate or one
+point per group, backed by a generated method on the resource's model. The DataAPI serves
+rows; a query serves what a KPI card, a chart or a ranked list reads.
 
 1. **Read the templates.** `BuilderQueryTemplates` returns each template's `id`, what it
    computes, its `output` kind, and its `params` schema. Never guess an id or a param key —
-   an unrecognised key is rejected. v1 has `count` and `aggregate`, both `output: "scalar"`.
+   an unrecognised key is rejected.
 2. **Add the query** with `BuilderAddQuery` on the page that will display it (not the
    resource's page). It compiles the template into a model method and a page route in one
    atomic op and returns `{ query, route }`.
