@@ -32,10 +32,6 @@ function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null;
 }
 
-function isObjectOrNull(value: unknown): value is object | null {
-  return typeof value === "object";
-}
-
 function parseStateContents(raw: string): StoredState {
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -43,7 +39,7 @@ function parseStateContents(raw: string): StoredState {
     const candidate = parsed as Partial<StoredState>;
     if (
       candidate.conversations === undefined ||
-      !isObjectOrNull(candidate.conversations)
+      !isObject(candidate.conversations)
     ) {
       return STATE_INITIAL;
     }
