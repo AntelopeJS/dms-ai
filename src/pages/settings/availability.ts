@@ -7,7 +7,7 @@ import type {
 } from "@antelopejs/interface-dms/base/form-types";
 import type { DefaultValue } from "@antelopejs/interface-dms/base/types/form-values";
 import { asFormValues, type SettingsBody } from "../../sidecar/settings-values";
-import { readSidecar } from "../../sidecar";
+import { isJsonBody, type JsonBody, readSidecar } from "../../sidecar";
 import { CODEX_PROVIDER, SAFE_SCOPE, settingsText } from "./options";
 
 const SETTINGS_PATH = "/settings";
@@ -24,6 +24,24 @@ interface SidecarCapabilities {
   /** The sidecar's `DEFAULT_SETTINGS`: the one source of the module defaults. */
   defaults?: SettingsBody;
 }
+
+const JSON_ANSWER = z.custom<JsonBody>(isJsonBody);
+
+const CAPABILITIES_ANSWER: z.ZodType<SidecarCapabilities> = z.looseObject({
+  providers: z
+    .record(
+      z.string(),
+      z
+        .looseObject({
+          available: z.boolean(),
+          reason: z.string().optional(),
+        })
+        .optional(),
+    )
+    .optional(),
+  builderAvailable: z.boolean().optional(),
+  defaults: z.record(z.string(), JSON_ANSWER).optional(),
+});
 
 const OPTIONS_WITH_ITEMS = z.looseObject({
   items: z.array(z.looseObject({ value: z.string() })).optional(),
@@ -120,8 +138,9 @@ export async function applySidecarSettings(
   _permissions: Set<string>,
   options: FormPropsSerialized,
 ): Promise<FormPropsSerialized> {
-  const capabilities = await readSidecar<SidecarCapabilities>(
+  const capabilities = await readSidecar(
     SETTINGS_PATH,
+    CAPABILITIES_ANSWER,
     {},
   );
   const defaults = asFormValues(capabilities.defaults ?? {});
