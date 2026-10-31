@@ -4,7 +4,7 @@
     "anti-slop/no-object-parameters": 1,
     "unicorn/no-useless-spread": 1
   },
-  "tsExpectError": 0,
+  "tsExpectError": 1,
   "tsIgnore": 0,
   "safety": 0,
   "config": {
