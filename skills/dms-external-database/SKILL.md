@@ -1,6 +1,6 @@
 ---
 name: dms-external-database
-description: Connects a DMS project to a client's existing database, runs the Builder's analysis of it, settles what the analysis could not decide from the catalog and aggregates, generates TableViews through the Builder, and adds stats pages over them. Use when the user wants pages over a database the project does not own, PostgreSQL, MongoDB or RethinkDB ("plug in our client's Postgres", "map their Mongo database", "generate the admin for this database", "finish the mapping the Builder proposed").
+description: Connects a DMS project to a client's existing database, runs the Builder's analysis of it, settles what the analysis could not decide from the catalog and aggregates, generates TableViews through the Builder, and plans analytics pages from the data. Use when the user wants pages over a database the project does not own, PostgreSQL, MongoDB or RethinkDB ("plug in our client's Postgres", "map their Mongo database", "generate the admin for this database", "finish the mapping the Builder proposed").
 icon: i-ph-database
 category: Builder
 tags: [Database, Builder, Pages, DMS]
@@ -10,8 +10,8 @@ tags: [Database, Builder, Pages, DMS]
 
 The Builder analyses the database by itself: from the catalog and the profiles, fixed rules
 propose a mapping and name every choice's rule. Your work is what those rules cannot do: answer
-the questions they left open, revisit the defaults the names and comments contradict, and make the
-stats pages. You never start from scratch.
+the questions they left open, revisit the defaults the names and comments contradict, and plan the
+analytics pages from the data. You never start from scratch.
 
 You work through the `Database*` and `Builder*` tools only. You never read rows of the client's
 database: the catalog and aggregates are what you have, and they are enough. You never see or
@@ -91,17 +91,36 @@ profile of the whole database again: the Builder did it.
   neither is an array of ids as a relation.
 - **Editable.** Every TableView is proposed read-only. Make one editable only where the integrator
   wants it; show `writes` beside it, so a read-only role in this environment is visible.
-- **Stats pages,** which the analysis does not make, one per area:
-  - KPIs: row counts, and sums of the `measure` columns that add up (a total, a quantity; never
-    a unit price or a rate);
-  - one series over the main time axis by month, in the project's time zone;
-  - top lists over `enum-like` columns.
+- **Analytics pages,** which the analysis does not make. Load the `dms-page-design` skill and
+  plan them from the data:
+  1. **Inspect.** For each relation, read from the proposal its rows, its `time-axis` columns
+     with their `range`, its `measure` columns, and its `enum-like` columns with their
+     `categories`. Profile a column the proposal leaves without them, such as the main date
+     column's range. Write each range down: the period rule needs the last date.
+  2. **Ask.** Write the 4 to 8 questions the owner of this data asks every week: how revenue
+     or volume trends, what sells, who buys, where, and how it compares with last year. Each
+     question names the relation, the measure (a sum of a `measure` column or a row count)
+     and the grouping (the time axis or a column of the same relation).
+  3. **Plan pages.** The relation with a time axis, a measure and the most rows is the main
+     fact relation (invoices, orders). It gets the first analytics page, named for its area
+     ("Sales"), holding every question about it. Another relation gets its own analytics page
+     only when it has its own time axis and at least 100 rows.
+  4. **Choose blocks** for each question with `dms-page-design`, and its default period from
+     the main time axis's real range.
+- **The minimum.** Your plan, and the pages you write, meet all of these:
+  - at least one analytics page, opened by a toolbar with a period selector;
+  - at least 3 different chart kinds on it when the data has the shapes for them;
+  - a default period computed from the data's real dates, never assumed;
+  - every query previewed with `BuilderPreviewQuery` before it is added, and every block whose
+    preview is empty dropped or changed;
+  - every page opened with `NavigateToPage` and its block report read before you report.
 - **Not possible yet:** breakdowns by a related entity's name, such as revenue per customer.
   Templates read one relation, so they would show ids. List them under *Not possible yet*,
   never as pages.
 
 Write your plan (`ExitPlanMode`) in the format of REFERENCE.md *Plan*: what you change in the
-proposal and why, the stats pages, the open items you leave, and what is not possible yet.
+proposal and why, the questions and the analytics pages that answer them, the open items you
+leave, and what is not possible yet.
 
 ## 4. Validate
 
@@ -117,10 +136,11 @@ again. Write nothing before Run.
    - On `invalid_config`, fix the choice it names and call again: a refused call writes nothing.
    - It answers each relation's `ref`, which queries name it by, `category`, the connection's
      category ref (`pages.<connection>`), and `leftOut`: carry those into your report.
-2. Per stats page, `BuilderCreatePage` with `module` set to the generated module and `category`
-   set to the `category` MapResources answered. Then `BuilderAddQuery` per query, and
-   `BuilderAddBlock` per block with the query's route as its `fetchUrl`, as in the
-   `dms-builder-safe` skill's *Queries*.
+2. Per analytics page, `BuilderCreatePage` with `module` set to the generated module and
+   `category` set to the `category` MapResources answered, then `NavigateToPage` to it. Add
+   the blocks in the order `dms-page-design` lays out. Per block, `BuilderPreviewQuery`, then
+   `BuilderAddQuery` with the `response` the block reads, then `BuilderAddBlock` with the
+   query's route as its `fetchUrl`.
    - Queries read the mapped resources by their refs (`<connection>/<schema>/<relation>`).
 
 To change a relation later, read its current choices with `BuilderMapping`, then call
@@ -137,11 +157,14 @@ change made: a mapped relation is rewritten from the choices sent, and its page 
     investigate further.
 - `QueryLogs` for registration warnings (lossy fields, unserved indexes) and for the errors of
   the routes the pages called.
+- On each analytics page, fix or remove every block `NavigateToPage` reports as empty or
+  failed, and navigate again, as in `dms-page-design` *Check every block*.
 
 Then report:
 
 - what the Builder mapped by its rules, and what you changed;
-- the pages made;
+- the pages made, with each analytics page's default period and the date range it came from;
+- every block that still shows no data, and why;
 - what was left out and why;
 - the open items left, which the integrator finds in the Builder's *Database* workspace;
 - the variable every deployment must set.

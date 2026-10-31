@@ -109,11 +109,20 @@ erp · postgresql 17.5 · role erp_reader (read only) · 42 relations: 9 TableVi
 - sales.events (R8, stats only) → TableView: named and commented as calendar events people edit
 - sales.orders: editable, as asked; the role here writes nothing
 
-## Stats pages
-### Sales
-- KPI: orders (count) · KPI: revenue (sum of total)
-- Chart: orders per month over ordered_at, Europe/Paris
-- Top list: orders by status
+## Questions
+- How does revenue trend, and how does it compare with last year? (sales.orders, sum of total, by ordered_at)
+- Which statuses do orders end in? (sales.orders, count, by status)
+- Which countries buy most? (sales.orders, sum of total, by country)
+
+## Analytics pages
+### Sales (sales.orders)
+- Period: ordered_at runs 2024-01-03 to 2026-10-28 → default last-90-days vs previous-period; presets last-90-days, ytd, last-year, custom
+- Toolbar: PageToolbar › PeriodSelector
+- KPIs: revenue (sum of total) · orders (count) · units (sum of quantity), each with delta and sparkline
+- ChartCard › ChartArea: revenue per month
+- ChartCard › ChartDonut: orders by status (5 values)
+- ChartCard › ChartBar: top 10 countries by revenue
+- TopListCard: top 10 cities by orders
 
 ## Left open
 - label:legacy.t_ord — no column names an order; the integrator picks one in the Builder
