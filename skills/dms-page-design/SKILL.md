@@ -72,9 +72,10 @@ Set it on the selector: `defaultPreset`, `defaultComparison`, `presets` (the def
 other preset whose window holds data, and `custom`) and `comparisons`. Leave `all` out of
 `presets`: it sends no `from` or `to`, and every bound query fails without them.
 
-Pick the bucket from the default window: `month` over 90 days or more, `day` below. Read
-the `x` values of a preview: epoch milliseconds take `xaxisType: "datetime"`, anything else
-`xaxisType: "category"`.
+Pick the bucket from the default window: `month` over 90 days or more, `day` below. An axis
+chart (area, line, column, bar) over time takes `xaxisType: "category"`, unless a preview's
+`x` values are epoch milliseconds, which take `xaxisType: "datetime"`. A donut or pie takes
+no axis option.
 
 ## Tables
 
@@ -97,6 +98,7 @@ from the mapping.
    default period's `from` and `to` as `args`. An answer with no points, or only zeros and
    nulls, is an empty block: change the query (another measure, the whole history for a card
    that should not follow the period) or drop the block. Never add a block over an empty answer.
+   When the preview answers `unsupported`, add the block and let step 2 check it.
 2. After the last block, `NavigateToPage` to the page and read the blocks it reports as empty
    or failed. Fix or remove each one, then navigate again.
 3. Your report names every block that still shows no data, and why.
