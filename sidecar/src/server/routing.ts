@@ -314,7 +314,23 @@ const handleHostStateUpdate = on(
 const handleHostNavigationComplete = on(
   MESSAGE_TYPES.HOST_NAVIGATION_COMPLETE,
   (_s, msg, ctx) => {
-    ctx.navigationCompleter.complete(msg.path);
+    ctx.navigationCompleter.complete(
+      msg.path,
+      msg.blocksWithinMs === undefined
+        ? {}
+        : { blocksWithinMs: msg.blocksWithinMs },
+    );
+  },
+);
+
+const handleHostPageBlocks = on(
+  MESSAGE_TYPES.HOST_PAGE_BLOCKS,
+  (_s, msg, ctx) => {
+    ctx.navigationCompleter.completeBlocks(msg.path, {
+      status: msg.status,
+      checked: msg.checked,
+      blocks: msg.blocks,
+    });
   },
 );
 
@@ -415,6 +431,7 @@ const MESSAGE_HANDLERS = {
   [MESSAGE_TYPES.LEAVE_CONVERSATION]: handleLeaveConversation,
   [MESSAGE_TYPES.HOST_STATE_UPDATE]: handleHostStateUpdate,
   [MESSAGE_TYPES.HOST_NAVIGATION_COMPLETE]: handleHostNavigationComplete,
+  [MESSAGE_TYPES.HOST_PAGE_BLOCKS]: handleHostPageBlocks,
   [MESSAGE_TYPES.LIST_CONVERSATIONS]: handleListConversations,
   [MESSAGE_TYPES.DELETE_CONVERSATION]: handleDeleteConversation,
   [MESSAGE_TYPES.SET_SETTINGS]: handleSetSettings,

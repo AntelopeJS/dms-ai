@@ -6,6 +6,12 @@
 export const NAVIGATE_TIMEOUT_MS = 18_000;
 
 /**
+ * Slack past the time the host announced for its block report, covering the
+ * socket hop: the host owns how long it waits for the page's blocks to settle.
+ */
+export const BLOCKS_REPORT_GRACE_MS = 3_000;
+
+/**
  * Upper bound on how long a single tool call may hold the inactivity timer
  * suspended. Far beyond any healthy tool (a typecheck on a large project is
  * seconds, not minutes), it exists so that a tool whose result never arrives
