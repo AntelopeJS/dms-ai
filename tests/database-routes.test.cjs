@@ -191,3 +191,10 @@ for (const op of ["constructor", "toString", "hasOwnProperty", "__proto__"]) {
     assert.deepEqual(calls.mapResources, []);
   });
 }
+
+void test("the Builder op route still runs the op a one-element array names, as it did before the inherited-name check", async () => {
+  calls.mapResources = [];
+  const controller = new routes.AIBuilderController();
+  await controller.op(SIDECAR_TOKEN, { op: ["MapResources"], args: [{}] });
+  assert.equal(calls.mapResources.length, 1);
+});
