@@ -62,7 +62,7 @@ type OpName = (typeof OP_NAMES)[number];
 type BuilderResult = Awaited<ReturnType<(typeof Builder)[OpName]>>;
 type BuilderOp = (...args: unknown[]) => Promise<BuilderResult>;
 
-const OPS = new Map<string, BuilderOp>(
+const OPS: Record<string, BuilderOp> = Object.fromEntries(
   OP_NAMES.map((name) => [name, Builder[name] as BuilderOp]),
 );
 
@@ -80,7 +80,8 @@ export class AIBuilderController extends Controller(ROUTE_PREFIX) {
     if (!isSidecarRequest(token)) {
       return sidecarForbidden();
     }
-    const fn = body?.op ? OPS.get(body.op) : undefined;
+    const fn =
+      body?.op && Object.hasOwn(OPS, body.op) ? OPS[body.op] : undefined;
     if (!fn) {
       return new HTTPResult(HTTP_BAD_REQUEST, {
         error: "unknown_op",
