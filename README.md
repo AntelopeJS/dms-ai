@@ -7,7 +7,7 @@
 <a href="https://discord.gg/sjK28QHrA7"><img alt="Discord" src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000"></a>
 <a href="https://dms.antelopejs.com/docs/modules/ai"><img alt="Documentation" src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000"></a>
 
-An AI development assistant inside the AntelopeJS DMS dashboard.
+An AI development assistant inside the [AntelopeJS DMS](https://github.com/AntelopeJS/dms) dashboard.
 
 </div>
 
@@ -17,7 +17,7 @@ An AI development assistant inside the AntelopeJS DMS dashboard.
 
 - Docks a chat panel next to any page (`Ctrl` `Shift` `K`), with the page as context.
 - Runs a coding agent (Claude Code by default, or OpenAI's Codex) in a local sidecar that reads the project, its loaded modules and their skills.
-- Edits pages through the [Builder](https://github.com/AntelopeJS/dms-builder) in Safe mode, or writes code, then typechecks and shows the result live.
+- Edits pages through the [Builder](https://github.com/AntelopeJS/dms-builder) in Safe mode, or writes code, then typechecks and shows the result.
 - Saves every turn that touches the project as a change set you can review, undo and redo.
 - Adds an owner-only **Assistant** module: Overview, Changes, Activity, Skills and Settings.
 
@@ -66,7 +66,7 @@ Claude Code runs with its own credentials (its login, or `ANTHROPIC_API_KEY` in 
 | --- | --- |
 | `@antelopejs/dms` | `>=0.11.0 <1.0.0` |
 | `@antelopejs/interface-dms` | `>=0.9.0 <1.0.0` |
-| `@antelopejs/dms-frontend` (renderer) | `>=0.6.0 <0.7.0` |
+| `@antelopejs/dms-frontend` (renderer) | `>=0.9.1 <0.10.0` |
 | `@antelopejs/dms-builder` (optional, Safe mode) | `>=0.4.0` |
 
 On DMS 0.8, use `@antelopejs/dms-ai` 0.2.
