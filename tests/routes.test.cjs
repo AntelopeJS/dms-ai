@@ -13,6 +13,7 @@ const {
   textOf,
   useRouteHarness,
 } = require("./helpers/route-harness.cjs");
+const { CHANGE_SET_BASE, ROW } = require("./helpers/fixtures.cjs");
 
 const StatusSchema = z.looseObject({
   status: z.string(),
@@ -20,21 +21,6 @@ const StatusSchema = z.looseObject({
   hasGivenUp: z.boolean(),
 });
 const harness = useRouteHarness();
-
-const ROW = {
-  id: "c-1:call-1",
-  timestampMs: Date.UTC(2026, 9, 7, 14, 2),
-  tool: "BuilderAddBlock",
-  target: "sales/overview",
-  agent: "claude",
-  allowedBy: "builder_auto",
-  result: "done",
-  conversationId: "c-1",
-  conversationTitle: "Top customers",
-  isReadOnly: false,
-  isAutoFix: false,
-  category: ["changed"],
-};
 
 void test("translates the Activity table's query and keys each row by its id", async () => {
   reset();
@@ -393,6 +379,7 @@ void test("keys the change sets for the Overview table", async () => {
     total: 1,
     results: [
       {
+        ...CHANGE_SET_BASE,
         id: "set-1",
         number: 12,
         title: "Refund chart",
@@ -425,6 +412,7 @@ void test("lists the latest change sets as one page for the Overview", async () 
   reset();
   /** @param {string} id */
   const set = (id) => ({
+    ...CHANGE_SET_BASE,
     id,
     number: 1,
     title: id,
