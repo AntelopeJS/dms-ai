@@ -24,7 +24,7 @@ This skill decides **what** to build. The tools and their arguments are in `dms-
 | A second series over time (orders beside revenue) | `ChartCard` around `ChartColumn` or `ChartLine` | as above |
 | A column with 2 to 6 values (status, segment, media type) | `ChartCard` around `ChartDonut`, with `showSeriesLegend: true` | `series`, `groupBy` the column, `response: "card"` |
 | A column with 7 or more values, a top N | A bare `ChartBar`, or a `TopListCard` with `showBar` | `series`, `orderBy: "measure"`, `direction: "desc"`, `limit: 10`; `response: "card"` for the chart, `"items"` for the list |
-| One figure with its trend (revenue, orders, customers) | `KpiCard` with `showDelta`, `showSparkline` | `series` by the time axis, `response: "value"`, `compare: true` |
+| One figure with its trend (revenue, orders, customers) | `KpiCard` with `showDelta`, `showSparkline` | `series` by the time axis (never `count` or `aggregate`, which answer no previous period and no sparkline), `response: "value"`, `compare: true` |
 | Numbers used as categories (a rating 1 to 5, a year) | `ChartCard` around `ChartColumn` with `xaxisType: "category"` | `series`, `groupBy` the column |
 | A status column on a table | Tabs on the `TableView`, plus a donut on the analytics page | see *Tables* |
 
@@ -38,6 +38,9 @@ This skill decides **what** to build. The tools and their arguments are in `dms-
   of under it.
 - Sum a measure that adds up (a total, a quantity). Count rows for everything else. Never sum
   a unit price or a rate.
+- Format money with `valueFormat: "currency"` and a `currencyCode` only when the data names its
+  currency (a currency column, a comment). Otherwise use `valueFormat: "number"`: the default
+  currency is the euro, and a wrong symbol is worse than none.
 - Grouping by a foreign key shows ids. Group by the relation's own columns only; a breakdown by
   a related entity's name goes under *Not possible yet* in your report.
 
@@ -48,11 +51,14 @@ Add the blocks in this order. Every analytics page has items 1 to 4.
 1. A `PageToolbar` holding a `PeriodSelector`, first on the page (see *Period*).
 2. One `GridRow` of 3 or 4 `KpiCard`s, each bound to the period.
 3. The main series over time, a full-width `ChartCard`.
-4. A `GridRow` of two breakdowns, each a different chart kind from the shape table.
-5. A `TopListCard` or a bar chart for the largest category column, when one exists.
+4. A `GridRow` of two breakdowns: a bare `ChartBar` for the largest category column, and a
+   `ChartDonut` or a `ChartColumn` for another column or a second measure over time.
+5. A `TopListCard` for a second category column, when one exists.
 
-Use at least 3 different chart kinds on the page when the data has the shapes for them. Use
-a second kind before you repeat one. A page of KPI cards alone is never done.
+Use at least 3 different chart kinds on the page when the data has the shapes for them. The
+chart kinds are `ChartArea`, `ChartLine`, `ChartColumn`, `ChartBar` and `ChartDonut`; KPI cards
+and top lists are not chart kinds. Use a second kind before you repeat one. A page of KPI cards
+alone is never done.
 
 Every card binds the page's period: `periodScope: "page"` on the block, and on its query
 `where` filters on the time axis bound to the request,
@@ -92,9 +98,10 @@ column's meaning says otherwise:
 - A status column with 2 to 6 values gives the table one tab per value, after "All".
 - Raw id columns stay off the list.
 
-Change a display through the relation's mapping (`BuilderMapping`, then `BuilderMapResources`
-with that relation's choices), never by editing the generated page: a remap rewrites the page
-from the mapping.
+Send each field's proposed `display` and each relation's proposed `tabs` in
+`BuilderMapResources`; `null` turns one off. Change a display through the relation's mapping
+(`BuilderMapping`, then `BuilderMapResources` with that relation's choices), never by editing the
+generated page: a remap rewrites the page from the mapping.
 
 ## Check every block before you report
 

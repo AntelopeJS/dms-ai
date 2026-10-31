@@ -141,9 +141,10 @@ The proposal's values, without their rules, plus what you changed:
     "fields": [ { "column": "name", "searchable": true, "sortable": true },
                 { "column": "segment", "filterable": true },
                 { "column": "email" }, { "column": "created_at", "sortable": true } ] },
-  { "relation": "sales.orders", "tableView": true, "writable": false,
-    "fields": [ { "column": "status", "filterable": true },
-                { "column": "ordered_at", "sortable": true }, { "column": "total" },
+  { "relation": "sales.orders", "tableView": true, "writable": false, "tabs": { "column": "status" },
+    "fields": [ { "column": "status", "filterable": true,
+                  "display": { "kind": "badge", "items": [ { "value": "paid", "label": "Paid", "tone": "success" } ] } },
+                { "column": "ordered_at", "sortable": true }, { "column": "total", "display": { "kind": "price" } },
                 { "column": "customer_code", "relation": "sales.customers", "label": "Customer" } ] },
   { "relation": "sales.audit_log", "tableView": false, "writable": false,
     "fields": [ { "column": "at" }, { "column": "action" } ] }
@@ -154,6 +155,8 @@ The proposal's values, without their rules, plus what you changed:
 - `declared` defaults to the column's `accepts[0]`. Set it only to take another accepted
   declaration, and always for a column a `field-type` item asked about: give the answer as its
   `declared`.
+- Send `display` (each field) and `tabs` (each relation) as the proposal has them; `null` turns
+  one off.
 - Key columns are added for you.
 - A relation column's target must be in the same call, with a `label`, or mapped in the module
   before.
