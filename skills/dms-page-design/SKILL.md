@@ -20,18 +20,22 @@ This skill decides **what** to build. The tools and their arguments are in `dms-
 
 | The data | Block | Query |
 | --- | --- | --- |
-| A measure or a row count over time | `ChartCard` around `ChartArea`, full width | `series`, `groupBy` the time axis, `bucket`, `response: "card"`, `compare: true` |
+| A measure or a row count over time | `ChartCard` around `ChartArea`, full width | `series`, `groupBy` the time axis, `bucket`, `response: "card"` |
 | A second series over time (orders beside revenue) | `ChartCard` around `ChartColumn` or `ChartLine` | as above |
-| A column with 2 to 6 values (status, segment, media type) | `ChartCard` around `ChartDonut` | `series`, `groupBy` the column, `response: "card"` |
-| A column with 7 or more values, a top N | `ChartCard` around `ChartBar`, or `TopListCard` with `showBar` | `series`, `orderBy: "measure"`, `direction: "desc"`, `limit: 10`; `response: "card"` for the chart, `"items"` for the list |
+| A column with 2 to 6 values (status, segment, media type) | `ChartCard` around `ChartDonut`, with `showSeriesLegend: true` | `series`, `groupBy` the column, `response: "card"` |
+| A column with 7 or more values, a top N | A bare `ChartBar`, or a `TopListCard` with `showBar` | `series`, `orderBy: "measure"`, `direction: "desc"`, `limit: 10`; `response: "card"` for the chart, `"items"` for the list |
 | One figure with its trend (revenue, orders, customers) | `KpiCard` with `showDelta`, `showSparkline` | `series` by the time axis, `response: "value"`, `compare: true` |
 | Numbers used as categories (a rating 1 to 5, a year) | `ChartCard` around `ChartColumn` with `xaxisType: "category"` | `series`, `groupBy` the column |
 | A status column on a table | Tabs on the `TableView`, plus a donut on the analytics page | see *Tables* |
 
-- Put a chart in a `ChartCard`: it adds the headline figure and the delta. In safe mode its
-  `chart` is a nested block value, `{ "$block": { "type": "ChartArea", "config": {} } }`.
-- The `response` must match the block: `card` for a `ChartCard`, `value` for a `KpiCard`,
-  `items` for a `TopListCard`, `series` only for a bare chart. Any other pairing draws nothing.
+- Put a chart in a `ChartCard`: it adds the headline figure. In safe mode its `chart` is a
+  nested block value, `{ "$block": { "type": "ChartArea", "config": {} } }`. A horizontal
+  `ChartBar` stays bare: inside a card its category labels read `NaN`.
+- The `response` must match the block: `card` for a `ChartCard` or a bare chart, `value` for a
+  `KpiCard`, `items` for a `TopListCard`. Any other pairing draws nothing.
+- Compare periods on KPI cards and top lists (`compare: true`), never on a chart over time:
+  the previous period's buckets are other categories, so they draw beside the period instead
+  of under it.
 - Sum a measure that adds up (a total, a quantity). Count rows for everything else. Never sum
   a unit price or a rate.
 - Grouping by a foreign key shows ids. Group by the relation's own columns only; a breakdown by
