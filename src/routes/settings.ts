@@ -13,6 +13,7 @@ import {
   withNumbersAs,
 } from "../sidecar/settings-values";
 import { relay } from "./sidecar-results";
+import { SETTINGS_ANSWER } from "./sidecar-answers";
 
 const SETTINGS_PATH = "/settings";
 
@@ -52,14 +53,14 @@ function sidecarUpdate(body: SettingsBody): SettingsBody {
 export class AISettingsController extends Controller(ROUTE_PREFIX) {
   @Get(SETTINGS_PATH)
   getSettings(): Promise<SettingsBody | HTTPResult> {
-    return relay(SETTINGS_PATH, formSettings);
+    return relay(SETTINGS_PATH, SETTINGS_ANSWER, formSettings);
   }
 
   @Put(SETTINGS_PATH)
   updateSettings(
     @JSONBody() body?: SettingsBody,
   ): Promise<SettingsBody | HTTPResult> {
-    return relay(SETTINGS_PATH, formSettings, {
+    return relay(SETTINGS_PATH, SETTINGS_ANSWER, formSettings, {
       method: "PUT",
       body: sidecarUpdate(body ?? {}),
     });
