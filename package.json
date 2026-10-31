@@ -76,9 +76,9 @@
     "suppressions:update": "antelopejs-suppressions --update"
   },
   "dependencies": {
-    "@antelopejs/interface-api": ">=0.0.15 <1.0.0",
+    "@antelopejs/interface-api": "file:.campaign/tgz/antelopejs-interface-api-f206be7.tgz",
     "@antelopejs/interface-core": ">=0.2.4 <1.0.0",
-    "@antelopejs/interface-dms": ">=0.9.0 <1.0.0",
+    "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-c101967.tgz",
     "@anthropic-ai/claude-agent-sdk": "^0.2.131",
     "@anthropic-ai/claude-code": "^2.1.131",
     "@modelcontextprotocol/sdk": "1.29.0",
@@ -86,6 +86,10 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@antelopejs/interface-api-util": "file:.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz",
+    "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-2b29c9d.tgz",
+    "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-e642b3e.tgz",
+    "@antelopejs/interface-database-decorators": "file:.campaign/tgz/antelopejs-interface-database-decorators-9dc0781.tgz",
     "@antelopejs/tooling-configs": "^0.2.17",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.5.12",
@@ -112,6 +116,16 @@
     "@antelopejs/interface-dms-builder": ">=0.2.3 <1.0.0"
   },
   "packageManager": "pnpm@10.2.0",
+  "pnpm": {
+    "overrides": {
+      "@antelopejs/interface-api": "file:.campaign/tgz/antelopejs-interface-api-f206be7.tgz",
+      "@antelopejs/interface-api-util": "file:.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz",
+      "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-e642b3e.tgz",
+      "@antelopejs/interface-database-decorators": "file:.campaign/tgz/antelopejs-interface-database-decorators-9dc0781.tgz",
+      "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-2b29c9d.tgz",
+      "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-c101967.tgz"
+    }
+  },
   "antelopeJs": {
     "baseUrl": "dist",
     "implements": [],
