@@ -22,6 +22,7 @@ import { i18nKey } from "../vocabulary";
 import { bannerAnswer } from "./banner";
 import { filteredValue } from "./list-query";
 import { relay } from "./sidecar-results";
+import { SKILL_CATALOG_ANSWER } from "./sidecar-answers";
 
 const SKILLS_PATH = "/skills";
 const LOCAL_PROVENANCE = "local";
@@ -115,7 +116,7 @@ export class AISkillsController extends Controller(ROUTE_PREFIX) {
     @Context() ctx: RequestContext,
   ): Promise<SidecarList<SkillRow> | HTTPResult> {
     const source = filteredValue(ctx.url.searchParams, SOURCE_COLUMN);
-    return relay(SKILLS_PATH, catalogPage(source));
+    return relay(SKILLS_PATH, SKILL_CATALOG_ANSWER, catalogPage(source));
   }
 
   @Get(CONFLICTS_PATH)

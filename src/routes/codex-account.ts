@@ -20,6 +20,7 @@ import { type JsonBody, requestSidecar } from "../sidecar";
 import { i18nKey } from "../vocabulary";
 import { bannerAnswer } from "./banner";
 import { asIs, relay } from "./sidecar-results";
+import { ANY_ANSWER } from "./sidecar-answers";
 
 const ACCOUNT_PATH = "/codex/account";
 const LOGOUT_PATH = "/codex/logout";
@@ -164,7 +165,7 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
   finishSignIn(
     @JSONBody() body?: PastedCallbackBody,
   ): Promise<JsonBody | HTTPResult | undefined> {
-    return relay(CALLBACK_PATH, asIs, {
+    return relay(CALLBACK_PATH, ANY_ANSWER, asIs, {
       method: "POST",
       body: { url: body?.[PASTED_URL_FIELD] },
     });
@@ -172,6 +173,6 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
 
   @Post(LOGOUT_PATH)
   logout(): Promise<JsonBody | HTTPResult | undefined> {
-    return relay(LOGOUT_PATH, asIs, { method: "POST" });
+    return relay(LOGOUT_PATH, ANY_ANSWER, asIs, { method: "POST" });
   }
 }
