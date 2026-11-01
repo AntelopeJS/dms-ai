@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.8.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.7.0...v0.8.0)
+
+### 🩹 Fixes
+
+- **sidecar:** Let the assistant choose how a query's answer is arranged ([#129](https://github.com/AntelopeJS/dms-ai/pull/129))
+- **skills:** Read a loaded module's skills from the copy that runs ([#140](https://github.com/AntelopeJS/dms-ai/pull/140))
+- **frontend:** Use the core API error presenter ([#142](https://github.com/AntelopeJS/dms-ai/pull/142))
+
+### 💅 Refactors
+
+- Clear the residual ratchet findings ([#109](https://github.com/AntelopeJS/dms-ai/pull/109))
+- **amp:** Narrow the forwarded location header with a JSDoc type guard ([#112](https://github.com/AntelopeJS/dms-ai/pull/112))
+
+### 📖 Documentation
+
+- **readme:** Link the DMS and fix the renderer range ([#131](https://github.com/AntelopeJS/dms-ai/pull/131))
+- **readme:** Use one Discord invite ([#125](https://github.com/AntelopeJS/dms-ai/pull/125))
+- Name DMS 0.11 and renderer 0.9, and ignore the playground's frontend build ([#92](https://github.com/AntelopeJS/dms-ai/pull/92))
+
+### 📦 Build
+
+- **deps:** Bump @antelopejs/tooling-configs to 0.2.17 ([#113](https://github.com/AntelopeJS/dms-ai/pull/113))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+- Alessandro Aloisio ([@alessaloisio](http://github.com/alessaloisio))
+
 ## v0.7.0
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.6.1...v0.7.0)
