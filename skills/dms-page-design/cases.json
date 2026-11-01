@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "dms-page-design-dashboard",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "Build a sales dashboard over the orders table with the Builder: KPIs, a trend over time and a breakdown by status.",
+      "expect": {
+        "skills": ["dms-page-design"],
+        "acceptable": ["dms-builder-safe", "dms-best-practices", "dms-pages"]
+      }
+    },
+    {
+      "id": "dms-page-design-chart-choice",
+      "area": "dms-ai",
+      "style": "casual",
+      "prompt": "which chart should i use for orders by country, theres like 24 countries",
+      "expect": {
+        "skills": ["dms-page-design"],
+        "acceptable": ["dms-builder-safe", "dms-pages"]
+      }
+    },
+    {
+      "id": "dms-page-design-period",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "The charts on the stats page are empty because the period defaults to the last 30 days and the data stops last year. Fix the default period.",
+      "expect": {
+        "skills": ["dms-page-design"],
+        "acceptable": ["dms-builder-safe", "dms-pages", "dms-best-practices"],
+        "mustMention": ["PeriodSelector"]
+      }
+    },
+    {
+      "id": "dms-page-design-table-badges",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "On the orders table, show the status as coloured badges, the total as a price, and add a tab per status.",
+      "expect": {
+        "skills": ["dms-page-design"],
+        "acceptable": ["dms-builder-safe", "dms-external-database", "dms-pages"]
+      }
+    },
+    {
+      "id": "dms-page-design-not-safe-mode-approval",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "In safe mode the Builder refuses to add a block to the sales page until I approve it. Where do I approve a pending Builder change?",
+      "expect": {
+        "skills": ["dms-builder-safe"],
+        "acceptable": ["dms-builder", "dms-pages"],
+        "avoid": ["dms-page-design"]
+      }
+    }
+  ]
+}
