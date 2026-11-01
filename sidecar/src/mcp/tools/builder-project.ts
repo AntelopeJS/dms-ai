@@ -106,9 +106,10 @@ const MAPPED_FIELD = z.object({
   searchable: z.boolean().optional(),
   relation: z
     .string()
+    .nullable()
     .optional()
     .describe(
-      "`schema.name` of another relation in this call, or one the module mapped before: makes the column a relation column onto that relation's single-column key.",
+      "`schema.name` of another relation in this call, or one the module mapped before: makes the column a relation column onto that relation's single-column key. Left out, a declared foreign key onto such a relation (with a TableView) becomes one anyway; null keeps the column a plain value.",
     ),
   display: z
     .union([
