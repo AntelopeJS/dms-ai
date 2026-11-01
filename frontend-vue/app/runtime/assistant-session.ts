@@ -38,7 +38,11 @@ export interface AssistantSession {
 	 * Opens the panel on a new conversation, the composer optionally prefilled, and the
 	 * conversation set to `mode` first when one is given.
 	 */
-	startConversation: (prompt?: string, mode?: ConversationStartMode) => void;
+	startConversation: (
+		prompt?: string,
+		mode?: ConversationStartMode,
+		send?: boolean,
+	) => void;
 	/**
 	 * Keeps the tab's stream open while the panel is closed, until the returned
 	 * function releases it: the command palette's answer streams through it.
