@@ -30,6 +30,7 @@ const LOOKS: Record<Notice["kind"], NoticeLook> = {
 	permission_expired: { tone: "neutral", icon: "i-ph-timer" },
 	question_skipped: { tone: "neutral", icon: "i-ph-arrow-bend-down-right" },
 	full_auto_ended: { tone: "neutral", icon: "i-ph-lightning-slash" },
+	model_fallback: { tone: "warning", icon: "i-ph-swap" },
 };
 
 const showErrors = ref(false);
@@ -114,6 +115,21 @@ const expiredTool = computed<string>(() => {
 			<template v-else-if="notice.kind === 'question_skipped'">
 				{{
 					t("dms_ai.panel.notice.question_skipped", { header: notice.header })
+				}}
+			</template>
+			<template v-else-if="notice.kind === 'model_fallback'">
+				<b>
+					{{
+						t("dms_ai.panel.notice.model_fallback_title", {
+							model: notice.usedModel,
+						})
+					}}
+				</b>
+				{{
+					t("dms_ai.panel.notice.model_fallback_text", {
+						requested: notice.requestedModel,
+						model: notice.usedModel,
+					})
 				}}
 			</template>
 			<template v-else>

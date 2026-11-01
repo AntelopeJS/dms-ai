@@ -90,11 +90,20 @@ export interface FullAutoEndedNotice {
   timestampMs: number;
 }
 
+/** The configured model was refused; the turn ran on `usedModel` instead. */
+export interface ModelFallbackNotice {
+  kind: "model_fallback";
+  requestedModel: string;
+  usedModel: string;
+  timestampMs: number;
+}
+
 export type Notice =
   | AutoFixNotice
   | PermissionExpiredNotice
   | QuestionSkippedNotice
-  | FullAutoEndedNotice;
+  | FullAutoEndedNotice
+  | ModelFallbackNotice;
 
 export interface QuestionAnswerRecord {
   header: string;
@@ -178,6 +187,8 @@ export interface StoredConversation {
   provider?: ProviderName;
   /** Absent until a provider reports usage at least once. */
   tokenUsage?: TokenUsage;
+  /** The model that answered last, as the provider reported it. */
+  model?: string;
   usageLog?: UsageEntry[];
   /**
    * The conversation's own approval mode, set from the defaults when its first

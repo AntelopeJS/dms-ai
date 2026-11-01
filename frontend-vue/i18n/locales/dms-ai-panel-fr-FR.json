@@ -142,7 +142,9 @@
 				"expired_title": "Demande « {tool} » expirée.",
 				"expired_text": "« {summary} » est restée sans réponse : elle a été refusée à {time} et l'assistant en a été informé.",
 				"question_skipped": "Vous avez laissé l'assistant décider pour « {header} ».",
-				"full_auto_ended": "Le mode automatique complet a pris fin à {time}. L'assistant redemande avant d'agir."
+				"full_auto_ended": "Le mode automatique complet a pris fin à {time}. L'assistant redemande avant d'agir.",
+				"model_fallback_title": "Passage à {model}.",
+				"model_fallback_text": "Le modèle demandé, {requested}, a été refusé (inconnu, ou sans accès avec cet abonnement). Cette réponse vient de {model}, le modèle par défaut."
 			},
 			"errors": {
 				"turn_title": "Le tour s'est arrêté.",

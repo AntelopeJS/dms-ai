@@ -225,6 +225,15 @@ function buildRunnerContext(
       await services.turns.get(conversationId)?.checkpoint.ready();
     },
     onTokenUsage: (usage) => addTurnUsage(services, conversationId, usage),
+    onModelUsed: (model) =>
+      services.conversationStore.markModel(conversationId, model),
+    onModelFallback: ({ requested, used }) =>
+      emitNotice(services, conversationId, {
+        kind: "model_fallback",
+        requestedModel: requested,
+        usedModel: used,
+        timestampMs: Date.now(),
+      }),
   };
 }
 
@@ -343,6 +352,7 @@ function recordUsage(services: SidecarServices, conversationId: string): void {
     type: EVENT_TYPES.USAGE,
     conversationId,
     totalTokens: total,
+    model: services.conversationStore.get(conversationId)?.model,
   });
 }
 

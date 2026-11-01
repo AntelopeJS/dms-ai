@@ -44,9 +44,10 @@ import type { ConversationSummary, CurrentPage } from "../types/conversation";
 import type { ExpiredRequest } from "../types/permission";
 import type { QuestionReply } from "../types/question";
 import type { PendingAttachment } from "../utils/attachments";
-import { formatClock, formatTokens } from "../utils/format";
+import { formatTokens } from "../utils/format";
 import { newUuid } from "../utils/ids";
 import { isRunStalled, runElapsedMs } from "../utils/run-status";
+import { describeStatus } from "../utils/status-label";
 import { bareToolName } from "../utils/tool-lexicon";
 import { latestTodos } from "../utils/todos";
 import ApprovalDock from "./ApprovalDock.vue";
@@ -179,27 +180,18 @@ const status = computed<PanelStatusKind>(() => {
 	return isRunning.value ? "working" : "ready";
 });
 
-const statusLabel = computed<string>(() => {
-	const labels: Record<PanelStatusKind, () => string> = {
-		ready: () => t("dms_ai.panel.status.ready"),
-		working: () =>
-			t("dms_ai.panel.status.working", {
-				time: formatClock(
-					runElapsedMs(conversation.progress.value, nowMs.value),
-				),
-			}),
-		waiting: () =>
-			t(
-				"dms_ai.panel.status.waiting",
-				{ count: pendingCount.value },
-				pendingCount.value,
-			),
-		connecting: () => t("dms_ai.panel.status.connecting"),
-		offline: () => t("dms_ai.panel.status.offline"),
-	};
-	const label = labels[status.value]();
-	return status.value === "offline" ? label : `${label} · ${agentName.value}`;
-});
+const statusLabel = computed<string>(() =>
+	describeStatus(
+		{
+			kind: status.value,
+			elapsedMs: runElapsedMs(conversation.progress.value, nowMs.value),
+			pendingCount: pendingCount.value,
+			agentName: agentName.value,
+			model: conversation.model.value,
+		},
+		t,
+	),
+);
 
 const usageLabel = computed<string>(() => {
 	if (!isConnected.value) return t("dms_ai.panel.composer.usage_offline");

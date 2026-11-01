@@ -1,0 +1,49 @@
+name: claude-freshness
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch: null
+
+permissions: {}
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_TITLE: Claude Code or the Agent SDK is behind npm latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Compare the lockfiles with npm latest
+        id: check
+        run: |
+          set +e
+          node scripts/check-claude-freshness.mts > "$RUNNER_TEMP/report.md"
+          code=$?
+          [ "$code" -le 1 ] || exit "$code"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: Open or update the issue
+        if: steps.check.outputs.code == '1'
+        run: |
+          body="$(printf 'The lockfiles are behind npm latest by more than one minor version or %s days:\n\n%s\n\nRenovate groups both packages into one pull request. Check why it is not merged.' 7 "$(cat "$RUNNER_TEMP/report.md")")"
+          number="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number // empty')"
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --body "$body"
+          fi
+      - name: Close the issue once fresh
+        if: steps.check.outputs.code == '0'
+        run: |
+          number="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number // empty')"
+          [ -z "$number" ] || gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Both packages are current again."

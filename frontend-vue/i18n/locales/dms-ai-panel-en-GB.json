@@ -142,7 +142,9 @@
 				"expired_title": "{tool} request expired.",
 				"expired_text": "“{summary}” was not answered in time, so it was denied at {time} and the assistant was told why.",
 				"question_skipped": "You let the assistant decide “{header}”.",
-				"full_auto_ended": "Full auto ended at {time}. The assistant asks first again."
+				"full_auto_ended": "Full auto ended at {time}. The assistant asks first again.",
+				"model_fallback_title": "Switched to {model}.",
+				"model_fallback_text": "The requested model, {requested}, was refused (unknown, or no access on this plan). This answer comes from {model}, the default model."
 			},
 			"errors": {
 				"turn_title": "The turn stopped.",

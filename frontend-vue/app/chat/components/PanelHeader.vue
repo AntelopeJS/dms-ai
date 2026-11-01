@@ -4,13 +4,9 @@ import { useChatI18n } from "../composables/useChatI18n";
 import type { ActiveRule } from "../types/protocol";
 import { ruleIcon } from "../utils/permission-view";
 import { shortcutLabel } from "../utils/platform";
+import type { StatusKind } from "../utils/status-label";
 
-export type PanelStatusKind =
-	| "ready"
-	| "working"
-	| "waiting"
-	| "connecting"
-	| "offline";
+export type PanelStatusKind = StatusKind;
 
 interface Props {
 	title: string;

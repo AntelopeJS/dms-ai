@@ -220,6 +220,40 @@ describe("the conversation folds the redesign's events", () => {
 		expect(conversation.totalTokens.value).toBe(1_200);
 	});
 
+	it("shows the model that answered, from a usage event or a snapshot", () => {
+		const b = bus();
+		const conversation = useConversation(b.options as never);
+		expect(conversation.model.value).toBeNull();
+		b.receive({ type: "usage", totalTokens: 10, model: "claude-opus-5-5" });
+		expect(conversation.model.value).toBe("claude-opus-5-5");
+		b.receive({
+			type: "conversation_snapshot",
+			messages: [],
+			changeSets: [],
+			totalTokens: 10,
+			model: "claude-sonnet-4-6",
+		});
+		expect(conversation.model.value).toBe("claude-sonnet-4-6");
+	});
+
+	it("keeps the notice that the configured model was refused", () => {
+		const b = bus();
+		const conversation = useConversation(b.options as never);
+		b.receive({
+			type: "notice",
+			notice: {
+				kind: "model_fallback",
+				requestedModel: "claude-opus-5-5",
+				usedModel: "claude-sonnet-4-6",
+				timestampMs: 7,
+			},
+		});
+		expect(conversation.messages.value[0]).toMatchObject({
+			role: "notice",
+			notice: { kind: "model_fallback", usedModel: "claude-sonnet-4-6" },
+		});
+	});
+
 	it("ignores another conversation's events", () => {
 		const b = bus();
 		const conversation = useConversation(b.options as never);
