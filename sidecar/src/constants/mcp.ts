@@ -24,7 +24,7 @@ export const GET_CURRENT_PAGE_TOOL_DESCRIPTION =
 
 export const NAVIGATE_TOOL_NAME = "NavigateToPage";
 export const NAVIGATE_TOOL_DESCRIPTION =
-  "Navigates the host browser to the given path using the host router. Awaits a host navigation-complete confirmation (with a short timeout fallback). Call GetCurrentPage to verify if needed.";
+  "Navigates the host browser to the given path using the host router. Awaits a host navigation-complete confirmation (with a short timeout fallback). Then waits for the page's data blocks to settle and lists those that are empty, failed or still loading under `data.blocks`: a page with such blocks is not done. Call GetCurrentPage to verify if needed.";
 export const NAVIGATE_RESULT_PREFIX = "Navigation requested to ";
 export const NAVIGATE_RESULT_COMPLETED_SUFFIX = " (completed)";
 export const NAVIGATE_RESULT_TIMEOUT_SUFFIX =

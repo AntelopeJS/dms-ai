@@ -26,6 +26,7 @@ export const MESSAGE_TYPES = {
   QUESTION_RESPONSE: "question_response",
   HOST_STATE_UPDATE: "host_state_update",
   HOST_NAVIGATION_COMPLETE: "host_navigation_complete",
+  HOST_PAGE_BLOCKS: "host_page_blocks",
   LIST_CONVERSATIONS: "list_conversations",
   DELETE_CONVERSATION: "delete_conversation",
   SET_SETTINGS: "set_settings",
@@ -280,9 +281,41 @@ export const HostStateUpdateMsg = z.object({
   }),
 });
 
+/**
+ * `blocksWithinMs` announces a `host_page_blocks` report for this path within
+ * that time. A host that cannot report block health leaves it out.
+ */
 export const HostNavigationCompleteMsg = z.object({
   type: z.literal(MESSAGE_TYPES.HOST_NAVIGATION_COMPLETE),
   path: z.string(),
+  blocksWithinMs: z.number().int().positive().optional(),
+});
+
+export const BLOCK_REPORT_STATUSES = [
+  "settled",
+  "timeout",
+  "superseded",
+] as const;
+
+/** The states of a data block that need the agent's attention. */
+export const REPORTED_BLOCK_STATES = ["empty", "error", "loading"] as const;
+
+export const PageBlockSchema = z.object({
+  path: z.string().optional(),
+  type: z.string(),
+  state: z.enum(REPORTED_BLOCK_STATES),
+});
+
+/**
+ * What the dashboard's data blocks showed once the page at `path` stopped
+ * changing: how many there are, and the ones not showing data.
+ */
+export const HostPageBlocksMsg = z.object({
+  type: z.literal(MESSAGE_TYPES.HOST_PAGE_BLOCKS),
+  path: z.string(),
+  status: z.enum(BLOCK_REPORT_STATUSES),
+  checked: z.number().int().nonnegative(),
+  blocks: z.array(PageBlockSchema),
 });
 
 export const ListConversationsMsg = z.object({
@@ -336,6 +369,7 @@ export const AnyClientMessage = z.discriminatedUnion("type", [
   QuestionResponseMsg,
   HostStateUpdateMsg,
   HostNavigationCompleteMsg,
+  HostPageBlocksMsg,
   ListConversationsMsg,
   DeleteConversationMsg,
   SetSettingsMsg,
@@ -365,6 +399,8 @@ export type HostStateUpdateMsgType = z.infer<typeof HostStateUpdateMsg>;
 export type HostNavigationCompleteMsgType = z.infer<
   typeof HostNavigationCompleteMsg
 >;
+export type HostPageBlocksMsgType = z.infer<typeof HostPageBlocksMsg>;
+export type PageBlockType = z.infer<typeof PageBlockSchema>;
 export type ListConversationsMsgType = z.infer<typeof ListConversationsMsg>;
 export type DeleteConversationMsgType = z.infer<typeof DeleteConversationMsg>;
 export type SetSettingsMsgType = z.infer<typeof SetSettingsMsg>;
