@@ -26,6 +26,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@antelopejs/interface-core": "file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz",
     "@antelopejs/interface-dms-builder": "file:../.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz",
     "@antelopejs/tooling-configs": "^0.2.11",
     "@openai/codex": "0.154.0",
@@ -35,5 +36,10 @@
     "rimraf": "^6.1.3",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "@antelopejs/interface-core": "file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz"
+    }
   }
 }
