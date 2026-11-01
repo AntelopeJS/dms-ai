@@ -52,6 +52,8 @@ export interface RunnerContext extends ToolCallHooks {
    * total per conversation.
    */
   onTokenUsage?: (usage: TokenUsage) => void;
+  onModelUsed?: (model: string) => void;
+  onModelFallback?: (fallback: { requested: string; used: string }) => void;
 }
 
 export interface AgentRunner {
@@ -124,6 +126,8 @@ function createSession(
     onToolAnnounced: ctx.onToolAnnounced,
     beforeMutation: ctx.beforeMutation,
     onTokenUsage: ctx.onTokenUsage,
+    onModelUsed: ctx.onModelUsed,
+    onModelFallback: ctx.onModelFallback,
     onDisposed: (disposal) => {
       manager.sessions.delete(ctx.conversationId);
       manager.disposals.track(disposal);

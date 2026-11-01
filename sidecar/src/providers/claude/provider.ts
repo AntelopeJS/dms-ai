@@ -5,7 +5,6 @@ import type {
   McpServerConfig,
   PermissionMode,
   PermissionResult,
-  Query,
   SDKUserMessage,
   SdkPluginConfig,
   SettingSource,
@@ -62,8 +61,6 @@ import type {
   AppSettings,
   GenerationMode,
 } from "../../state/settings-types.js";
-import type { TokenUsage } from "../../state/types.js";
-import { extractTokenUsage, messageToEvents } from "./adapter.js";
 import { buildTurnContent, type TurnContent } from "./attachments.js";
 import {
   buildClaudeEnv,
@@ -72,9 +69,15 @@ import {
   resolvePermissionMode,
   resolveModelOptions,
 } from "./config.js";
-import { createInputQueue, type InputQueue } from "./input-queue.js";
+import { createInputQueue } from "./input-queue.js";
+import { createModelTrack } from "./model-fallback.js";
 import { resolveClaudeBinary } from "./resolve-binary.js";
 import { buildSafeModeHooks, type SdkHooks } from "./safe-mode.js";
+import {
+  type LiveSettings,
+  type StreamBackend,
+  toRunnerEvents,
+} from "./session-stream.js";
 import { type LoadedSdk, loadSdk } from "./sdk-loader.js";
 
 interface PromptOptions {
@@ -332,21 +335,10 @@ interface ProviderConfig {
 }
 
 /**
- * Mutable settings cell shared by the session and the safe-mode hook, so a
- * safe/vibe flip is seen by the hook without rebuilding the SDK options.
- */
-interface LiveSettings {
-  settings: AppSettings;
-}
-
-/**
  * The Claude half of a session: the SDK stream, the prompt queue it consumes,
  * and the settings cell the safe-mode hook reads live.
  */
-interface ClaudeBackend {
-  output: Query;
-  queue: InputQueue;
-  live: LiveSettings;
+interface ClaudeBackend extends StreamBackend {
   hostProjectRoot: string;
   conversationId: string;
 }
@@ -387,23 +379,6 @@ function buildUserMessage(content: TurnContent): SDKUserMessage {
   };
 }
 
-/**
- * Flattens the SDK's message stream into the neutral event vocabulary, so the
- * session lifecycle never sees an SDKMessage.
- */
-async function* toRunnerEvents(
-  output: Query,
-  onTokenUsage: ((usage: TokenUsage) => void) | undefined,
-): AsyncGenerator<RunnerEvent, void> {
-  while (true) {
-    const result = await output.next();
-    if (result.done) return;
-    const usage = extractTokenUsage(result.value);
-    if (usage !== null) onTokenUsage?.(usage);
-    yield* messageToEvents(result.value);
-  }
-}
-
 async function submitTurn(
   backend: ClaudeBackend,
   input: TurnInput,
@@ -412,7 +387,9 @@ async function submitTurn(
     hostProjectRoot: backend.hostProjectRoot,
     conversationId: backend.conversationId,
   });
-  backend.queue.push(buildUserMessage(content));
+  const message = buildUserMessage(content);
+  backend.lastTurn = message;
+  backend.queue.push(message);
 }
 
 function applyBackendSettings(
@@ -424,7 +401,10 @@ function applyBackendSettings(
     .setPermissionMode(resolvePermissionMode(settings))
     .catch(() => undefined);
   const { model, effort } = resolveModelOptions(settings);
-  void backend.output.setModel(model).catch(() => undefined);
+  if (backend.model.refused !== model) {
+    backend.model.refused = null;
+    void backend.output.setModel(model).catch(() => undefined);
+  }
   void backend.output
     .applyFlagSettings({ effortLevel: effort ?? null })
     .catch(() => undefined);
@@ -508,10 +488,16 @@ async function createProviderSession(
     live,
     hostProjectRoot: ctx.hostProjectRoot,
     conversationId: ctx.conversationId,
+    lastTurn: null,
+    model: createModelTrack(),
   };
   const state: SessionState = {
     session: createAgentSession({
-      events: toRunnerEvents(backend.output, ctx.onTokenUsage),
+      events: toRunnerEvents(backend, {
+        onModelUsed: ctx.onModelUsed,
+        onModelFallback: ctx.onModelFallback,
+        onTokenUsage: ctx.onTokenUsage,
+      }),
       controls: buildSessionControls(backend),
       abortController,
       onDisposed: ctx.onDisposed,
