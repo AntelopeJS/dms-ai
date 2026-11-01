@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@antelopejs/interface-core': file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz
+  '@antelopejs/interface-core': file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz
 
 importers:
 
@@ -28,11 +28,11 @@ importers:
         version: 4.6.7
     devDependencies:
       '@antelopejs/interface-core':
-        specifier: file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz
-        version: file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz
+        specifier: file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz
+        version: file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz
       '@antelopejs/interface-dms-builder':
         specifier: file:../.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz
-        version: file:../.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz(@antelopejs/interface-core@file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz)
+        version: file:../.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz(@antelopejs/interface-core@file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz)
       '@antelopejs/tooling-configs':
         specifier: ^0.2.11
         version: 0.2.11(knip@6.41.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2004))
@@ -60,9 +60,9 @@ importers:
 
 packages:
 
-  '@antelopejs/interface-core@file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz':
-    resolution: {tarball: file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz}
-    version: 0.3.1
+  '@antelopejs/interface-core@file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz':
+    resolution: {tarball: file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz}
+    version: 0.4.0
 
   '@antelopejs/interface-dms-builder@file:../.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz':
     resolution: {tarball: file:../.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz}
@@ -1862,13 +1862,13 @@ packages:
 
 snapshots:
 
-  '@antelopejs/interface-core@file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz':
+  '@antelopejs/interface-core@file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz':
     dependencies:
       reflect-metadata: 0.2.2
 
-  '@antelopejs/interface-dms-builder@file:../.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz(@antelopejs/interface-core@file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz)':
+  '@antelopejs/interface-dms-builder@file:../.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz(@antelopejs/interface-core@file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz)':
     dependencies:
-      '@antelopejs/interface-core': file:../.campaign/tgz/antelopejs-interface-core-52413a9.tgz
+      '@antelopejs/interface-core': file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz
 
   '@antelopejs/tooling-configs@0.2.11(knip@6.41.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2004))':
     dependencies:
