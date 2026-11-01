@@ -1,6 +1,13 @@
 export const MOCK_DEFAULT_SCRIPT_RELATIVE = "scripts/list-files.json";
 export const MOCK_STREAM_DELAY_MS = 5;
 export const MOCK_SCRIPT_ENV_VAR = "MOCK_CLAUDE_SCRIPT";
+/**
+ * The model name the mock API turns away, with the script it answers with. Any
+ * other model, the default one included, is served the regular script.
+ */
+export const MOCK_REFUSED_MODEL_ENV_VAR = "MOCK_CLAUDE_REFUSED_MODEL";
+export const MOCK_REFUSAL_SCRIPT_RELATIVE = "scripts/model-refused.json";
+export const MOCK_DEFAULT_MODEL = "claude-mock";
 export const MOCK_ABORT_REASON = "aborted";
 export const MOCK_CAN_USE_TOOL_BEHAVIOR_ALLOW = "allow";
 export const MOCK_INTERRUPTED_RESULT = "interrupted";
