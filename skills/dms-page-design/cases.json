@@ -28,7 +28,8 @@
       "prompt": "The charts on the stats page are empty because the period defaults to the last 30 days and the data stops last year. Fix the default period.",
       "expect": {
         "skills": ["dms-page-design"],
-        "acceptable": ["dms-builder-safe", "dms-pages", "dms-best-practices"]
+        "acceptable": ["dms-builder-safe", "dms-pages", "dms-best-practices"],
+        "mustMention": ["PeriodSelector"]
       }
     },
     {
@@ -39,6 +40,17 @@
       "expect": {
         "skills": ["dms-page-design"],
         "acceptable": ["dms-builder-safe", "dms-external-database", "dms-pages"]
+      }
+    },
+    {
+      "id": "dms-page-design-not-safe-mode-approval",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "In safe mode the Builder refuses to add a block to the sales page until I approve it. Where do I approve a pending Builder change?",
+      "expect": {
+        "skills": ["dms-builder-safe"],
+        "acceptable": ["dms-builder", "dms-pages"],
+        "avoid": ["dms-page-design"]
       }
     }
   ]
