@@ -76,7 +76,7 @@ packages:
       '@antelopejs/core': '>=1.16.0 <2'
 
   '@antelopejs/dms@file:../.campaign/tgz/antelopejs-dms-50e3adc.tgz':
-    resolution: {integrity: sha512-Aeqx9dxuGr8vyArCUcxQ22cYa9UXpjWatPiijZzbV8VZLYLekp9H1FU3qTVvCD8rScgM6lgc3DUqwOUXEFWJRA==, tarball: file:../.campaign/tgz/antelopejs-dms-50e3adc.tgz}
+    resolution: {tarball: file:../.campaign/tgz/antelopejs-dms-50e3adc.tgz}
     version: 0.13.0
     hasBin: true
     peerDependencies:
@@ -86,14 +86,14 @@ packages:
         optional: true
 
   '@antelopejs/interface-api-util@file:../.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz':
-    resolution: {integrity: sha512-W1fXHAPI4PIrX6uLvcgTl7xDVvUXC1eMHHvaKqvmpuB83rBLqibVfjISHnkyJlcDU0KzgLGcrk53juq1z5dDtw==, tarball: file:../.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz}
+    resolution: {tarball: file:../.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz}
     version: 0.3.0
     peerDependencies:
       '@antelopejs/interface-api': '>=0.0.15 <1.0.0'
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
   '@antelopejs/interface-api@file:../.campaign/tgz/antelopejs-interface-api-f206be7.tgz':
-    resolution: {integrity: sha512-9RIXeQznFoyTCwdQ8WunN/FQfcMJ2ILJoONRg9NUFhhG1LYCi0sfL+5ttaQediUXxmJGBsdv3jjssu9aikR/fg==, tarball: file:../.campaign/tgz/antelopejs-interface-api-f206be7.tgz}
+    resolution: {tarball: file:../.campaign/tgz/antelopejs-interface-api-f206be7.tgz}
     version: 0.2.0
     peerDependencies:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
@@ -105,7 +105,7 @@ packages:
     resolution: {integrity: sha512-PJp58D1snKLVEmpfn9Yj2htuohZhUxHqyyec3xtkPPy61mtACs0YznnhcgbYQNhIy/q8J+lSwDICPZIsKjhAIA==}
 
   '@antelopejs/interface-data-api@file:../.campaign/tgz/antelopejs-interface-data-api-4352b2c.tgz':
-    resolution: {integrity: sha512-O16lePAHrLN2nxHGEzvegkaybhrLIiGKTOXWyYkeEZv5QeWoa0hlvEoCpLJ5jto3B8PN4v0RrORIV/VPdNDl1g==, tarball: file:../.campaign/tgz/antelopejs-interface-data-api-4352b2c.tgz}
+    resolution: {tarball: file:../.campaign/tgz/antelopejs-interface-data-api-4352b2c.tgz}
     version: 0.6.0
     peerDependencies:
       '@antelopejs/interface-api': '>=0.0.15 <1.0.0'
@@ -115,7 +115,7 @@ packages:
       '@antelopejs/interface-database-decorators': '>=0.1.10 <1.0.0'
 
   '@antelopejs/interface-database-decorators@file:../.campaign/tgz/antelopejs-interface-database-decorators-fcb0a29.tgz':
-    resolution: {integrity: sha512-We30gHUprK8OMccecBNp4MH81KNLa4MnXqwWCbLw6VPR1qwjER6nqhsV9unwEoBauxgtFXtVSSXX2HHhPk2vOg==, tarball: file:../.campaign/tgz/antelopejs-interface-database-decorators-fcb0a29.tgz}
+    resolution: {tarball: file:../.campaign/tgz/antelopejs-interface-database-decorators-fcb0a29.tgz}
     version: 0.2.0
     peerDependencies:
       '@antelopejs/interface-api': '>=0.0.15 <1.0.0'
@@ -123,7 +123,7 @@ packages:
       '@antelopejs/interface-database': '>=0.1.11 <1.0.0'
 
   '@antelopejs/interface-database@file:../.campaign/tgz/antelopejs-interface-database-8261536.tgz':
-    resolution: {integrity: sha512-qacJWfgVlDlmRgkAZ9iQJtu1ZD0eZXxisQ8bIvp/ZTayiJUjNMEoyt9tH3o5n2fa4j2xOPnok6ZnhNGlaho6Uw==, tarball: file:../.campaign/tgz/antelopejs-interface-database-8261536.tgz}
+    resolution: {tarball: file:../.campaign/tgz/antelopejs-interface-database-8261536.tgz}
     version: 0.3.0
     peerDependencies:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
@@ -134,7 +134,7 @@ packages:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
   '@antelopejs/interface-dms@file:../.campaign/tgz/antelopejs-interface-dms-50e3adc.tgz':
-    resolution: {integrity: sha512-+0TgC1rjy8/laf3iPOoHRyCImsSMITX5r+xwXYFyv+S1/ODiPpKVLk4PkW/9GQGOR5SKPZpeb59hO8jKAOdjsw==, tarball: file:../.campaign/tgz/antelopejs-interface-dms-50e3adc.tgz}
+    resolution: {tarball: file:../.campaign/tgz/antelopejs-interface-dms-50e3adc.tgz}
     version: 0.11.0
     peerDependencies:
       '@antelopejs/interface-api': '>=0.0.15 <1.0.0'
