@@ -194,22 +194,59 @@ for (const op of ["constructor", "toString", "hasOwnProperty", "__proto__"]) {
   });
 }
 
-void test("the Builder op route still runs the op a one-element array names, as it did before the inherited-name check", async () => {
-  calls.mapResources = [];
-  const controller = new routes.AIBuilderController();
-  await controller.op(SIDECAR_TOKEN, { op: ["MapResources"], args: [{}] });
-  assert.equal(calls.mapResources.length, 1);
-});
+/** @type {{ label: string, op: unknown }[]} */
+const MALFORMED_OPS = [
+  { label: "an array holding a valid name", op: ["MapResources"] },
+  { label: "a number", op: 7 },
+  { label: "null", op: null },
+  { label: "an object", op: { name: "MapResources" } },
+];
 
-void test("the Builder op route answers builder_unavailable, running nothing, to a request without arguments", async () => {
-  calls.mapResources = [];
+for (const { label, op } of MALFORMED_OPS) {
+  void test(`the Builder op route refuses ${label} as the op with a 400, running nothing`, async () => {
+    calls.mapResources = [];
+    const controller = new routes.AIBuilderController();
+    const refused = await controller.op(SIDECAR_TOKEN, { op, args: [{}] });
+    assert.ok(refused instanceof HTTPResult);
+    assert.equal(refused.getStatus(), 400);
+    assert.equal(
+      JSON.parse(TextSchema.parse(refused.getBody())).error,
+      "unknown_op",
+    );
+    assert.deepEqual(calls.mapResources, []);
+  });
+}
+
+/** @type {{ label: string, args: unknown }[]} */
+const MALFORMED_ARGS = [
+  { label: "missing", args: undefined },
+  { label: "null", args: null },
+  { label: "an object", args: {} },
+  { label: "a string", args: "[]" },
+  { label: "a number", args: 0 },
+];
+
+for (const { label, args } of MALFORMED_ARGS) {
+  void test(`the Builder op route refuses args that are ${label} with a 400, running nothing`, async () => {
+    calls.mapResources = [];
+    const controller = new routes.AIBuilderController();
+    const refused = await controller.op(SIDECAR_TOKEN, {
+      op: "MapResources",
+      args,
+    });
+    assert.ok(refused instanceof HTTPResult);
+    assert.equal(refused.getStatus(), 400);
+    assert.deepEqual(JSON.parse(TextSchema.parse(refused.getBody())), {
+      error: "invalid_args",
+      op: "MapResources",
+    });
+    assert.deepEqual(calls.mapResources, []);
+  });
+}
+
+void test("the Builder op route refuses a request without a body with a 400", async () => {
   const controller = new routes.AIBuilderController();
-  const refused = await controller.op(SIDECAR_TOKEN, { op: "MapResources" });
+  const refused = await controller.op(SIDECAR_TOKEN);
   assert.ok(refused instanceof HTTPResult);
-  assert.equal(refused.getStatus(), 409);
-  assert.equal(
-    JSON.parse(TextSchema.parse(refused.getBody())).error,
-    "builder_unavailable",
-  );
-  assert.deepEqual(calls.mapResources, []);
+  assert.equal(refused.getStatus(), 400);
 });
