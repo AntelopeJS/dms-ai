@@ -19,65 +19,52 @@ import { ROUTE_PREFIX } from "../constants/module";
 import { SIDECAR_AUTH_HEADER } from "../constants/sidecar";
 import { isSidecarRequest, sidecarForbidden } from "./sidecar-auth";
 
-type Operations = typeof Builder.Operations;
+/**
+ * The operations the sidecar may call: every operation of the interface except the ones named
+ * here, picked by name so a key can never be paired with another operation.
+ */
+const {
+  ConfigureResource: _configureResource,
+  ListDataSources: _listDataSources,
+  PreviewLayout: _previewLayout,
+  PreviewQuery: _previewQuery,
+  SetPageBlocks: _setPageBlocks,
+  ...ROUTED
+} = Builder.Operations;
 
-/** Operations of the interface that the sidecar may not call. */
-type WithheldOpName =
-  | "ConfigureResource"
-  | "ListDataSources"
-  | "PreviewLayout"
-  | "PreviewQuery"
-  | "SetPageBlocks";
-
-type OpName = Exclude<Builder.OperationName, WithheldOpName>;
-type OpArgs = { [N in OpName]: Parameters<Operations[N]> };
+type OpName = keyof typeof ROUTED;
+type OpArgs = { [N in OpName]: Parameters<(typeof ROUTED)[N]> };
 
 /** What the Builder operations answer, as the union of their results. */
-type BuilderResult = Awaited<ReturnType<Operations[OpName]>>;
+type BuilderResult = Awaited<ReturnType<(typeof ROUTED)[OpName]>>;
 
 type OpTable = {
   [N in OpName]: (...args: OpArgs[N]) => Promise<BuilderResult>;
 };
 
-const OPS: OpTable = {
-  ListPages: Builder.Operations.ListPages,
-  ListCategories: Builder.Operations.ListCategories,
-  GetCatalog: Builder.Operations.GetCatalog,
-  GetPageStructure: Builder.Operations.GetPageStructure,
-  RefreshSourceIndex: Builder.Operations.RefreshSourceIndex,
-  CreatePage: Builder.Operations.CreatePage,
-  ConfigurePage: Builder.Operations.ConfigurePage,
-  DeletePage: Builder.Operations.DeletePage,
-  CreateCategory: Builder.Operations.CreateCategory,
-  ConfigureCategory: Builder.Operations.ConfigureCategory,
-  DeleteCategory: Builder.Operations.DeleteCategory,
-  AddBlock: Builder.Operations.AddBlock,
-  ConfigureBlock: Builder.Operations.ConfigureBlock,
-  MoveBlock: Builder.Operations.MoveBlock,
-  RemoveBlock: Builder.Operations.RemoveBlock,
-  CreateResource: Builder.Operations.CreateResource,
-  DeleteResource: Builder.Operations.DeleteResource,
-  AddField: Builder.Operations.AddField,
-  ConfigureField: Builder.Operations.ConfigureField,
-  RemoveField: Builder.Operations.RemoveField,
-  ListResources: Builder.Operations.ListResources,
-  GetResourceStructure: Builder.Operations.GetResourceStructure,
-  ListQueryTemplates: Builder.Operations.ListQueryTemplates,
-  AddQuery: Builder.Operations.AddQuery,
-  ConfigureQuery: Builder.Operations.ConfigureQuery,
-  RemoveQuery: Builder.Operations.RemoveQuery,
-  ConfigureProject: Builder.Operations.ConfigureProject,
-  AddModule: Builder.Operations.AddModule,
-  ConfigureModule: Builder.Operations.ConfigureModule,
-  CreateLocalModule: Builder.Operations.CreateLocalModule,
-  MapResources: Builder.Operations.MapResources,
-  AnalyseDatabase: Builder.Operations.AnalyseDatabase,
-  GetAnalysis: Builder.Operations.GetAnalysis,
-  GetMapping: Builder.Operations.GetMapping,
-};
+const OPS: OpTable = ROUTED;
 
 /** A request to run one operation, with the arguments that operation takes. */
-type BuilderOpBody = { [N in OpName]: { op: N; args: OpArgs[N] } }[OpName];
+type BuilderOpRequest = { [N in OpName]: { op: N; args: OpArgs[N] } }[OpName];
+
+/** What arrives on the wire: the body is whatever the caller sent. */
+interface BuilderOpBody {
+  op?: unknown;
+  args?: unknown;
+}
+
+function isOpName(op: unknown): op is OpName {
+  return typeof op === "string" && Object.hasOwn(OPS, op);
+}
+
+/**
+ * Whether the body names an operation of the table and carries an array of arguments. The
+ * elements are not inspected: the sidecar's client types each call against the operation's
+ * parameters, and the operation checks its own input.
+ */
+function isOpRequest(body: BuilderOpBody): body is BuilderOpRequest {
+  return isOpName(body.op) && Array.isArray(body.args);
+}
 
 function runOp<N extends OpName>(
   op: N,
@@ -95,10 +82,16 @@ export class AIBuilderController extends Controller(ROUTE_PREFIX) {
     if (!isSidecarRequest(token)) {
       return sidecarForbidden();
     }
-    if (!body || !Object.hasOwn(OPS, body.op)) {
+    if (!body || !isOpName(body.op)) {
       return new HTTPResult(HTTP_BAD_REQUEST, {
         error: "unknown_op",
         op: body?.op,
+      });
+    }
+    if (!isOpRequest(body)) {
+      return new HTTPResult(HTTP_BAD_REQUEST, {
+        error: "invalid_args",
+        op: body.op,
       });
     }
     try {
