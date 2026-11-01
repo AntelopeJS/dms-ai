@@ -204,6 +204,20 @@ for (const op of ["constructor", "toString", "hasOwnProperty", "__proto__"]) {
   });
 }
 
+void test("the Builder op route answers an unknown op in the bytes the sidecar reads", async () => {
+  const controller = new routes.AIBuilderController();
+  const bodies = [];
+  for (const body of [{ op: "Nope", args: [] }, { args: [] }]) {
+    const refused = await controller.op(SIDECAR_TOKEN, body);
+    assert.ok(refused instanceof HTTPResult);
+    bodies.push(refused.getBody());
+  }
+  assert.deepEqual(bodies, [
+    '{"error":"unknown_op","op":"Nope"}',
+    '{"error":"unknown_op"}',
+  ]);
+});
+
 for (const op of ["PublishSite", "SetPageBlocks"]) {
   void test(`the Builder op route refuses ${op}, which the interface carries but dms-ai does not list`, async () => {
     calls.unlisted = [];
