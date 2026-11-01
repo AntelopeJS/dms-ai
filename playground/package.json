@@ -9,14 +9,14 @@
     "frontend:dev": "ajs dms dev"
   },
   "dependencies": {
-    "@antelopejs/dms": "file:../.campaign/tgz/antelopejs-dms-883e20d.tgz",
-    "@antelopejs/interface-api": "file:../.campaign/tgz/antelopejs-interface-api-f2a99b5.tgz",
+    "@antelopejs/dms": "file:../.campaign/tgz/antelopejs-dms-c05ba50.tgz",
+    "@antelopejs/interface-api": "file:../.campaign/tgz/antelopejs-interface-api-2d1cc37.tgz",
     "@antelopejs/interface-api-util": "file:../.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz",
     "@antelopejs/interface-core": "file:../.campaign/tgz/antelopejs-interface-core-6a8b526.tgz",
-    "@antelopejs/interface-data-api": "file:../.campaign/tgz/antelopejs-interface-data-api-d8a868f.tgz",
+    "@antelopejs/interface-data-api": "file:../.campaign/tgz/antelopejs-interface-data-api-7a8719d.tgz",
     "@antelopejs/interface-database": "file:../.campaign/tgz/antelopejs-interface-database-02e0360.tgz",
-    "@antelopejs/interface-database-decorators": "file:../.campaign/tgz/antelopejs-interface-database-decorators-e79a62b.tgz",
-    "@antelopejs/interface-dms": "file:../.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz"
+    "@antelopejs/interface-database-decorators": "file:../.campaign/tgz/antelopejs-interface-database-decorators-1234214.tgz",
+    "@antelopejs/interface-dms": "file:../.campaign/tgz/antelopejs-interface-dms-c05ba50.tgz"
   },
   "devDependencies": {
     "@antelopejs/core": "file:../.campaign/tgz/antelopejs-core-68d5ce0.tgz",
@@ -28,13 +28,13 @@
   "packageManager": "pnpm@10.2.0",
   "pnpm": {
     "overrides": {
-      "@antelopejs/interface-api": "file:../.campaign/tgz/antelopejs-interface-api-f2a99b5.tgz",
+      "@antelopejs/interface-api": "file:../.campaign/tgz/antelopejs-interface-api-2d1cc37.tgz",
       "@antelopejs/interface-api-util": "file:../.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz",
       "@antelopejs/interface-database": "file:../.campaign/tgz/antelopejs-interface-database-02e0360.tgz",
-      "@antelopejs/interface-database-decorators": "file:../.campaign/tgz/antelopejs-interface-database-decorators-e79a62b.tgz",
-      "@antelopejs/interface-data-api": "file:../.campaign/tgz/antelopejs-interface-data-api-d8a868f.tgz",
-      "@antelopejs/interface-dms": "file:../.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz",
-      "@antelopejs/dms": "file:../.campaign/tgz/antelopejs-dms-883e20d.tgz",
+      "@antelopejs/interface-database-decorators": "file:../.campaign/tgz/antelopejs-interface-database-decorators-1234214.tgz",
+      "@antelopejs/interface-data-api": "file:../.campaign/tgz/antelopejs-interface-data-api-7a8719d.tgz",
+      "@antelopejs/interface-dms": "file:../.campaign/tgz/antelopejs-interface-dms-c05ba50.tgz",
+      "@antelopejs/dms": "file:../.campaign/tgz/antelopejs-dms-c05ba50.tgz",
       "@antelopejs/interface-core": "file:../.campaign/tgz/antelopejs-interface-core-6a8b526.tgz",
       "@antelopejs/core": "file:../.campaign/tgz/antelopejs-core-68d5ce0.tgz"
     }

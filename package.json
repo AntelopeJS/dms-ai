@@ -76,9 +76,9 @@
     "suppressions:update": "antelopejs-suppressions --update"
   },
   "dependencies": {
-    "@antelopejs/interface-api": "file:.campaign/tgz/antelopejs-interface-api-f2a99b5.tgz",
+    "@antelopejs/interface-api": "file:.campaign/tgz/antelopejs-interface-api-2d1cc37.tgz",
     "@antelopejs/interface-core": "file:.campaign/tgz/antelopejs-interface-core-6a8b526.tgz",
-    "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz",
+    "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-c05ba50.tgz",
     "@anthropic-ai/claude-agent-sdk": "^0.2.131",
     "@anthropic-ai/claude-code": "^2.1.131",
     "@modelcontextprotocol/sdk": "1.29.0",
@@ -87,9 +87,9 @@
   },
   "devDependencies": {
     "@antelopejs/interface-api-util": "file:.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz",
-    "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-d8a868f.tgz",
+    "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-7a8719d.tgz",
     "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-02e0360.tgz",
-    "@antelopejs/interface-database-decorators": "file:.campaign/tgz/antelopejs-interface-database-decorators-e79a62b.tgz",
+    "@antelopejs/interface-database-decorators": "file:.campaign/tgz/antelopejs-interface-database-decorators-1234214.tgz",
     "@antelopejs/tooling-configs": "^0.2.17",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.5.12",
@@ -118,12 +118,12 @@
   "packageManager": "pnpm@10.2.0",
   "pnpm": {
     "overrides": {
-      "@antelopejs/interface-api": "file:.campaign/tgz/antelopejs-interface-api-f2a99b5.tgz",
+      "@antelopejs/interface-api": "file:.campaign/tgz/antelopejs-interface-api-2d1cc37.tgz",
       "@antelopejs/interface-api-util": "file:.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz",
       "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-02e0360.tgz",
-      "@antelopejs/interface-database-decorators": "file:.campaign/tgz/antelopejs-interface-database-decorators-e79a62b.tgz",
-      "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-d8a868f.tgz",
-      "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz",
+      "@antelopejs/interface-database-decorators": "file:.campaign/tgz/antelopejs-interface-database-decorators-1234214.tgz",
+      "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-7a8719d.tgz",
+      "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-c05ba50.tgz",
       "@antelopejs/interface-dms-builder": "file:.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz",
       "@antelopejs/interface-core": "file:.campaign/tgz/antelopejs-interface-core-6a8b526.tgz"
     }
