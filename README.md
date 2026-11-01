@@ -57,7 +57,7 @@ Claude Code runs with its own credentials (its login, or `ANTHROPIC_API_KEY` in 
 | `@antelopejs/interface-api`              | `file:.campaign/tgz/antelopejs-interface-api-f206be7.tgz` | `file:.campaign/tgz/antelopejs-interface-api-f206be7.tgz` |
 | `@antelopejs/interface-core`             | `>=0.2.4 <1.0.0`                                          | `0.2.4`                                                   |
 | `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`                                          | `0.0.2`                                                   |
-| `@antelopejs/interface-dms`              | `file:.campaign/tgz/antelopejs-interface-dms-3eb021e.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-3eb021e.tgz` |
+| `@antelopejs/interface-dms`              | `file:.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz` |
 | `@antelopejs/interface-dms-builder`      | `>=0.2.3 <1.0.0`                                          | `0.2.3`                                                   |
 
 <!-- antelopejs-docs-compat:end -->
