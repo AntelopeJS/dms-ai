@@ -52,13 +52,13 @@ Claude Code runs with its own credentials (its login, or `ANTHROPIC_API_KEY` in 
 
 <!-- antelopejs-docs-compat:start -->
 
-| Package                                  | Supported                                                 | Tested with                                               |
-| ---------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------- |
-| `@antelopejs/interface-api`              | `file:.campaign/tgz/antelopejs-interface-api-f206be7.tgz` | `file:.campaign/tgz/antelopejs-interface-api-f206be7.tgz` |
-| `@antelopejs/interface-core`             | `>=0.2.4 <1.0.0`                                          | `0.2.4`                                                   |
-| `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`                                          | `0.0.2`                                                   |
-| `@antelopejs/interface-dms`              | `file:.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz` |
-| `@antelopejs/interface-dms-builder`      | `>=0.2.3 <1.0.0`                                          | `0.2.3`                                                   |
+| Package                                  | Supported                                                         | Tested with                                                       |
+| ---------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `@antelopejs/interface-api`              | `file:.campaign/tgz/antelopejs-interface-api-f206be7.tgz`         | `file:.campaign/tgz/antelopejs-interface-api-f206be7.tgz`         |
+| `@antelopejs/interface-core`             | `>=0.2.4 <1.0.0`                                                  | `0.2.4`                                                           |
+| `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`                                                  | `0.0.2`                                                           |
+| `@antelopejs/interface-dms`              | `file:.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz`         | `file:.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz`         |
+| `@antelopejs/interface-dms-builder`      | `file:.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz` |
 
 <!-- antelopejs-docs-compat:end -->
 
