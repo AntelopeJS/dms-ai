@@ -33,6 +33,7 @@ const OP_NAMES = [
   "DeleteCategory",
   "AddBlock",
   "ConfigureBlock",
+  "ConfigureTableView",
   "MoveBlock",
   "RemoveBlock",
   "CreateResource",
