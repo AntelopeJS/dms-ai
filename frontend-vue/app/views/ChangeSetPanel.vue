@@ -7,7 +7,7 @@ import { useAssistant } from "./composables/useAssistant";
 import { useChangeSetActions } from "./composables/useChangeSetActions";
 import { useViewFormat } from "./composables/useViewFormat";
 import { AI_ROUTES } from "./constants";
-import type { Tone } from "#dms-ui/app/types/tone";
+import type { Tone } from "#dms-core/app/types/tone";
 import type {
 	ChangeSetDetail,
 	ChangeSetSummary,
