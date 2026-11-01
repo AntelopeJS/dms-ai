@@ -214,7 +214,7 @@ describe("BuilderMapResources", () => {
           items: [{ value: "paid", label: "Paid", tone: "success" }],
         },
       },
-      { column: "total", display: { kind: "price" } },
+      { column: "total", display: { kind: "price", currency: "USD" } },
     ],
     tableOptions: { kanban: { groupBy: "status" } },
   };

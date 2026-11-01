@@ -130,7 +130,16 @@ const MAPPED_FIELD = z.object({
           }),
         ),
       }),
-      z.object({ kind: z.literal("price") }),
+      z.object({
+        kind: z.literal("price"),
+        currency: z
+          .string()
+          .regex(/^[A-Z]{3}$/)
+          .optional()
+          .describe(
+            "ISO 4217 code of the amount (`USD`). Left out, the Builder reads it from the column comment or a one-value currency column, else amounts show in euros.",
+          ),
+      }),
     ])
     .nullable()
     .optional()
