@@ -67,9 +67,10 @@ import { extractTokenUsage, messageToEvents } from "./adapter.js";
 import { buildTurnContent, type TurnContent } from "./attachments.js";
 import {
   buildClaudeEnv,
+  type ClaudeEffort,
   type ClaudeProcessEnv,
   resolvePermissionMode,
-  THINKING_TOKENS,
+  resolveModelOptions,
 } from "./config.js";
 import { createInputQueue, type InputQueue } from "./input-queue.js";
 import { resolveClaudeBinary } from "./resolve-binary.js";
@@ -87,6 +88,8 @@ interface PromptOptions {
   permissionMode: PermissionMode;
   hooks: SdkHooks;
   thinking: ThinkingConfig;
+  model: string;
+  effort?: ClaudeEffort;
   pathToClaudeCodeExecutable?: string;
   canUseTool?: CanUseTool;
   mcpServers?: Record<string, McpServerConfig>;
@@ -116,11 +119,6 @@ interface PromptOptionsInput {
   skillLoadout: SkillLoadout | undefined;
 }
 
-function buildThinkingConfig(settings: AppSettings): ThinkingConfig {
-  if (settings.thinking === "off") return { type: "disabled" };
-  return { type: "enabled", budgetTokens: THINKING_TOKENS[settings.thinking] };
-}
-
 function buildBasePromptOptions(input: PromptOptionsInput): PromptOptions {
   const base: PromptOptions = {
     systemPrompt: {
@@ -132,7 +130,7 @@ function buildBasePromptOptions(input: PromptOptionsInput): PromptOptions {
     includePartialMessages: SDK_INCLUDE_PARTIAL_MESSAGES,
     permissionMode: resolvePermissionMode(input.settings),
     hooks: input.hooks,
-    thinking: buildThinkingConfig(input.settings),
+    ...resolveModelOptions(input.settings),
     abortController: input.abortController,
     env: buildClaudeEnv(process.env),
   };
@@ -425,8 +423,13 @@ function applyBackendSettings(
   void backend.output
     .setPermissionMode(resolvePermissionMode(settings))
     .catch(() => undefined);
+  const { model, effort } = resolveModelOptions(settings);
+  void backend.output.setModel(model).catch(() => undefined);
   void backend.output
-    .setMaxThinkingTokens(THINKING_TOKENS[settings.thinking])
+    .applyFlagSettings({ effortLevel: effort ?? null })
+    .catch(() => undefined);
+  void backend.output
+    .setMaxThinkingTokens(effort === undefined ? 0 : null)
     .catch(() => undefined);
 }
 

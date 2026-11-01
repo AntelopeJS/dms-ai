@@ -303,6 +303,7 @@ export const SettingsPatchFields = {
   provider: z.enum(PROVIDER_NAMES).optional(),
   mode: z.enum(CHAT_MODES).optional(),
   thinking: z.enum(THINKING_LEVELS).optional(),
+  claudeModel: z.string().trim().min(1).optional(),
   generationMode: z.enum(GENERATION_MODES).optional(),
   allowLocalSkills: z.boolean().optional(),
   alwaysAskDependencies: z.boolean().optional(),

@@ -50,6 +50,16 @@ const AGENT: FormSection = {
       }),
       required: true,
     },
+    {
+      id: "claudeModel",
+      label: settingsText("claude_model", "label"),
+      description: settingsText("claude_model", "description"),
+      hint: NEXT_MESSAGE_HINT,
+      type: new DefaultDataTypes.StringType({
+        placeholder: "claude-opus-5-5",
+      }),
+      required: true,
+    },
   ],
 };
 
