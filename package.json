@@ -47,7 +47,7 @@
     "prepack": "pnpm run build && pnpm run build:sidecar",
     "frontend:dev": "cd playground && pnpm frontend:dev",
     "dev": "cd playground && pnpm dev",
-    "lint": "oxlint && pnpm --dir frontend-vue lint && antelopejs-check-interface-ranges && node scripts/check-playground-install.mjs && node scripts/check-i18n.mjs",
+    "lint": "oxlint && pnpm --dir frontend-vue lint && node node_modules/@antelopejs/dms/frontend-vue/scripts/check-api-error-presentation.mjs frontend-vue/app && antelopejs-check-interface-ranges && node scripts/check-playground-install.mjs && node scripts/check-i18n.mjs",
     "lint:fix": "oxlint --fix && oxfmt . && pnpm --dir frontend-vue lint:fix",
     "typecheck": "tsc --noEmit && pnpm --dir frontend-vue typecheck:chat && pnpm --dir sidecar typecheck",
     "test": "pnpm run test:node",
@@ -86,6 +86,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@antelopejs/dms": ">=0.13.1 <1.0.0",
     "@antelopejs/tooling-configs": "^0.2.17",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.5.12",

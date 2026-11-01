@@ -1,4 +1,4 @@
-import type { Tone } from "#dms-ui/app/types/tone";
+import type { Tone } from "#dms-core/app/types/tone";
 
 type AgentId = "claude" | "codex";
 export type ScopeId = "safe" | "vibe";

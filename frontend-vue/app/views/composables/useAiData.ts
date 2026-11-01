@@ -40,16 +40,10 @@ interface FetchErrorResponse {
 	status?: number;
 }
 
-interface FetchErrorBody {
-	message?: unknown;
-}
-
 interface FetchErrorLike {
 	status?: number;
 	statusCode?: number;
 	response?: FetchErrorResponse;
-	data?: FetchErrorBody;
-	message?: string;
 }
 
 /** The HTTP status of a `$authFetch` rejection, if it got an answer. */
@@ -58,14 +52,6 @@ function errorStatus(error: unknown): number | undefined {
 	return (
 		candidate?.status ?? candidate?.statusCode ?? candidate?.response?.status
 	);
-}
-
-/** The server's `{ message }`, else the error's own text. */
-export function errorMessage(error: unknown): string {
-	const candidate = error as FetchErrorLike | null;
-	const serverMessage = candidate?.data?.message;
-	if (typeof serverMessage === "string") return serverMessage;
-	return candidate?.message ?? String(error);
 }
 
 export function classifyFailure(error: unknown): RequestFailure {
@@ -80,15 +66,21 @@ export function classifyFailure(error: unknown): RequestFailure {
  * whether the assistant isn't running (503) rather than an error.
  */
 function describeFailure(result: FailingRead): FailureDescription {
+	const { resolveError } = useApiErrorPresenter();
+	const notice = computed(() =>
+		result.error.value
+			? resolveError(result.error.value, {
+					fallbackKey: `dms_ai.views.${classifyFailure(result.error.value)}.description`,
+				})
+			: null,
+	);
 	return {
 		failure: computed(() =>
-			result.error.value && result.status.value !== "pending"
+			notice.value && result.status.value !== "pending"
 				? classifyFailure(result.error.value)
 				: null,
 		),
-		message: computed(() =>
-			result.error.value ? errorMessage(result.error.value) : "",
-		),
+		message: computed(() => notice.value?.message ?? ""),
 	};
 }
 
