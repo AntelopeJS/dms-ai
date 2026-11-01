@@ -446,6 +446,7 @@
 			"remove_field": "Remove field",
 			"browse_queries": "Browse query templates",
 			"add_query": "Add query",
+			"preview_query": "Preview query",
 			"configure_query": "Configure query",
 			"remove_query": "Remove query",
 			"search_tools": "Load tools",

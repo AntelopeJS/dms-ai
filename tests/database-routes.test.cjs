@@ -27,7 +27,11 @@ const ACCOUNTS = {
 const context = { module: "dms-ai" };
 
 /** What the stand-in catalog and Builder were called with. */
-const calls = { describe: [], mapResources: [] };
+const calls = {
+  describe: [],
+  mapResources: [],
+  previewQuery: /** @type {unknown[]} */ ([]),
+};
 
 const catalog = {
   Info: async () => ({
@@ -77,6 +81,10 @@ function loadRoutes() {
       MapResources: async (input) => {
         calls.mapResources.push({ input });
         return { ok: true, data: {}, changes: [] };
+      },
+      PreviewQuery: async (request) => {
+        calls.previewQuery.push(request);
+        return { ok: true, data: { body: { value: 3 } }, changes: [] };
       },
     },
     "../builder/presence": { isBuilderAvailable: async () => true },
@@ -146,4 +154,26 @@ void test("MapResources reaches the Builder as the agent's choices, without dms-
   assert.equal(calls.mapResources.length, 1);
   assert.deepEqual(calls.mapResources[0].input, input);
   assert.deepEqual(calls.describe, []);
+});
+
+void test("PreviewQuery reaches the Builder with the query and the route arguments, and answers its result", async () => {
+  calls.previewQuery = [];
+  const request = {
+    query: {
+      name: "revenue",
+      resource: "order",
+      template: "series",
+      response: "card",
+      compare: true,
+    },
+    args: { from: "2026-01-01", to: "2026-01-31" },
+  };
+  assert.deepEqual(
+    await new routes.AIBuilderController().op(SIDECAR_TOKEN, {
+      op: "PreviewQuery",
+      args: [request],
+    }),
+    { ok: true, data: { body: { value: 3 } }, changes: [] },
+  );
+  assert.deepEqual(calls.previewQuery, [request]);
 });

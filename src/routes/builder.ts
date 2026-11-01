@@ -44,6 +44,7 @@ const OP_NAMES = [
   "GetResourceStructure",
   "ListQueryTemplates",
   "AddQuery",
+  "PreviewQuery",
   "ConfigureQuery",
   "RemoveQuery",
   "ConfigureProject",

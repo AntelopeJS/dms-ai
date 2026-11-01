@@ -43,6 +43,7 @@ export const BUILDER_READ_TOOL_NAMES: readonly string[] = [
   "BuilderListResources",
   "BuilderResourceStructure",
   "BuilderQueryTemplates",
+  "BuilderPreviewQuery",
   "BuilderRefresh",
   "BuilderAnalyseDatabase",
   "BuilderMapping",
