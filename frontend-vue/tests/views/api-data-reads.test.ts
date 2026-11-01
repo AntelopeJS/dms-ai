@@ -241,6 +241,7 @@ beforeEach(() => {
 	vi.stubGlobal("useApiPagedData", useApiPagedData);
 	vi.stubGlobal("refreshPageBlocks", refreshPageBlocks);
 	vi.stubGlobal("useAuthFetch", () => ({ $authFetch: authFetch }));
+	vi.stubGlobal("useReadOnlyRefusal", () => () => false);
 	vi.stubGlobal("useI18n", () => ({
 		t: (key: string) => key,
 		te: () => false,

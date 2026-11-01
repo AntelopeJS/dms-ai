@@ -80,14 +80,20 @@ export function classifyFailure(error: unknown): RequestFailure {
  * whether the assistant isn't running (503) rather than an error.
  */
 function describeFailure(result: FailingRead): FailureDescription {
+	const consumeRefusal = useReadOnlyRefusal();
+	const visibleError = computed(() =>
+		result.error.value && !consumeRefusal(result.error.value)
+			? result.error.value
+			: null,
+	);
 	return {
 		failure: computed(() =>
-			result.error.value && result.status.value !== "pending"
-				? classifyFailure(result.error.value)
+			visibleError.value && result.status.value !== "pending"
+				? classifyFailure(visibleError.value)
 				: null,
 		),
 		message: computed(() =>
-			result.error.value ? errorMessage(result.error.value) : "",
+			visibleError.value ? errorMessage(visibleError.value) : "",
 		),
 	};
 }

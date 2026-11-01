@@ -28,11 +28,13 @@ function changeSetPath(changeSetId: string, action: string): string {
 export function useChangeSetActions(): ChangeSetActions {
 	const { t } = useI18n();
 	const toast = useToast();
+	const consumeRefusal = useReadOnlyRefusal();
 	const { $authFetch } = useAuthFetch();
 	const { confirmFrom } = useConfirmFrom();
 	const isBusy = ref(false);
 
 	function failureToast(error: unknown): void {
+		if (consumeRefusal(error)) return;
 		const failure = classifyFailure(error);
 		toast.add({
 			title: t(`dms_ai.views.${failure}.title`),
