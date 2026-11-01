@@ -8,8 +8,11 @@ import {
 	watch,
 } from "vue";
 import type { ChatTransport } from "../../runtime/chat-transport";
-import type { ConversationStartMode } from "../../runtime/assistant-session";
-import type { PanelIntent, PanelIntents } from "../../runtime/panel-intents";
+import type {
+	PanelIntent,
+	PanelIntents,
+	StartConversationIntent,
+} from "../../runtime/panel-intents";
 import {
 	useChangeSetActions,
 	type ChatApi,
@@ -325,21 +328,32 @@ function setDraft(text: string): void {
 	composerRef.value?.setDraft(text);
 }
 
-/** Sets the new conversation's mode as soon as the stream can carry it, unless the chat moved on. */
-function setModeWhenConnected(next: ConversationStartMode): void {
+/** Runs `run` once the stream is up, if still here. */
+function whenConnected(run: () => void): void {
 	const conversationId = activeId.value;
 	const apply = (): void => {
-		if (activeId.value === conversationId) mode.setMode(next);
+		if (activeId.value === conversationId) run();
 	};
-	if (isConnected.value) {
-		apply();
-		return;
-	}
+	if (isConnected.value) return apply();
 	const stop = watch(isConnected, (connected) => {
 		if (!connected) return;
 		stop();
 		apply();
 	});
+}
+
+function startConversation(intent: StartConversationIntent): void {
+	newConversation();
+	const { prompt = "", mode: next } = intent;
+	const sends = intent.send === true && prompt !== "";
+	if (next !== undefined || sends)
+		whenConnected(() => {
+			if (next !== undefined) mode.setMode(next);
+			if (sends) conversation.sendUserMessage(prompt);
+		});
+	if (sends) return;
+	if (prompt) void nextTick(() => setDraft(prompt));
+	else void nextTick(() => composerRef.value?.focus());
 }
 
 const INTENT_HANDLERS: Record<
@@ -350,12 +364,7 @@ const INTENT_HANDLERS: Record<
 		if (intent.kind === "open") switchConversation(intent.conversationId);
 	},
 	start: (intent) => {
-		newConversation();
-		if (intent.kind === "start" && intent.mode)
-			setModeWhenConnected(intent.mode);
-		if (intent.kind === "start" && intent.prompt)
-			void nextTick(() => setDraft(intent.prompt ?? ""));
-		else void nextTick(() => composerRef.value?.focus());
+		if (intent.kind === "start") startConversation(intent);
 	},
 	focus: () => void nextTick(() => composerRef.value?.focus()),
 	approvals: () => {
