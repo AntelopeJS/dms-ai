@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { HTTPResult } from "@antelopejs/interface-api";
 import {
   ASSISTANT_REFUSED_MESSAGE,
@@ -5,6 +6,7 @@ import {
   HTTP_STATUS,
 } from "../constants/http";
 import {
+  type JsonBody,
   requestSidecar,
   type SidecarRequest,
   type SidecarResponse,
@@ -16,7 +18,7 @@ interface ErrorBody {
 }
 
 /** Turns a sidecar body into the route's answer. */
-export type BodyShaper<T> = (body: T) => unknown;
+export type BodyToAnswer<T, Answer> = (body: T) => Answer;
 
 /** The 503 every list and settings route answers while the sidecar is down. */
 export function assistantUnavailable(): HTTPResult {
@@ -25,13 +27,14 @@ export function assistantUnavailable(): HTTPResult {
   } satisfies ErrorBody);
 }
 
+const REFUSAL_TEXT = z.string().min(1);
+const REFUSAL_BODY = z.object({ message: z.string() });
+
 function messageOf(body: unknown): string {
-  if (typeof body === "string" && body.length > 0) return body;
-  if (body !== null && typeof body === "object" && "message" in body) {
-    const { message } = body as ErrorBody;
-    if (typeof message === "string") return message;
-  }
-  return ASSISTANT_REFUSED_MESSAGE;
+  const text = REFUSAL_TEXT.safeParse(body);
+  if (text.success) return text.data;
+  const refusal = REFUSAL_BODY.safeParse(body);
+  return refusal.success ? refusal.data.message : ASSISTANT_REFUSED_MESSAGE;
 }
 
 function refused(response: SidecarResponse): HTTPResult {
@@ -41,15 +44,15 @@ function refused(response: SidecarResponse): HTTPResult {
 }
 
 /**
- * Forwards a request to the sidecar and shapes its answer. A refusal keeps
+ * Forwards a request to the sidecar and turns its answer into the route's. A refusal keeps
  * its status with `{ message }`; an unreachable sidecar answers 503, so
  * tables show their error state and an instant save says "Not saved".
  */
-export async function relay<T>(
+export async function relay<T, Answer>(
   path: string,
-  shape: BodyShaper<T>,
+  toAnswer: BodyToAnswer<T, Answer>,
   request: SidecarRequest = {},
-): Promise<unknown> {
+): Promise<Answer | HTTPResult> {
   let response: SidecarResponse;
   try {
     response = await requestSidecar(path, request);
@@ -57,10 +60,10 @@ export async function relay<T>(
     return assistantUnavailable();
   }
   if (!response.isOk) return refused(response);
-  return shape(response.body as T);
+  return toAnswer(response.body as T);
 }
 
 /** Forwards the sidecar's answer unchanged. */
-export function asIs(body: unknown): unknown {
+export function asIs(body: JsonBody | undefined): JsonBody | undefined {
   return body;
 }

@@ -128,11 +128,13 @@ function clearInterruptFallback(state: SessionState): void {
   state.interruptTimer = null;
 }
 
-// Gracefully interrupt the in-flight turn. The backend should answer with a
-// `done` event, ending the turn loop (see readTurn) without disposing the
-// session — so the conversation stays warm. If the backend ignores the interrupt
-// (or the turn is mid-tool and won't settle), a fallback hard-aborts after a
-// grace window so Stop can never silently hang.
+/**
+ * Gracefully interrupt the in-flight turn. The backend should answer with a
+ * `done` event, ending the turn loop (see readTurn) without disposing the
+ * session — so the conversation stays warm. If the backend ignores the interrupt
+ * (or the turn is mid-tool and won't settle), a fallback hard-aborts after a
+ * grace window so Stop can never silently hang.
+ */
 function interrupt(state: SessionState): void {
   if (isDisposed(state)) return;
   if (state.activeTurns === 0) return;
@@ -145,10 +147,12 @@ function interrupt(state: SessionState): void {
   }, INTERRUPT_FALLBACK_MS);
 }
 
-// Idle timeout, not a wall-clock cap. The deadline is pushed out every time the
-// backend produces an event (see readTurn), so a healthy turn that legitimately
-// runs for a long time is never aborted — only one that goes fully silent for
-// the whole window (a genuine hang) is.
+/**
+ * Idle timeout, not a wall-clock cap. The deadline is pushed out every time the
+ * backend produces an event (see readTurn), so a healthy turn that legitimately
+ * runs for a long time is never aborted — only one that goes fully silent for
+ * the whole window (a genuine hang) is.
+ */
 function armTurnTimeout(state: SessionState, timeoutMs: number): TurnTimeout {
   const idleOutcome = errorOutcome(idleTimeoutReason(timeoutMs));
   const toolOutcome = errorOutcome(toolCapReason(TOOL_EXECUTION_CAP_MS));
@@ -170,16 +174,11 @@ function armTurnTimeout(state: SessionState, timeoutMs: number): TurnTimeout {
   };
 }
 
-function buildErrorEvent(state: SessionState, err: unknown): RunnerEvent {
-  if (state.abortOutcome !== null) return state.abortOutcome;
-  return errorOutcome(err instanceof Error ? err.message : String(err));
-}
-
 function buildStreamEndedEvent(state: SessionState): RunnerEvent {
   return state.abortOutcome ?? errorOutcome(TURN_STREAM_ENDED_MESSAGE);
 }
 
-const OUTSTANDING_TOOL_DELTAS: Record<string, number> = {
+const OUTSTANDING_TOOL_DELTAS: Partial<Record<RunnerEvent["type"], number>> = {
   tool_use: 1,
   tool_result: -1,
 };
@@ -219,7 +218,10 @@ async function* readTurn(
     try {
       result = await nextUnlessAborted(state);
     } catch (err) {
-      yield buildErrorEvent(state, err);
+      yield (
+        state.abortOutcome ??
+          errorOutcome(err instanceof Error ? err.message : String(err))
+      );
       void disposeSession(state);
       return;
     }

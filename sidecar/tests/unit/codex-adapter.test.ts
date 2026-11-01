@@ -1,39 +1,25 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { RunnerEvent } from "../../src/agent/runner-events.js";
+import type {
+  RunnerEvent,
+  RunnerToolResult,
+  RunnerToolUse,
+} from "../../src/agent/runner-events.js";
 import { MCP_TOOL_NAME_PREFIX } from "../../src/constants/mcp.js";
 import { TOOL_LEXICON } from "../../src/constants/tool-lexicon.js";
 import { createCodexAdapter } from "../../src/providers/codex/adapter.js";
-import type { CodexNotification } from "../../src/providers/codex/client.js";
-
-const DUMPS = resolve(__dirname, "../fixtures/codex-dumps");
-
-interface DumpFrame {
-  dir: string;
-  msg: { id?: number | string; method?: string; params?: unknown };
-}
-
-// Only server-to-client notifications reach the adapter: a frame carrying both
-// an id and a method is an approval request, which the permission layer owns.
-function readNotifications(name: string): CodexNotification[] {
-  const raw = readFileSync(resolve(DUMPS, name), "utf8");
-  return raw
-    .split("\n")
-    .filter((line) => line.trim() !== "")
-    .map((line) => JSON.parse(line) as DumpFrame)
-    .filter((frame) => frame.dir === "in")
-    .filter((frame) => frame.msg.method !== undefined)
-    .filter((frame) => frame.msg.id === undefined)
-    .map((frame) => ({
-      method: frame.msg.method as string,
-      params: frame.msg.params,
-    }));
-}
+import { readNotifications } from "../helpers/codex-dumps.js";
 
 function replay(name: string): RunnerEvent[] {
   const adapter = createCodexAdapter();
   return readNotifications(name).flatMap((n) => adapter.handle(n));
+}
+
+function toolUses(events: RunnerEvent[]): RunnerToolUse[] {
+  return events.filter((e): e is RunnerToolUse => e.type === "tool_use");
+}
+
+function toolResults(events: RunnerEvent[]): RunnerToolResult[] {
+  return events.filter((e): e is RunnerToolResult => e.type === "tool_result");
 }
 
 function unpairedCallIds(events: RunnerEvent[]): string[] {
@@ -65,28 +51,24 @@ describe("pairing across every recorded turn", () => {
 
 describe("normalization to the Claude display vocabulary", () => {
   it("turns a file change into an Edit carrying file_path", () => {
-    const edits = replay("recette-2-file-edit.jsonl").filter(
-      (e) => e.type === "tool_use" && e.toolName === TOOL_LEXICON.EDIT,
+    const edits = toolUses(replay("recette-2-file-edit.jsonl")).filter(
+      (e) => e.toolName === TOOL_LEXICON.EDIT,
     );
     expect(edits.length).toBeGreaterThan(0);
-    const args = (edits[0] as { args: { file_path?: string } }).args;
-    expect(typeof args.file_path).toBe("string");
+    expect(edits[0]?.args).toMatchObject({ file_path: expect.any(String) });
   });
 
   it("turns a command execution into a Bash carrying command", () => {
-    const commands = replay("q1b-readonly-command-no-write.jsonl").filter(
-      (e) => e.type === "tool_use" && e.toolName === TOOL_LEXICON.BASH,
-    );
+    const commands = toolUses(
+      replay("q1b-readonly-command-no-write.jsonl"),
+    ).filter((e) => e.toolName === TOOL_LEXICON.BASH);
     expect(commands.length).toBeGreaterThan(0);
-    const args = (commands[0] as { args: { command?: string } }).args;
-    expect(typeof args.command).toBe("string");
+    expect(commands[0]?.args).toMatchObject({ command: expect.any(String) });
   });
 
   it("emits no tool_use for userMessage, reasoning or agentMessage", () => {
     const names = new Set(
-      replay("recette-1-simple-message.jsonl")
-        .filter((e) => e.type === "tool_use")
-        .map((e) => (e as { toolName: string }).toolName),
+      toolUses(replay("recette-1-simple-message.jsonl")).map((e) => e.toolName),
     );
     expect(names).toEqual(new Set());
   });
@@ -98,10 +80,8 @@ describe("normalization to the Claude display vocabulary", () => {
   });
 
   it("marks a declined file change as an errored result", () => {
-    const results = replay("q1-readonly-write-escalation.jsonl").filter(
-      (e) => e.type === "tool_result",
-    );
-    expect(results.some((e) => (e as { isError: boolean }).isError)).toBe(true);
+    const results = toolResults(replay("q1-readonly-write-escalation.jsonl"));
+    expect(results.some((e) => e.isError)).toBe(true);
   });
 });
 
@@ -116,7 +96,6 @@ describe("turn completion", () => {
     const events = replay("q2-interrupt-mid-tool.jsonl");
     expect(events.at(-1)).toEqual({ type: "done" });
     expect(events.some((e) => e.type === "error")).toBe(false);
-    // The interrupted command never received an item/completed of its own.
     expect(unpairedCallIds(events)).toEqual([]);
     expect(events.some((e) => e.type === "tool_use")).toBe(true);
   });
@@ -146,8 +125,9 @@ describe("synthesized events", () => {
     expect(events).toHaveLength(2);
     expect(events[0]?.type).toBe("tool_use");
     expect(events[1]?.type).toBe("tool_result");
-    const args = (events[0] as { args: { todos: { status: string }[] } }).args;
-    expect(args.todos.map((t) => t.status)).toEqual(["in_progress", "pending"]);
+    expect(events[0]).toMatchObject({
+      args: { todos: [{ status: "in_progress" }, { status: "pending" }] },
+    });
   });
 
   it("qualifies an MCP tool call the way the Claude path names it", () => {
@@ -166,9 +146,9 @@ describe("synthesized events", () => {
         },
       },
     });
-    expect((events[0] as { toolName: string }).toolName).toBe(
-      `${MCP_TOOL_NAME_PREFIX}BuilderCatalog`,
-    );
+    expect(events[0]).toMatchObject({
+      toolName: `${MCP_TOOL_NAME_PREFIX}BuilderCatalog`,
+    });
   });
 
   it("reports a failed turn with the error message, not the error code", () => {
@@ -182,8 +162,6 @@ describe("synthesized events", () => {
         },
       },
     });
-    // `done` has to follow: the session ends a turn on `done` alone, so an
-    // error on its own would leave the turn running forever.
     expect(events).toEqual([
       { type: "error", message: "stream disconnected" },
       { type: "done" },

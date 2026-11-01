@@ -10,10 +10,13 @@ import {
   ON_SIGTERM_ENV_VAR,
 } from "./constants.mjs";
 
-// The real app-server keeps databases and logs open in its home, so it can still
-// be writing there when it is told to stop. This stretches that moment until it
-// can be observed. The directory is recreated on every write, the way a logger
-// does, so a home removed too early comes back.
+/**
+ * The real app-server keeps databases and logs open in its home, so it can still
+ * be writing there when it is told to stop. This stretches that moment until it
+ * can be observed. The directory is recreated on every write, the way a logger
+ * does, so a home removed too early comes back. A write that races the removal
+ * itself is swallowed: the next tick writes again.
+ */
 function writeIntoHome(home, index) {
   try {
     mkdirSync(home, { recursive: true });
@@ -21,9 +24,7 @@ function writeIntoHome(home, index) {
       path.join(home, `${HOME_WRITE_PREFIX}${index}`),
       String(Date.now()),
     );
-  } catch {
-    // Raced by the removal itself: the next tick writes again.
-  }
+  } catch {}
 }
 
 function keepWriting(home) {

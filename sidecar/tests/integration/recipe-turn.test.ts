@@ -27,6 +27,11 @@ function isTerminalEvent(msg: WireMessage): boolean {
   return msg.type === "run_done" || msg.type === "run_error";
 }
 
+interface Connection {
+  socket: WebSocket;
+  collector: WireCollector;
+}
+
 function unpaired(events: WireMessage[]): string[] {
   const open = new Set<string>();
   for (const event of events) {
@@ -36,8 +41,6 @@ function unpaired(events: WireMessage[]): string[] {
   return [...open];
 }
 
-// Scenarios 1 to 5, 8 and 9 of the acceptance recipe: everything that is about
-// one turn's lifecycle, driven over the same WS protocol the chat speaks.
 describe.each(PROVIDER_FIXTURES)(
   "recipe — turn lifecycle on $name",
   (fixture) => {
@@ -53,14 +56,16 @@ describe.each(PROVIDER_FIXTURES)(
       harness = undefined;
     });
 
-    // The recipe answers prompts as a user would; a scenario that is not about
-    // the verdict itself simply says yes to whatever comes.
-    function approveEveryPrompt(collector: WireCollector): void {
-      void collector
+    /**
+     * The recipe answers prompts as a user would; a scenario that is not about
+     * the verdict itself simply says yes to whatever comes.
+     */
+    function approveEveryPrompt(connection: Connection): void {
+      void connection.collector
         .next((e) => e.type === "permission_request")
         .then((prompt) =>
           answerPermission(
-            client as WebSocket,
+            connection.socket,
             prompt,
             PERMISSION_DECISIONS.ALLOW_ONCE,
           ),
@@ -68,26 +73,29 @@ describe.each(PROVIDER_FIXTURES)(
         .catch(() => undefined);
     }
 
-    // The chat echoes a queued follow-up, never an immediate message, so a
-    // second turn is recognized by its own terminal event.
+    /**
+     * The chat echoes a queued follow-up, never an immediate message, so a
+     * second turn is recognized by its own terminal event.
+     */
     function terminalCount(collector: WireCollector): number {
       return collector.events.filter(isTerminalEvent).length;
     }
 
-    async function connect(): Promise<WireCollector> {
+    async function connect(): Promise<Connection> {
       harness = await startWsHarness({ provider: fixture.name });
-      client = await openChat(harness.port);
-      const collector = createCollector(client, WAIT_TIMEOUT_MS);
-      sendHello(client, CONVERSATION_ID);
-      return collector;
+      const socket = await openChat(harness.port);
+      client = socket;
+      const collector = createCollector(socket, WAIT_TIMEOUT_MS);
+      sendHello(socket, CONVERSATION_ID);
+      return { socket, collector };
     }
 
     it(
       "1 — a simple message streams text and ends on run_done",
       async () => {
         fixture.use("simple");
-        const collector = await connect();
-        sendUserMessage(client as WebSocket, CONVERSATION_ID, "explain");
+        const { collector, socket } = await connect();
+        sendUserMessage(socket, CONVERSATION_ID, "explain");
         const done = await collector.next(isTerminalEvent);
         expect(done.type).toBe("run_done");
         expect(
@@ -102,15 +110,10 @@ describe.each(PROVIDER_FIXTURES)(
       "2 — a file edit surfaces as an Edit carrying the path the host animates",
       async () => {
         fixture.use("edit");
-        const collector = await connect();
-        sendUserMessage(
-          client as WebSocket,
-          CONVERSATION_ID,
-          "update the page",
-        );
-        // An edit escalates on the Claude path in the default mode; this
-        // scenario is about what the host sees once it is allowed.
-        approveEveryPrompt(collector);
+        const connection = await connect();
+        const { collector, socket } = connection;
+        sendUserMessage(socket, CONVERSATION_ID, "update the page");
+        approveEveryPrompt(connection);
         await collector.next(isTerminalEvent);
         const edits = collector.events.filter(
           (e) =>
@@ -119,9 +122,7 @@ describe.each(PROVIDER_FIXTURES)(
         );
         expect(edits).not.toHaveLength(0);
         for (const edit of edits) {
-          expect((edit.args as { file_path?: string }).file_path).toBeTypeOf(
-            "string",
-          );
+          expect(edit.args).toMatchObject({ file_path: expect.any(String) });
         }
       },
       TEST_TIMEOUT_MS,
@@ -131,17 +132,13 @@ describe.each(PROVIDER_FIXTURES)(
       "3 — a write escalates, the denial lands, and the turn still ends cleanly",
       async () => {
         fixture.use("permission");
-        const collector = await connect();
-        sendUserMessage(client as WebSocket, CONVERSATION_ID, "create a file");
+        const { collector, socket } = await connect();
+        sendUserMessage(socket, CONVERSATION_ID, "create a file");
         const prompt = await collector.next(
           (e) => e.type === "permission_request",
         );
         expect(["Bash", "Edit"]).toContain(prompt.toolName);
-        answerPermission(
-          client as WebSocket,
-          prompt,
-          PERMISSION_DECISIONS.DENY,
-        );
+        answerPermission(socket, prompt, PERMISSION_DECISIONS.DENY);
         const done = await collector.next(isTerminalEvent);
         expect(done.type).toBe("run_done");
         expect(unpaired(collector.events)).toEqual([]);
@@ -153,20 +150,20 @@ describe.each(PROVIDER_FIXTURES)(
       "4 — a command rule spares the second occurrence a prompt",
       async () => {
         fixture.use("permission-twice");
-        const collector = await connect();
-        sendUserMessage(client as WebSocket, CONVERSATION_ID, "first");
+        const { collector, socket } = await connect();
+        sendUserMessage(socket, CONVERSATION_ID, "first");
         const prompt = await collector.next(
           (e) => e.type === "permission_request",
         );
         answerPermission(
-          client as WebSocket,
+          socket,
           prompt,
           PERMISSION_DECISIONS.ALLOW_RULE,
-          (prompt.ruleOptions as unknown[])[0],
+          prompt.ruleOptions?.[0],
         );
         await collector.next(isTerminalEvent);
 
-        sendUserMessage(client as WebSocket, CONVERSATION_ID, "again");
+        sendUserMessage(socket, CONVERSATION_ID, "again");
         const second = await collector.next(
           (e) => isTerminalEvent(e) && terminalCount(collector) === 2,
         );
@@ -205,18 +202,17 @@ describe.each(PROVIDER_FIXTURES)(
       "8 — a stop mid-turn lands within budget and leaves nothing orphaned",
       async () => {
         fixture.use("simple");
-        const collector = await connect();
-        sendUserMessage(client as WebSocket, CONVERSATION_ID, "count to 200");
+        const { collector, socket } = await connect();
+        sendUserMessage(socket, CONVERSATION_ID, "count to 200");
         await collector.next((e) => e.type === "assistant_message_chunk");
         const startedAt = Date.now();
-        interruptTurn(client as WebSocket, CONVERSATION_ID);
+        interruptTurn(socket, CONVERSATION_ID);
         const done = await collector.next(isTerminalEvent);
         expect(Date.now() - startedAt).toBeLessThan(INTERRUPT_BUDGET_MS);
         expect(done.type).toBe("run_done");
         expect(unpaired(collector.events)).toEqual([]);
 
-        // The conversation stays usable: a second turn runs to completion.
-        sendUserMessage(client as WebSocket, CONVERSATION_ID, "again");
+        sendUserMessage(socket, CONVERSATION_ID, "again");
         const second = await collector.next(
           (e) => isTerminalEvent(e) && terminalCount(collector) === 2,
         );
@@ -229,13 +225,13 @@ describe.each(PROVIDER_FIXTURES)(
       "8b — a stop does not silence the prompts of the turns that follow",
       async () => {
         fixture.use("permission-twice");
-        const collector = await connect();
-        sendUserMessage(client as WebSocket, CONVERSATION_ID, "first");
+        const { collector, socket } = await connect();
+        sendUserMessage(socket, CONVERSATION_ID, "first");
         await collector.next((e) => e.type === "permission_request");
-        interruptTurn(client as WebSocket, CONVERSATION_ID);
+        interruptTurn(socket, CONVERSATION_ID);
         await collector.next(isTerminalEvent);
 
-        sendUserMessage(client as WebSocket, CONVERSATION_ID, "again");
+        sendUserMessage(socket, CONVERSATION_ID, "again");
         const prompt = await collector.next(
           (e) =>
             e.type === "permission_request" &&
@@ -252,7 +248,6 @@ describe.each(PROVIDER_FIXTURES)(
       async () => {
         setBuilderAvailable(true);
         fixture.use("permission-twice");
-        // Starts in vibe, where a write escalates to the user.
         harness = await startWsHarness({
           provider: fixture.name,
           settings: { generationMode: "vibe" },
@@ -264,16 +259,10 @@ describe.each(PROVIDER_FIXTURES)(
         const prompt = await collector.next(
           (e) => e.type === "permission_request",
         );
-        answerPermission(
-          client as WebSocket,
-          prompt,
-          PERMISSION_DECISIONS.ALLOW_ONCE,
-        );
+        answerPermission(client, prompt, PERMISSION_DECISIONS.ALLOW_ONCE);
         await collector.next(isTerminalEvent);
 
-        // Safe mode now declines escalations outright, so the same turn must no
-        // longer reach the user as a prompt.
-        sendWire(client as WebSocket, {
+        sendWire(client, {
           type: "set_conversation_mode",
           conversationId: CONVERSATION_ID,
           generationMode: "safe",
@@ -281,7 +270,7 @@ describe.each(PROVIDER_FIXTURES)(
         await collector.next(
           (e) => e.type === "conversation_mode" && e.generationMode === "safe",
         );
-        sendUserMessage(client as WebSocket, CONVERSATION_ID, "again");
+        sendUserMessage(client, CONVERSATION_ID, "again");
         await collector.next(
           (e) => isTerminalEvent(e) && terminalCount(collector) === 2,
         );

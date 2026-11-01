@@ -2,18 +2,21 @@ import type { WebSocket } from "ws";
 import { WS_LOG_PREFIX } from "../constants/ws.js";
 import type { AnyServerEventType } from "../protocol/events.js";
 
+/** The part of a socket the registries use: they only ever send to it. */
+export type SocketSender = Pick<WebSocket, "send">;
+
 export interface HostSocketRegistry {
-  set: (socket: WebSocket) => void;
-  clear: (socket: WebSocket) => void;
-  send: (event: AnyServerEventType, preferred?: WebSocket) => void;
+  set: (socket: SocketSender) => void;
+  clear: (socket: SocketSender) => void;
+  send: (event: AnyServerEventType, preferred?: SocketSender) => void;
   has: () => boolean;
 }
 
 interface RegistryState {
-  sockets: WebSocket[];
+  sockets: SocketSender[];
 }
 
-function trySend(socket: WebSocket, event: AnyServerEventType): void {
+function trySend(socket: SocketSender, event: AnyServerEventType): void {
   try {
     socket.send(JSON.stringify(event));
   } catch (err) {
@@ -22,12 +25,12 @@ function trySend(socket: WebSocket, event: AnyServerEventType): void {
   }
 }
 
-function removeSocket(state: RegistryState, socket: WebSocket): void {
+function removeSocket(state: RegistryState, socket: SocketSender): void {
   state.sockets = state.sockets.filter((current) => current !== socket);
 }
 
 function buildSet(state: RegistryState) {
-  return (socket: WebSocket): void => {
+  return (socket: SocketSender): void => {
     removeSocket(state, socket);
     state.sockets.push(socket);
   };
@@ -35,8 +38,8 @@ function buildSet(state: RegistryState) {
 
 function pickSocket(
   state: RegistryState,
-  preferred: WebSocket | undefined,
-): WebSocket | undefined {
+  preferred: SocketSender | undefined,
+): SocketSender | undefined {
   if (preferred !== undefined && state.sockets.includes(preferred)) {
     return preferred;
   }
@@ -44,7 +47,7 @@ function pickSocket(
 }
 
 function buildSend(state: RegistryState) {
-  return (event: AnyServerEventType, preferred?: WebSocket): void => {
+  return (event: AnyServerEventType, preferred?: SocketSender): void => {
     const socket = pickSocket(state, preferred);
     if (socket === undefined) {
       console.warn(`${WS_LOG_PREFIX} sendToHost: no host connected`);

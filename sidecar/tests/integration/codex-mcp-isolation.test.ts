@@ -21,8 +21,10 @@ const CONVERSATION_A = "conv-iso-a";
 const CONVERSATION_B = "conv-iso-b";
 const TEST_TIMEOUT_MS = 30_000;
 
-// Each conversation gets its own MCP deps, so a tool answer is traceable back
-// to the conversation whose bearer carried the call.
+/**
+ * Each conversation gets its own MCP deps, so a tool answer is traceable back
+ * to the conversation whose bearer carried the call.
+ */
 function buildDeps(conversationId: string): AiMcpServerDeps {
   return {
     getCurrentPage: () => ({ path: `${UNKNOWN_PAGE_PATH}/${conversationId}` }),
@@ -38,7 +40,7 @@ function buildDeps(conversationId: string): AiMcpServerDeps {
     hostProjectRoot: "/tmp",
     moduleRoots: [],
     logsClient: { getLogs: async () => [] },
-    builderClient: { call: async () => undefined },
+    builderClient: { call: async () => null },
     databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     sendToHost: () => {},
@@ -115,7 +117,6 @@ describe("two live Codex conversations stay isolated", () => {
         return session;
       };
 
-      // Both processes are alive at once, each holding its own bearer.
       const [a, b] = await Promise.all([
         open(CONVERSATION_A),
         open(CONVERSATION_B),

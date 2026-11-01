@@ -14,7 +14,9 @@ function chunk(text: string): AnyServerEventType {
 
 function textsOf(events: AnyServerEventType[] | null): string[] {
   if (events === null) return [];
-  return events.map((event) => (event as { text: string }).text);
+  return events.flatMap((event) =>
+    event.type === "assistant_message_chunk" ? [event.text] : [],
+  );
 }
 
 describe("live turn store", () => {

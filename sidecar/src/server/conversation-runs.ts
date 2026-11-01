@@ -25,8 +25,10 @@ export function buildQueueStateEvent(
   };
 }
 
-// Persist only lightweight metadata (name/type/size) for redisplay — never the
-// base64 payload, which would bloat the transcript store.
+/**
+ * Persist only lightweight metadata (name/type/size) for redisplay — never the
+ * base64 payload, which would bloat the transcript store.
+ */
 function toStoredAttachmentMeta(
   attachments: readonly AttachmentType[],
 ): StoredMessage["attachments"] {
@@ -91,15 +93,19 @@ export function broadcastQueueState(
   );
 }
 
-export function logFailure(what: string, err: unknown): void {
-  const message = err instanceof Error ? err.message : String(err);
+export function logFailure(what: string, message: string): void {
   console.warn(`${WS_LOG_PREFIX} ${what}: ${message}`);
 }
 
-// Server-owned dequeue: run queued follow-ups one at a time until the queue is
-// empty. The caller holds the per-conversation drain lock, so this is the sole
-// writer that consumes items — a client reconnect can restore the queue but can
-// never resurrect an item already dequeued here, nor run one twice.
+/**
+ * Server-owned dequeue: run queued follow-ups one at a time until the queue is
+ * empty. The caller holds the per-conversation drain lock, so this is the sole
+ * writer that consumes items — a client reconnect can restore the queue but can
+ * never resurrect an item already dequeued here, nor run one twice. The item is
+ * already removed from the queue when its turn runs, so a failure there must
+ * not abort the loop: it is logged and the loop advances to the next follow-up
+ * rather than stranding it and everything behind it.
+ */
 async function drainConversation(
   ctx: SidecarServices,
   conversationId: string,
@@ -107,23 +113,25 @@ async function drainConversation(
   for (;;) {
     const next = ctx.pendingQueue.shift(conversationId);
     if (next === null) return;
-    // The item is already removed from the queue, so a failure here must not
-    // abort the loop — log and advance to the next follow-up rather than
-    // stranding it and everything behind it.
     try {
       broadcastQueueState(ctx, conversationId);
       persistUserMessage(ctx, conversationId, next);
       sendUserEcho(ctx, conversationId, next);
       await runUserTurn(ctx, conversationId, next);
     } catch (err) {
-      logFailure("queued turn failed", err);
+      logFailure(
+        "queued turn failed",
+        err instanceof Error ? err.message : String(err),
+      );
     }
   }
 }
 
-// Start draining if no drain is already active for this conversation. Called
-// whenever the queue may have gained work while idle (an enqueue that races a
-// finishing drain); the lock makes concurrent calls no-ops.
+/**
+ * Start draining if no drain is already active for this conversation. Called
+ * whenever the queue may have gained work while idle (an enqueue that races a
+ * finishing drain); the lock makes concurrent calls no-ops.
+ */
 export async function ensureDraining(
   ctx: SidecarServices,
   conversationId: string,
@@ -132,18 +140,24 @@ export async function ensureDraining(
   try {
     await drainConversation(ctx, conversationId);
   } catch (err) {
-    logFailure("drain failed", err);
+    logFailure(
+      "drain failed",
+      err instanceof Error ? err.message : String(err),
+    );
   } finally {
     ctx.pendingQueue.endDrain(conversationId);
   }
 }
 
+/**
+ * Queues a follow-up. `attachments` is set rather than spread: a queued message
+ * without any has no `attachments` key, which is what the queue's readers
+ * expect.
+ */
 export function enqueueUserMessage(
   ctx: SidecarServices,
   msg: UserMessageMsgType,
 ): void {
-  // `attachments` is set rather than spread: a queued message without any has
-  // no `attachments` key, which is what the queue's readers expect.
   const queued: QueuedItemType = {
     id: randomUUID(),
     content: msg.content,
@@ -166,7 +180,7 @@ export async function runExclusive(
     await run();
     await drainConversation(ctx, conversationId);
   } catch (err) {
-    logFailure("run failed", err);
+    logFailure("run failed", err instanceof Error ? err.message : String(err));
   } finally {
     ctx.pendingQueue.endDrain(conversationId);
   }

@@ -18,9 +18,9 @@ const CONVERSATION_ID = "conv-queue-1";
 const WAIT_TIMEOUT_MS = 20_000;
 const TEST_TIMEOUT_MS = 30_000;
 
-const queueSize = (msg: WireMessage): number => (msg.items as unknown[]).length;
+const queueSize = (msg: WireMessage): number => msg.items?.length ?? 0;
 const itemIds = (msg: WireMessage): string[] =>
-  (msg.items as { id: string }[]).map((item) => item.id);
+  (msg.items ?? []).map((item) => item.id);
 
 function enqueue(socket: WebSocket, id: string, content: string): void {
   sendWire(socket, {
@@ -30,17 +30,19 @@ function enqueue(socket: WebSocket, id: string, content: string): void {
   });
 }
 
-function approve(socket: WebSocket, requestId: unknown): void {
+function approve(socket: WebSocket, permission: WireMessage): void {
   sendWire(socket, {
     type: "permission_response",
     conversationId: CONVERSATION_ID,
-    requestId,
+    requestId: permission.requestId,
     decision: PERMISSION_DECISIONS.ALLOW_ONCE,
   });
 }
 
-// Both providers replay a turn that stops on an approval request, which is what
-// holds the drain lock open while the queue is exercised.
+/**
+ * Both providers replay a turn that stops on an approval request, which is what
+ * holds the drain lock open while the queue is exercised.
+ */
 async function startPausedTurn(
   socket: WebSocket,
 ): Promise<{ collector: WireCollector; permission: WireMessage }> {
@@ -100,7 +102,7 @@ describe.each(PROVIDER_FIXTURES)(
         );
         expect(itemIds(afterCancel)).toEqual(["B"]);
 
-        approve(client, permission.requestId);
+        approve(client, permission);
         const echo = await collector.next(
           (e) => e.type === "user_message_echo" && e.content === "second",
         );
@@ -124,16 +126,14 @@ describe.each(PROVIDER_FIXTURES)(
         const queued = await collector.next(
           (e) =>
             e.type === "queue_state" &&
-            (e.items as { content: string }[]).some(
-              (item) => item.content === "stray immediate",
-            ),
+            (e.items ?? []).some((item) => item.content === "stray immediate"),
         );
         expect(queueSize(queued)).toBe(1);
         expect(
           collector.events.filter((e) => e.type === "permission_request"),
         ).toHaveLength(1);
 
-        approve(client, permission.requestId);
+        approve(client, permission);
         const echo = await collector.next(
           (e) =>
             e.type === "user_message_echo" && e.content === "stray immediate",
@@ -169,7 +169,7 @@ describe.each(PROVIDER_FIXTURES)(
         sendHello(client, CONVERSATION_ID);
         sendUserMessage(client, CONVERSATION_ID, "boom");
         const failure = await collector.next((e) => e.type === "run_error");
-        expect(typeof failure.error).toBe("string");
+        expect(failure.error).toEqual(expect.any(String));
       },
       TEST_TIMEOUT_MS,
     );

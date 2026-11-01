@@ -19,10 +19,12 @@ function buildLock() {
   });
 }
 
-// Drives the real spawnSidecar with the process and filesystem stubbed: the
-// lock file is only claimed by the child we pretend to spawn, so no leftover
-// sidecar is found and a fresh spawn is forced. The process-wide owner is
-// dropped first so each test starts without a running sidecar.
+/**
+ * Drives the real spawnSidecar with the process and filesystem stubbed: the
+ * lock file is only claimed by the child we pretend to spawn, so no leftover
+ * sidecar is found and a fresh spawn is forced. The process-wide owner is
+ * dropped first so each test starts without a running sidecar.
+ */
 function loadLauncher(spawns) {
   delete globalThis[SIDECAR_OWNER_KEY];
   const filename = dist("lifecycle/spawn-sidecar.js");
@@ -46,6 +48,7 @@ function loadLauncher(spawns) {
     },
     "node:http": { get: () => ({ on() {}, destroy() {} }) },
     "node:path": path,
+    zod: require("zod"),
     "@antelopejs/interface-core/logging": {
       Logging: { Info() {}, Error() {} },
     },

@@ -42,8 +42,10 @@ function settingsFor(provider: ProviderName): AppSettings {
   return { ...DEFAULT_SETTINGS, provider };
 }
 
-// Availability is machine-dependent (installed packages, environment), so the
-// switching logic is driven by an explicit verdict here.
+/**
+ * Availability is machine-dependent (installed packages, environment), so the
+ * switching logic is driven by an explicit verdict here.
+ */
 const ALL_AVAILABLE = (): string | undefined => undefined;
 const CODEX_REASON = "no API key";
 const CODEX_UNAVAILABLE = (name: ProviderName): string | undefined =>
@@ -55,7 +57,6 @@ async function drain(runner: AgentRunner): Promise<void> {
     hostProjectRoot: "/tmp",
     getCurrentPage: () => ({ path: "unknown" }),
   })) {
-    // The fake runner yields nothing; iterating is what builds the backend.
   }
 }
 
@@ -92,8 +93,6 @@ describe("switching runner", () => {
     expect(trace.built).toEqual(["claude", "codex"]);
   });
 
-  // The switch itself does not wait for the backend it retires, but a shutdown
-  // must: that backend may still be stopping a process.
   it("waits, on dispose, for a backend a provider switch retired", async () => {
     const retired = defer();
     const trace: Trace = {
@@ -132,8 +131,6 @@ describe("switching runner", () => {
     expect(trace.applied).toEqual(["claude"]);
   });
 
-  // The selected provider is never swapped for another one: someone who picked
-  // OpenAI may have picked it so their code does not reach Anthropic.
   it("refuses the turn when the selected provider cannot run", async () => {
     const trace: Trace = { built: [], disposed: [], applied: [] };
     const runner = createSwitchingRunner(
@@ -166,8 +163,6 @@ describe("switching runner", () => {
     expect(trace.built).toEqual(["claude"]);
   });
 
-  // activate() throws before a backend exists, so a stop or a close arriving
-  // after a refused turn must not fail on a runner that was never built.
   it("stays quiet on interrupt and dispose when nothing was ever built", async () => {
     const trace: Trace = { built: [], disposed: [], applied: [] };
     const runner = createSwitchingRunner(

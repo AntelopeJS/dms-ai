@@ -8,6 +8,10 @@ import {
   restartSidecar,
 } from "../lifecycle/spawn-sidecar";
 import { requestSidecar } from "../sidecar";
+import type {
+  BannerContent,
+  KeyValueListItem,
+} from "@antelopejs/interface-dms/base";
 import type { AssistantStatus } from "../types";
 import { bannerAnswer } from "./banner";
 import { assistantUnavailable } from "./sidecar-results";
@@ -47,7 +51,14 @@ async function readStatus(): Promise<AssistantStatus> {
   }
 }
 
-function fresh(body: unknown): HTTPResult {
+/** What the status routes answer: the status, its rows, or its banner. */
+type StatusAnswer =
+  | AssistantStatus
+  | { items: KeyValueListItem[] }
+  | BannerContent
+  | HTTPResult;
+
+function fresh(body: StatusAnswer): HTTPResult {
   return HTTPResult.withHeaders(body, NO_STORE);
 }
 

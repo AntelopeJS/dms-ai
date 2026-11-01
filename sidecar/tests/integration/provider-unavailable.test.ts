@@ -36,7 +36,6 @@ describe("a selected provider that cannot run", () => {
   let harness: WsHarness | undefined;
   let client: WebSocket | undefined;
   beforeEach(async () => {
-    // Signed out: the host is remembered, its tokens are not.
     await writeAuthRecord({ hostId: signedInRecord().hostId });
     CLAUDE_FIXTURE.use("simple");
   });
@@ -69,7 +68,6 @@ describe("a selected provider that cannot run", () => {
       expect(failure.error).toContain(
         PROVIDER_UNAVAILABLE_REASONS.CODEX_NOT_SIGNED_IN,
       );
-      // Nothing was answered by the other backend.
       expect(collector.events.some((e) => e.type === "assistant_text")).toBe(
         false,
       );

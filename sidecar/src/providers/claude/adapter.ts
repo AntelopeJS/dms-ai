@@ -1,10 +1,10 @@
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type {
-  RunnerAssistantText,
+  SDKMessage,
+  SDKPartialAssistantMessage,
+} from "@anthropic-ai/claude-agent-sdk";
+import type {
   RunnerAssistantTextDelta,
   RunnerEvent,
-  RunnerToolResult,
-  RunnerToolUse,
 } from "../../agent/runner-events.js";
 import {
   CLAUDE_STREAM_EVENT_TYPES,
@@ -18,156 +18,63 @@ import {
 } from "./activity.js";
 import { resultEvents } from "./result.js";
 
-interface AssistantContentBlock {
-  type: string;
-  text?: string;
-  id?: string;
-  name?: string;
-  input?: unknown;
-}
-
-interface UserContentBlock {
-  type: string;
-  tool_use_id?: string;
-  content?: unknown;
-  is_error?: boolean;
-}
-
-interface StreamEventDelta {
-  type: string;
-  text?: string;
-}
-
-interface StreamEventBlock {
-  type: string;
-  delta?: StreamEventDelta;
-}
-
-function extractAssistantBlocks(message: SDKMessage): AssistantContentBlock[] {
-  if (message.type !== "assistant") return [];
-  const content = (message.message as { content?: unknown }).content;
-  if (!Array.isArray(content)) return [];
-  return content as AssistantContentBlock[];
-}
-
-function extractUserBlocks(message: SDKMessage): UserContentBlock[] {
-  if (message.type !== "user") return [];
-  const content = (message.message as { content?: unknown }).content;
-  if (!Array.isArray(content)) return [];
-  return content as UserContentBlock[];
-}
-
-function extractStreamEvent(message: SDKMessage): StreamEventBlock | null {
-  if (message.type !== "stream_event") return null;
-  const event = (message as { event?: unknown }).event;
-  if (!event || typeof event !== "object") return null;
-  return event as StreamEventBlock;
-}
-
-function buildAssistantText(block: AssistantContentBlock): RunnerAssistantText {
-  return { type: "assistant_text", text: block.text ?? "" };
-}
+type StreamEvent = SDKPartialAssistantMessage["event"];
 
 function buildAssistantTextDelta(text: string): RunnerAssistantTextDelta {
   return { type: "assistant_text_delta", text };
 }
 
-function buildToolUse(block: AssistantContentBlock): RunnerToolUse {
-  return {
-    type: "tool_use",
-    callId: block.id ?? "",
-    toolName: block.name ?? "",
-    args: block.input ?? null,
-  };
-}
-
-function buildToolResult(block: UserContentBlock): RunnerToolResult {
-  return {
-    type: "tool_result",
-    callId: block.tool_use_id ?? "",
-    result: block.content ?? null,
-    isError: block.is_error === true,
-  };
-}
-
-type AssistantBlockMapper = (
-  block: AssistantContentBlock,
-) => RunnerEvent | undefined;
-
-const ASSISTANT_BLOCK_MAPPERS: Record<string, AssistantBlockMapper> = {
-  text: buildAssistantText,
-  tool_use: buildToolUse,
-};
-
-type UserBlockMapper = (block: UserContentBlock) => RunnerEvent | undefined;
-
-const USER_BLOCK_MAPPERS: Record<string, UserBlockMapper> = {
-  tool_result: buildToolResult,
-};
-
 function* yieldAssistantEvents(
   message: SDKMessage,
 ): Generator<RunnerEvent, void> {
-  for (const block of extractAssistantBlocks(message)) {
-    const mapper = ASSISTANT_BLOCK_MAPPERS[block.type];
-    if (mapper === undefined) continue;
-    const event = mapper(block);
-    if (event !== undefined) yield event;
+  if (message.type !== "assistant") return;
+  const { content } = message.message;
+  if (!Array.isArray(content)) return;
+  for (const block of content) {
+    if (block.type === "text") {
+      yield { type: "assistant_text", text: block.text ?? "" };
+    } else if (block.type === "tool_use") {
+      yield {
+        type: "tool_use",
+        callId: block.id ?? "",
+        toolName: block.name ?? "",
+        args: block.input ?? null,
+      };
+    }
   }
 }
 
 function* yieldUserEvents(message: SDKMessage): Generator<RunnerEvent, void> {
-  for (const block of extractUserBlocks(message)) {
-    const mapper = USER_BLOCK_MAPPERS[block.type];
-    if (mapper === undefined) continue;
-    const event = mapper(block);
-    if (event !== undefined) yield event;
+  if (message.type !== "user") return;
+  const { content } = message.message;
+  if (!Array.isArray(content)) return;
+  for (const block of content) {
+    if (block.type !== "tool_result") continue;
+    yield {
+      type: "tool_result",
+      callId: block.tool_use_id ?? "",
+      result: block.content ?? null,
+      isError: block.is_error === true,
+    };
   }
 }
 
-function extractTextDelta(event: StreamEventBlock): string | null {
+function extractTextDelta(event: StreamEvent): string | null {
   if (event.type !== CLAUDE_STREAM_EVENT_TYPES.CONTENT_BLOCK_DELTA) return null;
-  const delta = event.delta;
-  if (delta === undefined || delta.type !== CLAUDE_TEXT_DELTA_TYPE) return null;
-  if (typeof delta.text !== "string" || delta.text.length === 0) return null;
+  const { delta } = event;
+  if (delta.type !== CLAUDE_TEXT_DELTA_TYPE) return null;
+  if (delta.text.length === 0) return null;
   return delta.text;
 }
 
 function* yieldStreamEvents(message: SDKMessage): Generator<RunnerEvent, void> {
-  const event = extractStreamEvent(message);
-  if (event === null) return;
-  const text = extractTextDelta(event);
+  if (message.type !== "stream_event") return;
+  const text = extractTextDelta(message.event);
   if (text !== null) {
     yield buildAssistantTextDelta(text);
     return;
   }
-  yield* streamActivity(event);
-}
-
-type MessageHandler = (message: SDKMessage) => Iterable<RunnerEvent>;
-
-const MESSAGE_HANDLERS: Record<string, MessageHandler> = {
-  assistant: yieldAssistantEvents,
-  user: yieldUserEvents,
-  stream_event: yieldStreamEvents,
-  system: systemActivity,
-  tool_progress: toolProgressActivity,
-  result: resultEvents,
-};
-
-interface SdkUsage {
-  input_tokens?: number;
-  output_tokens?: number;
-  cache_creation_input_tokens?: number;
-  cache_read_input_tokens?: number;
-}
-
-function sumInputTokens(usage: SdkUsage): number {
-  return (
-    (usage.input_tokens ?? 0) +
-    (usage.cache_creation_input_tokens ?? 0) +
-    (usage.cache_read_input_tokens ?? 0)
-  );
+  yield* streamActivity(message.event);
 }
 
 /**
@@ -177,10 +84,13 @@ function sumInputTokens(usage: SdkUsage): number {
  */
 export function extractTokenUsage(message: SDKMessage): TokenUsage | null {
   if (message.type !== "result") return null;
-  const usage = (message as { usage?: unknown }).usage;
-  if (usage === null || typeof usage !== "object") return null;
-  const inputTokens = sumInputTokens(usage as SdkUsage);
-  const outputTokens = (usage as SdkUsage).output_tokens ?? 0;
+  const { usage } = message;
+  if (!usage) return null;
+  const inputTokens =
+    (usage.input_tokens ?? 0) +
+    (usage.cache_creation_input_tokens ?? 0) +
+    (usage.cache_read_input_tokens ?? 0);
+  const outputTokens = usage.output_tokens ?? 0;
   return {
     inputTokens,
     outputTokens,
@@ -191,9 +101,26 @@ export function extractTokenUsage(message: SDKMessage): TokenUsage | null {
 export function* messageToEvents(
   message: SDKMessage,
 ): Generator<RunnerEvent, void> {
-  const handler = MESSAGE_HANDLERS[message.type];
-  if (handler === undefined) return;
-  for (const event of handler(message)) {
-    yield event;
+  switch (message.type) {
+    case "assistant":
+      yield* yieldAssistantEvents(message);
+      return;
+    case "user":
+      yield* yieldUserEvents(message);
+      return;
+    case "stream_event":
+      yield* yieldStreamEvents(message);
+      return;
+    case "system":
+      yield* systemActivity(message);
+      return;
+    case "tool_progress":
+      yield* toolProgressActivity(message);
+      return;
+    case "result":
+      yield* resultEvents(message);
+      return;
+    default:
+      return;
   }
 }

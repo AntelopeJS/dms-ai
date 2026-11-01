@@ -6,7 +6,7 @@ import {
   LIST_PAGES_TOOL_NAME,
 } from "../../constants/pages.js";
 import type { RegistryClient } from "../../pages/registry-client.js";
-import { defineTool } from "../define-tool.js";
+import { defineTool, type McpToolResult } from "../define-tool.js";
 
 export interface ListPagesDeps {
   registry: RegistryClient;
@@ -14,21 +14,21 @@ export interface ListPagesDeps {
 
 const INPUT_SCHEMA = { refresh: z.boolean().optional() } as const;
 
-function buildContent(text: string): {
-  content: Array<{ type: "text"; text: string }>;
-} {
+function buildContent(text: string): McpToolResult {
   return { content: [{ type: "text", text }] };
 }
 
+/**
+ * Builds the tool that lists registered pages. A page just created or edited
+ * only shows up once the backend has re-registered it; `refresh` drops the 30s
+ * sidecar cache so the agent can see it without waiting.
+ */
 export function buildListPagesTool(deps: ListPagesDeps) {
   return defineTool(
     LIST_PAGES_TOOL_NAME,
     LIST_PAGES_TOOL_DESCRIPTION,
     INPUT_SCHEMA,
     async ({ refresh }: { refresh?: boolean }) => {
-      // A page just created/edited only shows up once the backend has
-      // re-registered it; refresh drops the 30s sidecar cache so the agent can
-      // see it without waiting.
       if (refresh === true) deps.registry.invalidate();
       let entries: Awaited<ReturnType<RegistryClient["getRegistry"]>>;
       try {

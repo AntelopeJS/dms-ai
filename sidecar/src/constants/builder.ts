@@ -3,9 +3,11 @@ export const BUILDER_OP_PATH = "/ai/builder/op";
 export const BUILDER_FETCH_TIMEOUT_MS = 15_000;
 export const BUILDER_LOG_PREFIX = "[builder]";
 
-// The names of every Builder MCP tool (must match the `tool("…")` names in
-// mcp/tools/builder.ts). They are typecheck-gated, atomic, and non-destructive by
-// design (a failed op writes nothing), so they are auto-allowed without a prompt.
+/**
+ * The names of every Builder MCP tool (must match the `tool("…")` names in
+ * mcp/tools/builder.ts). They are typecheck-gated, atomic, and non-destructive by
+ * design (a failed op writes nothing), so they are auto-allowed without a prompt.
+ */
 export const BUILDER_TOOL_NAMES = [
   "BuilderCatalog",
   "BuilderListPages",
@@ -46,8 +48,10 @@ export const BUILDER_MAPPING_TOOL_NAME = "BuilderMapping";
 export const BUILDER_ANALYSIS_WAIT_MS = 60_000;
 export const BUILDER_ANALYSIS_POLL_MS = 1_000;
 
-// The catalog's sections listed one line per entry by default; the agent names
-// the entries whose full schema it needs.
+/**
+ * The catalog's sections listed one line per entry by default; the agent names
+ * the entries whose full schema it needs.
+ */
 export const BUILDER_CATALOG_SECTIONS = ["blocks", "dataTypes"] as const;
 export type BuilderCatalogSection = (typeof BUILDER_CATALOG_SECTIONS)[number];
 

@@ -38,7 +38,7 @@ function enumeration(group: string, vocabulary: Vocabulary) {
 }
 
 /** The hidden columns the tabs and the quick filters filter on. */
-const FILTER_COLUMNS: Record<string, TableViewSourceColumn> = {
+const FILTER_COLUMNS = {
   category: {
     name: columnName("category"),
     type: new DefaultDataTypes.SelectType({
@@ -63,10 +63,10 @@ const FILTER_COLUMNS: Record<string, TableViewSourceColumn> = {
     isVisible: false,
     order: 12,
   },
-};
+} satisfies Record<string, TableViewSourceColumn>;
 
 /** The audit log's columns, as the mockup draws them. */
-export const ACTIVITY_COLUMNS: Record<string, TableViewSourceColumn> = {
+export const ACTIVITY_COLUMNS = {
   timestamp: {
     name: columnName("time"),
     type: new DefaultDataTypes.DateType(),
@@ -117,4 +117,4 @@ export const ACTIVITY_COLUMNS: Record<string, TableViewSourceColumn> = {
     order: 6,
   },
   ...FILTER_COLUMNS,
-};
+} satisfies Record<string, TableViewSourceColumn>;

@@ -1,6 +1,7 @@
 import { access, readFile, realpath } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { z } from "zod";
 import { Logging } from "@antelopejs/interface-core/logging";
 import { GetModuleInfo, ListModules } from "@antelopejs/interface-core/modules";
 import {
@@ -13,22 +14,38 @@ export interface SkillSource {
   dir: string;
 }
 
-interface AntelopeJsManifest {
-  skills?: unknown;
-}
-
-interface PackageManifest {
-  name?: unknown;
-  antelopeJs?: AntelopeJsManifest;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-  optionalDependencies?: Record<string, string>;
-}
-
 type DependencyField =
   | "dependencies"
   | "devDependencies"
   | "optionalDependencies";
+
+const SkillDirSchema = z.string().min(1);
+const LocalPathSchema = z.string().min(1);
+
+/**
+ * What the collector reads of a `package.json`. Anything of another shape
+ * reads as absent: no name, no skills, no dependencies.
+ */
+const PackageManifestSchema = z
+  .object({
+    name: z.string().optional().catch(undefined),
+    antelopeJs: z
+      .object({ skills: z.array(z.unknown()).optional().catch(undefined) })
+      .optional()
+      .catch(undefined),
+    dependencies: z.record(z.string(), z.unknown()).optional().catch(undefined),
+    devDependencies: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .catch(undefined),
+    optionalDependencies: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .catch(undefined),
+  })
+  .catch({});
+
+type PackageManifest = z.infer<typeof PackageManifestSchema>;
 
 type DependencyScanMap = Map<string, Promise<SkillSource[]>>;
 
@@ -77,27 +94,24 @@ function toDependencyPluginName(name: string): string {
   return sanitizePluginName(name);
 }
 
-function readDeclaredSkillDirs(pkg: unknown): string[] {
-  if (pkg === null || typeof pkg !== "object") return [];
-  const ajs = (pkg as PackageManifest).antelopeJs;
-  const skills = ajs?.skills;
-  if (!Array.isArray(skills)) return [];
-  return skills.filter(
-    (s): s is string => typeof s === "string" && s.length > 0,
-  );
+function readDeclaredSkillDirs(pkg: PackageManifest): string[] {
+  return (pkg.antelopeJs?.skills ?? []).flatMap((entry) => {
+    const dir = SkillDirSchema.safeParse(entry);
+    return dir.success ? [dir.data] : [];
+  });
 }
 
-async function readPackageJson(dir: string): Promise<unknown> {
+async function readPackageJson(dir: string): Promise<PackageManifest | null> {
   try {
     const raw = await readFile(path.join(dir, PACKAGE_JSON_FILE), "utf8");
-    return JSON.parse(raw);
+    return PackageManifestSchema.parse(JSON.parse(raw));
   } catch {
     return null;
   }
 }
 
 function skillSourcesFromPackage(
-  pkg: unknown,
+  pkg: PackageManifest,
   baseDir: string,
   pluginName: string,
 ): SkillSource[] {
@@ -108,12 +122,10 @@ function skillSourcesFromPackage(
 }
 
 function listDependencyNames(
-  pkg: unknown,
+  pkg: PackageManifest,
   fields: DependencyField[],
 ): string[] {
-  if (pkg === null || typeof pkg !== "object") return [];
-  const manifest = pkg as PackageManifest;
-  return fields.flatMap((field) => Object.keys(manifest[field] ?? {}));
+  return fields.flatMap((field) => Object.keys(pkg[field] ?? {}));
 }
 
 async function toRealDir(dir: string): Promise<string> {
@@ -187,12 +199,10 @@ async function readDependencySkillSources(
     (await resolveDependencyDirViaWalk(dep, realFromDir));
   if (depDir === null) return null;
   const pkg = await readPackageJson(depDir);
-  const rawName = (pkg as PackageManifest | null)?.name;
-  const packageName = typeof rawName === "string" ? rawName : dep;
   return skillSourcesFromPackage(
-    pkg,
+    pkg ?? {},
     depDir,
-    toDependencyPluginName(packageName),
+    toDependencyPluginName(pkg?.name ?? dep),
   );
 }
 
@@ -234,27 +244,36 @@ async function readAllDependencySkillSources(
   return nested.flat();
 }
 
-/**
- * Collects a loaded module's own skill sources plus those of its
- * dependencies. The module pre-registers itself in the scan map so modules
- * that depend on it do not rescan it as a dependency.
- */
-async function readModuleSkillSources(
+interface LoadedModule {
+  localPath: string;
+  name: string;
+  pkg: PackageManifest;
+}
+
+async function readLoadedModule(
   id: string,
   localPath: string,
+): Promise<LoadedModule | null> {
+  const pkg = await readPackageJson(localPath);
+  return pkg === null ? null : { localPath, name: pkg.name ?? id, pkg };
+}
+
+/**
+ * Collects a loaded module's own skill sources plus those of its
+ * dependencies.
+ */
+async function readModuleSkillSources(
+  loaded: LoadedModule,
   scans: DependencyScanMap,
 ): Promise<SkillSource[]> {
-  const pkg = await readPackageJson(localPath);
-  if (pkg === null) return [];
-  const rawName = (pkg as PackageManifest).name;
-  const moduleName = typeof rawName === "string" ? rawName : id;
-  if (!scans.has(moduleName)) {
-    scans.set(moduleName, Promise.resolve([]));
-  }
-  const own = skillSourcesFromPackage(pkg, localPath, toPluginName(moduleName));
+  const own = skillSourcesFromPackage(
+    loaded.pkg,
+    loaded.localPath,
+    toPluginName(loaded.name),
+  );
   const fromDependencies = await readAllDependencySkillSources(
-    localPath,
-    listDependencyNames(pkg, MODULE_DEPENDENCY_FIELDS),
+    loaded.localPath,
+    listDependencyNames(loaded.pkg, MODULE_DEPENDENCY_FIELDS),
     scans,
   );
   return [...own, ...fromDependencies];
@@ -309,21 +328,22 @@ async function readLoadedModulesSkillSources(
   scans: DependencyScanMap,
 ): Promise<SkillSource[]> {
   const ids = await ListModules();
-  const infos = await Promise.all(
+  const read = await Promise.all(
     ids.map((id) =>
       GetModuleInfo(id)
-        .then((i) => ({ id, i }))
+        .then((info) => {
+          const localPath = LocalPathSchema.safeParse(info.localPath);
+          return localPath.success
+            ? readLoadedModule(id, localPath.data)
+            : null;
+        })
         .catch(() => null),
     ),
   );
+  const loaded = read.filter((entry) => entry !== null);
+  for (const entry of loaded) scans.set(entry.name, Promise.resolve([]));
   const nested = await Promise.all(
-    infos.map((entry) =>
-      entry &&
-      typeof entry.i?.localPath === "string" &&
-      entry.i.localPath.length > 0
-        ? readModuleSkillSources(entry.id, entry.i.localPath, scans)
-        : Promise.resolve([] as SkillSource[]),
-    ),
+    loaded.map((entry) => readModuleSkillSources(entry, scans)),
   );
   return nested.flat();
 }

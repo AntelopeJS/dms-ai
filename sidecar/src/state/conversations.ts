@@ -6,6 +6,7 @@ import {
   type StoredConversation,
   type StoredConversationSummary,
   type StoredMessage,
+  type StoredState,
   type TokenUsage,
 } from "./types.js";
 
@@ -74,9 +75,7 @@ function buildEmptyConversation(nowMs: number): StoredConversation {
   };
 }
 
-function snapshotState(state: CacheState): {
-  conversations: Record<string, StoredConversation>;
-} {
+function snapshotState(state: CacheState): StoredState {
   return { conversations: Object.fromEntries(state.cache) };
 }
 

@@ -19,6 +19,7 @@ import type {
   PermissionDecisionValue,
   PermissionRuleType,
 } from "../protocol/messages.js";
+import { ToolArgsSchema } from "./edit-targets.js";
 import { describeRequest } from "./permission-preview.js";
 import {
   createPermissionRuleStore,
@@ -31,7 +32,7 @@ export interface PermissionRequest {
   conversationId: string;
   toolName: string;
   args: unknown;
-  // The provider's id for the call, when it gives one.
+  /** The provider's id for the call, when it gives one. */
   callId?: string;
 }
 
@@ -41,7 +42,7 @@ export interface PermissionOutcome {
   allowedBy: AllowedBy;
   feedback?: string;
   keepData?: boolean;
-  // deny_all: the turn is to be stopped as well.
+  /** deny_all: the turn is to be stopped as well. */
   shouldInterrupt?: boolean;
 }
 
@@ -55,7 +56,7 @@ type PermissionSettlementKind =
 /** How the bus judges one conversation's requests right now. */
 export interface PermissionPolicy {
   hostProjectRoot: string;
-  // Full auto in force (and not capped by safe mode).
+  /** Full auto in force (and not capped by safe mode). */
   isFullAuto: boolean;
   timeoutMs: number;
   alwaysAskDependencies: boolean;
@@ -68,7 +69,7 @@ export interface PermissionDecisionRecord {
   callId?: string;
   toolName: string;
   outcome: PermissionOutcome;
-  // Set when the user was asked: the request and how it ended.
+  /** Set when the user was asked: the request and how it ended. */
   prompt?: PermissionPrompt;
 }
 
@@ -95,7 +96,7 @@ export interface BusOptions {
   onDecided?: (record: PermissionDecisionRecord) => void;
   onRulesChanged?: (conversationId: string, rules: ActiveRuleType[]) => void;
   onDenyAll?: (conversationId: string) => void;
-  // Overrides the policy's timeout (tests).
+  /** Overrides the policy's timeout (tests). */
   timeoutMs?: number;
   rules?: PermissionRuleStore;
 }
@@ -263,7 +264,7 @@ async function buildPending(
     callId: req.callId,
     toolName: req.toolName,
     args: req.args,
-    summary: buildToolSummary(req.toolName, req.args),
+    summary: buildToolSummary(req.toolName, ToolArgsSchema.parse(req.args)),
     ...description,
     createdAtMs,
     expiresAtMs: createdAtMs + timeoutMs,

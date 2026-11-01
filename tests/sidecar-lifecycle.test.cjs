@@ -10,6 +10,7 @@ const {
   FAKE_SIDECAR_PATH,
   loadLauncherGeneration,
 } = require("./helpers/sidecar-launcher.cjs");
+const { isZombie, readLockFile } = require("./helpers/process-state.cjs");
 
 const SIDECAR_OWNER_KEY = Symbol.for("@antelopejs/dms-ai/sidecar-owner");
 const BACKEND_PATH = path.resolve(__dirname, "helpers/sidecar-backend.cjs");
@@ -17,29 +18,15 @@ const INITIAL_BUILD_ID = build.id;
 const REBUILT_BUILD_ID = "build-2";
 const WAIT_TIMEOUT_MS = 10_000;
 const WAIT_STEP_MS = 50;
-const ZOMBIE_STATE = "Z";
 
-// The sidecar works in the backend's working directory, where it keeps its lock.
+/** The sidecar works in the backend's working directory, where it keeps its lock. */
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "dms-ai-sidecar-"));
 process.chdir(root);
 const lockPath = path.join(root, "node_modules/.cache/dms-ai/sidecar.lock");
 const startedPids = new Set();
 
 function readLock() {
-  try {
-    return JSON.parse(fs.readFileSync(lockPath, "utf8"));
-  } catch {
-    return null;
-  }
-}
-
-function isZombie(pid) {
-  try {
-    const stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
-    return stat.slice(stat.lastIndexOf(")") + 2).startsWith(ZOMBIE_STATE);
-  } catch {
-    return false;
-  }
+  return readLockFile(lockPath);
 }
 
 function isRunning(pid) {
@@ -78,8 +65,10 @@ async function startSidecar() {
   return { launcher, lock };
 }
 
-// A sidecar a previous run left behind, of the same build: not a child of the
-// launcher's owner, with its lock in place.
+/**
+ * A sidecar a previous run left behind, of the same build: not a child of the
+ * launcher's owner, with its lock in place.
+ */
 async function startLeftover(env = {}) {
   const args = [FAKE_SIDECAR_PATH, "--build-id", build.id];
   const leftover = spawn(process.execPath, args, {
@@ -103,8 +92,6 @@ function signal(pids, name) {
   }
 }
 
-// SIGTERM first: a sidecar killed outright counts as a crash, and its owner
-// would start another one.
 afterEach(async () => {
   const pids = [...startedPids];
   startedPids.clear();
@@ -170,8 +157,6 @@ void test("a leftover sidecar that ignores SIGTERM is killed", async () => {
   await waitFor(() => !isRunning(leftoverPid), "the leftover to be killed");
 });
 
-// The backend gets its own process group, like the job a terminal runs in the
-// foreground: Ctrl+C signals the whole group.
 void test("stopping the backend with Ctrl+C stops its sidecar", async () => {
   const backend = spawn(process.execPath, [BACKEND_PATH], {
     cwd: root,

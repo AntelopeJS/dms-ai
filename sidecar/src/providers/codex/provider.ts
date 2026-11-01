@@ -1,4 +1,5 @@
 import os from "node:os";
+import { z } from "zod";
 import type {
   AgentProvider,
   AgentProviderOptions,
@@ -6,6 +7,7 @@ import type {
   ProviderSessionContext,
   TurnInput,
 } from "../../agent/provider.js";
+import { ToolArgsSchema } from "../../agent/edit-targets.js";
 import type { RunnerEvent } from "../../agent/runner-events.js";
 import { createAgentSession } from "../../agent/session.js";
 import { TURN_IDLE_TIMEOUT_MS } from "../../constants/agent.js";
@@ -59,6 +61,7 @@ import {
 import { createRunnerEventStream } from "./event-stream.js";
 import { createCodexPermissionHandler } from "./permissions.js";
 import { type CodexProcess, spawnCodexProcess } from "./process.js";
+import type { StopGraces } from "./stop.js";
 import type { v2 } from "./protocol/index.js";
 import {
   describeVersionMismatch,
@@ -77,6 +80,8 @@ interface CodexRuntimeDeps {
   stateDir: string;
   mcpHttpRegistry: McpHttpRegistry;
   getMcpUrl: () => string;
+  /** How long each stop step waits for an app-server to exit. */
+  stopGraces?: StopGraces;
 }
 
 export interface CodexProviderOptions
@@ -87,6 +92,18 @@ export interface CodexProviderOptions
 interface LiveSettings {
   settings: AppSettings;
 }
+
+const turnStartedSchema = z.object({ turn: z.object({ id: z.string() }) });
+
+const tokenUsageUpdatedSchema = z.object({
+  tokenUsage: z.object({
+    last: z.object({
+      inputTokens: z.number(),
+      outputTokens: z.number(),
+      totalTokens: z.number(),
+    }),
+  }),
+});
 
 interface CodexBackend {
   process: CodexProcess;
@@ -100,12 +117,18 @@ interface CodexBackend {
   resumeApprovals: () => void;
 }
 
-// Bounded because they run before the session — and its idle timeout — exists.
+interface BackendRef {
+  current: CodexBackend | null;
+}
+
+/**
+ * Bounded because they run before the session — and its idle timeout — exists.
+ */
 const HANDSHAKE: CodexRequestOptions = {
   timeoutMs: CODEX_HANDSHAKE_TIMEOUT_MS,
 };
 
-function clientInfo(): Record<string, unknown> {
+function clientInfo() {
   return {
     clientInfo: {
       name: CODEX_CLIENT_NAME,
@@ -135,9 +158,11 @@ function warnIfSafeModeSkillMissing(isIndexed: boolean): void {
   console.warn(`${CODEX_LOG_PREFIX} ${SAFE_MODE_SKILL_MISSING_WARNING}`);
 }
 
-// Two passes, as the protocol requires: extra roots go in, the resulting index
-// is read back, and everything that is not ours is switched off before the
-// first turn. Resolves with whether the safe-mode skill made the index.
+/**
+ * Two passes, as the protocol requires: extra roots go in, the resulting index
+ * is read back, and everything that is not ours is switched off before the
+ * first turn. Resolves with whether the safe-mode skill made the index.
+ */
 async function configureSkills(
   process: CodexProcess,
   options: CodexProviderOptions,
@@ -170,6 +195,10 @@ async function configureSkills(
   return isIndexed;
 }
 
+/**
+ * Starts the conversation's thread. It is ephemeral: nothing of this
+ * conversation is meant to outlive it on disk.
+ */
 async function startThread(
   process: CodexProcess,
   ctx: ProviderSessionContext,
@@ -182,7 +211,6 @@ async function startThread(
       sandbox: policy.sandbox,
       approvalPolicy: policy.approvalPolicy,
       developerInstructions: buildDeveloperInstructions(ctx.settings),
-      // Nothing of this conversation is meant to outlive it on disk.
       ephemeral: true,
     },
     HANDSHAKE,
@@ -190,8 +218,10 @@ async function startThread(
   return started.thread.id;
 }
 
-// Appended rather than prepended: the host-context block opens every turn, and
-// the reminder is about what the agent just tried, so it reads last.
+/**
+ * Appended rather than prepended: the host-context block opens every turn, and
+ * the reminder is about what the agent just tried, so it reads last.
+ */
 function withDenialReminder(backend: CodexBackend, text: string): string {
   const reminder = buildDenialReminder(
     backend.live.settings,
@@ -206,14 +236,16 @@ function assertSafeModeSkillAvailable(backend: CodexBackend): void {
   throw new Error(SAFE_MODE_SKILL_MISSING_MESSAGE);
 }
 
+/**
+ * Sends one turn. Approvals are resumed first: an interrupted turn left the
+ * approval handler refusing everything, and a new turn is a new mandate.
+ */
 async function submitTurn(
   backend: CodexBackend,
   options: CodexProviderOptions,
   input: TurnInput,
 ): Promise<void> {
   assertSafeModeSkillAvailable(backend);
-  // An interrupted turn left the approval handler refusing everything; a new
-  // turn is a new mandate.
   backend.resumeApprovals();
   const overrides = buildTurnOverrides(backend.live.settings, {
     hostProjectRoot: backend.hostProjectRoot,
@@ -234,49 +266,61 @@ async function submitTurn(
   });
 }
 
+/**
+ * Interrupts the running turn. It is a request, not a notification: sent as a
+ * notification it is dropped and the turn runs to completion. The server also
+ * rejects a call without turnId, so the id of the running turn is tracked from
+ * turn/started. The request may fail because the turn finished on its own
+ * between the stop and this call, which is ignored.
+ */
 function interruptTurn(backend: CodexBackend): void {
-  // A request, not a notification: sent as a notification it is dropped and the
-  // turn runs to completion. It also rejects a call without turnId, so the id
-  // of the running turn is tracked from turn/started.
   if (backend.turnId === null) return;
   void backend.process.client
     .request(CODEX_TURN_INTERRUPT_METHOD, {
       threadId: backend.threadId,
       turnId: backend.turnId,
     })
-    .catch(() => {
-      // The turn may have finished on its own between the stop and this call.
-    });
+    .catch(() => {});
 }
 
 function trackTurnId(
-  backendRef: { current: CodexBackend | null },
+  backendRef: BackendRef,
   notification: CodexNotification,
 ): void {
   if (notification.method !== CODEX_TURN_STARTED_NOTIFICATION) return;
-  const params = notification.params as v2.TurnStartedNotification;
+  const params = turnStartedSchema.safeParse(notification.params);
+  if (!params.success) return;
   if (backendRef.current === null) return;
-  backendRef.current.turnId = params.turn.id;
+  backendRef.current.turnId = params.data.turn.id;
 }
 
-// MCP calls are announced as they start, so a gated Builder handler can name
-// the call it belongs to (see CallLedger).
+/**
+ * MCP calls are announced as they start, so a gated Builder handler can name
+ * the call it belongs to (see CallLedger).
+ */
 function announceToolCall(ctx: ProviderSessionContext, event: RunnerEvent) {
   if (event.type !== "tool_use") return;
   if (!event.toolName.startsWith(MCP_TOOL_NAME_PREFIX)) return;
-  ctx.onToolAnnounced?.(event.callId, event.toolName, event.args);
+  ctx.onToolAnnounced?.(
+    event.callId,
+    event.toolName,
+    ToolArgsSchema.parse(event.args),
+  );
 }
 
-// `last` rather than `total`: the connection layer accumulates, and the thread
-// total would be counted again on every notification.
+/**
+ * `last` rather than `total`: the connection layer accumulates, and the thread
+ * total would be counted again on every notification.
+ */
 function reportTokenUsage(
   ctx: ProviderSessionContext,
   notification: CodexNotification,
 ): void {
   if (notification.method !== CODEX_TOKEN_USAGE_NOTIFICATION) return;
   if (ctx.onTokenUsage === undefined) return;
-  const params = notification.params as v2.ThreadTokenUsageUpdatedNotification;
-  const last = params.tokenUsage.last;
+  const params = tokenUsageUpdatedSchema.safeParse(notification.params);
+  if (!params.success) return;
+  const last = params.data.tokenUsage.last;
   ctx.onTokenUsage({
     inputTokens: last.inputTokens,
     outputTokens: last.outputTokens,
@@ -284,8 +328,10 @@ function reportTokenUsage(
   });
 }
 
-// Same idle window as the Claude path, and the same meaning: the turn is cut
-// only after this long with no event at all, never as a cap on its duration.
+/**
+ * Same idle window as the Claude path, and the same meaning: the turn is cut
+ * only after this long with no event at all, never as a cap on its duration.
+ */
 function resolveTimeoutMs(options: CodexProviderOptions): number {
   return options.timeoutMs ?? TURN_IDLE_TIMEOUT_MS;
 }
@@ -335,7 +381,8 @@ async function handshake(
 /**
  * Registers the conversation's MCP binding, spawns its app-server and opens its
  * thread. Whatever was acquired is released before a failure is rethrown: the
- * app-server, its home, its pid record and the MCP binding.
+ * app-server, its home, its pid record and the MCP binding. The access token
+ * URL is served by the same loopback server as the MCP endpoint.
  */
 async function openCodexProcess(
   options: CodexProviderOptions,
@@ -358,12 +405,12 @@ async function openCodexProcess(
       mcpUrl: options.getMcpUrl(),
       mcpToken,
       hostProjectRoot: ctx.hostProjectRoot,
-      // Same loopback server as the MCP endpoint.
       accessTokenUrl: new URL(
         CHATGPT_ACCESS_TOKEN_PATH,
         options.getMcpUrl(),
       ).toString(),
       handlers,
+      stopGraces: options.stopGraces,
     });
     const outcome = await handshake(codexProcess, options, ctx);
     return { codexProcess, ...outcome };
@@ -376,6 +423,13 @@ async function openCodexProcess(
   }
 }
 
+/**
+ * Opens the process and builds the session around it. Nothing else listens to
+ * the abort signal on the Codex path: the app-server keeps streaming
+ * regardless, so failing the event stream is what turns an abort (the idle
+ * timeout, or the fallback behind an ignored interrupt) into a terminal error
+ * instead of a turn that never ends.
+ */
 async function createProviderSession(
   options: CodexProviderOptions,
   ctx: ProviderSessionContext,
@@ -383,7 +437,7 @@ async function createProviderSession(
 ): Promise<ProviderSession> {
   const stream = createRunnerEventStream();
   const adapter = createCodexAdapter();
-  const backendRef: { current: CodexBackend | null } = { current: null };
+  const backendRef: BackendRef = { current: null };
   const permissions = createCodexPermissionHandler({
     conversationId: ctx.conversationId,
     permissionBus: ctx.permissionBus,
@@ -421,10 +475,6 @@ async function createProviderSession(
   backendRef.current = backend;
 
   const abortController = new AbortController();
-  // Nothing else listens to this signal on the Codex path: the app-server keeps
-  // streaming regardless. Failing the event stream is what turns an abort — the
-  // idle timeout, or the fallback behind an ignored interrupt — into a terminal
-  // error instead of a turn that never ends.
   abortController.signal.addEventListener("abort", () => {
     stream.fail(new Error(CODEX_TURN_ABORTED_MESSAGE));
   });
@@ -463,7 +513,9 @@ async function createProviderSession(
   return providerSession;
 }
 
-// Oldest-first eviction: each live conversation holds its own app-server process.
+/**
+ * Oldest-first eviction: each live conversation holds its own app-server process.
+ */
 function evictOverflow(live: Map<string, ProviderSession>): void {
   while (live.size >= CODEX_MAX_LIVE_SESSIONS) {
     const oldest = live.keys().next();

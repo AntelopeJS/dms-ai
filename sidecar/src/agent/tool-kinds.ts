@@ -59,7 +59,7 @@ interface KindMatcher {
   matches: (toolName: string) => boolean;
 }
 
-// First match wins: destructive Builder ops before the other Builder ones.
+/** First match wins: destructive Builder ops before the other Builder ones. */
 const KIND_MATCHERS: readonly KindMatcher[] = [
   { kind: "edit", matches: isEditTool },
   { kind: "command", matches: isCommandTool },

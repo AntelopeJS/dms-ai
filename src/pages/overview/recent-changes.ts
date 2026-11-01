@@ -26,7 +26,7 @@ function text(...segments: string[]): string {
   return i18nKey(SECTION, ...segments);
 }
 
-const COLUMNS: Record<string, TableViewSourceColumn> = {
+const COLUMNS = {
   number: {
     name: text("columns", "number"),
     type: new DefaultDataTypes.NumberType(),
@@ -79,7 +79,7 @@ const COLUMNS: Record<string, TableViewSourceColumn> = {
     size: PILL_COLUMN_SIZE,
     order: 6,
   },
-};
+} satisfies Record<string, TableViewSourceColumn>;
 
 const ROW_ACTIONS: CustomRowAction[] = [
   {
@@ -124,7 +124,6 @@ export function recentChangeSets(rows: number): ComponentBuilder {
   const path = "overview.recent_changes";
   return TableView.fromSource({
     caption: blockText(path, "title"),
-    // A short list of the latest sets: the route answers them as one page.
     fetchUrl: PAGE_ROUTES.RECENT_CHANGES,
     capabilities: { paginate: true, filter: true },
     columns: COLUMNS,

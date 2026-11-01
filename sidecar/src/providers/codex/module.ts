@@ -24,12 +24,19 @@ import {
   resolveCodexInstallation,
 } from "./resolve-binary.js";
 
-// The binary is spawned to read its version, so the verdict is computed once per
-// process: neither the installed extension nor the binary changes under a
-// running sidecar. The mock binary does change between tests, so it is resolved
-// every time instead.
+/**
+ * The binary is spawned to read its version, so the verdict is computed once per
+ * process: neither the installed extension nor the binary changes under a
+ * running sidecar. The mock binary does change between tests, so it is resolved
+ * every time instead.
+ */
 let installVerdict: ProviderAvailability | null = null;
 
+/**
+ * Resolves the installation and checks its version. A waived version gate is
+ * logged rather than silent: the drift is real, and the log is the only place
+ * it is still said out loud.
+ */
 function computeInstallVerdict(): ProviderAvailability {
   const installation = resolveCodexInstallation();
   if (installation === undefined) {
@@ -38,8 +45,6 @@ function computeInstallVerdict(): ProviderAvailability {
   if (!isCodexInstallationUsable(installation)) {
     return unavailable(describeVersionMismatch(installation));
   }
-  // Waived rather than matching: the drift is real, and the log is the only
-  // place it is still said out loud.
   if (isVersionGateWaived()) {
     console.warn(
       `${CODEX_LOG_PREFIX} ${describeVersionMismatch(installation)}`,
@@ -58,19 +63,24 @@ function readInstallVerdict(): ProviderAvailability {
   return installVerdict;
 }
 
+/**
+ * The install verdict, then the account status. The account status is read
+ * every time: signing in or out happens while the sidecar runs, in this sidecar
+ * or in another project's.
+ */
 function checkAvailability(): ProviderAvailability {
   const installed = readInstallVerdict();
   if (!installed.available) return installed;
-  // Read every time: signing in or out happens while the sidecar runs, in this
-  // sidecar or in another project's.
   if (!readAccountStatus().isSignedIn) {
     return unavailable(PROVIDER_UNAVAILABLE_REASONS.CODEX_NOT_SIGNED_IN);
   }
   return AVAILABLE;
 }
 
-// Codex used to run on OPENAI_API_KEY. A key still set would otherwise suggest
-// it is being billed; said once per sidecar start, in the log only.
+/**
+ * Codex used to run on OPENAI_API_KEY. A key still set would otherwise suggest
+ * it is being billed; said once per sidecar start, in the log only.
+ */
 function warnIfApiKeySet(): void {
   if (process.env[OPENAI_API_KEY_ENV_VAR] === undefined) return;
   console.warn(`${CODEX_LOG_PREFIX} ${OPENAI_API_KEY_IGNORED_WARNING}`);
@@ -87,8 +97,10 @@ export const codexModule: ProviderModule = {
       createMcpDeps: runtime.createMcpDeps,
     }),
   checkAvailability,
-  // Each orphan is a Rust process still holding a model connection and writing
-  // to disk, so they are not harmless.
+  /**
+   * Each orphan is a Rust process still holding a model connection and writing
+   * to disk, so they are not harmless.
+   */
   reapOrphans: async (stateDir) => {
     warnIfApiKeySet();
     await reapOrphanCodexProcesses(stateDir);

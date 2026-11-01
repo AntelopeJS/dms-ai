@@ -28,9 +28,6 @@ function installation() {
   return resolved;
 }
 
-// Codex versions its app-server protocol by binary and ships about ten releases
-// a month, so a binary that does not match the generated types is refused at
-// spawn rather than left to break in production.
 describe("codex binary version gate", () => {
   afterEach(() => {
     delete process.env[MOCK_CODEX_VERSION_ENV];
@@ -54,8 +51,6 @@ describe("codex binary version gate", () => {
     expect(isCodexInstallationUsable(installation())).toBe(false);
   });
 
-  // The mismatch is the expected state after any Codex upgrade, so the reason
-  // has to say which version is installed and which one to pin back to.
   it("names both versions in the reason the provider is unavailable", () => {
     CODEX_FIXTURE.use("plain");
     process.env[MOCK_CODEX_VERSION_ENV] = DRIFTED_VERSION;

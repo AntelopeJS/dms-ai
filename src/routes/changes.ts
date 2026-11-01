@@ -2,16 +2,23 @@ import {
   Context,
   Controller,
   Get,
+  HTTPResult,
   JSONBody,
   Parameter,
   Post,
   type RequestContext,
 } from "@antelopejs/interface-api";
 import { AuthOwnerOnly, AuthRawUser } from "@antelopejs/interface-dms/auth";
+import type { ConfirmDialogSerialized } from "@antelopejs/interface-dms/base";
 import type { User } from "@antelopejs/interface-dms/auth/db";
 import { ROUTE_PREFIX } from "../constants/module";
 import { RECENT_CHANGE_SETS } from "../constants/pages";
-import { buildQuery, pathSegment, type QueryParams } from "../sidecar";
+import {
+  buildQuery,
+  type JsonBody,
+  pathSegment,
+  type QueryParams,
+} from "../sidecar";
 import type {
   ChangeSetSummary,
   ChangeSetTableRow,
@@ -86,13 +93,17 @@ function tablePage(
 @AuthOwnerOnly()
 export class AIChangesController extends Controller(ROUTE_PREFIX) {
   @Get(CHANGES_PATH)
-  list(@Context() ctx: RequestContext): Promise<unknown> {
+  list(
+    @Context() ctx: RequestContext,
+  ): Promise<SidecarList<ChangeSetTableRow> | HTTPResult> {
     const query = buildQuery(changesParams(ctx.url.searchParams));
     return relay(`${CHANGES_PATH}${query}`, tablePage);
   }
 
   @Get("/recent-changes")
-  recent(@Context() ctx: RequestContext): Promise<unknown> {
+  recent(
+    @Context() ctx: RequestContext,
+  ): Promise<SidecarList<ChangeSetTableRow> | HTTPResult> {
     const params: QueryParams = {
       ...changesParams(ctx.url.searchParams),
       offset: undefined,
@@ -102,17 +113,23 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
   }
 
   @Get(`${CHANGES_PATH}/:id`)
-  detail(@Parameter("id", "param") id: string): Promise<unknown> {
+  detail(
+    @Parameter("id", "param") id: string,
+  ): Promise<JsonBody | HTTPResult | undefined> {
     return relay(changeSetPath(id), asIs);
   }
 
   @Get(`${CHANGES_PATH}/:id/undo-preview`)
-  undoPreview(@Parameter("id", "param") id: string): Promise<unknown> {
+  undoPreview(
+    @Parameter("id", "param") id: string,
+  ): Promise<JsonBody | HTTPResult | undefined> {
     return relay(changeSetPath(id, "undo-preview"), asIs);
   }
 
   @Get(`${CHANGES_PATH}/:id/undo-confirm`)
-  undoConfirm(@Parameter("id", "param") id: string): Promise<unknown> {
+  undoConfirm(
+    @Parameter("id", "param") id: string,
+  ): Promise<ConfirmDialogSerialized | HTTPResult> {
     return relay(changeSetPath(id, "undo-preview"), undoConfirmDialog);
   }
 
@@ -121,7 +138,7 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
     @Parameter("id", "param") id: string,
     @AuthRawUser() user: User,
     @JSONBody() body?: UndoBody,
-  ): Promise<unknown> {
+  ): Promise<JsonBody | HTTPResult | undefined> {
     return relay(changeSetPath(id, "undo"), asIs, {
       method: "POST",
       body: {
@@ -135,7 +152,7 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
   redo(
     @Parameter("id", "param") id: string,
     @AuthRawUser() user: User,
-  ): Promise<unknown> {
+  ): Promise<JsonBody | HTTPResult | undefined> {
     return relay(changeSetPath(id, "redo"), asIs, {
       method: "POST",
       body: { actor: actorName(user) },

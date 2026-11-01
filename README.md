@@ -4,10 +4,10 @@
 
 <a href="https://www.npmjs.com/package/@antelopejs/dms-ai"><img alt="npm" src="https://img.shields.io/npm/v/@antelopejs/dms-ai?style=for-the-badge&labelColor=000000&color=000000"></a>
 <a href="./LICENSE"><img alt="License" src="https://img.shields.io/npm/l/@antelopejs/dms-ai?style=for-the-badge&labelColor=000000&color=000000"></a>
-<a href="https://discord.gg/sjK28QHrA7"><img alt="Discord" src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000"></a>
+<a href="https://discord.gg/g4pFt6eXqu"><img alt="Discord" src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000"></a>
 <a href="https://dms.antelopejs.com/docs/modules/ai"><img alt="Documentation" src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000"></a>
 
-An AI development assistant inside the AntelopeJS DMS dashboard.
+An AI development assistant inside the [AntelopeJS DMS](https://github.com/AntelopeJS/dms) dashboard.
 
 </div>
 
@@ -50,11 +50,23 @@ Claude Code runs with its own credentials (its login, or `ANTHROPIC_API_KEY` in 
 
 ## Compatibility
 
+<!-- antelopejs-docs-compat:start -->
+
+| Package                                  | Supported         | Tested with |
+| ---------------------------------------- | ----------------- | ----------- |
+| `@antelopejs/interface-api`              | `>=0.0.15 <1.0.0` | `0.0.15`    |
+| `@antelopejs/interface-core`             | `>=0.2.4 <1.0.0`  | `0.2.4`     |
+| `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`  | `0.0.2`     |
+| `@antelopejs/interface-dms`              | `>=0.9.0 <1.0.0`  | `0.9.0`     |
+| `@antelopejs/interface-dms-builder`      | `>=0.2.3 <1.0.0`  | `0.2.3`     |
+
+<!-- antelopejs-docs-compat:end -->
+
 | Package | Version |
 | --- | --- |
 | `@antelopejs/dms` | `>=0.11.0 <1.0.0` |
 | `@antelopejs/interface-dms` | `>=0.9.0 <1.0.0` |
-| `@antelopejs/dms-frontend` (renderer) | `>=0.9.0 <0.10.0` |
+| `@antelopejs/dms-frontend` (renderer) | `>=0.9.1 <0.10.0` |
 | `@antelopejs/dms-builder` (optional, Safe mode) | `>=0.4.0` |
 
 On DMS 0.8, use `@antelopejs/dms-ai` 0.2.

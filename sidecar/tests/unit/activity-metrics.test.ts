@@ -19,7 +19,7 @@ const WINDOW = { fromMs: NOW - 7 * DAY_MS, toMs: NOW + DAY_MS };
 function call(
   callId: string,
   toolName: string,
-  args: unknown,
+  args: Record<string, string>,
   result: Partial<StoredMessage>,
   at = NOW,
 ): StoredMessage[] {
@@ -198,7 +198,7 @@ describe("activity log", () => {
 describe("changed category", () => {
   function categoryOf(
     toolName: string,
-    args: unknown,
+    args: Record<string, string>,
     result: Partial<StoredMessage>,
   ) {
     const entry: ConversationEntry = {
@@ -308,7 +308,7 @@ describe("metrics", () => {
       date.setUTCFullYear(date.getUTCFullYear() - 1);
       return date.getTime();
     };
-    // The same actions a year earlier: the previous period holds none.
+    /** The same actions a year earlier: the previous period holds none. */
     const twoYears = {
       ...sources,
       records: [
@@ -359,7 +359,6 @@ describe("metrics", () => {
       for (const row of [...allowed, ...tools].filter((r) => r.value > 0)) {
         expect(row.delta).toBe(0);
       }
-      // Grown from nothing over the previous period: no trend to state.
       for (const row of buildTopTools(twoYears, previousPeriod, 10).items) {
         expect(row).not.toHaveProperty("delta");
       }

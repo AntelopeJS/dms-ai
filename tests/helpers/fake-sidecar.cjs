@@ -1,10 +1,12 @@
-// Stands in for the sidecar's entry point: it answers /health, claims the lock
-// file in its working directory and, like the real one, removes it and exits
-// gracefully on a shutdown signal.
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 
+/**
+ * The lock file this stand-in for the sidecar's entry point claims in its
+ * working directory. Like the real sidecar it answers /health, removes the lock
+ * and exits gracefully on a shutdown signal.
+ */
 const LOCK_PATH = path.join(
   process.cwd(),
   "node_modules",

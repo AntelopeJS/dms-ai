@@ -2,6 +2,7 @@ import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 import {
   CODEX_APP_SERVER_COMMAND,
   CODEX_BINARY_NAME,
@@ -24,6 +25,7 @@ import {
   CODEX_SURVIVED_STOP_MESSAGE,
   PROCESS_QUERY_BY_PLATFORM,
 } from "../../constants/codex.js";
+import { PLATFORM_LINUX } from "../../constants/native-binary.js";
 import { safeDirSegment } from "../../state/safe-segment.js";
 import type { CodexClient, CodexClientHandlers } from "./client.js";
 import { createCodexClient } from "./client.js";
@@ -37,6 +39,7 @@ import type { CodexInstallation } from "./resolve-binary.js";
 import {
   isWindowsHost,
   runStopSteps,
+  type StopGraces,
   type StoppedWithin,
   sweepProcessTree,
 } from "./stop.js";
@@ -51,6 +54,8 @@ export interface CodexProcessOptions {
   /** The sidecar route the app-server's auth command reads its token from. */
   accessTokenUrl: string;
   handlers: CodexClientHandlers;
+  /** How long each stop step waits for the app-server to exit. */
+  stopGraces?: StopGraces;
 }
 
 export interface CodexProcess {
@@ -87,23 +92,19 @@ interface PidRecord {
   home: string;
 }
 
-function toPidRecord(entry: unknown): PidRecord | undefined {
-  if (entry === null || typeof entry !== "object") return undefined;
-  const { pid, home } = entry as Partial<PidRecord>;
-  if (pid === undefined || !Number.isInteger(pid)) return undefined;
-  return typeof home === "string" ? { pid, home } : undefined;
-}
+const pidRecordSchema = z.object({ pid: z.number().int(), home: z.string() });
 
-function isPidRecord(record: PidRecord | undefined): record is PidRecord {
-  return record !== undefined;
-}
+const pidRegistrySchema = z.array(z.unknown());
 
 async function readPidRegistry(stateDir: string): Promise<PidRecord[]> {
   try {
     const raw = await readFile(pidRegistryPath(stateDir), "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(toPidRecord).filter(isPidRecord);
+    const entries = pidRegistrySchema.safeParse(JSON.parse(raw));
+    if (!entries.success) return [];
+    return entries.data.flatMap((entry) => {
+      const record = pidRecordSchema.safeParse(entry);
+      return record.success ? [record.data] : [];
+    });
   } catch {
     return [];
   }
@@ -134,19 +135,17 @@ function queryProcessTable(pid: number): string | undefined {
   );
 }
 
-// procfs where there is one, the platform's own process table elsewhere. Linux
-// is not the only host: a macOS or Windows sidecar that cannot read a command
-// line would never recognize an orphan, and would therefore never reap one.
-const COMMAND_READERS: Record<string, (pid: number) => string | undefined> = {
-  linux: readProcCmdline,
-};
-
 /**
  * The command line of a running process, or undefined when it is gone or
- * unreadable. Never throws: an unreadable process is treated as absent.
+ * unreadable. Never throws: an unreadable process is treated as absent. Reads
+ * procfs where there is one, the platform's own process table elsewhere: Linux
+ * is not the only host, and a macOS or Windows sidecar that cannot read a
+ * command line would never recognize an orphan, and would therefore never reap
+ * one.
  */
 export function readProcessCommand(pid: number): string | undefined {
-  const read = COMMAND_READERS[process.platform] ?? queryProcessTable;
+  const read =
+    process.platform === PLATFORM_LINUX ? readProcCmdline : queryProcessTable;
   try {
     const command = read(pid)?.trim();
     return command === undefined || command.length === 0 ? undefined : command;
@@ -155,9 +154,11 @@ export function readProcessCommand(pid: number): string | undefined {
   }
 }
 
-// A recorded pid may have been recycled by an unrelated process, so the command
-// line is checked before signalling anything. Windows reports the image name
-// (`codex.exe`), which carries the binary name just the same.
+/**
+ * A recorded pid may have been recycled by an unrelated process, so the command
+ * line is checked before signalling anything. Windows reports the image name
+ * (`codex.exe`), which carries the binary name just the same.
+ */
 export function isCodexProcess(pid: number): boolean {
   return readProcessCommand(pid)?.includes(CODEX_BINARY_NAME) === true;
 }
@@ -196,9 +197,13 @@ function exitsWithin(child: ChildProcess, waitMs: number): Promise<boolean> {
   });
 }
 
-async function stopChild(child: ChildProcess, pid: number): Promise<boolean> {
+async function stopChild(
+  child: ChildProcess,
+  pid: number,
+  graces: StopGraces | undefined,
+): Promise<boolean> {
   if (hasExited(child)) return true;
-  return runStopSteps(pid, (waitMs) => exitsWithin(child, waitMs));
+  return runStopSteps(pid, (waitMs) => exitsWithin(child, waitMs), graces);
 }
 
 interface ReapOutcome {
@@ -206,10 +211,14 @@ interface ReapOutcome {
   isStopped: boolean;
 }
 
-async function stopOrphan(record: PidRecord): Promise<ReapOutcome> {
+async function stopOrphan(
+  record: PidRecord,
+  graces: StopGraces | undefined,
+): Promise<ReapOutcome> {
   const isStopped = await runStopSteps(
     record.pid,
     orphanGoneWithin(record.pid),
+    graces,
   );
   return { record, isStopped };
 }
@@ -252,10 +261,13 @@ async function forgetReaped(
  */
 export async function reapOrphanCodexProcesses(
   stateDir: string,
+  graces?: StopGraces,
 ): Promise<number[]> {
   const recorded = await readPidRegistry(stateDir);
   const orphans = recorded.filter((record) => isCodexProcess(record.pid));
-  const outcomes = await Promise.all(orphans.map(stopOrphan));
+  const outcomes = await Promise.all(
+    orphans.map((record) => stopOrphan(record, graces)),
+  );
   const survivors = outcomes
     .filter((outcome) => !outcome.isStopped)
     .map((outcome) => outcome.record);
@@ -270,10 +282,12 @@ export async function reapOrphanCodexProcesses(
   return killed;
 }
 
-// Read-modify-write on a shared file: two conversations disposed at the same
-// time would otherwise each write back a list computed before the other's
-// change, dropping a pid that is still running — the very orphan the registry
-// exists to catch.
+/**
+ * Read-modify-write on a shared file: two conversations disposed at the same
+ * time would otherwise each write back a list computed before the other's
+ * change, dropping a pid that is still running — the very orphan the registry
+ * exists to catch.
+ */
 let registryQueue: Promise<unknown> = Promise.resolve();
 
 function updateRegistry(
@@ -357,9 +371,11 @@ interface StderrTail {
   read: () => string;
 }
 
-// Drained whatever happens: an unread stderr pipe fills at 64 KiB and blocks
-// the child itself. What it said is kept, bounded, because it is the only
-// account of why a binary that died on startup did so.
+/**
+ * Drained whatever happens: an unread stderr pipe fills at 64 KiB and blocks
+ * the child itself. What it said is kept, bounded, because it is the only
+ * account of why a binary that died on startup did so.
+ */
 function drainStderr(child: ChildProcess): StderrTail {
   let tail = "";
   child.stderr?.setEncoding("utf8");
@@ -419,39 +435,42 @@ function watchChild(child: ChildProcess, stderr: StderrTail): Watchdog {
   };
 }
 
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 async function retireChild(
   stateDir: string,
   child: ChildProcess,
+  graces: StopGraces | undefined,
 ): Promise<boolean> {
   const { pid } = child;
   if (pid === undefined) return true;
-  if (!(await stopChild(child, pid))) {
+  if (!(await stopChild(child, pid, graces))) {
     console.warn(`${CODEX_LOG_PREFIX} ${CODEX_SURVIVED_STOP_MESSAGE} ${pid}`);
     return false;
   }
-  await forgetPid(stateDir, pid).catch((error: unknown) => {
+  try {
+    await forgetPid(stateDir, pid);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
     console.warn(
-      `${CODEX_LOG_PREFIX} ${CODEX_PID_RELEASE_FAILED_MESSAGE} ${pid}: ${describeError(error)}`,
+      `${CODEX_LOG_PREFIX} ${CODEX_PID_RELEASE_FAILED_MESSAGE} ${pid}: ${reason}`,
     );
-  });
+  }
   return true;
 }
 
-// The whole home goes, not just sessions/: a fresh home already carries state,
-// logs, memories, goals and queue databases, all of which end up holding the
-// client's code.
+/**
+ * The whole home goes, not just sessions/: a fresh home already carries state,
+ * logs, memories, goals and queue databases, all of which end up holding the
+ * client's code.
+ */
 async function removeHome(codexHome: string): Promise<void> {
-  await rm(codexHome, { recursive: true, force: true }).catch(
-    (error: unknown) => {
-      console.error(
-        `${CODEX_LOG_PREFIX} ${CODEX_HOME_REMOVAL_FAILED_MESSAGE} ${codexHome}: ${describeError(error)}`,
-      );
-    },
-  );
+  try {
+    await rm(codexHome, { recursive: true, force: true });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(
+      `${CODEX_LOG_PREFIX} ${CODEX_HOME_REMOVAL_FAILED_MESSAGE} ${codexHome}: ${reason}`,
+    );
+  }
 }
 
 interface ProcessTeardown {
@@ -460,6 +479,7 @@ interface ProcessTeardown {
   client: CodexClient;
   watchdog: Watchdog;
   child: ChildProcess;
+  graces: StopGraces | undefined;
 }
 
 async function disposeProcess(teardown: ProcessTeardown): Promise<void> {
@@ -467,7 +487,7 @@ async function disposeProcess(teardown: ProcessTeardown): Promise<void> {
   teardown.client.abort(
     new Error(`${CODEX_LOG_PREFIX} ${CODEX_CLIENT_ABORTED_MESSAGE}`),
   );
-  if (await retireChild(teardown.stateDir, teardown.child)) {
+  if (await retireChild(teardown.stateDir, teardown.child, teardown.graces)) {
     await removeHome(teardown.codexHome);
   }
 }
@@ -510,13 +530,17 @@ async function registerPid(
   }
 }
 
+/**
+ * Spawns the app-server and wires its lifecycle. The watchdog and the stderr
+ * drain are attached before any `await` and before the pipe check, because a
+ * spawn failure is reported on the next tick and an unhandled `error` event is
+ * fatal.
+ */
 export async function spawnCodexProcess(
   options: CodexProcessOptions,
 ): Promise<CodexProcess> {
   const codexHome = await prepareCodexHome(options);
   const child = spawnChild(options, codexHome);
-  // Both before any `await` and before the pipe check below: a spawn failure is
-  // reported on the next tick, and an unhandled `error` event is fatal.
   const watchdog = watchChild(child, drainStderr(child));
   sweepOnExit(child);
   if (child.stdin === null || child.stdout === null) {
@@ -530,6 +554,7 @@ export async function spawnCodexProcess(
     client,
     watchdog,
     child,
+    graces: options.stopGraces,
   });
   await registerPid(options.stateDir, spawned);
   return spawned;

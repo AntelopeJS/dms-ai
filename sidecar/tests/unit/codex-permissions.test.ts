@@ -1,8 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type {
-  PermissionBus,
-  PermissionOutcome,
-} from "../../src/agent/permission-bus.js";
+import type { PermissionOutcome } from "../../src/agent/permission-bus.js";
 import type { ToolDecision } from "../../src/agent/provider.js";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import {
@@ -16,9 +13,8 @@ import {
 import { buildDeveloperInstructions } from "../../src/providers/codex/config.js";
 import { createCodexPermissionHandler } from "../../src/providers/codex/permissions.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
+import { createTestBus } from "../helpers/permission-bus.js";
 
-// Safe mode only means anything with the Builder loaded: without it the whole
-// path degrades to vibe, which is a separate case covered in codex-config.
 beforeAll(() => setBuilderAvailable(true));
 afterAll(() => setBuilderAvailable(false));
 
@@ -37,8 +33,10 @@ const DENIED: PermissionOutcome = { isAllowed: false, allowedBy: "denied" };
 const PATCH_DIFF = "@@ -1 +1 @@\n-a\n+b\n";
 
 function buildBus(outcome: PermissionOutcome) {
-  const requestPermission = vi.fn(async () => outcome);
-  const bus = { requestPermission } as unknown as PermissionBus;
+  const { bus } = createTestBus();
+  const requestPermission = vi
+    .spyOn(bus, "requestPermission")
+    .mockImplementation(async () => outcome);
   return { bus, requestPermission };
 }
 
@@ -118,8 +116,6 @@ describe("approval routing", () => {
     });
   });
 
-  // A later Codex release adding a decision method would otherwise become a
-  // refusal loop with nothing in the logs pointing at it.
   it("refuses an unknown server request, and says which one", async () => {
     const { handler } = buildHandler(settings({}));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -217,7 +213,4 @@ describe("developer instructions", () => {
       buildDeveloperInstructions(settings({ generationMode: "safe" })),
     ).toBe(SAFE_MODE_DENIED_MESSAGE);
   });
-
-  // The escalation itself rides on the turn text, not on these instructions:
-  // see codex-config (shape) and codex-lifecycle (wiring).
 });

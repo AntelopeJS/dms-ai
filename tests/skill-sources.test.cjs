@@ -21,9 +21,12 @@ function installed(root, name) {
   return path.join(root, "node_modules", ...name.split("/"));
 }
 
-// A loaded module in the module cache with one interface dependency, and a
-// project root that installs the core, a dev tool and the same module from
-// npm, none of them loaded as modules.
+/**
+ * A loaded module in the module cache with one interface dependency, and a
+ * project root that installs the core, a dev tool and the same module from
+ * npm, none of them loaded as modules.
+ * @returns {{ base: string, moduleDir: string, projectDir: string }}
+ */
 function createFixture() {
   const base = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), "dms-ai-skill-sources-")),
@@ -97,6 +100,40 @@ void test("adds the skills of the project root's dependencies and devDependencie
       dir: path.join(installed(projectDir, "@acme/dev-tools"), SKILLS_DIR),
     },
   ]);
+});
+
+void test("takes a loaded module's skills from the loaded copy, not from another module's installed copy of it", async (t) => {
+  const { base, moduleDir, projectDir } = createFixture();
+  t.after(() => {
+    fs.rmSync(base, { recursive: true, force: true });
+  });
+  writePackage(
+    path.join(base, "cache", "interface-x"),
+    skillPackage("@acme/interface-x"),
+  );
+  const modules = {
+    [LOADED_MODULE]: moduleDir,
+    "interface-x": path.join(base, "cache", "interface-x"),
+  };
+
+  assert.deepEqual(
+    await loadCollector(modules).collectSkillSources(projectDir),
+    [
+      { module: LOADED_MODULE, dir: path.join(moduleDir, SKILLS_DIR) },
+      {
+        module: "interface-x",
+        dir: path.join(base, "cache", "interface-x", SKILLS_DIR),
+      },
+      {
+        module: "acme-core",
+        dir: path.join(installed(projectDir, "@acme/core"), SKILLS_DIR),
+      },
+      {
+        module: "acme-dev-tools",
+        dir: path.join(installed(projectDir, "@acme/dev-tools"), SKILLS_DIR),
+      },
+    ],
+  );
 });
 
 void test("reads the project root when no module is loaded, as in an embedded runtime's host app", async (t) => {

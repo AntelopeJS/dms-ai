@@ -55,8 +55,10 @@ function hasTokenSecret(req: IncomingMessage): boolean {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-// Plain text both ways: the auth command prints the body as the bearer token,
-// or as the reason the request failed, which Codex then reports in the turn.
+/**
+ * Plain text both ways: the auth command prints the body as the bearer token,
+ * or as the reason the request failed, which Codex then reports in the turn.
+ */
 async function sendAccessToken(
   req: IncomingMessage,
   res: ServerResponse,
@@ -85,12 +87,14 @@ export async function handleChatGptRequest(
 ): Promise<boolean> {
   if (req.method !== "GET") return false;
   const url = new URL(req.url ?? "/", "http://localhost");
-  const routes: Record<string, () => Promise<void>> = {
-    [CHATGPT_CALLBACK_PATH]: async () =>
-      sendLoginPage(res, await finishLogin(url.searchParams)),
-    [CHATGPT_ACCESS_TOKEN_PATH]: () => sendAccessToken(req, res),
-  };
-  const route = routes[url.pathname];
+  const routes = new Map<string, () => Promise<void>>([
+    [
+      CHATGPT_CALLBACK_PATH,
+      async () => sendLoginPage(res, await finishLogin(url.searchParams)),
+    ],
+    [CHATGPT_ACCESS_TOKEN_PATH, () => sendAccessToken(req, res)],
+  ]);
+  const route = routes.get(url.pathname);
   if (route === undefined) return false;
   await route();
   return true;

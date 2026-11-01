@@ -4,6 +4,7 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
+import type { AddressInfo } from "node:net";
 import { getBuilderAvailable } from "../builder/capability.js";
 import { CONTENT_TYPE, HTTP_STATUS } from "../constants/http.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
@@ -43,8 +44,10 @@ export interface SidecarBridge {
   services?: SidecarServices;
 }
 
-// What both frontends read: the stored settings plus the read-only capabilities
-// that gate them, and the defaults the settings form offers to go back to.
+/**
+ * What both frontends read: the stored settings plus the read-only capabilities
+ * that gate them, and the defaults the settings form offers to go back to.
+ */
 interface SettingsPayload extends AppSettings {
   builderAvailable: boolean;
   providers: ProviderAvailabilityMap;
@@ -59,7 +62,7 @@ interface CreateHttpServerOptions {
   conversationStore?: ConversationStore;
   settingsStore?: SettingsStore;
   settingsApplier?: SettingsApplier;
-  // Recomputed per request so the `allowLocalSkills` toggle takes effect live.
+  /** Recomputed per request so the `allowLocalSkills` toggle takes effect live. */
   getSkillSources?: () => SkillSource[];
   mcpHttpRegistry?: McpHttpRegistry;
   bridge?: SidecarBridge;
@@ -100,11 +103,11 @@ function buildSettingsPayload(settings: AppSettings): SettingsPayload {
   };
 }
 
-function parseJson(body: string): unknown {
+function safeParseJson<T extends z.ZodType>(schema: T, body: string) {
   try {
-    return JSON.parse(body) as unknown;
+    return schema.safeParse(JSON.parse(body));
   } catch {
-    return null;
+    return schema.safeParse(null);
   }
 }
 
@@ -114,7 +117,7 @@ async function putSettings(
   res: ServerResponse,
   deps: ApiDeps,
 ): Promise<void> {
-  const result = SettingsPatchSchema.safeParse(parseJson(await readBody(req)));
+  const result = safeParseJson(SettingsPatchSchema, await readBody(req));
   if (!result.success) {
     sendJson(res, HTTP_STATUS.BAD_REQUEST, {
       message: result.error.issues[0]?.message ?? "Invalid settings.",
@@ -128,6 +131,13 @@ async function putSettings(
 
 const PastedCallbackSchema = z.object({ url: z.string().min(1) });
 
+/**
+ * The Settings page's routes. `GET /codex/account` is what the page shows
+ * about Codex's ChatGPT account, with a fresh sign-in link when there is none.
+ * `POST /codex/callback` takes the address of OpenAI's redirect, pasted by a
+ * user whose browser could not reach this sidecar's loopback callback (a DMS on
+ * another machine).
+ */
 const SETTINGS_ROUTES: readonly ApiRoute[] = [
   {
     method: "GET",
@@ -141,8 +151,6 @@ const SETTINGS_ROUTES: readonly ApiRoute[] = [
   },
   { method: "PUT", pattern: /^\/settings$/, handle: putSettings },
   {
-    // What the Settings page shows about Codex's ChatGPT account, with a fresh
-    // sign-in link when there is none.
     method: "GET",
     pattern: /^\/codex\/account$/,
     handle: async (_req, res, deps) => {
@@ -154,14 +162,10 @@ const SETTINGS_ROUTES: readonly ApiRoute[] = [
     },
   },
   {
-    // The address of OpenAI's redirect, pasted by a user whose browser could
-    // not reach this sidecar's loopback callback (a DMS on another machine).
     method: "POST",
     pattern: /^\/codex\/callback$/,
     handle: async (req, res) => {
-      const result = PastedCallbackSchema.safeParse(
-        parseJson(await readBody(req)),
-      );
+      const result = safeParseJson(PastedCallbackSchema, await readBody(req));
       if (!result.success) {
         sendJson(res, HTTP_STATUS.BAD_REQUEST, { message: "Missing url." });
         return;
@@ -194,13 +198,13 @@ function buildDeps(ctx: RouteContext): ApiDeps | null {
 
 interface MatchedRoute {
   route: ApiRoute;
-  // `null` when a parameter is malformed.
+  /** `null` when a parameter is malformed. */
   params: string[] | null;
 }
 
 function decodeParams(raw: string[]): string[] | null {
   const params = raw.map(decodeRouteParam);
-  return params.includes(null) ? null : (params as string[]);
+  return params.every((p): p is string => p !== null) ? params : null;
 }
 
 function matchRoute(method: string, path: string): MatchedRoute | null {
@@ -225,7 +229,10 @@ async function handleApiRoute(
   const url = new URL(req.url ?? "/", "http://localhost");
   const matched = matchRoute(req.method ?? "GET", url.pathname);
   const deps = buildDeps(ctx);
-  if (matched === null || (deps === null && !matched.route.isStandalone)) {
+  if (
+    matched === null ||
+    (deps === null && matched.route.isStandalone !== true)
+  ) {
     sendResponse(res, HTTP_STATUS.NOT_FOUND, CONTENT_TYPE.TEXT, "Not Found");
     return;
   }
@@ -233,11 +240,20 @@ async function handleApiRoute(
     sendJson(res, HTTP_STATUS.BAD_REQUEST, { error: "malformed path" });
     return;
   }
-  await matched.route.handle(req, res, deps as ApiDeps, {
+  const match = {
     params: matched.params,
     query: url.searchParams,
     getSkillSources: ctx.getSkillSources,
-  });
+  };
+  const { route } = matched;
+  if (route.isStandalone === true) await route.handle(req, res, deps, match);
+  else if (deps !== null) await route.handle(req, res, deps, match);
+}
+
+function isAddressInfo(
+  address: AddressInfo | string | null,
+): address is AddressInfo {
+  return address !== null && typeof address !== "string";
 }
 
 function buildRoutePath(req: IncomingMessage): string {
@@ -286,7 +302,7 @@ export function createHttpServer(
     server.listen(options.port, LOOPBACK_HOST, () => {
       server.removeListener("error", rejectListen);
       const address = server.address();
-      if (address === null || typeof address === "string") {
+      if (!isAddressInfo(address)) {
         rejectListen(new Error("Failed to determine listening port"));
         return;
       }

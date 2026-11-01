@@ -2,7 +2,7 @@ import { Logging } from "@antelopejs/interface-core/logging";
 import { AddFrontendModule } from "@antelopejs/interface-dms/page";
 import { isBuilderAvailable } from "./builder/presence";
 import { closeAllBridges } from "./channels/registry";
-import { getConfig, parseConfig, setConfig } from "./config";
+import { ConfigSchema, getConfig, setConfig } from "./config";
 import { SIDECAR_LOG_PREFIX } from "./constants/sidecar";
 import { collectModuleRoots } from "./lifecycle/module-roots";
 import { collectSkillSources } from "./lifecycle/skill-sources";
@@ -13,15 +13,17 @@ import "./routes";
 import { frontendModule } from "./frontend-module";
 
 export function construct(config: unknown): void {
-  setConfig(parseConfig(config));
+  setConfig(ConfigSchema.safeParse(config).data ?? {});
 }
 
+/**
+ * Spawns the sidecar from start(), not module load: by now every module is
+ * loaded, so interface-core can report their on-disk roots and declared skills
+ * authoritatively.
+ */
 export async function start() {
   startLogCapture();
   await AddFrontendModule(frontendModule());
-  // Spawn from start(), not module load: by now every module is loaded, so
-  // interface-core can report their on-disk roots and declared skills
-  // authoritatively.
   const hostProjectRoot = process.cwd();
   const [moduleRoots, skillDirs, builderEnabled] = await Promise.all([
     collectModuleRoots(),

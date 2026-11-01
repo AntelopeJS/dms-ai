@@ -6,7 +6,7 @@ import {
   TYPECHECK_UNKNOWN_TARGET_PREFIX,
   TYPECHECK_UNKNOWN_TARGET_SUFFIX,
 } from "../../constants/typecheck.js";
-import { defineTool } from "../define-tool.js";
+import { defineTool, type McpToolResult } from "../define-tool.js";
 
 export interface TypecheckToolDeps {
   hostProjectRoot: string;
@@ -16,9 +16,7 @@ export interface TypecheckToolDeps {
 
 const INPUT_SCHEMA = { target: z.string().optional() } as const;
 
-function buildContent(text: string): {
-  content: Array<{ type: "text"; text: string }>;
-} {
+function buildContent(text: string): McpToolResult {
   return { content: [{ type: "text", text }] };
 }
 

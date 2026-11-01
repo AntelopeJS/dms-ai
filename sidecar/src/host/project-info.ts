@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { z } from "zod";
 import {
   ANTELOPE_PREFIXES,
   PACKAGE_JSON_ENCODING,
@@ -13,21 +14,23 @@ export interface ProjectInfo {
   antelopeModules: string[];
 }
 
-interface PackageJsonShape {
-  name?: string;
-  version?: string;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-}
+const DependencyTableSchema = z.record(z.string(), z.unknown()).catch({});
+
+const PackageManifestSchema = z.object({
+  name: z.string().optional().catch(undefined),
+  version: z.string().optional().catch(undefined),
+  dependencies: DependencyTableSchema,
+  devDependencies: DependencyTableSchema,
+});
+
+type PackageManifest = z.infer<typeof PackageManifestSchema>;
 
 async function readPackageJson(
   filePath: string,
-): Promise<PackageJsonShape | null> {
+): Promise<PackageManifest | null> {
   try {
     const raw = await readFile(filePath, PACKAGE_JSON_ENCODING);
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed === null || typeof parsed !== "object") return null;
-    return parsed as PackageJsonShape;
+    return PackageManifestSchema.safeParse(JSON.parse(raw)).data ?? null;
   } catch {
     return null;
   }
@@ -37,13 +40,14 @@ function hasAntelopePrefix(name: string): boolean {
   return ANTELOPE_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
-function collectDependencyNames(pkg: PackageJsonShape): string[] {
-  const deps = pkg.dependencies ?? {};
-  const devDeps = pkg.devDependencies ?? {};
-  return [...Object.keys(deps), ...Object.keys(devDeps)];
+function collectDependencyNames(pkg: PackageManifest): string[] {
+  return [
+    ...Object.keys(pkg.dependencies),
+    ...Object.keys(pkg.devDependencies),
+  ];
 }
 
-function extractAntelopeModules(pkg: PackageJsonShape): string[] {
+function extractAntelopeModules(pkg: PackageManifest): string[] {
   const all = collectDependencyNames(pkg);
   const matching = all.filter(hasAntelopePrefix);
   const unique = Array.from(new Set(matching));
@@ -58,7 +62,7 @@ function buildFallback(): ProjectInfo {
   };
 }
 
-function toProjectInfo(pkg: PackageJsonShape): ProjectInfo {
+function toProjectInfo(pkg: PackageManifest): ProjectInfo {
   return {
     name: pkg.name ?? PROJECT_INFO_FALLBACK.name,
     version: pkg.version ?? PROJECT_INFO_FALLBACK.version,

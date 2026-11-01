@@ -13,7 +13,7 @@ import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import { BASH_COMMAND_ARG } from "../../src/constants/tool-lexicon.js";
 import { bridgeCanUseTool } from "../../src/providers/claude/provider.js";
 import { createCodexPermissionHandler } from "../../src/providers/codex/permissions.js";
-import type { ProviderName } from "../../src/state/types.js";
+import { PROVIDER_NAMES, type ProviderName } from "../../src/state/types.js";
 import { createTestBus, type TestBus } from "../helpers/permission-bus.js";
 
 const CONVERSATION = "conv-parity";
@@ -47,8 +47,6 @@ const BINDINGS: Record<ProviderName, AskThroughBinding> = {
   },
 };
 
-const PROVIDERS = Object.keys(BINDINGS) as ProviderName[];
-
 async function askAndAnswer(
   ask: AskThroughBinding,
   t: TestBus,
@@ -58,13 +56,13 @@ async function askAndAnswer(
   const count = t.prompts.length + 1;
   const pending = ask(t.bus);
   const prompts = await t.waitForPrompts(count);
-  const requestId = prompts.at(-1)?.requestId as string;
-  t.bus.resolvePermission({ requestId, decision, rule });
+  const prompt = prompts.at(-1);
+  if (prompt === undefined) throw new Error("expected a permission prompt");
+  t.bus.resolvePermission({ requestId: prompt.requestId, decision, rule });
   return pending;
 }
 
-// One prompt, one verdict, one effect: whichever binding carries it.
-describe.each(PROVIDERS)("permission parity on %s", (provider) => {
+describe.each(PROVIDER_NAMES)("permission parity on %s", (provider) => {
   const ask = BINDINGS[provider];
 
   it("prompts once and allows on allow_once", async () => {

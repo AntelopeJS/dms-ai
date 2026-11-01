@@ -10,7 +10,7 @@ import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
 } from "../../src/mcp/http-binding.js";
-import type { AiMcpServerDeps } from "../../src/mcp/types.js";
+import { buildInertMcpDeps } from "../helpers/provider-runner.js";
 import { createCodexProvider } from "../../src/providers/codex/provider.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
 import {
@@ -24,8 +24,10 @@ const TEST_TIMEOUT_MS = 30_000;
 const CONVERSATION = "conv-denial";
 const DENIED_DUMP = "recette-3-command-denied.jsonl";
 const TURN_START = "turn/start";
-// CODEX_DENIAL_REMINDER_THRESHOLD is 2, so the third turn is the first to carry
-// the reminder.
+/**
+ * CODEX_DENIAL_REMINDER_THRESHOLD is 2, so the third turn is the first to carry
+ * the reminder.
+ */
 const TURNS = 3;
 
 const SAFE_SETTINGS: AppSettings = {
@@ -33,16 +35,11 @@ const SAFE_SETTINGS: AppSettings = {
   generationMode: "safe",
 };
 
-interface TurnText {
-  type: string;
-  text?: string;
-}
-
 function turnTexts(trace: ReturnType<typeof readCodexTrace>): string[] {
   return trace
     .filter((entry) => entry.method === TURN_START)
     .map((entry) => {
-      const input = (entry.params?.input ?? []) as TurnText[];
+      const input = entry.params?.input ?? [];
       return input
         .filter((part) => part.type === "text")
         .map((part) => part.text ?? "")
@@ -57,8 +54,6 @@ describe("codex denial reminder", () => {
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "dms-ai-denial-"));
-    // Safe mode degrades to vibe without the Builder, and then nothing is
-    // refused at all.
     setBuilderAvailable(true);
     CODEX_FIXTURE.use("permission");
   });
@@ -86,7 +81,7 @@ describe("codex denial reminder", () => {
         settings: SAFE_SETTINGS,
         stateDir: join(dir, ".state"),
         mcpHttpRegistry: registry,
-        createMcpDeps: () => ({}) as unknown as AiMcpServerDeps,
+        createMcpDeps: buildInertMcpDeps,
         getMcpUrl: () => "http://127.0.0.1:1/mcp",
       });
       session = await provider.createSession({
@@ -102,7 +97,6 @@ describe("codex denial reminder", () => {
           { text: `write the file, attempt ${turn}`, attachments: [] },
           SAFE_SETTINGS,
         )) {
-          // Drained: the turn is only over once its events are consumed.
         }
       }
 

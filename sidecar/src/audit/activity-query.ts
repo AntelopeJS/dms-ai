@@ -1,6 +1,11 @@
+import { readStringArg, ToolArgsSchema } from "../agent/edit-targets.js";
 import { diffTexts } from "../agent/line-diff.js";
 import { isEditTool } from "../agent/tool-kinds.js";
-import type { ActivityCategory } from "../constants/audit.js";
+import type {
+  ActivityCategory,
+  ActivityResult,
+  AllowedBy,
+} from "../constants/audit.js";
 import type { DiffHunkType } from "../protocol/events.js";
 import type { ActivityRecord, ActivityRow } from "./activity.js";
 import { toActivityRow } from "./activity.js";
@@ -40,7 +45,7 @@ export interface ActivityFileDiff {
 /** One row with what its drawer shows. */
 export interface ActivityDetail extends ActivityRow {
   args: unknown;
-  // The tool's output, truncated; `result` stays the row's status.
+  /** The tool's output, truncated; `result` stays the row's status. */
   output?: string;
   diff?: ActivityFileDiff[];
   decisionTrail: DecisionStep[];
@@ -83,7 +88,7 @@ export function queryActivity(
   };
 }
 
-const ALLOWED_LABELS: Record<string, string> = {
+const ALLOWED_LABELS: Partial<Record<AllowedBy, string>> = {
   read_auto: "Allowed automatically (read-only)",
   builder_auto: "Allowed automatically (Builder)",
   approved: "Allowed by you",
@@ -94,7 +99,7 @@ const ALLOWED_LABELS: Record<string, string> = {
   expired: "Request expired",
 };
 
-const RESULT_LABELS: Record<string, string> = {
+const RESULT_LABELS: Partial<Record<ActivityResult, string>> = {
   done: "Done",
   failed: "Failed",
   stopped: "Stopped",
@@ -144,24 +149,19 @@ function truncate(text: string | undefined): string | undefined {
   return `${text.slice(0, MAX_ACTIVITY_OUTPUT_CHARS)}${TRUNCATION_MARKER}`;
 }
 
-function readString(args: unknown, key: string): string {
-  if (args === null || typeof args !== "object") return "";
-  const value = (args as Record<string, unknown>)[key];
-  return typeof value === "string" ? value : "";
-}
-
 /** The edit as the agent asked for it, when no change set holds its diff. */
 export function diffFromArgs(
   record: ActivityRecord,
 ): ActivityFileDiff[] | undefined {
   if (!isEditTool(record.tool)) return undefined;
-  const content = readString(record.args, "content");
+  const args = ToolArgsSchema.parse(record.args);
+  const content = readStringArg(args, "content") ?? "";
   const stats =
     content !== ""
       ? diffTexts("", content)
       : diffTexts(
-          readString(record.args, "old_string"),
-          readString(record.args, "new_string"),
+          readStringArg(args, "old_string") ?? "",
+          readStringArg(args, "new_string") ?? "",
         );
   if (stats.hunks.length === 0) return undefined;
   return [{ path: record.target, hunks: stats.hunks }];

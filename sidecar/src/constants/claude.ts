@@ -4,14 +4,18 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import type { ActivityKind } from "../agent/runner-events.js";
 
-// The agent SDK the provider drives. Resolved by specifier rather than imported
-// statically wherever absence has to stay survivable (binary resolution,
-// availability), in the same spirit as the Codex extension lookup.
+/**
+ * The agent SDK the provider drives. Resolved by specifier rather than imported
+ * statically wherever absence has to stay survivable (binary resolution,
+ * availability), in the same spirit as the Codex extension lookup.
+ */
 export const REAL_SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 
-// The mock SDK the tests drive instead of the real one. The specifier is
-// resolved relative to the module that imports it, so it tracks
-// providers/claude/sdk-loader.ts — not this file.
+/**
+ * The mock SDK the tests drive instead of the real one. The specifier is
+ * resolved relative to the module that imports it, so it tracks
+ * providers/claude/sdk-loader.ts — not this file.
+ */
 export const MOCK_CLAUDE_FLAG_ENV = "MOCK_CLAUDE";
 export const MOCK_CLAUDE_FLAG_ENABLED = "1";
 export const MOCK_CLAUDE_SDK_RELATIVE =
@@ -28,10 +32,12 @@ export const SDK_INCLUDE_PARTIAL_MESSAGES = true;
 /** The hook event the CLI raises before any permission check of a tool call. */
 export const PRE_TOOL_USE_HOOK_EVENT = "PreToolUse" as const;
 
-// Generated skill plugin wrappers live under the sidecar state dir, never the
-// repo. The loader passes these as `plugins:[{type:'local'}]` alongside an
-// explicit `plugin:skill` allowlist — NEVER `skills:'all'` (Task 1 finding: it
-// pulls every built-in/global machine skill into context).
+/**
+ * Generated skill plugin wrappers live under the sidecar state dir, never the
+ * repo. The loader passes these as `plugins:[{type:'local'}]` alongside an
+ * explicit `plugin:skill` allowlist — NEVER `skills:'all'`: it
+ * pulls every built-in/global machine skill into context.
+ */
 export const SKILL_PLUGIN_WRAPPER_DIR = "skill-plugins";
 
 /** Partial-message events that reveal what the model is doing. */
@@ -45,20 +51,20 @@ export const CLAUDE_STREAM_EVENT_TYPES = {
 export const CLAUDE_TEXT_DELTA_TYPE = "text_delta";
 
 /** What the model is doing when it opens a content block of a given type. */
-export const CLAUDE_BLOCK_ACTIVITY: Record<string, ActivityKind> = {
-  thinking: "thinking",
-  redacted_thinking: "thinking",
-  tool_use: "writing",
-  server_tool_use: "writing",
-  mcp_tool_use: "writing",
-};
+export const CLAUDE_BLOCK_ACTIVITY = new Map<string, ActivityKind>([
+  ["thinking", "thinking"],
+  ["redacted_thinking", "thinking"],
+  ["tool_use", "writing"],
+  ["server_tool_use", "writing"],
+  ["mcp_tool_use", "writing"],
+]);
 
 /** What the model is doing while it streams a delta of a given type. */
-export const CLAUDE_DELTA_ACTIVITY: Record<string, ActivityKind> = {
-  thinking_delta: "thinking",
-  signature_delta: "thinking",
-  input_json_delta: "writing",
-};
+export const CLAUDE_DELTA_ACTIVITY = new Map<string, ActivityKind>([
+  ["thinking_delta", "thinking"],
+  ["signature_delta", "thinking"],
+  ["input_json_delta", "writing"],
+]);
 
 /** System messages that report provider activity. */
 export const CLAUDE_SYSTEM_SUBTYPES = {
@@ -67,10 +73,10 @@ export const CLAUDE_SYSTEM_SUBTYPES = {
 } as const;
 
 /** What the provider is doing for a given `status` system message. */
-export const CLAUDE_STATUS_ACTIVITY: Record<string, ActivityKind> = {
-  compacting: "compacting",
-  requesting: "thinking",
-};
+export const CLAUDE_STATUS_ACTIVITY = new Map<string, ActivityKind>([
+  ["compacting", "compacting"],
+  ["requesting", "thinking"],
+]);
 
 export const CLAUDE_RETRY_DETAIL_TOKENS = {
   ATTEMPT: "{{attempt}}",

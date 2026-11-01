@@ -7,9 +7,9 @@ import type { AnyMcpToolDefinition, McpToolResult } from "../define-tool.js";
 /** Whether one Builder operation may run, decided before it does. */
 export interface BuilderGateDecision {
   isAllowed: boolean;
-  // Why not, in words the agent reads.
+  /** Why not, in words the agent reads. */
   message?: string;
-  // BuilderDeleteResource: the user chose to keep the table's data.
+  /** BuilderDeleteResource: the user chose to keep the table's data. */
   keepData?: boolean;
 }
 
@@ -35,12 +35,12 @@ function withGate(
   if (isConfigBuilderTool(definition.name)) return definition;
   return {
     ...definition,
-    handler: async (args: Record<string, unknown>, extra: unknown) => {
+    handler: async (args) => {
       const decision = await gate(definition.name, args);
       if (!decision.isAllowed) return refusal(decision.message);
       const granted =
         decision.keepData === true ? { ...args, keepData: true } : args;
-      return definition.handler(granted, extra);
+      return definition.handler(granted);
     },
   };
 }

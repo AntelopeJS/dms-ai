@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { appendFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -14,6 +15,7 @@ import type {
   SDKMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import { z } from "zod";
 import {
   MOCK_ABORT_REASON,
   MOCK_ACCEPT_EDITS_COMMANDS,
@@ -102,37 +104,40 @@ interface BuildMockQueryArgs {
   mcpServers?: Record<string, McpServerConfig>;
 }
 
-interface ToolUseBlock {
-  type: "tool_use";
-  id: string;
-  name: string;
-  input: Record<string, unknown>;
-}
+const TOOL_USE_BLOCK = z.object({
+  type: z.literal("tool_use"),
+  id: z.string(),
+  name: z.string(),
+  input: z.record(z.string(), z.unknown()),
+});
+
+type ToolUseBlock = z.infer<typeof TOOL_USE_BLOCK>;
+
+const TOOL_RESULT_REFERENCE = z.object({
+  type: z.literal("tool_result"),
+  tool_use_id: z.string(),
+});
+
+const SHELL_COMMAND = z.string().catch("");
 
 function isToolUseBlock(value: unknown): value is ToolUseBlock {
-  if (value === null || typeof value !== "object") return false;
-  return (value as { type?: string }).type === "tool_use";
+  return TOOL_USE_BLOCK.safeParse(value).success;
 }
 
 function extractToolUseBlocks(message: SDKMessage): ToolUseBlock[] {
   if (message.type !== "assistant") return [];
-  const content = (message.message as { content?: unknown }).content;
+  const content = message.message.content;
   if (!Array.isArray(content)) return [];
   return content.filter(isToolUseBlock);
 }
 
 function extractToolResultId(message: SDKMessage): string | null {
   if (message.type !== "user") return null;
-  const content = (message.message as { content?: unknown }).content;
+  const content = message.message.content;
   if (!Array.isArray(content)) return null;
   for (const block of content) {
-    const candidate = block as { type?: string; tool_use_id?: string };
-    if (
-      candidate.type === "tool_result" &&
-      typeof candidate.tool_use_id === "string"
-    ) {
-      return candidate.tool_use_id;
-    }
+    const reference = TOOL_RESULT_REFERENCE.safeParse(block);
+    if (reference.success) return reference.data.tool_use_id;
   }
   return null;
 }
@@ -152,14 +157,14 @@ interface ToolDecision {
   isAllowed: boolean;
 }
 
-interface HookDecision {
-  permissionDecision?: string;
-}
-
 function isHookDenial(output: HookJSONOutput): boolean {
   if (!("hookSpecificOutput" in output)) return false;
-  const specific = output.hookSpecificOutput as HookDecision | undefined;
-  return specific?.permissionDecision === MOCK_HOOK_DENY;
+  const specific = output.hookSpecificOutput;
+  return (
+    specific !== undefined &&
+    "permissionDecision" in specific &&
+    specific.permissionDecision === MOCK_HOOK_DENY
+  );
 }
 
 async function isDeniedByHooks(
@@ -185,8 +190,7 @@ async function isDeniedByHooks(
 
 function shellProgram(block: ToolUseBlock): string | null {
   if (block.name !== MOCK_SHELL_TOOL) return null;
-  const raw = block.input[MOCK_SHELL_COMMAND_ARG];
-  const command = typeof raw === "string" ? raw : "";
+  const command = SHELL_COMMAND.parse(block.input[MOCK_SHELL_COMMAND_ARG]);
   const [program] = command.trim().split(/\s+/);
   return program ?? null;
 }
@@ -199,10 +203,12 @@ function isReadOnlyCommand(block: ToolUseBlock): boolean {
   return MOCK_READ_ONLY_COMMANDS.includes(shellProgram(block) ?? "");
 }
 
-const APPROVED_BY_MODE: Record<
-  string,
-  (block: ToolUseBlock, permissions: PermissionState) => boolean
-> = {
+type ModeApproval = (
+  block: ToolUseBlock,
+  permissions: PermissionState,
+) => boolean;
+
+const APPROVED_BY_MODE: Partial<Record<PermissionMode, ModeApproval>> = {
   [MOCK_BYPASS_MODE]: () => true,
   [MOCK_PLAN_MODE]: (_block, permissions) => permissions.isBypassAvailable,
   [MOCK_ACCEPT_EDITS_MODE]: (block) =>
@@ -301,16 +307,41 @@ interface InterruptFlag {
   requested: boolean;
 }
 
-// The real SDK answers an interrupt by ending the turn with a result message,
-// which is what lets the session close the turn instead of hard-aborting it.
+/**
+ * The real SDK answers an interrupt by ending the turn with a result message,
+ * which is what lets the session close the turn instead of hard-aborting it.
+ */
 function buildInterruptedResult(): SDKMessage {
   return {
     type: "result",
     subtype: "success",
+    duration_ms: 0,
+    duration_api_ms: 0,
     is_error: false,
+    num_turns: 0,
     result: MOCK_INTERRUPTED_RESULT,
-    usage: {},
-  } as unknown as SDKMessage;
+    stop_reason: null,
+    total_cost_usd: 0,
+    usage: {
+      cache_creation: {
+        ephemeral_1h_input_tokens: 0,
+        ephemeral_5m_input_tokens: 0,
+      },
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0,
+      inference_geo: "",
+      input_tokens: 0,
+      iterations: [],
+      output_tokens: 0,
+      server_tool_use: { web_fetch_requests: 0, web_search_requests: 0 },
+      service_tier: "standard",
+      speed: "standard",
+    },
+    modelUsage: {},
+    permission_denials: [],
+    uuid: randomUUID(),
+    session_id: "",
+  };
 }
 
 async function* replayOnce(
@@ -332,15 +363,21 @@ async function* replayOnce(
   }
 }
 
-// One replay per user turn, as the real SDK serves several turns from a single
-// query: the session stays alive between them, which is what a scenario about a
-// second turn needs.
+function isTextPrompt(prompt: MockQueryParams["prompt"]): prompt is string {
+  return typeof prompt === "string";
+}
+
+/**
+ * One replay per user turn, as the real SDK serves several turns from a single
+ * query: the session stays alive between them, which is what a scenario about a
+ * second turn needs.
+ */
 async function* createMessageStream(
   args: BuildMockQueryArgs,
   interrupted: InterruptFlag,
 ): AsyncGenerator<SDKMessage, void> {
   const entries = await loadScript(args.scriptPath);
-  if (typeof args.prompt === "string") {
+  if (isTextPrompt(args.prompt)) {
     yield* replayOnce(entries, args, interrupted);
     return;
   }
@@ -381,29 +418,49 @@ function buildControlSurface(
     mcpServerStatus: unsupported("mcpServerStatus"),
     getContextUsage: unsupported("getContextUsage"),
     readFile: unsupported("readFile"),
-  } as unknown as Omit<Query, keyof AsyncGenerator<SDKMessage, void>>;
+    reloadPlugins: unsupported("reloadPlugins"),
+    accountInfo: unsupported("accountInfo"),
+    rewindFiles: unsupported("rewindFiles"),
+    seedReadState: unsupported("seedReadState"),
+    reconnectMcpServer: unsupported("reconnectMcpServer"),
+    toggleMcpServer: unsupported("toggleMcpServer"),
+    setMcpServers: unsupported("setMcpServers"),
+    streamInput: unsupported("streamInput"),
+    stopTask: unsupported("stopTask"),
+    backgroundTasks: unsupported("backgroundTasks"),
+    close: unsupported("close"),
+  };
 }
 
 function buildQuery(args: BuildMockQueryArgs): Query {
   const interrupted: InterruptFlag = { requested: false };
   const stream = createMessageStream(args, interrupted);
   const control = buildControlSurface(interrupted, args.permissions);
-  return Object.assign(stream, control) as Query;
+  return Object.assign(stream, control);
 }
 
 interface TraceEntry {
   kind: string;
-  [field: string]: unknown;
+  name?: string;
+  decidedBy?: DecidingLayer;
+  isAllowed?: boolean;
+  permissionMode?: PermissionMode;
+  plugins?: Options["plugins"];
+  skills?: Options["skills"];
+  mcpServers?: string[];
 }
 
+/**
+ * Appends one entry to the trace file named by the environment, if any. A trace
+ * that cannot be written is swallowed: tracing is never worth failing a session
+ * for, same as in the Codex mock.
+ */
 function appendTrace(entry: TraceEntry): void {
   const file = process.env[MOCK_TRACE_ENV_VAR];
   if (file === undefined) return;
   try {
     appendFileSync(file, `${JSON.stringify(entry)}\n`);
-  } catch {
-    // Same as the Codex mock: tracing is never worth failing a session for.
-  }
+  } catch {}
 }
 
 function traceOptions(options: Options | undefined): void {

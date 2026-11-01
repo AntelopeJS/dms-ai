@@ -21,8 +21,10 @@ const execFileAsync = promisify(execFile);
 const NUL = "\0";
 const TAB = "\t";
 const EXCLUDE_FILE_SEGMENTS = ["info", "exclude"];
-// Global options on every call: pathspecs are literal file names, never globs,
-// and a path is never quoted or escaped in the output.
+/**
+ * Global options on every call: pathspecs are literal file names, never globs,
+ * and a path is never quoted or escaped in the output.
+ */
 const GIT_GLOBAL_ARGS = [
   "--literal-pathspecs",
   "-c",
@@ -39,7 +41,7 @@ const REPO_CONFIG: ReadonlyArray<readonly [string, string]> = [
 export interface ShadowGitOptions {
   gitDir: string;
   workTree: string;
-  // Paths under the work tree to leave out, besides CHECKPOINT_EXCLUDES.
+  /** Paths under the work tree to leave out, besides CHECKPOINT_EXCLUDES. */
   extraExcludes: string[];
 }
 
@@ -143,8 +145,11 @@ function parseNumstat(output: string): Map<string, ChangeSetFile> {
 function applyStatuses(output: string, files: Map<string, ChangeSetFile>) {
   const parts = output.split(NUL);
   for (let i = 0; i + 1 < parts.length; i += 2) {
-    const entry = files.get(parts[i + 1] as string);
-    const status = GIT_STATUS_BY_LETTER[(parts[i] as string).charAt(0)];
+    const letter = parts[i];
+    const file = parts[i + 1];
+    if (letter === undefined || file === undefined) continue;
+    const entry = files.get(file);
+    const status = GIT_STATUS_BY_LETTER.get(letter.charAt(0));
     if (entry !== undefined && status !== undefined) entry.status = status;
   }
 }

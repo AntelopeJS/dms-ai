@@ -1,3 +1,6 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { describe, expect, it } from "vitest";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
 import { QUERY_LOGS_TOOL_NAME } from "../../src/constants/logs.js";
@@ -48,7 +51,7 @@ function buildDeps() {
     hostProjectRoot: "/tmp/host",
     moduleRoots: [],
     logsClient: buildStubLogsClient(),
-    builderClient: { call: async () => undefined },
+    builderClient: { call: async () => null },
     databaseClient: { get: async () => [], post: async () => ({}) },
     builderEnabled: false,
     sendToHost: () => {},
@@ -117,26 +120,53 @@ describe("createAiMcpServer", () => {
     expect(listed).toContain(QUERY_LOGS_TOOL_NAME);
   });
 
-  it("uses the configured server version metadata", () => {
+  it("uses the configured server version metadata", async () => {
     const server = createAiMcpServer(buildDeps());
-    const instance = server.instance as unknown as {
-      server?: { _serverInfo?: { version?: string } };
-    };
-    const version = instance.server?._serverInfo?.version;
-    if (version === undefined) return;
+    const version = await withConnectedClient(server, async (client) => {
+      return client.getServerVersion()?.version;
+    });
     expect(version).toBe(MCP_SERVER_VERSION);
   });
 });
 
-interface InternalToolMap {
-  _registeredTools?: Record<string, unknown>;
+function isMcpServer(
+  value: ReturnType<typeof createAiMcpServer>["instance"],
+): value is McpServer {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "connect" in value &&
+    typeof value.connect === "function"
+  );
+}
+
+async function withConnectedClient<T>(
+  server: ReturnType<typeof createAiMcpServer>,
+  use: (client: Client) => Promise<T>,
+): Promise<T> {
+  const { instance } = server;
+  if (!isMcpServer(instance)) {
+    throw new Error("the SDK server is not an McpServer");
+  }
+  const client = new Client({ name: "mcp-server-test", version: "0.0.0" });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await Promise.all([
+    instance.connect(serverTransport),
+    client.connect(clientTransport),
+  ]);
+  try {
+    return await use(client);
+  } finally {
+    await client.close();
+  }
 }
 
 async function listRegisteredTools(
   server: ReturnType<typeof createAiMcpServer>,
 ): Promise<string[]> {
-  const internal = server.instance as unknown as InternalToolMap;
-  const map = internal._registeredTools;
-  if (map === undefined) return [];
-  return Object.keys(map);
+  return withConnectedClient(server, async (client) => {
+    const { tools } = await client.listTools();
+    return tools.map((tool) => tool.name);
+  });
 }

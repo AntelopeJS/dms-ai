@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "dms-external-database-connect-erp",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "Our client already runs a PostgreSQL ERP database. I want admin pages over it in this DMS project without recreating the tables, and nothing is connected yet. How do we begin?",
+      "expect": {
+        "skills": ["dms-external-database"],
+        "acceptable": ["dms", "dms-builder", "dms-builder-safe"],
+        "mustMention": ["BuilderConfigureProject"]
+      }
+    },
+    {
+      "id": "dms-external-database-finish-mapping",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "The Builder analysed the client's database and proposed a mapping with a few open items. Settle them, apply the mapping and add a page with monthly revenue.",
+      "expect": {
+        "skills": ["dms-external-database"],
+        "acceptable": ["dms-builder", "dms-builder-safe"]
+      }
+    },
+    {
+      "id": "dms-external-database-casual",
+      "area": "dms-ai",
+      "style": "casual",
+      "prompt": "need admin screens for the clients old postgres db, dont wanna recreate the tables",
+      "expect": {
+        "skills": ["dms-external-database"],
+        "acceptable": ["dms", "dms-builder", "dms-builder-safe", "dms-database"]
+      }
+    },
+    {
+      "id": "dms-external-database-not-console",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "Show me the schemas that my project's own modules registered as a diagram in the dashboard console.",
+      "expect": {
+        "skills": ["dms-database"],
+        "acceptable": ["dms"],
+        "avoid": ["dms-external-database"]
+      }
+    }
+  ]
+}

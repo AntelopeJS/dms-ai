@@ -48,7 +48,7 @@ export interface SidecarServices {
   callAudit: CallAudit;
   callLedger: CallLedger;
   turns: TurnRegistry;
-  // Who asked for each conversation's latest request (from the actor frame).
+  /** Who asked for each conversation's latest request (from the actor frame). */
   askers: Map<string, string>;
 }
 

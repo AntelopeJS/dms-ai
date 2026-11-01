@@ -135,13 +135,14 @@ function rootsOf(tree: PreviewTreeType): PreviewNodeType[] {
   return Array.isArray(tree) ? tree : [tree];
 }
 
+const OPTION_URL = z.string();
+
 function checkOptionUrls(node: PreviewNodeType): void {
-  const offending = Object.entries(node.options ?? {}).find(
-    ([key, value]) =>
-      PREVIEW_URL_OPTION_KEY.test(key) &&
-      typeof value === "string" &&
-      !PREVIEW_SAME_ORIGIN_PATH.test(value),
-  );
+  const offending = Object.entries(node.options ?? {}).find(([key, value]) => {
+    if (!PREVIEW_URL_OPTION_KEY.test(key)) return false;
+    const url = OPTION_URL.safeParse(value);
+    return url.success && !PREVIEW_SAME_ORIGIN_PATH.test(url.data);
+  });
   if (offending === undefined) return;
   throw new PreviewInputError(
     PREVIEW_ERROR_CODES.INVALID_TREE,
@@ -264,18 +265,19 @@ function buildPreview(
   };
 }
 
-function jsonContent(payload: unknown): McpToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(payload) }] };
+function textContent(text: string): McpToolResult {
+  return { content: [{ type: "text", text }] };
 }
 
-function errorContent(error: unknown): McpToolResult {
-  if (!(error instanceof PreviewInputError)) throw error;
+function errorContent(error: PreviewInputError): McpToolResult {
   return {
-    ...jsonContent({
-      ok: false,
-      error: { code: error.code },
-      message: error.message,
-    }),
+    ...textContent(
+      JSON.stringify({
+        ok: false,
+        error: { code: error.code },
+        message: error.message,
+      }),
+    ),
     isError: true,
   };
 }
@@ -289,12 +291,15 @@ export function buildPreviewBlocksTool(deps: PreviewBlocksDeps) {
       try {
         const preview = buildPreview(input, deps);
         deps.showPreview(preview);
-        return jsonContent({
-          ok: true,
-          data: { previewId: preview.id },
-          message: PREVIEW_RESULT_SHOWN,
-        });
+        return textContent(
+          JSON.stringify({
+            ok: true,
+            data: { previewId: preview.id },
+            message: PREVIEW_RESULT_SHOWN,
+          }),
+        );
       } catch (error) {
+        if (!(error instanceof PreviewInputError)) throw error;
         return errorContent(error);
       }
     },

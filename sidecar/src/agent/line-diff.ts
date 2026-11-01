@@ -1,20 +1,22 @@
 import type { DiffHunkType, DiffLineType } from "../protocol/events.js";
 
-// Lines of unchanged context kept around each change, as `git diff` does.
+/** Lines of unchanged context kept around each change, as `git diff` does. */
 const DIFF_CONTEXT_LINES = 3;
-// Above this many cells the line-matching table is not worth building: the
-// changed region is shown as a whole removal plus a whole addition instead.
+/**
+ * Above this many cells the line-matching table is not worth building: the
+ * changed region is shown as a whole removal plus a whole addition instead.
+ */
 const MAX_MATCH_CELLS = 2_000_000;
 const LINE_BREAK = /\r?\n/;
 const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 const NO_NEWLINE_MARKER = "\\";
 const FILE_HEADER_PREFIX = "diff --git";
 
-const LINE_KIND_BY_PREFIX: Record<string, DiffLineType["kind"]> = {
-  " ": "context",
-  "+": "add",
-  "-": "remove",
-};
+const LINE_KIND_BY_PREFIX = new Map<string, DiffLineType["kind"]>([
+  [" ", "context"],
+  ["+", "add"],
+  ["-", "remove"],
+]);
 
 export interface DiffStats {
   hunks: DiffHunkType[];
@@ -59,13 +61,14 @@ function buildMatchTable(a: string[], b: string[]): Uint32Array[] {
     () => new Uint32Array(b.length + 1),
   );
   for (let i = a.length - 1; i >= 0; i--) {
-    const row = table[i] as Uint32Array;
-    const next = table[i + 1] as Uint32Array;
+    const row = table[i];
+    const next = table[i + 1];
+    if (row === undefined || next === undefined) continue;
     for (let j = b.length - 1; j >= 0; j--) {
       row[j] =
         a[i] === b[j]
-          ? (next[j + 1] as number) + 1
-          : Math.max(next[j] as number, row[j + 1] as number);
+          ? (next[j + 1] ?? 0) + 1
+          : Math.max(next[j] ?? 0, row[j + 1] ?? 0);
     }
   }
   return table;
@@ -209,7 +212,7 @@ export function diffTexts(oldText: string, newText: string): DiffStats {
 }
 
 function parsedLine(raw: string, cursor: LineCursor): DiffLineType | null {
-  const kind = LINE_KIND_BY_PREFIX[raw.charAt(0)];
+  const kind = LINE_KIND_BY_PREFIX.get(raw.charAt(0));
   if (kind === undefined) return null;
   const line: DiffLineType = { kind, text: raw.slice(1) };
   if (kind !== "add") line.oldLine = cursor.oldLine++;

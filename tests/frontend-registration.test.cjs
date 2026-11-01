@@ -1,7 +1,9 @@
 const assert = require("node:assert/strict");
+const { z } = require("zod");
 const Module = require("node:module");
 const path = require("node:path");
 const { test } = require("node:test");
+const { PAGE_LOCALES, readLocale } = require("./helpers/page-locales.cjs");
 
 const BACKEND_URL = "http://127.0.0.1:41234";
 
@@ -31,10 +33,10 @@ function loadModule(registrations, sidecars) {
       path.resolve(__dirname, "../dist/frontend-module.js"),
     ),
     "node:path": path,
+    zod: require("zod"),
     "./constants/sidecar": require(
       path.resolve(__dirname, "../dist/constants/sidecar.js"),
     ),
-    // The config store is the unit under test here, so it is loaded for real.
     "./config": require(path.resolve(__dirname, "../dist/config.js")),
   };
   const originalLoad = Module._load;
@@ -104,22 +106,20 @@ void test("ignores config entries that are not usable origins", async () => {
   ]);
 });
 
-const LOCALES_DIR = path.resolve(__dirname, "../frontend-vue/i18n/locales");
-const PAGE_LOCALES = ["dms-ai-pages-en-GB.json", "dms-ai-pages-fr-FR.json"];
 const I18N_KEY = /\$dms_ai\.[A-Za-z0-9_.-]+/g;
 const MODULE_PAGES = ["overview", "changes", "activity", "skills", "settings"];
-
-function readLocale(file) {
-  return JSON.parse(
-    require("node:fs").readFileSync(path.join(LOCALES_DIR, file), "utf8"),
-  );
-}
 
 function translate(locale, key) {
   return key
     .slice(1)
     .split(".")
     .reduce((node, part) => (node === undefined ? node : node[part]), locale);
+}
+
+const TextSchema = z.string();
+
+function isTranslated(locale, key) {
+  return TextSchema.safeParse(translate(locale, key)).success;
 }
 
 function loadPages() {
@@ -170,7 +170,7 @@ async function collectPositions(prefix, component, positions) {
 }
 
 function collectKeys(value, keys) {
-  if (typeof value === "string") {
+  if (TextSchema.safeParse(value).success) {
     for (const match of value.matchAll(I18N_KEY)) keys.add(match[0]);
     return;
   }
@@ -211,12 +211,8 @@ void test("titles every block and child of the AI pages for the role editor", as
       assert.match(metadata.description ?? "", /^\$dms_ai\.blocks\./, where);
       assert.ok(metadata.icon, `${where} has an icon`);
       for (const locale of locales) {
-        assert.equal(typeof translate(locale, metadata.name), "string", where);
-        assert.equal(
-          typeof translate(locale, metadata.description),
-          "string",
-          where,
-        );
+        assert.ok(isTranslated(locale, metadata.name), where);
+        assert.ok(isTranslated(locale, metadata.description), where);
       }
     }
   }
@@ -236,9 +232,7 @@ void test("translates every $dms_ai key the AI pages serve, in English and Frenc
   assert.ok(keys.size > 0);
   for (const file of PAGE_LOCALES) {
     const locale = readLocale(file);
-    const missing = [...keys].filter(
-      (key) => typeof translate(locale, key) !== "string",
-    );
+    const missing = [...keys].filter((key) => !isTranslated(locale, key));
     assert.deepEqual(missing, [], file);
   }
 });
@@ -316,8 +310,6 @@ void test("titles the skill drawer with the DMS row header", async () => {
   const [detail] = drawers.filter((drawer) =>
     JSON.stringify(drawer).includes('"DmsAiSkillDetail"'),
   );
-  // The header names the open skill and its place in the list, with the
-  // previous and next buttons: the body no longer draws them.
   assert.equal(detail.rowTitle, "{name}");
   assert.notEqual(detail.rowHeader, false);
   for (const file of PAGE_LOCALES) {
@@ -376,7 +368,6 @@ void test("opens the Overview and Activity with the DMS page toolbar, its period
     );
     assert.equal(firstKey, "toolbar", id);
     assert.equal(toolbar.componentName, "dms-page-toolbar-block", id);
-    // No live data on these pages: "updated" and a refresh, no Direct / Pause.
     assert.deepEqual(childIds, ["period"], id);
     assert.equal(period.options.rememberKey, "ai", id);
     assert.equal(period.options.rangeLabel, "relative", id);

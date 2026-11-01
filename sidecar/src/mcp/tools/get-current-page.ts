@@ -3,15 +3,13 @@ import {
   GET_CURRENT_PAGE_TOOL_NAME,
 } from "../../constants/mcp.js";
 import type { CurrentPage } from "../../state/host-state.js";
-import { defineTool } from "../define-tool.js";
+import { defineTool, type McpToolResult } from "../define-tool.js";
 
 type GetCurrentPage = () => CurrentPage;
 
 const EMPTY_INPUT_SCHEMA = {} as const;
 
-function buildContent(page: CurrentPage): {
-  content: Array<{ type: "text"; text: string }>;
-} {
+function buildContent(page: CurrentPage): McpToolResult {
   return {
     content: [{ type: "text", text: JSON.stringify(page) }],
   };

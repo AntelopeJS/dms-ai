@@ -1,7 +1,12 @@
 import { isAbsolute } from "node:path";
-import { projectRelative } from "../agent/edit-targets.js";
+import {
+  projectRelative,
+  readStringArg,
+  type ToolArgs,
+} from "../agent/edit-targets.js";
+import { type JsonValue, JsonValueSchema } from "../protocol/json.js";
 
-// Argument keys naming what a call acts on, most telling first.
+/** Argument keys naming what a call acts on, most telling first. */
 const TARGET_KEYS: readonly string[] = [
   "file_path",
   "notebook_path",
@@ -20,9 +25,9 @@ const TARGET_KEYS: readonly string[] = [
 const MAX_TARGET_CHARS = 200;
 const ELLIPSIS = "…";
 
-export function parseArgs(content: string): unknown {
+export function parseArgs(content: string): JsonValue {
   try {
-    return JSON.parse(content) as unknown;
+    return JsonValueSchema.parse(JSON.parse(content));
   } catch {
     return content;
   }
@@ -41,14 +46,14 @@ function displayPath(value: string, root: string): string {
 /** What a call acts on, in a few words: a file, a command, a page, a URL. */
 export function activityTarget(
   _toolName: string,
-  args: unknown,
+  args: ToolArgs,
   root: string,
 ): string {
-  if (args === null || typeof args !== "object") return "";
-  const record = args as Record<string, unknown>;
-  const key = TARGET_KEYS.find(
-    (k) => typeof record[k] === "string" && record[k] !== "",
-  );
-  if (key === undefined) return "";
-  return shorten(displayPath(record[key] as string, root));
+  for (const key of TARGET_KEYS) {
+    const value = readStringArg(args, key);
+    if (value !== undefined && value !== "") {
+      return shorten(displayPath(value, root));
+    }
+  }
+  return "";
 }

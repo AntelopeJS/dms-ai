@@ -159,6 +159,6 @@ function scheduleRespawnIfBudget(state: OwnerState): void {
   setTimeout(() => void ensureRunning(state), SIDECAR_RESPAWN_DELAY_MS);
 }
 
-function logError(message: string, err: unknown): void {
+function logError(message: string, err: Error): void {
   Logging.Error(`${SIDECAR_LOG_PREFIX} ${message}:`, err);
 }

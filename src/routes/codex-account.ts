@@ -15,10 +15,10 @@ import { DefaultDataTypes } from "@antelopejs/interface-dms/base/data-types";
 import { I18N_SECTIONS } from "../constants/i18n";
 import { ROUTE_PREFIX } from "../constants/module";
 import { PAGE_ROUTES } from "../constants/pages";
-import { requestSidecar } from "../sidecar";
+import { type JsonBody, requestSidecar } from "../sidecar";
 import { i18nKey } from "../vocabulary";
 import { bannerAnswer } from "./banner";
-import { relay } from "./sidecar-results";
+import { asIs, relay } from "./sidecar-results";
 
 const ACCOUNT_PATH = "/codex/account";
 const LOGOUT_PATH = "/codex/logout";
@@ -71,9 +71,11 @@ function signedInBanner(account: CodexAccount): BannerContent {
   };
 }
 
-// OpenAI only redirects back to 127.0.0.1. On the machine running the DMS that
-// is the sidecar, and the sign-in completes by itself; anywhere else the page
-// fails to load, and its address is pasted here instead.
+/**
+ * OpenAI only redirects back to 127.0.0.1. On the machine running the DMS that
+ * is the sidecar, and the sign-in completes by itself; anywhere else the page
+ * fails to load, and its address is pasted here instead.
+ */
 const PASTE_ACTION: BannerButtonAction = {
   label: text("paste", "action"),
   icon: "i-ph-clipboard-text",
@@ -127,6 +129,11 @@ function accountBanner(account: CodexAccount): BannerContent | null {
     : signedOutBanner(account.loginUrl);
 }
 
+/** What the sign-in form posts: the address the browser landed on. */
+interface PastedCallbackBody {
+  [PASTED_URL_FIELD]?: string;
+}
+
 /**
  * Settings' ChatGPT account: the banner offering to sign in or out, the
  * pasted return address that completes a remote sign-in, and the sign-out. No banner while the sidecar does not answer: the Overview
@@ -148,15 +155,17 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
   }
 
   @Post(CALLBACK_PATH)
-  finishSignIn(@JSONBody() body?: Record<string, unknown>): Promise<unknown> {
-    return relay(CALLBACK_PATH, (answer: unknown) => answer, {
+  finishSignIn(
+    @JSONBody() body?: PastedCallbackBody,
+  ): Promise<JsonBody | HTTPResult | undefined> {
+    return relay(CALLBACK_PATH, asIs, {
       method: "POST",
       body: { url: body?.[PASTED_URL_FIELD] },
     });
   }
 
   @Post(LOGOUT_PATH)
-  logout(): Promise<unknown> {
-    return relay(LOGOUT_PATH, (body: unknown) => body, { method: "POST" });
+  logout(): Promise<JsonBody | HTTPResult | undefined> {
+    return relay(LOGOUT_PATH, asIs, { method: "POST" });
   }
 }

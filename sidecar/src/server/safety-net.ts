@@ -1,4 +1,5 @@
 import path from "node:path";
+import { z } from "zod";
 import {
   resolveModuleRootForFile,
   runTypecheck,
@@ -17,15 +18,13 @@ import {
 } from "../constants/safety-net.js";
 import type { LogsClient } from "../logs/logs-client.js";
 import type { BufferedLog } from "../logs/types.js";
+import type { JsonValue } from "../protocol/json.js";
 import type { TypecheckOutcome } from "../constants/audit.js";
 
-/** Whatever `toString()` the value carries: its own, or Object's. */
-interface Stringable {
-  toString(): string;
-}
-
-// A line worth listing in the auto-fix notice: a compiler error, or a reload
-// log line (which the summary prefixes with its channel).
+/**
+ * A line worth listing in the auto-fix notice: a compiler error, or a reload
+ * log line (which the summary prefixes with its channel).
+ */
 const ERROR_LINE = /error|^\[/i;
 
 export function uniqueEditedRoots(
@@ -40,20 +39,42 @@ export function uniqueEditedRoots(
   return [...roots];
 }
 
-function argToText(arg: unknown): string {
-  if (typeof arg === "string") return arg;
-  if (arg !== null && typeof arg === "object") {
-    const candidate = arg as { message?: unknown; stack?: unknown };
-    if (typeof candidate.stack === "string") return candidate.stack;
-    if (typeof candidate.message === "string") return candidate.message;
+/** Whatever `toString()` the value carries: its own, or Object's. */
+interface Stringable {
+  toString(): string;
+}
+
+const ErrorTextSchema = z.object({
+  stack: z.string().optional().catch(undefined),
+  message: z.string().optional().catch(undefined),
+});
+
+function isContainer(
+  value: JsonValue,
+): value is JsonValue[] | { [key: string]: JsonValue | undefined } {
+  return value !== null && typeof value === "object";
+}
+
+/**
+ * Renders a log argument as text. `JSON.stringify` throws on a cycle or a
+ * nested BigInt; the fallback then uses the value's own `toString()`, which an
+ * error object usually customises and which is the whole content of the
+ * summary this feeds, and only degrades to "[object Object]" for a plain one.
+ */
+function argToText(arg: JsonValue): string {
+  const asString = z.string().safeParse(arg);
+  if (asString.success) return asString.data;
+  if (isContainer(arg)) {
+    const errorText = ErrorTextSchema.safeParse(arg);
+    const named = errorText.success
+      ? (errorText.data.stack ?? errorText.data.message)
+      : undefined;
+    if (named !== undefined) return named;
     try {
       return JSON.stringify(arg);
     } catch {
-      // A cycle, or a BigInt nested inside. `String(arg)` keeps a custom
-      // `toString()` -- which an error object usually has, and which is the
-      // whole content of the summary this feeds -- and only degrades to
-      // "[object Object]" for a plain one.
-      return (arg as Stringable).toString();
+      const printable: Stringable = arg;
+      return printable.toString();
     }
   }
   return String(arg);
@@ -91,11 +112,11 @@ function defaultDelay(ms: number): Promise<void> {
 
 /** What the safety net found after a turn that edited files. */
 export interface BuildReport {
-  // The auto-fix prompt, or null when the build is healthy.
+  /** The auto-fix prompt, or null when the build is healthy. */
   healPrompt: string | null;
-  // `skipped` when no typecheck could run on the edited roots.
+  /** `skipped` when no typecheck could run on the edited roots. */
   typecheck: TypecheckOutcome;
-  // One line per problem, for the auto-fix notice.
+  /** One line per problem, for the auto-fix notice. */
   errors: string[];
 }
 

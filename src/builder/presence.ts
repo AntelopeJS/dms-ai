@@ -24,7 +24,7 @@ function withTimeout<T>(work: Promise<T>, fallback: T): Promise<T> {
 }
 
 export async function isBuilderAvailable(): Promise<boolean> {
-  const ids = await withTimeout(ListModules(), [] as string[]);
+  const ids = await withTimeout<string[]>(ListModules(), []);
   return ids.some(
     (id) => id === BUILDER_MODULE_ID || id.includes(BUILDER_MODULE_ID),
   );

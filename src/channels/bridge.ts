@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import WebSocket, { type RawData } from "ws";
+import { z } from "zod";
 import { BRIDGE_CLOSE_CODE, CHANNEL_EVENTS } from "../constants/channels";
 import type { SseStream } from "./sse-stream";
 
@@ -19,9 +20,7 @@ export interface ChannelActor {
   name: string;
 }
 
-interface TypedFrame {
-  type?: unknown;
-}
+const TypedFrameSchema = z.object({ type: z.unknown() });
 
 /** The sidecar socket behind one browser stream: what a posted message is addressed to. */
 export interface ChannelBridge {
@@ -59,8 +58,10 @@ function mayBeActorFrame(message: Buffer): boolean {
 export function isActorFrame(message: Buffer): boolean {
   if (!mayBeActorFrame(message)) return false;
   try {
-    const frame = JSON.parse(message.toString("utf8")) as TypedFrame | null;
-    return frame?.type === ACTOR_FRAME_TYPE;
+    const frame = TypedFrameSchema.safeParse(
+      JSON.parse(message.toString("utf8")),
+    );
+    return frame.success && frame.data.type === ACTOR_FRAME_TYPE;
   } catch {
     return false;
   }

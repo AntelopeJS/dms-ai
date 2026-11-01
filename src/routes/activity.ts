@@ -89,13 +89,15 @@ function exportResult(page: SidecarList<ActivityRow>): HTTPResult {
 @AuthOwnerOnly()
 export class AIActivityController extends Controller(ROUTE_PREFIX) {
   @Get(ACTIVITY_PATH)
-  list(@Context() ctx: RequestContext): Promise<unknown> {
+  list(
+    @Context() ctx: RequestContext,
+  ): Promise<SidecarList<ActivityTableRow> | HTTPResult> {
     const query = buildQuery(activityParams(ctx.url.searchParams));
     return relay(`${ACTIVITY_PATH}${query}`, tablePage);
   }
 
   @Get(`${ACTIVITY_PATH}/export.csv`)
-  export(@Context() ctx: RequestContext): Promise<unknown> {
+  export(@Context() ctx: RequestContext): Promise<HTTPResult> {
     const params = activityParams(ctx.url.searchParams);
     const query = buildQuery({
       ...params,
@@ -106,7 +108,9 @@ export class AIActivityController extends Controller(ROUTE_PREFIX) {
   }
 
   @Get(`${ACTIVITY_PATH}/:id`)
-  detail(@Parameter("id", "param") id: string): Promise<unknown> {
+  detail(
+    @Parameter("id", "param") id: string,
+  ): Promise<ActivityTableRow | HTTPResult> {
     return relay(`${ACTIVITY_PATH}/${pathSegment(id)}`, tableRow);
   }
 }

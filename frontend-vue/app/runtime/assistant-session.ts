@@ -17,6 +17,9 @@ export interface ChatPanelState {
 	toggle: () => void;
 }
 
+/** The approval modes a conversation can be started in from outside the panel. */
+export type ConversationStartMode = "plan" | "normal";
+
 /**
  * The tab's assistant, as the plugin that owns it hands it to the panel, the
  * command palette's answer and the workspace pages: the sidecar's
@@ -31,8 +34,11 @@ export interface AssistantSession {
 	navigate: (path: string) => void;
 	/** Opens the panel on that conversation. */
 	openConversation: (conversationId: string) => void;
-	/** Opens the panel on a new conversation, the composer optionally prefilled. */
-	startConversation: (prompt?: string) => void;
+	/**
+	 * Opens the panel on a new conversation, the composer optionally prefilled, and the
+	 * conversation set to `mode` first when one is given.
+	 */
+	startConversation: (prompt?: string, mode?: ConversationStartMode) => void;
 	/**
 	 * Keeps the tab's stream open while the panel is closed, until the returned
 	 * function releases it: the command palette's answer streams through it.

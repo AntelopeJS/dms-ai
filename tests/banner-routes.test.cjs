@@ -1,6 +1,10 @@
 const assert = require("node:assert/strict");
-const path = require("node:path");
+const { z } = require("zod");
 const { test } = require("node:test");
+const {
+  PAGE_LOCALES: PAGE_LOCALE_FILES,
+  readLocale,
+} = require("./helpers/page-locales.cjs");
 const {
   answer,
   reset,
@@ -8,17 +12,10 @@ const {
   useRouteHarness,
 } = require("./helpers/route-harness.cjs");
 
+const TextSchema = z.string();
 const harness = useRouteHarness();
 
-const PAGE_LOCALES = ["dms-ai-pages-en-GB.json", "dms-ai-pages-fr-FR.json"].map(
-  (file) =>
-    JSON.parse(
-      require("node:fs").readFileSync(
-        path.resolve(__dirname, "../frontend-vue/i18n/locales", file),
-        "utf8",
-      ),
-    ),
-);
+const PAGE_LOCALES = PAGE_LOCALE_FILES.map(readLocale);
 const I18N_KEY = /\$dms_ai\.[A-Za-z0-9_.-]+/g;
 
 /** The `$dms_ai` keys an answer holds that a page locale does not translate. */
@@ -27,10 +24,12 @@ function untranslated(answer) {
   return PAGE_LOCALES.flatMap((locale) =>
     keys.filter(
       (key) =>
-        typeof key
-          .slice(1)
-          .split(".")
-          .reduce((node, part) => node?.[part], locale) !== "string",
+        !TextSchema.safeParse(
+          key
+            .slice(1)
+            .split(".")
+            .reduce((node, part) => node?.[part], locale),
+        ).success,
     ),
   );
 }
@@ -195,7 +194,6 @@ void test("offers to sign in with ChatGPT, to paste the return address, or to si
     url: loginUrl,
     newTab: true,
   });
-  // Away from the sidecar's machine, the return address is pasted instead.
   const paste = signedOut.actions[1];
   assert.equal(paste.target.url, "/ai/codex/callback");
   assert.deepEqual(

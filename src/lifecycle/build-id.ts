@@ -7,7 +7,7 @@ import {
 } from "../constants/sidecar";
 
 function listBuildFiles(distDir: string): string[] {
-  const entries = readdirSync(distDir, { recursive: true }) as string[];
+  const entries = readdirSync(distDir, { recursive: true, encoding: "utf8" });
   return entries
     .filter((entry) => entry.endsWith(SIDECAR_DIST_EXTENSION))
     .map((entry) => entry.split(path.sep).join(path.posix.sep))

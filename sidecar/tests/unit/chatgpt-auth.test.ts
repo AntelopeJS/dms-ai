@@ -1,4 +1,9 @@
-import { generateKeyPairSync, type KeyObject, sign } from "node:crypto";
+import {
+  generateKeyPairSync,
+  type JsonWebKey,
+  type KeyObject,
+  sign,
+} from "node:crypto";
 import { statSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -32,21 +37,23 @@ const PORT = 4321;
 const ISSUED_CLIENT_ID = "oaiapp_issued";
 const KEY_ID = "test-key";
 
+function isText(body: RequestInit["body"]): body is string {
+  return typeof body === "string";
+}
+
 interface FormCall {
   url: string;
   form: URLSearchParams;
 }
 
 /** Records every form POST, and answers each with what `answer` returns. */
-function stubFetch(answer: (call: FormCall) => Response, jwks?: unknown) {
+function stubFetch(answer: (call: FormCall) => Response, jwks?: Jwks) {
   const calls: FormCall[] = [];
   vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
     if (url === CHATGPT_JWKS_URL) return Response.json(jwks ?? { keys: [] });
     const call = {
       url,
-      form: new URLSearchParams(
-        typeof init?.body === "string" ? init.body : "",
-      ),
+      form: new URLSearchParams(isText(init?.body) ? init.body : ""),
     };
     calls.push(call);
     return answer(call);
@@ -116,8 +123,6 @@ describe("access token", () => {
     expect(readAuthRecord()?.tokens?.refreshToken).toBe("refresh-new");
   });
 
-  // The refresh token rotates: a second refresh would spend a dead token and
-  // sign the user out.
   it("spends the refresh token once for concurrent readers", async () => {
     await writeExpiringRecord();
     const calls = stubFetch(() => tokenAnswer("once"));
@@ -137,7 +142,6 @@ describe("access token", () => {
     );
     await expect(getAccessToken()).rejects.toThrow(CHATGPT_SIGNED_OUT_MESSAGE);
     expect(readAccountStatus()).toEqual({ isSignedIn: false });
-    // The host stays registered for the next sign-in.
     expect(readAuthRecord()?.clientId).toBe("oaiapp_test");
   });
 
@@ -156,7 +160,7 @@ describe("access token", () => {
 
 interface SigningKey {
   privateKey: KeyObject;
-  jwks: unknown;
+  jwks: Jwks;
 }
 
 function createSigningKey(): SigningKey {
@@ -170,8 +174,26 @@ function createSigningKey(): SigningKey {
   };
 }
 
-function signIdToken(key: KeyObject, claims: Record<string, unknown>): string {
-  const encode = (value: unknown) =>
+interface Jwks {
+  keys: JsonWebKey[];
+}
+
+interface IdTokenClaims {
+  iss: string;
+  aud: string;
+  exp: number;
+  nonce: string;
+  sub: string;
+  email?: string;
+}
+
+interface JwtHeader {
+  alg: string;
+  kid: string;
+}
+
+function signIdToken(key: KeyObject, claims: IdTokenClaims): string {
+  const encode = (value: IdTokenClaims | JwtHeader) =>
     Buffer.from(JSON.stringify(value)).toString("base64url");
   const signingInput = `${encode({ alg: "RS256", kid: KEY_ID })}.${encode(claims)}`;
   const signature = sign("RSA-SHA256", Buffer.from(signingInput), key).toString(
@@ -212,8 +234,6 @@ describe("sign-in", () => {
     expect(query.get("code_challenge")).toMatch(/^[\w-]{43}$/);
   });
 
-  // Pasted, as from a DMS on another machine: the loopback callback takes the
-  // same query, and goes through the same checks.
   it("stores the account once the pasted code, the ID token and the plan scope check out", async () => {
     const key = createSigningKey();
     const { state, nonce, authorize } = await startFromSettings();
@@ -247,7 +267,6 @@ describe("sign-in", () => {
     const exchange = calls[0]?.form;
     expect(exchange?.get("grant_type")).toBe("authorization_code");
     expect(exchange?.get("client_id")).toBe(ISSUED_CLIENT_ID);
-    // The verifier sent is the one the challenge was derived from.
     expect(pkceChallenge(exchange?.get("code_verifier") ?? "")).toBe(
       authorize.searchParams.get("code_challenge"),
     );
@@ -332,7 +351,7 @@ describe("sign-in", () => {
     });
     expect(await finishPastedLogin("not a url")).toMatchObject({ status: 400 });
     expect(calls).toEqual([]);
-    // The real address still completes it.
+    /** The real address still completes it. */
     const cancelled = await finishPastedLogin(
       `http://127.0.0.1:${PORT}/auth/chatgpt/callback?error=access_denied&state=${state}`,
     );
@@ -340,7 +359,6 @@ describe("sign-in", () => {
   });
 
   it("derives the PKCE challenge as base64url SHA-256 without padding", () => {
-    // RFC 7636, appendix B.
     expect(pkceChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")).toBe(
       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
     );

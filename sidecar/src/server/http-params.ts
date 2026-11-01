@@ -81,8 +81,10 @@ export function parseActivityQuery(params: URLSearchParams): ActivityQuery {
 
 export { optional as optionalParam };
 
-// The backend's router hands its own params on still encoded, then encodes
-// them again when relaying, so an id may arrive encoded more than once.
+/**
+ * The backend's router hands its own params on still encoded, then encodes
+ * them again when relaying, so an id may arrive encoded more than once.
+ */
 const MAX_PARAM_DECODES = 3;
 
 /**

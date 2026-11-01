@@ -1,20 +1,23 @@
-// Shell control operators: a command made of several of these is judged
-// segment by segment, never by its first words alone.
+/**
+ * Shell control operators: a command made of several of these is judged
+ * segment by segment, never by its first words alone.
+ */
 const SEGMENT_SEPARATORS = /&&|\|\||;|\||\n/;
-// Constructs whose effect a prefix cannot vouch for: command substitution,
-// backticks and redirections. A command holding one never matches a rule.
+/**
+ * Constructs whose effect a prefix cannot vouch for: command substitution,
+ * backticks and redirections. A command holding one never matches a rule.
+ */
 const UNRULABLE_CONSTRUCTS = /`|\$\(|>|</;
 const WHITESPACE = /\s+/;
 const FLAG_PREFIX = "-";
-// Words of a command a "command" rule keeps: `pnpm test`, `git status`.
+/** Words of a command a "command" rule keeps: `pnpm test`, `git status`. */
 const COMMAND_RULE_WORDS = 2;
 
-const PACKAGE_MANAGERS: readonly string[] = ["pnpm", "npm", "yarn", "bun"];
 const ADD_VERBS: readonly string[] = ["add"];
-// `install` / `i` add a dependency only when they name a package.
+/** `install` / `i` add a dependency only when they name a package. */
 const INSTALL_VERBS: readonly string[] = ["install", "i"];
 const REMOVE_VERBS: readonly string[] = ["remove", "rm", "uninstall", "un"];
-// Flags that take the next word as their value, so it is not the verb.
+/** Flags that take the next word as their value, so it is not the verb. */
 const VALUE_FLAGS: readonly string[] = [
   "--filter",
   "-F",
@@ -24,12 +27,12 @@ const VALUE_FLAGS: readonly string[] = [
   "--cwd",
 ];
 
-const LOCKFILE_BY_MANAGER: Record<string, string> = {
-  pnpm: "pnpm-lock.yaml",
-  npm: "package-lock.json",
-  yarn: "yarn.lock",
-  bun: "bun.lock",
-};
+const LOCKFILE_BY_MANAGER = new Map<string, string>([
+  ["pnpm", "pnpm-lock.yaml"],
+  ["npm", "package-lock.json"],
+  ["yarn", "yarn.lock"],
+  ["bun", "bun.lock"],
+]);
 const PACKAGE_MANIFEST = "package.json";
 
 type DependencyEffect = "adds_dependency" | "removes_dependency";
@@ -57,7 +60,8 @@ function words(segment: string): string[] {
 
 function findVerb(args: string[]): VerbAt | null {
   for (let i = 0; i < args.length; i++) {
-    const word = args[i] as string;
+    const word = args[i];
+    if (word === undefined) break;
     if (VALUE_FLAGS.includes(word)) {
       i++;
       continue;
@@ -83,13 +87,12 @@ function effectOfVerb(at: VerbAt): DependencyEffect | null {
 
 function segmentChange(segment: string): DependencyChange | null {
   const [manager, ...args] = words(segment);
-  if (manager === undefined || !PACKAGE_MANAGERS.includes(manager)) {
-    return null;
-  }
+  const lockfile =
+    manager === undefined ? undefined : LOCKFILE_BY_MANAGER.get(manager);
+  if (lockfile === undefined) return null;
   const at = findVerb(args);
   const effect = at === null ? null : effectOfVerb(at);
   if (effect === null) return null;
-  const lockfile = LOCKFILE_BY_MANAGER[manager] as string;
   return { effect, touches: [PACKAGE_MANIFEST, lockfile] };
 }
 
@@ -108,10 +111,9 @@ export function detectDependencyChange(
 export function commandRulePrefix(command: string): string | null {
   if (UNRULABLE_CONSTRUCTS.test(command)) return null;
   const segments = splitSegments(command);
-  if (segments.length !== 1) return null;
-  const prefix = words(segments[0] as string)
-    .slice(0, COMMAND_RULE_WORDS)
-    .join(" ");
+  const [segment] = segments;
+  if (segments.length !== 1 || segment === undefined) return null;
+  const prefix = words(segment).slice(0, COMMAND_RULE_WORDS).join(" ");
   return prefix.length > 0 ? prefix : null;
 }
 

@@ -22,7 +22,7 @@ import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
 } from "../../src/mcp/http-binding.js";
-import type { AiMcpServerDeps } from "../../src/mcp/types.js";
+import { buildInertMcpDeps } from "../helpers/provider-runner.js";
 import { createCodexProvider } from "../../src/providers/codex/provider.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
 import {
@@ -55,6 +55,7 @@ function withoutSafeModeSkill(turns: number): string {
   return [dumps, codexScript(EMPTY_SKILL_INDEX)].join(SCRIPT_SEPARATOR);
 }
 
+/** Consumes every event of one turn: the turn is only over once its events are consumed. */
 async function drainTurn(
   session: ProviderSession,
   settings: AppSettings,
@@ -63,7 +64,6 @@ async function drainTurn(
     { text: "hello", attachments: [] },
     settings,
   )) {
-    // Drained: the turn is only over once its events are consumed.
   }
 }
 
@@ -85,7 +85,7 @@ describe("codex safe-mode skill guard", () => {
       settings,
       stateDir: join(dir, ".state"),
       mcpHttpRegistry: registry,
-      createMcpDeps: () => ({}) as unknown as AiMcpServerDeps,
+      createMcpDeps: buildInertMcpDeps,
       getMcpUrl: () => "http://127.0.0.1:1/mcp",
     });
     session = await provider.createSession({

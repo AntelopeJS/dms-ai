@@ -39,9 +39,14 @@ function withoutTokens(record: ChatGptAuthRecord): ChatGptAuthRecord {
   return rest;
 }
 
-// Runs under the machine-wide lock, so the record read here is the latest one:
-// another sidecar may have refreshed while this one waited, in which case its
-// token is used rather than spending the rotated-away refresh token.
+/**
+ * Runs under the machine-wide lock, so the record read here is the latest one:
+ * another sidecar may have refreshed while this one waited, in which case its
+ * token is used rather than spending the rotated-away refresh token. A terminal
+ * refresh failure means the sign-in is unusable for good, so it is forgotten:
+ * that is what makes the provider report "sign in again" instead of failing every
+ * turn the same way.
+ */
 async function refreshLocked(): Promise<string> {
   const record = readAuthRecord();
   if (record?.tokens === undefined || record.clientId === undefined) {
@@ -54,8 +59,6 @@ async function refreshLocked(): Promise<string> {
     return tokens.accessToken;
   } catch (error) {
     if (!(error instanceof ChatGptOAuthError) || !error.isTerminal) throw error;
-    // Unusable for good: forgetting it is what makes the provider report
-    // "sign in again" instead of failing every turn the same way.
     console.warn(`${CHATGPT_LOG_PREFIX} sign-in dropped: ${error.message}`);
     await writeAuthRecord(withoutTokens(record));
     throw new Error(CHATGPT_SIGNED_OUT_MESSAGE);
@@ -67,7 +70,8 @@ let refreshing: Promise<string> | null = null;
 /**
  * A ChatGPT access token valid for at least CHATGPT_REFRESH_MARGIN_MS, refreshed
  * first when it is not. Rejects when no account is signed in, or when the
- * sign-in can no longer be refreshed (and is then forgotten).
+ * sign-in can no longer be refreshed (and is then forgotten). One refresh runs
+ * per sidecar at a time, and the lock orders it against the other sidecars.
  */
 export async function getAccessToken(): Promise<string> {
   const record = readAuthRecord();
@@ -75,7 +79,6 @@ export async function getAccessToken(): Promise<string> {
     throw new Error(CHATGPT_NOT_SIGNED_IN_MESSAGE);
   }
   if (isFresh(record.tokens)) return record.tokens.accessToken;
-  // One refresh per sidecar at a time; the lock orders it against the others.
   refreshing ??= withAuthLock(refreshLocked).finally(() => {
     refreshing = null;
   });

@@ -12,8 +12,10 @@ import {
 } from "../../constants/attachments.js";
 import type { AttachmentType } from "../../protocol/messages.js";
 
-// The content shape the SDK accepts for a user turn: either a bare string
-// (the pre-attachment path) or an array of Anthropic content blocks.
+/**
+ * The content shape the SDK accepts for a user turn: either a bare string
+ * (the pre-attachment path) or an array of Anthropic content blocks.
+ */
 export type TurnContent = SDKUserMessage["message"]["content"];
 type ContentBlock = Exclude<TurnContent, string>[number];
 
@@ -23,19 +25,22 @@ export interface BuildTurnContentOptions {
 }
 
 function isInlineImage(mimeType: string): mimeType is InlineImageMediaType {
-  return (INLINE_IMAGE_MEDIA_TYPES as readonly string[]).includes(mimeType);
+  return INLINE_IMAGE_MEDIA_TYPES.some((type) => type === mimeType);
 }
 
 function isInlinePdf(mimeType: string): boolean {
   return mimeType === PDF_MEDIA_TYPE;
 }
 
-function buildImageBlock(att: AttachmentType): ContentBlock {
+function buildImageBlock(
+  att: AttachmentType,
+  mediaType: InlineImageMediaType,
+): ContentBlock {
   return {
     type: "image",
     source: {
       type: "base64",
-      media_type: att.mimeType as InlineImageMediaType,
+      media_type: mediaType,
       data: att.data,
     },
   };
@@ -53,10 +58,12 @@ function uploadsDirFor(opts: BuildTurnContentOptions): string {
   return sharedUploadsDirFor(opts.hostProjectRoot, opts.conversationId);
 }
 
-// Turn the user's text plus their attachments into the SDK turn content:
-// images/PDFs become inline base64 blocks (native perception); every other
-// file is written to disk and referenced by absolute path in the text. When
-// there are no attachments the original string is passed through untouched.
+/**
+ * Turn the user's text plus their attachments into the SDK turn content:
+ * images/PDFs become inline base64 blocks (native perception); every other
+ * file is written to disk and referenced by absolute path in the text. When
+ * there are no attachments the original string is passed through untouched.
+ */
 export async function buildTurnContent(
   text: string,
   attachments: readonly AttachmentType[],
@@ -68,7 +75,7 @@ export async function buildTurnContent(
   const diskAttachments: { att: AttachmentType; index: number }[] = [];
   attachments.forEach((att, index) => {
     if (isInlineImage(att.mimeType)) {
-      inlineBlocks.push(buildImageBlock(att));
+      inlineBlocks.push(buildImageBlock(att, att.mimeType));
     } else if (isInlinePdf(att.mimeType)) {
       inlineBlocks.push(buildDocumentBlock(att));
     } else {
@@ -89,8 +96,6 @@ export async function buildTurnContent(
 
   const combinedText = joinTextSections(text, diskPaths);
 
-  // No image/PDF to inline → keep the simple string path (with any disk-file
-  // references folded into the text).
   if (inlineBlocks.length === 0) return combinedText;
 
   const blocks: ContentBlock[] = [];

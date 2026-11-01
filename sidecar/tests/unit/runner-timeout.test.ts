@@ -11,8 +11,10 @@ import { buildRunner, type RunnerHandle } from "../helpers/provider-runner.js";
 const CONVERSATION_ID = "conv-timeout-1";
 const TMP_PREFIX = "dms-ai-timeout-";
 const IMMEDIATE_TIMEOUT_MS = 5;
-// Wider than any single gap between two replayed events, narrower than a whole
-// turn: it separates an idle timeout from a wall-clock cap.
+/**
+ * Wider than any single gap between two replayed events, narrower than a whole
+ * turn: it separates an idle timeout from a wall-clock cap.
+ */
 const IDLE_WINDOW_MS = 2_000;
 const TEST_TIMEOUT_MS = 30_000;
 

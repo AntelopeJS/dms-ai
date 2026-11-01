@@ -1,7 +1,9 @@
 import type { GenerationMode } from "../state/settings-types.js";
 
-// Idle timeout: the turn is aborted only after this long with no activity from
-// the provider, not as a cap on total turn duration (see armTurnTimeout).
+/**
+ * Idle timeout: the turn is aborted only after this long with no activity from
+ * the provider, not as a cap on total turn duration (see armTurnTimeout).
+ */
 export const TURN_IDLE_TIMEOUT_MS = 5 * 60_000;
 
 /** Stands for a duration in words inside the turn-ending reasons below. */
@@ -43,8 +45,10 @@ export const ACTIVITY_KINDS = [
   "retrying",
 ] as const;
 
-// Grace window after a graceful interrupt before we hard-abort the turn, so
-// Stop can never silently hang if the provider ignores the interrupt.
+/**
+ * Grace window after a graceful interrupt before we hard-abort the turn, so
+ * Stop can never silently hang if the provider ignores the interrupt.
+ */
 export const INTERRUPT_FALLBACK_MS = 4_000;
 
 export const SYSTEM_PROMPT_PLACEHOLDER_UNKNOWN = "unknown";
@@ -54,11 +58,13 @@ export const SYSTEM_PROMPT_TOKEN_NAME = "{{name}}";
 export const SYSTEM_PROMPT_TOKEN_HOST_ROOT = "{{hostProjectRoot}}";
 export const SYSTEM_PROMPT_TOKEN_MODULES = "{{antelopeModules}}";
 
-// Prepended to every user turn with the live session state read at turn start:
-// the page the host is displaying and the active generation mode. This — not any
-// value baked into the system prompt — is the authoritative signal for both, so a
-// user navigation or a mode flip is reflected on the very next turn. The mode
-// descriptions themselves live statically in the system prompt.
+/**
+ * Prepended to every user turn with the live session state read at turn start:
+ * the page the host is displaying and the active generation mode. This — not any
+ * value baked into the system prompt — is the authoritative signal for both, so a
+ * user navigation or a mode flip is reflected on the very next turn. The mode
+ * descriptions themselves live statically in the system prompt.
+ */
 export const HOST_CONTEXT_OPEN = "<host-context>";
 export const HOST_CONTEXT_CLOSE = "</host-context>";
 export const HOST_CONTEXT_PAGE_LABEL = "page: ";
@@ -67,8 +73,10 @@ export const HOST_CONTEXT_TITLE_LABEL = "title: ";
 export const HOST_CONTEXT_MODE_LABEL = "mode: ";
 export const HOST_CONTEXT_UNKNOWN_VALUE = "unknown";
 
-// The generation modes as the agent reads them, matching the system prompt and
-// the product's vocabulary: the `vibe` wire value is called Code mode.
+/**
+ * The generation modes as the agent reads them, matching the system prompt and
+ * the product's vocabulary: the `vibe` wire value is called Code mode.
+ */
 export const GENERATION_MODE_AGENT_NAMES: Record<GenerationMode, string> = {
   safe: "safe",
   vibe: "code",

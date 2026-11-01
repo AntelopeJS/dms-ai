@@ -17,7 +17,7 @@ import { isKnownRoute } from "../../pages/route-match.js";
 import { type AnyServerEventType, EVENT_TYPES } from "../../protocol/events.js";
 import type { NavigationCompleter } from "../../server/navigation-completer.js";
 import type { CurrentPage } from "../../state/host-state.js";
-import { defineTool } from "../define-tool.js";
+import { defineTool, type McpToolResult } from "../define-tool.js";
 
 export interface NavigateToPageDeps {
   sendToHost: (event: AnyServerEventType) => void;
@@ -35,8 +35,10 @@ function buildNavigationEvent(targetPath: string): AnyServerEventType {
   };
 }
 
-// Best-effort list of registered routes; never blocks navigation on its own
-// failure (the validation below only fires when this is non-empty).
+/**
+ * Best-effort list of registered routes; never blocks navigation on its own
+ * failure (the validation below only fires when this is non-empty).
+ */
 async function safeKnownRoutes(registry: RegistryClient): Promise<string[]> {
   try {
     const entries = await registry.getRegistry();
@@ -46,10 +48,8 @@ async function safeKnownRoutes(registry: RegistryClient): Promise<string[]> {
   }
 }
 
-function jsonContent(payload: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text: JSON.stringify(payload) }] };
+function textContent(text: string): McpToolResult {
+  return { content: [{ type: "text", text }] };
 }
 
 function buildUnknownRouteText(
@@ -62,13 +62,15 @@ function buildUnknownRouteText(
 function buildUnknownRouteContent(
   targetPath: string,
   knownRoutes: string[],
-): { content: Array<{ type: "text"; text: string }> } {
+): McpToolResult {
   const suggestions = knownRoutes.slice(0, NAVIGATE_SUGGESTION_LIMIT);
-  return jsonContent({
-    ok: false,
-    error: { code: "unknown_route", path: targetPath, suggestions },
-    message: buildUnknownRouteText(targetPath, suggestions),
-  });
+  return textContent(
+    JSON.stringify({
+      ok: false,
+      error: { code: "unknown_route", path: targetPath, suggestions },
+      message: buildUnknownRouteText(targetPath, suggestions),
+    }),
+  );
 }
 
 function buildResultText(
@@ -86,27 +88,32 @@ function buildContent(
   targetPath: string,
   isCompleted: boolean,
   landedOn: CurrentPage,
-): { content: Array<{ type: "text"; text: string }> } {
-  return jsonContent({
-    ok: true,
-    data: {
-      path: targetPath,
-      navigation: isCompleted ? "completed" : "timeout",
-      currentPage: landedOn,
-    },
-    message: buildResultText(targetPath, isCompleted, landedOn),
-  });
+): McpToolResult {
+  return textContent(
+    JSON.stringify({
+      ok: true,
+      data: {
+        path: targetPath,
+        navigation: isCompleted ? "completed" : "timeout",
+        currentPage: landedOn,
+      },
+      message: buildResultText(targetPath, isCompleted, landedOn),
+    }),
+  );
 }
 
+/**
+ * Builds the tool that navigates the user's browser to a page. It guards
+ * against guessed URLs: with a non-empty registry, a path that is not a known
+ * route returns suggestions instead of navigating into a 404. It fails open
+ * when the registry is empty or unreachable.
+ */
 export function buildNavigateToPageTool(deps: NavigateToPageDeps) {
   return defineTool(
     NAVIGATE_TOOL_NAME,
     NAVIGATE_TOOL_DESCRIPTION,
     INPUT_SCHEMA,
     async ({ path: targetPath }: { path: string }) => {
-      // Guard against guessed URLs: if we have a non-empty registry and the
-      // path isn't a known route, return suggestions instead of navigating into
-      // a 404. Fail open when the registry is empty/unreachable.
       const knownRoutes = await safeKnownRoutes(deps.registry);
       if (knownRoutes.length > 0 && !isKnownRoute(targetPath, knownRoutes)) {
         return buildUnknownRouteContent(targetPath, knownRoutes);

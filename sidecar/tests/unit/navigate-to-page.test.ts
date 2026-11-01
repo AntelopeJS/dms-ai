@@ -18,16 +18,6 @@ import {
   type NavigationCompleter,
 } from "../../src/server/navigation-completer.js";
 
-interface ToolHandlerLike {
-  name: string;
-  handler: (
-    args: { path: string },
-    extra: unknown,
-  ) => Promise<{
-    content: Array<{ type: string; text: string }>;
-  }>;
-}
-
 interface SpyDeps {
   calls: AnyServerEventType[];
   sendToHost: (event: AnyServerEventType) => void;
@@ -51,7 +41,7 @@ function buildRegistry(paths: string[]): RegistryClient {
   };
 }
 
-// Empty registry → validation fails open (navigation always proceeds).
+/** Empty registry → validation fails open (navigation always proceeds). */
 function buildSpyDeps(routes: string[] = []): SpyDeps {
   const calls: AnyServerEventType[] = [];
   return {
@@ -65,17 +55,19 @@ function buildSpyDeps(routes: string[] = []): SpyDeps {
   };
 }
 
-function buildTool(deps: SpyDeps): ToolHandlerLike {
+function buildTool(deps: SpyDeps) {
   return buildNavigateToPageTool({
     sendToHost: deps.sendToHost,
     navigationCompleter: deps.navigationCompleter,
     registry: deps.registry,
     getCurrentPage: deps.getCurrentPage,
-  }) as unknown as ToolHandlerLike;
+  });
 }
 
-// Let the handler progress past its async registry-validation step so the
-// navigation waiter is registered before we complete it.
+/**
+ * Let the handler progress past its async registry-validation step so the
+ * navigation waiter is registered before we complete it.
+ */
 function tick(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }
@@ -90,7 +82,7 @@ describe("buildNavigateToPageTool", () => {
   it("sends a host_command_navigate event with the requested path", async () => {
     const deps = buildSpyDeps();
     const toolDef = buildTool(deps);
-    const promise = toolDef.handler({ path: "/dashboard/settings" }, undefined);
+    const promise = toolDef.handler({ path: "/dashboard/settings" });
     await tick();
     deps.navigationCompleter.complete("/dashboard/settings");
     await promise;
@@ -104,7 +96,7 @@ describe("buildNavigateToPageTool", () => {
   it("returns the completed suffix when navigation confirms", async () => {
     const deps = buildSpyDeps();
     const toolDef = buildTool(deps);
-    const promise = toolDef.handler({ path: "/about" }, undefined);
+    const promise = toolDef.handler({ path: "/about" });
     await tick();
     deps.navigationCompleter.complete("/about");
     const result = await promise;
@@ -122,7 +114,7 @@ describe("buildNavigateToPageTool", () => {
     try {
       const deps = buildSpyDeps();
       const toolDef = buildTool(deps);
-      const promise = toolDef.handler({ path: "/never" }, undefined);
+      const promise = toolDef.handler({ path: "/never" });
       await vi.advanceTimersByTimeAsync(NAVIGATE_TIMEOUT_MS + 1);
       const result = await promise;
       const payload = JSON.parse(result.content[0]?.text ?? "");
@@ -138,7 +130,7 @@ describe("buildNavigateToPageTool", () => {
   it("refuses to navigate to a route not in a non-empty registry", async () => {
     const deps = buildSpyDeps(["/form/form-simple", "/examples/overview"]);
     const toolDef = buildTool(deps);
-    const result = await toolDef.handler({ path: "/pages?" }, undefined);
+    const result = await toolDef.handler({ path: "/pages?" });
     const payload = JSON.parse(result.content[0]?.text ?? "");
     expect(payload.ok).toBe(false);
     expect(payload.error.code).toBe("unknown_route");
@@ -152,7 +144,7 @@ describe("buildNavigateToPageTool", () => {
   it("navigates to a known route (ignoring a trailing slash)", async () => {
     const deps = buildSpyDeps(["/form/form-simple"]);
     const toolDef = buildTool(deps);
-    const promise = toolDef.handler({ path: "/form/form-simple/" }, undefined);
+    const promise = toolDef.handler({ path: "/form/form-simple/" });
     await tick();
     deps.navigationCompleter.complete("/form/form-simple/");
     await promise;

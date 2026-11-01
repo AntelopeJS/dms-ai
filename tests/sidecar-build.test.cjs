@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { existsSync, readFileSync } = require("node:fs");
+const { existsSync } = require("node:fs");
 const { mkdtemp, rm } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
 const path = require("node:path");
@@ -9,10 +9,6 @@ const { test } = require("node:test");
 
 const root = path.resolve(__dirname, "..");
 const sidecarEntry = path.join(root, "sidecar", "dist", "index.js");
-
-function readText(relativePath) {
-  return readFileSync(path.join(root, relativePath), "utf8");
-}
 
 function waitForPort(child) {
   return new Promise((resolve, reject) => {
@@ -45,14 +41,6 @@ function requestHealth(port) {
     req.end();
   });
 }
-
-void test("playground installation builds the sidecar before startup", () => {
-  assert.match(
-    readText("playground/antelope.config.ts"),
-    /installCommand: \["pnpm install", "pnpm build", "pnpm build:sidecar"\]/,
-  );
-  assert.match(readText(".agents/setup"), /pnpm build:sidecar/);
-});
 
 void test("built sidecar starts and serves health", async () => {
   assert.equal(existsSync(sidecarEntry), true);

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type {
   RunnerToolResult,
   RunnerToolUse,
@@ -25,23 +26,40 @@ import {
   STATUS,
   type ToolCallEndEventType,
 } from "../protocol/events.js";
-import type { CallDecision } from "../audit/call-audit.js";
-import type { SidecarServices } from "./services.js";
-import type { ActiveTurn } from "./turn-registry.js";
+import type { ConversationModes } from "../agent/conversation-modes.js";
+import type { CallAudit, CallDecision } from "../audit/call-audit.js";
+import type { ConversationStore } from "../state/conversations.js";
+import type { ActiveTurn, TurnRegistry } from "./turn-registry.js";
 
-// What a call that ran without any recorded decision was allowed by. Claude
-// runs the commands it deems read-only and, in Accept edits, the edits, without
-// asking; Codex runs sandboxed commands the same way.
+/** What starting, ending and stopping a tool call reads and writes. */
+export interface ToolCallServices {
+  turns: Pick<TurnRegistry, "get">;
+  conversationStore: Pick<
+    ConversationStore,
+    "get" | "appendMessage" | "patchMessages"
+  >;
+  callAudit: Pick<CallAudit, "lookup">;
+  conversationModes: Pick<ConversationModes, "isFullAuto">;
+}
+
+/**
+ * What a call that ran without any recorded decision was allowed by. Claude
+ * runs the commands it deems read-only and, in Accept edits, the edits, without
+ * asking; Codex runs sandboxed commands the same way.
+ */
 interface AllowedByMatcher {
   allowedBy: AllowedBy;
   matches: (toolName: string, isFullAuto: boolean) => boolean;
 }
 
+/**
+ * Tried in order. The `rule` entry covers edits accepted by the conversation's
+ * Accept edits mode, a standing rule.
+ */
 const DEFAULT_ALLOWED_BY: readonly AllowedByMatcher[] = [
   { allowedBy: "builder_auto", matches: (name) => isMutatingBuilderTool(name) },
   { allowedBy: "read_auto", matches: (name) => isReadOnlyTool(name) },
   { allowedBy: "full_auto", matches: (_name, isFullAuto) => isFullAuto },
-  // Accepted by the conversation's Accept edits mode, a standing rule.
   { allowedBy: "rule", matches: (name) => isEditTool(name) },
   { allowedBy: "read_auto", matches: (name) => isCommandTool(name) },
 ];
@@ -57,7 +75,7 @@ const OUTCOME_BY_DECISION: Partial<Record<AllowedBy, ToolOutcome>> = {
 const STOPPED_RESULT = "stopped";
 
 function defaultAllowedBy(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
   toolName: string,
 ): AllowedBy {
@@ -69,7 +87,7 @@ function defaultAllowedBy(
 }
 
 function decisionOf(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
   callId: string,
 ): CallDecision | undefined {
@@ -90,7 +108,8 @@ function outcomeOf(
 }
 
 function resultText(result: unknown): string {
-  if (typeof result === "string") return result;
+  const asString = z.string().safeParse(result);
+  if (asString.success) return asString.data;
   try {
     return JSON.stringify(result ?? "");
   } catch {
@@ -103,16 +122,20 @@ const TYPECHECK_OUTCOME_MARKERS: ReadonlyArray<[string, TypecheckOutcome]> = [
   [TYPECHECK_CLEAN_MESSAGE, "passed"],
 ];
 
-function noteTypecheck(turn: ActiveTurn, toolName: string, result: unknown) {
+function noteTypecheck(
+  turn: ActiveTurn,
+  toolName: string,
+  ev: RunnerToolResult,
+) {
   if (bareToolName(toolName) !== TYPECHECK_TOOL_NAME) return;
-  const text = resultText(result);
+  const text = resultText(ev.result);
   const marker = TYPECHECK_OUTCOME_MARKERS.find(([m]) => text.includes(m));
   if (marker !== undefined) turn.typecheck = marker[1];
 }
 
 /** Persists a call as it starts and tracks it on the running turn. */
 export function startToolCall(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
   ev: RunnerToolUse,
 ): void {
@@ -136,7 +159,7 @@ export function startToolCall(
 }
 
 function toolNameOf(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
   callId: string,
 ): string {
@@ -157,7 +180,7 @@ function trackEnd(
 ): void {
   if (turn === undefined) return;
   turn.openCalls.delete(ev.callId);
-  noteTypecheck(turn, toolName, ev.result);
+  noteTypecheck(turn, toolName, ev);
   if (outcome === "done" && isMutatingBuilderTool(toolName)) turn.builderOps++;
 }
 
@@ -167,7 +190,7 @@ function trackEnd(
  * answers the event the chat is sent.
  */
 export function endToolCall(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
   ev: RunnerToolResult,
 ): ToolCallEndEventType {
@@ -205,7 +228,7 @@ export function endToolCall(
 
 /** The calls a cut-short turn left open, ended as `stopped`. */
 export function stopOpenCalls(
-  services: SidecarServices,
+  services: ToolCallServices,
   conversationId: string,
 ): ToolCallEndEventType[] {
   const turn = services.turns.get(conversationId);

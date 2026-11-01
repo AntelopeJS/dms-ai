@@ -6,8 +6,10 @@ import { safeDirSegment } from "../../src/state/safe-segment.js";
 
 const ROOT = "/srv/app";
 
-// Conversation ids arrive from the websocket as free-form strings and end up
-// naming directories that are created, written to and removed recursively.
+/**
+ * Conversation ids arrive from the websocket as free-form strings and end up
+ * naming directories that are created, written to and removed recursively.
+ */
 const CRAFTED_IDS = [
   "../../etc",
   "../".repeat(12),
@@ -40,8 +42,6 @@ describe("safe directory segments", () => {
     },
   );
 
-  // Two ids that reduce to the same label would otherwise share a directory,
-  // and one conversation's teardown would delete the other's.
   it("keeps ids apart that sanitize to the same label", () => {
     expect(safeDirSegment("a/b")).not.toBe(safeDirSegment("a_b"));
     expect(safeDirSegment("../x")).not.toBe(safeDirSegment("__x"));

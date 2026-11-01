@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AnyMcpToolDefinition } from "../../src/mcp/define-tool.js";
-import { shapeCatalog } from "../../src/mcp/tools/builder-catalog.js";
+import type { BuilderClient } from "../../src/builder/builder-client.js";
+import { summarizeCatalog } from "../../src/mcp/tools/builder-catalog.js";
 import { buildBuilderTools } from "../../src/mcp/tools/builder.js";
 
 const TABLE_VIEW = {
@@ -12,7 +13,7 @@ const TABLE_VIEW = {
   controllerArg: true,
   description: "Paginated table over a resource, with its forms and actions.",
   config: { columns: { type: "array" }, rowActions: { type: "array" } },
-  shapeSource: "annotated",
+  configSource: "annotated",
 };
 
 const GRID = {
@@ -23,7 +24,7 @@ const GRID = {
   container: true,
   description: "Responsive grid container laid out in rows.",
   config: { gap: { type: "number" } },
-  shapeSource: "annotated",
+  configSource: "annotated",
 };
 
 const SELECT = {
@@ -43,7 +44,7 @@ const NO_SELECTION = { blocks: undefined, dataTypes: undefined };
 
 describe("BuilderCatalog shaping", () => {
   it("answers a compact index by default", () => {
-    expect(shapeCatalog(CATALOG, NO_SELECTION)).toMatchObject({
+    expect(summarizeCatalog(CATALOG, NO_SELECTION)).toMatchObject({
       blocks: [
         {
           type: "TableView",
@@ -65,23 +66,29 @@ describe("BuilderCatalog shaping", () => {
   });
 
   it("keeps config schemas out of the index", () => {
-    const index = JSON.stringify(shapeCatalog(CATALOG, NO_SELECTION));
+    const index = JSON.stringify(summarizeCatalog(CATALOG, NO_SELECTION));
     expect(index).not.toContain("rowActions");
-    expect(index).not.toContain("shapeSource");
+    expect(index).not.toContain("configSource");
   });
 
   it("answers the full schema of only the named entries", () => {
     expect(
-      shapeCatalog(CATALOG, { blocks: ["Grid"], dataTypes: undefined }),
+      summarizeCatalog(CATALOG, { blocks: ["Grid"], dataTypes: undefined }),
     ).toEqual({ blocks: [GRID] });
     expect(
-      shapeCatalog(CATALOG, { blocks: ["TableView"], dataTypes: ["select"] }),
+      summarizeCatalog(CATALOG, {
+        blocks: ["TableView"],
+        dataTypes: ["select"],
+      }),
     ).toEqual({ blocks: [TABLE_VIEW], dataTypes: [SELECT] });
   });
 
   it("names the entries the catalog does not have", () => {
     expect(
-      shapeCatalog(CATALOG, { blocks: ["Grid", "Tree"], dataTypes: ["money"] }),
+      summarizeCatalog(CATALOG, {
+        blocks: ["Grid", "Tree"],
+        dataTypes: ["money"],
+      }),
     ).toEqual({
       blocks: [GRID],
       unknownBlocks: ["Tree"],
@@ -92,12 +99,15 @@ describe("BuilderCatalog shaping", () => {
 
   it("passes a failed answer through untouched", () => {
     const failure = { ok: false, error: { code: "request_failed" } };
-    expect(shapeCatalog(failure, NO_SELECTION)).toBe(failure);
+    expect(summarizeCatalog(failure, NO_SELECTION)).toBe(failure);
   });
 });
 
 describe("Builder tool results", () => {
-  function tool(name: string, answer: unknown): AnyMcpToolDefinition {
+  function tool(
+    name: string,
+    answer: Awaited<ReturnType<BuilderClient["call"]>>,
+  ): AnyMcpToolDefinition {
     const builderClient = { call: vi.fn(async () => answer) };
     const found = buildBuilderTools({ builderClient }).find(
       (t) => t.name === name,
@@ -107,10 +117,7 @@ describe("Builder tool results", () => {
   }
 
   it("serves the catalog index through the tool", async () => {
-    const result = await tool("BuilderCatalog", CATALOG).handler(
-      NO_SELECTION,
-      {},
-    );
+    const result = await tool("BuilderCatalog", CATALOG).handler(NO_SELECTION);
     expect(result.isError).toBeUndefined();
     const text = result.content[0]?.text ?? "";
     expect(JSON.parse(text).blocks[0]).not.toHaveProperty("config");
@@ -118,10 +125,12 @@ describe("Builder tool results", () => {
 
   it("marks an ok:false answer as a failed call", async () => {
     const failure = { ok: false, error: { code: "typecheck_failed" } };
-    const result = await tool("BuilderAddBlock", failure).handler(
-      { page: "/p", name: "kpi", type: "KpiCard", config: {} },
-      {},
-    );
+    const result = await tool("BuilderAddBlock", failure).handler({
+      page: "/p",
+      name: "kpi",
+      type: "KpiCard",
+      config: {},
+    });
     expect(result).toMatchObject({
       isError: true,
       content: [{ text: JSON.stringify(failure) }],
@@ -129,23 +138,22 @@ describe("Builder tool results", () => {
   });
 
   it("leaves a successful answer unmarked", async () => {
-    const result = await tool("BuilderAddBlock", { ok: true }).handler(
-      { page: "/p", name: "kpi", type: "KpiCard", config: {} },
-      {},
-    );
+    const result = await tool("BuilderAddBlock", { ok: true }).handler({
+      page: "/p",
+      name: "kpi",
+      type: "KpiCard",
+      config: {},
+    });
     expect(result.isError).toBeUndefined();
   });
 
   it("marks a refused $expr as a failed call", async () => {
-    const result = await tool("BuilderAddBlock", { ok: true }).handler(
-      {
-        page: "/p",
-        name: "kpi",
-        type: "KpiCard",
-        config: { value: { $expr: "x" } },
-      },
-      {},
-    );
+    const result = await tool("BuilderAddBlock", { ok: true }).handler({
+      page: "/p",
+      name: "kpi",
+      type: "KpiCard",
+      config: { value: { $expr: "x" } },
+    });
     expect(result.isError).toBe(true);
   });
 });

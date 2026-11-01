@@ -57,7 +57,7 @@ import type { ConversationStore } from "../state/conversations.js";
 import type { HostState } from "../state/host-state.js";
 import type { SettingsStore } from "../state/settings-store.js";
 import type { AppSettings } from "../state/settings-types.js";
-import { PROVIDER_NAMES, type ProviderName } from "../state/types.js";
+import type { ProviderName } from "../state/types.js";
 import {
   broadcastConversationList,
   emitBlockPreview,
@@ -108,8 +108,10 @@ export interface AttachWsServerOptions {
   conversationStore: ConversationStore;
   settingsStore?: SettingsStore;
   mcpDeps: AiMcpServerStaticDeps;
-  // What the sidecar's own runtime offers every provider. Neutral: the backends
-  // are reached through the registry, never by name from here.
+  /**
+   * What the sidecar's own runtime offers every provider. Neutral: the backends
+   * are reached through the registry, never by name from here.
+   */
   providerRuntime: ProviderHostRuntime;
   hostState: HostState;
   hostSocketRegistry: HostSocketRegistry;
@@ -118,9 +120,9 @@ export interface AttachWsServerOptions {
   permissionBus?: PermissionBus;
   chatSocketRegistry?: ChatSocketRegistry;
   settingsApplier?: SettingsApplier;
-  // Started by the caller; absent, change sets are off.
+  /** Started by the caller; absent, change sets are off. */
   checkpoints?: Checkpoints;
-  // Filled with the live services, for the HTTP routes that read them.
+  /** Filled with the live services, for the HTTP routes that read them. */
   bridge?: SidecarBridge;
 }
 
@@ -152,15 +154,17 @@ function buildBaseOptions(
   };
 }
 
-// One factory per registered provider, all built the same way: the registry is
-// the only thing here that knows which backends exist.
+/**
+ * One factory per registered provider, all built the same way: the registry is
+ * the only thing here that knows which backends exist.
+ */
 function buildRunnerFactories(
   options: AttachWsServerOptions,
   runtime: ProviderRuntime,
   resolveSettings: ConversationSettingsResolver,
 ): Record<ProviderName, ProviderRunnerFactory> {
-  const factories = PROVIDER_NAMES.map((name) => [
-    name,
+  const factoryFor =
+    (name: ProviderName): ProviderRunnerFactory =>
     (settings: AppSettings) =>
       createAgentRunner(
         PROVIDER_MODULES[name].create(
@@ -168,12 +172,8 @@ function buildRunnerFactories(
           runtime,
         ),
         { settings, resolveSettings },
-      ),
-  ]);
-  return Object.fromEntries(factories) as Record<
-    ProviderName,
-    ProviderRunnerFactory
-  >;
+      );
+  return { claude: factoryFor("claude"), codex: factoryFor("codex") };
 }
 
 function buildRunner(
@@ -211,9 +211,11 @@ function bindConnection(socket: WebSocket, config: RoutingConfig): void {
   });
 }
 
-// Tools are bound per conversation so AskUser can reach the right chat: no
-// MCP transport carries our conversationId down to a tool handler, so it is
-// closed over here instead. Shared by both bindings.
+/**
+ * Tools are bound per conversation so AskUser can reach the right chat: no
+ * MCP transport carries our conversationId down to a tool handler, so it is
+ * closed over here instead. Shared by both bindings.
+ */
 function buildMcpDepsFactory(
   staticDeps: AiMcpServerStaticDeps,
   holder: ServicesHolder,
@@ -235,7 +237,7 @@ function buildMcpDepsFactory(
   });
 }
 
-// Paired with its AskUser call so the question ends with the call.
+/** Paired with its AskUser call so the question ends with the call. */
 function askUser(
   current: SidecarServices,
   req: QuestionRequest,
@@ -248,7 +250,7 @@ function askUser(
   return current.questionBus.requestQuestion({ ...req, callId });
 }
 
-// Memoized so a conversation reuses one server instance across its turns.
+/** Memoized so a conversation reuses one server instance across its turns. */
 function buildMcpServerFactory(
   createMcpDeps: (conversationId: string) => AiMcpServerDeps,
 ): (conversationId: string) => AiMcpServer {
@@ -425,6 +427,11 @@ function buildServices(parts: ServiceParts): RoutingConfig {
   };
 }
 
+/**
+ * When a settings applier is supplied it is pointed at this connection's
+ * services, so the HTTP Settings page applies changes through the same path as
+ * the chat's socket.
+ */
 export function attachWsServer(
   httpServer: Server,
   options: AttachWsServerOptions,
@@ -440,8 +447,6 @@ export function attachWsServer(
   });
   holder.current = config;
   if (options.bridge !== undefined) options.bridge.services = config;
-  // Let the HTTP Settings page apply changes through the same path as the
-  // chat's socket by pointing the shared applier at this connection's services.
   if (options.settingsApplier) {
     options.settingsApplier.apply = (next) => applySettings(config, next);
   }

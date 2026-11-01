@@ -2,7 +2,9 @@ export const DATABASE_CONNECTIONS_PATH = "/ai/database/connections";
 export const DATABASE_RELATIONS_PATH = "/ai/database/relations";
 export const DATABASE_DESCRIBE_PATH = "/ai/database/describe";
 export const DATABASE_PROFILE_PATH = "/ai/database/profile";
-// A profile runs one measure after another, each bounded by the provider's statement timeout.
+/**
+ * A profile runs one measure after another, each bounded by the provider's statement timeout.
+ */
 export const DATABASE_FETCH_TIMEOUT_MS = 120_000;
 export const DATABASE_LOG_PREFIX = "[database]";
 

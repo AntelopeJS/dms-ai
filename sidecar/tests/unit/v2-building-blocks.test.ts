@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import type WebSocket from "ws";
 import { createCallLedger } from "../../src/agent/call-ledger.js";
 import { ASK_USER_RESULT_SKIPPED } from "../../src/constants/mcp.js";
 import type { AnyMcpToolDefinition } from "../../src/mcp/define-tool.js";
@@ -14,10 +13,7 @@ const CONVERSATION_ID = "conv-blocks";
 
 function fakeSocket() {
   const sent: string[] = [];
-  return {
-    socket: { send: (raw: string) => sent.push(raw) } as unknown as WebSocket,
-    sent,
-  };
+  return { socket: { send: (raw: string) => sent.push(raw) }, sent };
 }
 
 describe("Builder gate", () => {
@@ -37,7 +33,7 @@ describe("Builder gate", () => {
       isAllowed: false,
       message: "no",
     }));
-    const result = await deletePage?.handler({ pageRef: "/p" }, {});
+    const result = await deletePage?.handler({ pageRef: "/p" });
     expect(result).toMatchObject({ isError: true, content: [{ text: "no" }] });
     expect(builderClient.call).not.toHaveBeenCalled();
   });
@@ -48,7 +44,7 @@ describe("Builder gate", () => {
       isAllowed: true,
       keepData: true,
     }));
-    await remove?.handler({ ref: "books" }, {});
+    await remove?.handler({ ref: "books" });
     expect(builderClient.call).toHaveBeenCalledWith("DeleteResource", [
       "books",
       { keepData: true },
@@ -57,7 +53,7 @@ describe("Builder gate", () => {
 
   it("never gates a read tool", async () => {
     const gate = vi.fn(async () => ({ isAllowed: false }));
-    await tool("BuilderCatalog", gate)?.handler({}, {});
+    await tool("BuilderCatalog", gate)?.handler({});
     expect(gate).not.toHaveBeenCalled();
   });
 });
@@ -147,7 +143,7 @@ describe("AskUser", () => {
         { label: "B", description: "" },
       ],
     }));
-    const result = await askUser.handler({ questions }, {});
+    const result = await askUser.handler({ questions });
     expect(result.content[0]?.text).toContain(
       `- Size: ${ASK_USER_RESULT_SKIPPED}`,
     );

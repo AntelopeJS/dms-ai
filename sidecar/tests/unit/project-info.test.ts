@@ -39,7 +39,14 @@ async function makeHarness(): Promise<Harness> {
   return { dir };
 }
 
-async function writePackage(dir: string, contents: unknown): Promise<void> {
+interface PackageFile {
+  name: string;
+  version: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}
+
+async function writePackage(dir: string, contents: PackageFile): Promise<void> {
   await writeFile(join(dir, PACKAGE_FILENAME), JSON.stringify(contents));
 }
 

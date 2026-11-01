@@ -55,6 +55,13 @@ type MessageOf<T extends AnyClientMessageType["type"]> = Extract<
   { type: T }
 >;
 
+function isMessageOf<T extends AnyClientMessageType["type"]>(
+  msg: AnyClientMessageType,
+  type: T,
+): msg is MessageOf<T> {
+  return msg.type === type;
+}
+
 /** A handler bound to one message type: others never reach it. */
 function on<T extends AnyClientMessageType["type"]>(
   type: T,
@@ -65,7 +72,7 @@ function on<T extends AnyClientMessageType["type"]>(
   ) => void | Promise<void>,
 ): ClientMessageHandler {
   return (socket, msg, ctx) =>
-    msg.type === type ? handle(socket, msg as MessageOf<T>, ctx) : undefined;
+    isMessageOf(msg, type) ? handle(socket, msg, ctx) : undefined;
 }
 
 function send(socket: WebSocket, event: AnyServerEventType): void {
@@ -83,6 +90,12 @@ function replayLiveTurn(
   for (const event of events) send(socket, event);
 }
 
+/**
+ * Replays a conversation's state to a socket. The queue state is always sent on
+ * re-attach, even when empty: the queue is the server's authoritative state, so
+ * an empty payload must clear any stale client mirror (e.g. follow-ups the
+ * server drained while the client was disconnected).
+ */
 function sendConversationState(
   socket: WebSocket,
   ctx: ConnectionContext,
@@ -91,9 +104,6 @@ function sendConversationState(
   const snapshot = buildSnapshotEvent(ctx, conversationId);
   if (snapshot !== null) send(socket, snapshot);
   replayLiveTurn(socket, ctx, conversationId);
-  // Always sent on re-attach, even when empty: the queue is the server's
-  // authoritative state, so an empty payload must clear any stale client mirror
-  // (e.g. follow-ups the server drained while the client was disconnected).
   send(socket, buildQueueStateEvent(ctx, conversationId));
   send(socket, {
     type: EVENT_TYPES.CONVERSATION_MODE,
@@ -171,11 +181,14 @@ function noteAsker(ctx: ConnectionContext, conversationId: string): void {
   ctx.askers.set(conversationId, ctx.actor.name);
 }
 
+/**
+ * If a drain is already active (the client sent an immediate message while the
+ * server still considers a run in flight), the message is folded into the queue
+ * so the one active drain runs it — preserving ordering and the single-writer
+ * invariant.
+ */
 const runUserMessage = on(MESSAGE_TYPES.USER_MESSAGE, async (_s, msg, ctx) => {
   noteAsker(ctx, msg.conversationId);
-  // If a drain is already active (the client sent an immediate message while the
-  // server still considers a run in flight), fold it into the queue so the one
-  // active drain runs it — preserving ordering and the single-writer invariant.
   if (!ctx.pendingQueue.tryStartDrain(msg.conversationId)) {
     enqueueUserMessage(ctx, msg);
     void ensureDraining(ctx, msg.conversationId);
@@ -187,8 +200,10 @@ const runUserMessage = on(MESSAGE_TYPES.USER_MESSAGE, async (_s, msg, ctx) => {
   });
 });
 
-// Re-runs the last request as it was typed; its attachments are not kept, so
-// a retry carries the text alone.
+/**
+ * Re-runs the last request as it was typed; its attachments are not kept, so
+ * a retry carries the text alone.
+ */
 const handleRetryTurn = on(MESSAGE_TYPES.RETRY_TURN, async (_s, msg, ctx) => {
   const last = lastUserMessage(ctx, msg.conversationId);
   if (last === undefined) return;
@@ -240,9 +255,9 @@ const handlePermissionResponse = on(
   },
 );
 
+/** An unknown rule id means the chat's list is stale, so the real one is sent. */
 const handleRevokeRule = on(MESSAGE_TYPES.REVOKE_RULE, (_s, msg, ctx) => {
   if (ctx.permissionBus.revokeRule(msg.conversationId, msg.ruleId)) return;
-  // Unknown id: the chat's list is stale, so send the real one.
   sendRulesState(ctx, msg.conversationId);
 });
 
@@ -256,9 +271,11 @@ const handleQuestionResponse = on(
   },
 );
 
-// Unblock any tool the turn is paused on (awaiting permission or an answer),
-// then signal the provider to wind the turn down; both are needed so the run
-// can settle.
+/**
+ * Unblock any tool the turn is paused on (awaiting permission or an answer),
+ * then signal the provider to wind the turn down; both are needed so the run
+ * can settle.
+ */
 const handleInterruptTurn = on(MESSAGE_TYPES.INTERRUPT_TURN, (_s, msg, ctx) => {
   interruptConversation(ctx, msg.conversationId);
 });
@@ -337,9 +354,11 @@ export interface SettingsApplyDeps {
   chatSocketRegistry: ChatSocketRegistry;
 }
 
-// Single source of truth for applying a settings change, whether it arrives over
-// the chat WS (mode bar) or the HTTP API (Settings admin page). Always
-// broadcasts the new settings to every connected chat so both stay in sync.
+/**
+ * Single source of truth for applying a settings change, whether it arrives over
+ * the chat WS (mode bar) or the HTTP API (Settings admin page). Always
+ * broadcasts the new settings to every connected chat so both stay in sync.
+ */
 export function applySettings(
   deps: SettingsApplyDeps,
   next: AppSettings,
@@ -368,7 +387,10 @@ const handleChangeSet = on(
   MESSAGE_TYPES.CHANGE_SET_ACTION,
   async (socket, msg, ctx) => {
     await handleChangeSetAction(ctx, msg, ctx.actor?.name).catch((err) => {
-      logFailure("change set action failed", err);
+      logFailure(
+        "change set action failed",
+        err instanceof Error ? err.message : String(err),
+      );
       send(socket, {
         type: EVENT_TYPES.RUN_ERROR,
         conversationId: msg.conversationId ?? "",
@@ -378,7 +400,7 @@ const handleChangeSet = on(
   },
 );
 
-const MESSAGE_HANDLERS: Record<string, ClientMessageHandler> = {
+const MESSAGE_HANDLERS = {
   [MESSAGE_TYPES.HELLO]: handleHello,
   [MESSAGE_TYPES.ECHO]: handleEcho,
   [MESSAGE_TYPES.ACTOR]: handleActor,
@@ -402,7 +424,7 @@ const MESSAGE_HANDLERS: Record<string, ClientMessageHandler> = {
   [MESSAGE_TYPES.QUEUE_MOVE]: handleQueueMove,
   [MESSAGE_TYPES.QUEUE_CLEAR]: handleQueueClear,
   [MESSAGE_TYPES.CHANGE_SET_ACTION]: handleChangeSet,
-};
+} satisfies Partial<Record<AnyClientMessageType["type"], ClientMessageHandler>>;
 
 function parseMessage(raw: string): AnyClientMessageType | null {
   try {

@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "ai-install-codex",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "Install dms-ai and make it use Codex instead of Claude Code.",
+      "expect": {
+        "skills": ["dms-ai"],
+        "acceptable": ["dms", "dms-project"]
+      }
+    },
+    {
+      "id": "ai-offline-casual",
+      "area": "dms-ai",
+      "style": "casual",
+      "prompt": "the ai assistant says offline",
+      "expect": {
+        "skills": ["dms-ai"],
+        "acceptable": ["dms", "dms-project"]
+      }
+    },
+    {
+      "id": "dms-ai-disable-sidecar",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "How do I start the DMS backend without the dms-ai sidecar process, for example in a CI job?",
+      "expect": {
+        "skills": ["dms-ai"],
+        "acceptable": ["dms", "dms-project"],
+        "mustMention": ["DMS_AI"]
+      }
+    },
+    {
+      "id": "dms-ai-not-builder-editor",
+      "area": "dms-ai",
+      "style": "clean",
+      "prompt": "The Edit this page editor never opens and Ctrl+B does nothing. How do I set the projectRoot of the builder module?",
+      "expect": {
+        "skills": ["dms-builder"],
+        "acceptable": ["dms"],
+        "avoid": ["dms-ai"]
+      }
+    }
+  ]
+}

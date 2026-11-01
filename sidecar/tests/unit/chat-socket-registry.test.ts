@@ -1,23 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
-import type { WebSocket } from "ws";
 import {
   type AnyServerEventType,
   EVENT_TYPES,
 } from "../../src/protocol/events.js";
 import { createChatSocketRegistry } from "../../src/server/chat-socket-registry.js";
+import type { SocketSender } from "../../src/server/host-socket-registry.js";
 
 const PANEL_CONVERSATION = "conv-panel";
 const OTHER_CONVERSATION = "conv-other";
 const PALETTE_CONVERSATION = "conv-palette";
 
 interface Tab {
-  socket: WebSocket;
+  socket: SocketSender;
   send: ReturnType<typeof vi.fn>;
 }
 
 function buildTab(): Tab {
   const send = vi.fn();
-  return { socket: { send } as unknown as WebSocket, send };
+  return { socket: { send }, send };
 }
 
 function runDone(conversationId: string): AnyServerEventType {

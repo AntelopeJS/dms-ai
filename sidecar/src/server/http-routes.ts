@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { z } from "zod";
 import {
   type ActivityRecord,
   buildActivityRecords,
@@ -64,11 +65,13 @@ interface RouteMatch {
   getSkillSources?: () => SkillSource[];
 }
 
-export interface ApiRoute {
+interface RouteBase {
   method: string;
   pattern: RegExp;
-  // Served even without the conversation and settings stores.
-  isStandalone?: boolean;
+}
+
+interface StoreRoute extends RouteBase {
+  isStandalone?: false;
   handle: (
     req: IncomingMessage,
     res: ServerResponse,
@@ -76,6 +79,19 @@ export interface ApiRoute {
     match: RouteMatch,
   ) => void | Promise<void>;
 }
+
+/** Served even without the conversation and settings stores. */
+interface StandaloneRoute extends RouteBase {
+  isStandalone: true;
+  handle: (
+    req: IncomingMessage,
+    res: ServerResponse,
+    deps: ApiDeps | null,
+    match: RouteMatch,
+  ) => void | Promise<void>;
+}
+
+export type ApiRoute = StoreRoute | StandaloneRoute;
 
 const STATUS_BY_ERROR: Record<ChangeSetErrorCode, number> = {
   [CHANGE_SET_ERRORS.NOT_FOUND]: HTTP_STATUS.NOT_FOUND,
@@ -138,7 +154,7 @@ async function statusRoute(res: ServerResponse, deps: ApiDeps) {
 }
 
 function isKpiMetric(value: string): value is KpiMetric {
-  return (KPI_METRICS as readonly string[]).includes(value);
+  return KPI_METRICS.some((metric) => metric === value);
 }
 
 function kpiRoute(res: ServerResponse, deps: ApiDeps, match: RouteMatch) {
@@ -214,12 +230,8 @@ function listChangesRoute(
   });
 }
 
-function sendActionError(res: ServerResponse, err: unknown): void {
-  if (err instanceof ChangeSetActionError) {
-    sendJson(res, STATUS_BY_ERROR[err.code], { message: err.message });
-    return;
-  }
-  throw err;
+function sendActionError(res: ServerResponse, err: ChangeSetActionError): void {
+  sendJson(res, STATUS_BY_ERROR[err.code], { message: err.message });
 }
 
 async function changeDetailRoute(
@@ -263,24 +275,27 @@ function undoPreviewRoute(
       checkpoints.undoPreview(match.params[0] ?? ""),
     );
   } catch (err) {
+    if (!(err instanceof ChangeSetActionError)) throw err;
     sendActionError(res, err);
   }
 }
 
-interface ActionBody {
-  includeLater?: unknown;
-  actor?: unknown;
-}
+const ActionBodySchema = z
+  .object({
+    includeLater: z.boolean().optional().catch(undefined),
+    actor: z.string().optional().catch(undefined),
+  })
+  .catch({});
 
 function changeActionRoute(
   action: "undo" | "redo",
   resultKey: string,
-): ApiRoute["handle"] {
+): StoreRoute["handle"] {
   return async (req, res, deps, match) => {
     const services = deps.services();
     const raw = await readBody(req);
     try {
-      const body = (raw === "" ? {} : (JSON.parse(raw) ?? {})) as ActionBody;
+      const body = ActionBodySchema.parse(raw === "" ? {} : JSON.parse(raw));
       if (services === undefined) {
         throw new ChangeSetActionError(
           CHANGE_SET_ERRORS.NOT_FOUND,
@@ -294,7 +309,7 @@ function changeActionRoute(
           action,
           includeLater: body.includeLater === true,
         },
-        typeof body.actor === "string" ? body.actor : undefined,
+        body.actor,
       );
       sendJson(res, HTTP_STATUS.OK, { [resultKey]: ids });
     } catch (err) {
@@ -302,6 +317,7 @@ function changeActionRoute(
         sendJson(res, HTTP_STATUS.BAD_REQUEST, { message: "Invalid body." });
         return;
       }
+      if (!(err instanceof ChangeSetActionError)) throw err;
       sendActionError(res, err);
     }
   };
@@ -309,7 +325,7 @@ function changeActionRoute(
 
 async function skillsRoute(
   res: ServerResponse,
-  deps: ApiDeps | undefined,
+  deps: ApiDeps | null,
   match: RouteMatch,
 ) {
   const sources = match.getSkillSources?.() ?? [];
@@ -326,13 +342,6 @@ async function conflictsRoute(res: ServerResponse, match: RouteMatch) {
   sendJson(res, HTTP_STATUS.OK, { conflicts: skillConflicts(catalog) });
 }
 
-function json<T>(
-  build: (deps: ApiDeps, match: RouteMatch) => T,
-): ApiRoute["handle"] {
-  return (_req, res, deps, match) =>
-    sendJson(res, HTTP_STATUS.OK, build(deps, match));
-}
-
 export const API_ROUTES: readonly ApiRoute[] = [
   {
     method: "GET",
@@ -347,25 +356,36 @@ export const API_ROUTES: readonly ApiRoute[] = [
   {
     method: "GET",
     pattern: /^\/metrics\/series$/,
-    handle: json((d, m) => buildSeries(metricSources(d), parseWindow(m.query))),
+    handle: (_q, res, d, m) =>
+      sendJson(
+        res,
+        HTTP_STATUS.OK,
+        buildSeries(metricSources(d), parseWindow(m.query)),
+      ),
   },
   {
     method: "GET",
     pattern: /^\/metrics\/top-tools$/,
-    handle: json((d, m) =>
-      buildTopTools(
-        metricSources(d),
-        parseWindow(m.query),
-        parseLimit(m.query, DEFAULT_TOP_LIMIT),
+    handle: (_q, res, d, m) =>
+      sendJson(
+        res,
+        HTTP_STATUS.OK,
+        buildTopTools(
+          metricSources(d),
+          parseWindow(m.query),
+          parseLimit(m.query, DEFAULT_TOP_LIMIT),
+        ),
       ),
-    ),
   },
   {
     method: "GET",
     pattern: /^\/metrics\/allowed$/,
-    handle: json((d, m) =>
-      buildAllowed(metricSources(d), parseWindow(m.query)),
-    ),
+    handle: (_q, res, d, m) =>
+      sendJson(
+        res,
+        HTTP_STATUS.OK,
+        buildAllowed(metricSources(d), parseWindow(m.query)),
+      ),
   },
   {
     method: "GET",
@@ -375,9 +395,12 @@ export const API_ROUTES: readonly ApiRoute[] = [
   {
     method: "GET",
     pattern: /^\/activity$/,
-    handle: json((d, m) =>
-      queryActivity(activityRecords(d), parseActivityQuery(m.query)),
-    ),
+    handle: (_q, res, d, m) =>
+      sendJson(
+        res,
+        HTTP_STATUS.OK,
+        queryActivity(activityRecords(d), parseActivityQuery(m.query)),
+      ),
   },
   {
     method: "GET",

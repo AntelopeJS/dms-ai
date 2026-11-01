@@ -55,7 +55,6 @@ async function openConversation(
     hostProjectRoot: "/tmp",
     getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
   })) {
-    // The fake yields nothing; iterating is what opens the session.
   }
 }
 
@@ -76,8 +75,6 @@ describe("runner teardown", () => {
     expect(disposal.isSettled()).toBe(true);
   });
 
-  // Nothing holds such a session any more, which is exactly why a shutdown
-  // would otherwise race whatever its backend is still stopping.
   it("also waits for a session that had already torn itself down", async () => {
     const opened: FakeSession[] = [];
     const runner = createAgentRunner(fakeProvider(opened));
@@ -128,9 +125,7 @@ describe("runner teardown", () => {
       },
     };
     const runner = createAgentRunner(provider);
-    const turn = openConversation(runner, "conv-a").catch(
-      (error: unknown) => error,
-    );
+    const turn = openConversation(runner, "conv-a").catch(String);
     await flushCallbacks();
 
     const disposal = watchSettle(runner.dispose());

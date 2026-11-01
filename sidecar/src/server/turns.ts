@@ -1,3 +1,4 @@
+import { ToolArgsSchema } from "../agent/edit-targets.js";
 import { extractEditedFilePath } from "../agent/edit-tracker.js";
 import type { RunnerContext } from "../agent/runner.js";
 import type { RunnerEvent } from "../agent/runner-events.js";
@@ -12,9 +13,18 @@ import type { ChangeSetRecord, TokenUsage } from "../state/types.js";
 import { broadcastConversationList, emitNotice } from "./chat-events.js";
 import { cancelCallRequests, cancelTurnRequests } from "./permission-events.js";
 import { inspectBuild } from "./safety-net.js";
+import type { EditTracker } from "../agent/edit-tracker.js";
+import type { ChatSocketRegistry } from "./chat-socket-registry.js";
+import type { LiveTurnStore } from "./live-turns.js";
+import type { RequestCancelServices } from "./permission-events.js";
 import type { SidecarServices } from "./services.js";
-import type { ActiveTurn } from "./turn-registry.js";
-import { endToolCall, startToolCall, stopOpenCalls } from "./tool-calls.js";
+import type { ActiveTurn, TurnRegistry } from "./turn-registry.js";
+import {
+  endToolCall,
+  startToolCall,
+  stopOpenCalls,
+  type ToolCallServices,
+} from "./tool-calls.js";
 import { startTurnProgress } from "./turn-progress.js";
 
 const AUTO_FIX_TITLE_PREFIX = "Auto-fix: ";
@@ -22,17 +32,30 @@ const AUTO_FIX_TITLE_PREFIX = "Auto-fix: ";
 /** One turn to run: what the agent is sent and what the user asked. */
 export interface TurnRequest {
   conversationId: string;
-  // The text the agent is sent.
+  /** The text the agent is sent. */
   content: string;
-  // The user's request, for the change set title.
+  /** The user's request, for the change set title. */
   request: string;
   attachments?: AttachmentType[];
   isAutoFix: boolean;
   includePageContext?: boolean;
 }
 
+/** Where a turn's wire events go: the live replay and the chat sockets. */
+interface DispatchServices {
+  liveTurns: Pick<LiveTurnStore, "append" | "end">;
+  chatSocketRegistry: Pick<ChatSocketRegistry, "send">;
+}
+
+/** What handling one runner event reads and writes. */
+export interface TurnEventServices
+  extends DispatchServices, ToolCallServices, RequestCancelServices {
+  turns: Pick<TurnRegistry, "get" | "recordError">;
+  editTracker: Pick<EditTracker, "record">;
+}
+
 function dispatch(
-  services: SidecarServices,
+  services: DispatchServices,
   conversationId: string,
   event: AnyServerEventType,
   isTerminal: boolean,
@@ -46,7 +69,7 @@ function dispatch(
 }
 
 function dispatchAll(
-  services: SidecarServices,
+  services: DispatchServices,
   conversationId: string,
   events: AnyServerEventType[],
 ): void {
@@ -54,24 +77,24 @@ function dispatchAll(
 }
 
 function recordEditIfAny(
-  services: SidecarServices,
+  services: TurnEventServices,
   conversationId: string,
   ev: RunnerEvent,
 ): void {
   if (ev.type !== "tool_use" || !isEditTool(ev.toolName)) return;
-  const filePath = extractEditedFilePath(ev.args);
+  const filePath = extractEditedFilePath(ToolArgsSchema.parse(ev.args));
   if (filePath !== undefined)
     services.editTracker.record(conversationId, filePath);
 }
 
 type TurnEventHandler<T extends RunnerEvent["type"]> = (
-  services: SidecarServices,
+  services: TurnEventServices,
   conversationId: string,
   ev: Extract<RunnerEvent, { type: T }>,
 ) => AnyServerEventType | null;
 
 function endTurnEvents(
-  services: SidecarServices,
+  services: TurnEventServices,
   conversationId: string,
 ): void {
   cancelTurnRequests(services, conversationId);
@@ -82,9 +105,11 @@ function endTurnEvents(
   );
 }
 
-const TURN_EVENT_HANDLERS: {
+type TurnEventHandlers = {
   [K in RunnerEvent["type"]]: TurnEventHandler<K>;
-} = {
+};
+
+const TURN_EVENT_HANDLERS: TurnEventHandlers = {
   assistant_text: (services, conversationId, ev) => {
     services.conversationStore.appendMessage(conversationId, {
       role: "assistant",
@@ -135,16 +160,19 @@ const TURN_EVENT_HANDLERS: {
   activity: () => null,
 };
 
+function handlerFor<K extends RunnerEvent["type"]>(
+  type: K,
+): TurnEventHandler<K> {
+  return TURN_EVENT_HANDLERS[type];
+}
+
 export function handleTurnEvent(
-  services: SidecarServices,
+  services: TurnEventServices,
   conversationId: string,
   ev: RunnerEvent,
 ): void {
   recordEditIfAny(services, conversationId, ev);
-  const handler = TURN_EVENT_HANDLERS[ev.type] as TurnEventHandler<
-    RunnerEvent["type"]
-  >;
-  const wireEvent = handler(services, conversationId, ev);
+  const wireEvent = handlerFor(ev.type)(services, conversationId, ev);
   if (wireEvent === null) return;
   const isTerminal = ev.type === "done" || ev.type === "error";
   dispatch(services, conversationId, wireEvent, isTerminal);
@@ -200,11 +228,14 @@ function buildRunnerContext(
   };
 }
 
+/**
+ * Opens a turn's live state. It records the selected provider on the
+ * conversation up front, so what the conversation shows as having answered is
+ * what was chosen.
+ */
 function beginTurn(services: SidecarServices, request: TurnRequest): void {
   const { conversationId } = request;
   services.liveTurns.begin(conversationId);
-  // The selected provider is the one that runs, or the turn fails: there is no
-  // longer a gap between what was chosen and what answered.
   services.conversationStore.markProvider(
     conversationId,
     services.settingsStore.get().provider,
@@ -259,8 +290,10 @@ export function sendChangeSet(
   });
 }
 
-// Builder operations typecheck before they write anything, so a turn that
-// changed the project through them alone passed a typecheck.
+/**
+ * Builder operations typecheck before they write anything, so a turn that
+ * changed the project through them alone passed a typecheck.
+ */
 export function turnTypecheck(turn: ActiveTurn): ChangeSetRecord["typecheck"] {
   const isBuilderOnly =
     turn.builderOps > 0 && turn.builderOps >= turn.mutatingCallIds.length;
@@ -435,9 +468,13 @@ async function runSafetyNet(
   });
 }
 
-// One turn end-to-end: fresh edit tracking, the model turn, then the auto-heal
-// safety net. A setup failure (before any stream event) emits a terminal
-// run_error so the client never strands in its optimistic running state.
+/**
+ * One turn end-to-end: fresh edit tracking, the model turn, then the auto-heal
+ * safety net. A setup failure (before any stream event) emits a terminal
+ * run_error so the client never strands in its optimistic running state. The
+ * auto-heal pass is best-effort; a failure in it must never propagate, or it
+ * would abort the queue drain and strand the remaining follow-ups.
+ */
 export async function runTurnWithHealing(
   services: SidecarServices,
   request: TurnRequest,
@@ -448,8 +485,6 @@ export async function runTurnWithHealing(
   const sinceMs = Date.now();
   const changeSet = await streamTurnOrFail(services, request);
   if (changeSet === undefined) return;
-  // The auto-heal pass is best-effort; a failure in it must never propagate, or
-  // it would abort the queue drain and strand the remaining follow-ups.
   try {
     await runSafetyNet(services, conversationId, {
       request: request.request,

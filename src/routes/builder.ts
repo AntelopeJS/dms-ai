@@ -19,8 +19,6 @@ import { ROUTE_PREFIX } from "../constants/module";
 import { SIDECAR_AUTH_HEADER } from "../constants/sidecar";
 import { isSidecarRequest, sidecarForbidden } from "./sidecar-auth";
 
-type BuilderOp = (...args: unknown[]) => Promise<unknown>;
-
 const OP_NAMES = [
   "ListPages",
   "ListCategories",
@@ -58,6 +56,12 @@ const OP_NAMES = [
   "GetMapping",
 ] as const;
 
+type OpName = (typeof OP_NAMES)[number];
+
+/** What the Builder operations answer, as the union of their results. */
+type BuilderResult = Awaited<ReturnType<(typeof Builder)[OpName]>>;
+type BuilderOp = (...args: unknown[]) => Promise<BuilderResult>;
+
 const OPS: Record<string, BuilderOp> = Object.fromEntries(
   OP_NAMES.map((name) => [name, Builder[name] as BuilderOp]),
 );
@@ -72,7 +76,7 @@ export class AIBuilderController extends Controller(ROUTE_PREFIX) {
   async op(
     @Parameter(SIDECAR_AUTH_HEADER, "header") token?: string,
     @JSONBody() body?: BuilderOpBody,
-  ): Promise<unknown> {
+  ): Promise<BuilderResult | HTTPResult | { ok: true }> {
     if (!isSidecarRequest(token)) {
       return sidecarForbidden();
     }

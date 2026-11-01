@@ -41,7 +41,7 @@ function registerDefinition(
   server.registerTool(
     definition.name,
     { description: definition.description, inputSchema: definition.schema },
-    definition.handler as never,
+    definition.handler,
   );
 }
 
@@ -71,7 +71,7 @@ function isLoopbackHostname(value: string | undefined): boolean {
   return MCP_LOOPBACK_HOSTNAMES.includes(hostname);
 }
 
-// Host must be loopback; Origin, when the caller sends one, must be too.
+/** Host must be loopback; Origin, when the caller sends one, must be too. */
 function isLoopbackRequest(req: IncomingMessage): boolean {
   if (!isLoopbackHostname(req.headers.host)) return false;
   const origin = req.headers.origin;
@@ -95,6 +95,12 @@ function sendError(res: ServerResponse, status: number, error: string): void {
   res.end(body);
 }
 
+/**
+ * Creates the registry of per-conversation MCP endpoints. Each transport is
+ * session-backed because it is long-lived (one per conversation) and needs a
+ * session to correlate the handshake's follow-up notifications; JSON responses
+ * keep the endpoint usable without an SSE stream.
+ */
 export function createMcpHttpRegistry(): McpHttpRegistry {
   const byConversation = new Map<string, ConversationBinding>();
 
@@ -115,10 +121,6 @@ export function createMcpHttpRegistry(): McpHttpRegistry {
     async register(deps) {
       await this.release(deps.conversationId);
       const server = await buildServer(deps);
-      // Session-backed: the transport instance is long-lived (one per
-      // conversation), so it needs a session to correlate the handshake's
-      // follow-up notifications. JSON responses keep the endpoint usable
-      // without an SSE stream.
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         enableJsonResponse: true,

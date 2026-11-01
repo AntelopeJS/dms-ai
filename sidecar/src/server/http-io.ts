@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { CONTENT_TYPE } from "../constants/http.js";
+import type { Serializable } from "../protocol/json.js";
 
 const MAX_REQUEST_BODY_BYTES = 64 * 1024;
 
@@ -7,9 +8,8 @@ export function sendResponse(
   res: ServerResponse,
   status: number,
   contentType: string,
-  payload: unknown,
+  body: string,
 ): void {
-  const body = typeof payload === "string" ? payload : JSON.stringify(payload);
   res.writeHead(status, {
     "Content-Type": contentType,
     "Content-Length": Buffer.byteLength(body),
@@ -17,12 +17,12 @@ export function sendResponse(
   res.end(body);
 }
 
-export function sendJson(
+export function sendJson<Payload extends object>(
   res: ServerResponse,
   status: number,
-  payload: unknown,
+  payload: Payload & Serializable<Payload>,
 ): void {
-  sendResponse(res, status, CONTENT_TYPE.JSON, payload);
+  sendResponse(res, status, CONTENT_TYPE.JSON, JSON.stringify(payload));
 }
 
 export function readBody(req: IncomingMessage): Promise<string> {

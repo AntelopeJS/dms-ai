@@ -18,7 +18,7 @@ import type {
 
 const MS_PER_DAY = 86_400_000;
 const MAX_BUCKETS = 60;
-// Length of the "YYYY-MM-DD" prefix of an ISO timestamp.
+/** Length of the "YYYY-MM-DD" prefix of an ISO timestamp. */
 const DAY_KEY_LENGTH = 10;
 const PERCENT_ROUNDING = 1000;
 const PERCENT_DIVISOR = 10;
@@ -90,8 +90,10 @@ function dayKey(ts: number): string {
   return new Date(ts).toISOString().slice(0, DAY_KEY_LENGTH);
 }
 
-// Inclusive list of UTC day keys ("YYYY-MM-DD") spanning [fromMs, toMs],
-// capped so a huge range never produces an unbounded array.
+/**
+ * Inclusive list of UTC day keys ("YYYY-MM-DD") spanning [fromMs, toMs],
+ * capped so a huge range never produces an unbounded array.
+ */
 function dayBuckets(fromMs: number, toMs: number): string[] {
   const startDay = Math.floor(fromMs / MS_PER_DAY);
   const endDay = Math.floor(toMs / MS_PER_DAY);

@@ -167,16 +167,18 @@ export const QuestionAnswerRecordSchema = z.object({
   isCustom: z.boolean(),
 });
 
-// Server -> chat: the agent shared a block preview; drawn as an attachment.
+/** Server -> chat: the agent shared a block preview; drawn as an attachment. */
 export const BlockPreviewEvent = z.object({
   type: z.literal(EVENT_TYPES.BLOCK_PREVIEW),
   conversationId: z.string(),
   preview: BlockPreviewSchema,
 });
 
-// Roles: user | assistant | tool_use | tool_result | error | notice |
-// change_set | question_answer | block_preview. A `change_set` entry carries
-// only its id; the summary is in the snapshot's changeSets list.
+/**
+ * Roles: user | assistant | tool_use | tool_result | error | notice |
+ * change_set | question_answer | block_preview. A `change_set` entry carries
+ * only its id; the summary is in the snapshot's changeSets list.
+ */
 export const ConversationSnapshotMessage = z.object({
   role: z.string(),
   content: z.string(),
@@ -229,10 +231,13 @@ export const FullAutoStateSchema = z.object({
   untilMs: z.number().optional(),
 });
 
+/**
+ * A conversation's modes; `generationMode` is the effective one: vibe when the
+ * Builder is absent.
+ */
 export const ConversationModeSchema = z.object({
   conversationId: z.string(),
   mode: z.enum(CHAT_MODES),
-  // Effective: vibe when the Builder is absent.
   generationMode: z.enum(GENERATION_MODES),
   fullAuto: FullAutoStateSchema.nullable(),
 });
@@ -297,18 +302,23 @@ export const ProviderAvailabilitySchema = z.object({
   reason: z.string().optional(),
 });
 
-// Read-only capability, like builderAvailable: which backends this install can
-// actually drive, so a frontend greys out the ones it cannot offer.
+/**
+ * Read-only capability, like builderAvailable: which backends this install can
+ * actually drive, so a frontend greys out the ones it cannot offer.
+ */
 export const ProviderAvailabilityMapSchema = z.record(
   z.enum(PROVIDER_NAMES),
   ProviderAvailabilitySchema,
 );
 
+/**
+ * Server -> chat: the current settings. `builderAvailable` is a read-only
+ * capability, not a persisted setting: whether the Builder interface is
+ * present, gating the safe-mode toggle in both frontends.
+ */
 export const SettingsUpdateEvent = z.object({
   type: z.literal(EVENT_TYPES.SETTINGS_UPDATE),
   settings: AppSettingsSchema,
-  // Read-only capability: whether the Builder interface is present, gating the
-  // safe-mode toggle in both frontends. Not a persisted setting.
   builderAvailable: z.boolean().default(false),
   providers: ProviderAvailabilityMapSchema.optional(),
 });
@@ -372,6 +382,12 @@ export const PermissionPreviewSchema = z.discriminatedUnion("type", [
   GenericPreviewSchema,
 ]);
 
+/**
+ * Server -> chat: ask the user to approve a tool call. `alwaysAsk` covers
+ * deletions and the always-ask set: no rule is offered and the call is never
+ * auto-approved. `ruleOptions` are the scopes the card may offer, narrowest
+ * first; an empty list means only this time.
+ */
 export const PermissionRequestEvent = z.object({
   type: z.literal(EVENT_TYPES.PERMISSION_REQUEST),
   conversationId: z.string(),
@@ -381,10 +397,8 @@ export const PermissionRequestEvent = z.object({
   args: z.unknown(),
   summary: z.string(),
   kind: z.enum(PERMISSION_KINDS),
-  // Deletions and the always-ask set: no rule offered, never auto-approved.
   alwaysAsk: z.boolean(),
   preview: PermissionPreviewSchema,
-  // Scopes the card may offer, narrowest first; [] = only this time.
   ruleOptions: z.array(PermissionRuleSchema),
   createdAtMs: z.number(),
   expiresAtMs: z.number(),
@@ -399,7 +413,7 @@ export const PermissionExpiredEvent = z.object({
   expiredAtMs: z.number(),
 });
 
-// Another tab (or deny_all) answered the request: drop its card.
+/** Another tab (or deny_all) answered the request: drop its card. */
 export const PermissionResolvedEvent = z.object({
   type: z.literal(EVENT_TYPES.PERMISSION_RESOLVED),
   conversationId: z.string(),
@@ -421,25 +435,31 @@ export const RulesStateEvent = z.object({
   rules: z.array(ActiveRuleSchema),
 });
 
-// One selectable answer to a question. Mirrors the SDK's AskUserQuestion option
-// shape (label/description, plus an optional preview blob).
+/**
+ * One selectable answer to a question. Mirrors the SDK's AskUserQuestion option
+ * shape (label/description, plus an optional preview blob).
+ */
 export const QuestionOptionSchema = z.object({
   label: z.string(),
   description: z.string(),
   preview: z.string().optional(),
 });
 
-// A single question with its choices. Mirrors AskUserQuestionInput's per-question
-// shape (2-4 distinct options; an "Other" free-text answer is always offered by
-// the UI, so it is not encoded here).
+/**
+ * A single question with its choices. Mirrors AskUserQuestionInput's per-question
+ * shape (2-4 distinct options; an "Other" free-text answer is always offered by
+ * the UI, so it is not encoded here).
+ */
 export const QuestionSchema = z.object({
   question: z.string(),
   header: z.string(),
   options: z.array(QuestionOptionSchema).min(2).max(4),
 });
 
-// Server -> chat: ask the user to pick answers. Mirrors the permission request
-// round-trip; answered by a QUESTION_RESPONSE keyed by requestId.
+/**
+ * Server -> chat: ask the user to pick answers. Mirrors the permission request
+ * round-trip; answered by a QUESTION_RESPONSE keyed by requestId.
+ */
 export const AskQuestionEvent = z.object({
   type: z.literal(EVENT_TYPES.ASK_QUESTION),
   conversationId: z.string(),
@@ -461,14 +481,14 @@ export const NoticeEvent = z.object({
   notice: NoticeSchema,
 });
 
-// A turn's change set was recorded, or its state changed (undone / redone).
+/** A turn's change set was recorded, or its state changed (undone / redone). */
 export const ChangeSetEvent = z.object({
   type: z.literal(EVENT_TYPES.CHANGE_SET),
   conversationId: z.string(),
   changeSet: ChangeSetSummarySchema,
 });
 
-// After each turn: the running token total of the chat.
+/** After each turn: the running token total of the chat. */
 export const UsageEvent = z.object({
   type: z.literal(EVENT_TYPES.USAGE),
   conversationId: z.string(),
@@ -480,18 +500,22 @@ export const HostCommandNavigateEvent = z.object({
   path: z.string(),
 });
 
-// Server -> chat: the conversation's server-owned follow-up queue, broadcast
-// on every queue change and on re-attach. It is the single source of truth for
-// the client's pending-queue display.
+/**
+ * Server -> chat: the conversation's server-owned follow-up queue, broadcast
+ * on every queue change and on re-attach. It is the single source of truth for
+ * the client's pending-queue display.
+ */
 export const QueueStateEvent = z.object({
   type: z.literal(EVENT_TYPES.QUEUE_STATE),
   conversationId: z.string(),
   items: z.array(QueuedItemSchema),
 });
 
-// Server -> chat: a queued follow-up the server just dequeued and is about to
-// run. The client renders the user bubble at this point (it did not echo the
-// item locally, since the server owns the queue). Attachments are metadata only.
+/**
+ * Server -> chat: a queued follow-up the server just dequeued and is about to
+ * run. The client renders the user bubble at this point (it did not echo the
+ * item locally, since the server owns the queue). Attachments are metadata only.
+ */
 export const UserMessageEchoEvent = z.object({
   type: z.literal(EVENT_TYPES.USER_MESSAGE_ECHO),
   conversationId: z.string(),

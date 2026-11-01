@@ -17,19 +17,23 @@ export interface QuestionReply {
   skipped: boolean[];
 }
 
-// `null` means the question was never answered (timeout or cancellation),
-// letting the caller surface a "no answer" result instead of hanging forever.
+/**
+ * `null` means the question was never answered (timeout or cancellation),
+ * letting the caller surface a "no answer" result instead of hanging forever.
+ */
 export type QuestionAnswers = QuestionReply | null;
 
 export interface QuestionRequest {
   conversationId: string;
   questions: QuestionType[];
-  // The provider's id for the AskUser call, when it could be paired.
+  /** The provider's id for the AskUser call, when it could be paired. */
   callId?: string;
 }
 
-// The payload handed to the chat when a question needs answering. Carries the
-// requestId so the eventual QUESTION_RESPONSE can be matched back.
+/**
+ * The payload handed to the chat when a question needs answering. Carries the
+ * requestId so the eventual QUESTION_RESPONSE can be matched back.
+ */
 export interface PendingQuestion {
   requestId: string;
   conversationId: string;
@@ -40,10 +44,10 @@ export interface PendingQuestion {
 
 export interface QuestionBusOptions {
   onPromptChat: (event: PendingQuestion) => void;
-  // A question answered (or skipped): the reply, for the transcript.
+  /** A question answered (or skipped): the reply, for the transcript. */
   onAnswered?: (event: PendingQuestion, reply: QuestionReply) => void;
   onExpired?: (event: PendingQuestion) => void;
-  // Any question settled, whatever the way: pending counts changed.
+  /** Any question settled, whatever the way: pending counts changed. */
   onSettled?: (event: PendingQuestion) => void;
   timeoutMs?: number;
 }
@@ -53,11 +57,15 @@ export interface QuestionBus {
   resolveQuestion: (requestId: string, reply: QuestionReply) => void;
   countPending: (conversationId?: string) => number;
   getPendingForConversation: (conversationId: string) => PendingQuestion[];
-  // Resolve every pending question for a conversation as unanswered (turn
-  // interrupted or conversation deleted) so the awaiting tools settle.
+  /**
+   * Resolve every pending question for a conversation as unanswered (turn
+   * interrupted or conversation deleted) so the awaiting tools settle.
+   */
   cancelConversation: (conversationId: string) => void;
-  // Resolve the question its AskUser call is waiting on as unanswered: the
-  // call already ended on the provider's side.
+  /**
+   * Resolve the question its AskUser call is waiting on as unanswered: the
+   * call already ended on the provider's side.
+   */
   cancelCall: (conversationId: string, callId: string) => void;
 }
 
@@ -93,7 +101,7 @@ function settlePending(
   pending.resolve(answers);
 }
 
-// Settled unanswered: the chat is told so its card does not outlive the call.
+/** Settled unanswered: the chat is told so its card does not outlive the call. */
 function expirePending(state: BusState, pending: PendingState): void {
   state.onExpired?.(pendingToQuestion(pending));
   settlePending(state, pending, null);
@@ -173,12 +181,15 @@ function collectPendingForConversation(
   return out;
 }
 
+/**
+ * Settles each matching pending question as unanswered. Iterates over a snapshot because
+ * `settlePending` deletes from the map being iterated.
+ */
 function expireMatching(
   state: BusState,
   matches: (pending: PendingState) => boolean,
 ): void {
-  // Snapshot: settlePending deletes from the map being iterated.
-  // oxlint-disable-next-line unicorn/no-useless-spread
+  // oxlint-disable-next-line unicorn/no-useless-spread -- a snapshot: settlePending deletes from the map being iterated
   for (const pending of [...state.pending.values()]) {
     if (matches(pending)) expirePending(state, pending);
   }

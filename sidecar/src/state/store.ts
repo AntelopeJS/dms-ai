@@ -28,14 +28,22 @@ interface StoreState {
   inflight: Promise<void> | null;
 }
 
+function isObject(value: unknown): value is object {
+  return typeof value === "object" && value !== null;
+}
+
+function isObjectOrNull(value: unknown): value is object | null {
+  return typeof value === "object";
+}
+
 function parseStateContents(raw: string): StoredState {
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed === null || typeof parsed !== "object") return STATE_INITIAL;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isObject(parsed)) return STATE_INITIAL;
     const candidate = parsed as Partial<StoredState>;
     if (
       candidate.conversations === undefined ||
-      typeof candidate.conversations !== "object"
+      !isObjectOrNull(candidate.conversations)
     ) {
       return STATE_INITIAL;
     }
@@ -51,7 +59,7 @@ async function readState(filePath: string): Promise<StoredState> {
     return parseStateContents(raw);
   } catch (err) {
     const isMissing =
-      err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT";
+      err instanceof Error && "code" in err && err.code === "ENOENT";
     if (isMissing) return STATE_INITIAL;
     console.warn(`${STATE_LOG_PREFIX} read failed: ${String(err)}`);
     return STATE_INITIAL;

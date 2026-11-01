@@ -1,5 +1,6 @@
 import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { z } from "zod";
 import {
   SIDECAR_LOCK_FILE_NAME,
   SIDECAR_LOCK_TEMP_SUFFIX,
@@ -43,19 +44,25 @@ export async function writeLock(
   await rename(tempPath, lockPath);
 }
 
+const LockPidSchema = z.object({
+  pid: z.number().optional().catch(undefined),
+});
+
 async function readLockPid(lockPath: string): Promise<number | null> {
   try {
-    const parsed = JSON.parse(await readFile(lockPath, "utf8")) as {
-      pid?: unknown;
-    };
-    return typeof parsed.pid === "number" ? parsed.pid : null;
+    const parsed = LockPidSchema.parse(
+      JSON.parse(await readFile(lockPath, "utf8")),
+    );
+    return parsed.pid ?? null;
   } catch {
     return null;
   }
 }
 
-// Removes the lock only when this process owns it, so a retired/orphaned instance
-// can't delete the live sidecar's lock and cause the backend to spawn a duplicate.
+/**
+ * Removes the lock only when this process owns it, so a retired/orphaned instance
+ * can't delete the live sidecar's lock and cause the backend to spawn a duplicate.
+ */
 export async function removeLock(
   root: string,
   ownerPid: number = process.pid,

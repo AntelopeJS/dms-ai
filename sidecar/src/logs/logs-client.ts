@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { SIDECAR_AUTH_HEADER } from "../constants/daemon.js";
 import {
   LOGS_FETCH_FAILED_MESSAGE,
@@ -5,6 +6,7 @@ import {
   LOGS_LOG_PREFIX,
   LOGS_PATH,
 } from "../constants/logs.js";
+import { isJsonValue } from "../protocol/json.js";
 import type { BufferedLog, LogQuery } from "./types.js";
 
 export interface LogsClient {
@@ -47,6 +49,15 @@ async function fetchWithTimeout(
   }
 }
 
+const BufferedLogSchema = z.object({
+  time: z.number(),
+  channel: z.string(),
+  levelId: z.number(),
+  args: z.array(z.unknown().refine(isJsonValue)),
+});
+
+const BufferedLogListSchema = z.array(z.unknown()).catch([]);
+
 export function createLogsClient(opts: LogsClientOptions): LogsClient {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const logger = opts.logger ?? console;
@@ -62,8 +73,12 @@ export function createLogsClient(opts: LogsClientOptions): LogsClient {
         if (!response.ok) {
           throw new Error(`logs fetch failed: ${response.status}`);
         }
-        const data = (await response.json()) as BufferedLog[];
-        return Array.isArray(data) ? data : [];
+        return BufferedLogListSchema.parse(await response.json()).flatMap(
+          (entry) => {
+            const log = BufferedLogSchema.safeParse(entry);
+            return log.success ? [log.data] : [];
+          },
+        );
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         logger.warn(

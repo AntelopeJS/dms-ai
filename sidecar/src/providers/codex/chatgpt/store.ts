@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { z } from "zod";
 import {
   APPDATA_ENV,
   CHATGPT_AUTH_FILE_MODE,
@@ -56,29 +57,22 @@ export function chatGptAuthFile(): string {
   return path.join(chatGptConfigDir(), CHATGPT_AUTH_FILE_NAME);
 }
 
-function isTokens(value: unknown): value is ChatGptTokens {
-  if (value === null || typeof value !== "object") return false;
-  const tokens = value as Partial<ChatGptTokens>;
-  return (
-    typeof tokens.accessToken === "string" &&
-    typeof tokens.refreshToken === "string" &&
-    typeof tokens.idToken === "string" &&
-    typeof tokens.expiresAt === "number" &&
-    Array.isArray(tokens.scopes)
-  );
-}
+const tokensSchema = z.looseObject({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  idToken: z.string(),
+  expiresAt: z.number(),
+  scopes: z.array(z.string()),
+});
 
-function toRecord(value: unknown): ChatGptAuthRecord | undefined {
-  if (value === null || typeof value !== "object") return undefined;
-  const record = value as Partial<ChatGptAuthRecord>;
-  if (typeof record.hostId !== "string" || record.hostId === "")
-    return undefined;
-  return {
-    ...record,
-    hostId: record.hostId,
-    tokens: isTokens(record.tokens) ? record.tokens : undefined,
-  };
-}
+const authRecordSchema = z.looseObject({
+  hostId: z.string().min(1),
+  clientId: z.string().optional().catch(undefined),
+  subject: z.string().optional().catch(undefined),
+  email: z.string().optional().catch(undefined),
+  savedAt: z.string().optional().catch(undefined),
+  tokens: z.unknown().optional(),
+});
 
 /**
  * The stored record, or undefined when there is none or it is unreadable.
@@ -86,7 +80,14 @@ function toRecord(value: unknown): ChatGptAuthRecord | undefined {
  */
 export function readAuthRecord(): ChatGptAuthRecord | undefined {
   try {
-    return toRecord(JSON.parse(readFileSync(chatGptAuthFile(), "utf8")));
+    const record = authRecordSchema.safeParse(
+      JSON.parse(readFileSync(chatGptAuthFile(), "utf8")),
+    );
+    if (!record.success) return undefined;
+    return {
+      ...record.data,
+      tokens: tokensSchema.safeParse(record.data.tokens).data,
+    };
   } catch {
     return undefined;
   }
@@ -100,7 +101,8 @@ export function readOrCreateAuthRecord(): ChatGptAuthRecord {
 /**
  * Written to a sibling then renamed over the file, so a reader in another
  * sidecar never sees half a record, and created 0600 so no other account on
- * the machine can read the tokens.
+ * the machine can read the tokens. The mode is applied again with chmod
+ * because the `mode` option is masked by the umask and the tokens must not be.
  */
 export async function writeAuthRecord(
   record: ChatGptAuthRecord,
@@ -118,7 +120,6 @@ export async function writeAuthRecord(
   await writeFile(temporary, JSON.stringify(saved, null, 2), {
     mode: CHATGPT_AUTH_FILE_MODE,
   });
-  // `mode` is masked by the umask; the tokens must not be.
   await chmod(temporary, CHATGPT_AUTH_FILE_MODE);
   await rename(temporary, file);
 }

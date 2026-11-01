@@ -6,8 +6,6 @@ import { codexHomeFor } from "../../src/providers/codex/process.js";
 const STATE_DIR = path.resolve("/var/lib/dms-ai");
 const HOME_ROOT = path.join(STATE_DIR, CODEX_HOME_DIR_NAME);
 
-// The isolated home is removed recursively when the session opens and again
-// when it closes, so where it lands is not the client's to choose.
 describe("codex home placement", () => {
   it.each([
     "conv-1",

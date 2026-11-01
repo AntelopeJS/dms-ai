@@ -7,8 +7,10 @@ import { safeDirSegment } from "../state/safe-segment.js";
 
 const FALLBACK_FILE_NAME = "file";
 
-// Reduce an arbitrary upload name to a safe basename (strip directory parts and
-// characters that could escape or confuse the uploads dir). Empty → "file".
+/**
+ * Reduce an arbitrary upload name to a safe basename (strip directory parts and
+ * characters that could escape or confuse the uploads dir). Empty → "file".
+ */
 function sanitizeFileName(name: string): string {
   const base = path
     .basename(name)
@@ -29,8 +31,10 @@ export function uploadsDirFor(
   );
 }
 
-// Write one attachment to the uploads dir and return its absolute path. The
-// index disambiguates files that share a name within one message.
+/**
+ * Write one attachment to the uploads dir and return its absolute path. The
+ * index disambiguates files that share a name within one message.
+ */
 export async function writeDiskAttachment(
   att: AttachmentType,
   index: number,

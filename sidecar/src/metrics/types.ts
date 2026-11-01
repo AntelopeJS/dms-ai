@@ -1,8 +1,10 @@
 import type { AllowedBy, ToolSource } from "../constants/audit.js";
 
-// Payload shapes consumed by the DMS dashboard components (KpiCard, ChartCard,
-// TopList) — kept structurally identical to what those components expect so the
-// DMS backend can proxy sidecar responses through unchanged.
+/**
+ * Payload shapes consumed by the DMS dashboard components (KpiCard, ChartCard,
+ * TopList) — kept structurally identical to what those components expect so the
+ * DMS backend can proxy sidecar responses through unchanged.
+ */
 
 export interface SeriesPoint {
   x: string;
@@ -21,8 +23,10 @@ export interface KpiCardPayload {
   /** Absent without a comparison period. */
   previousValue?: number;
   sparkline: number[];
-  // `approved` only: how many were asked, denied and left to expire, so the
-  // backend can caption "21 / 25 · 84%".
+  /**
+   * `approved` only: how many were asked, denied and left to expire, so the
+   * backend can caption "21 / 25 · 84%".
+   */
   total?: number;
   denied?: number;
   expired?: number;
@@ -38,13 +42,15 @@ export interface ChartCardPayload {
   comparisonSeries?: NamedSeries[];
 }
 
-// Metric keys exposed at /metrics/kpi/:metric.
-// - "actions": every tool call — raw volume.
-// - "change-sets": change sets recorded.
-// - "approved" / "denied": calls the user allowed / refused when asked.
-// - "undone": change sets undone.
-// - "errors": calls that failed (denials and safe-mode blocks excluded).
-// - "proposed": calls the user was asked about.
+/**
+ * Metric keys exposed at /metrics/kpi/:metric.
+ * - "actions": every tool call — raw volume.
+ * - "change-sets": change sets recorded.
+ * - "approved" / "denied": calls the user allowed / refused when asked.
+ * - "undone": change sets undone.
+ * - "errors": calls that failed (denials and safe-mode blocks excluded).
+ * - "proposed": calls the user was asked about.
+ */
 export const KPI_METRICS = [
   "actions",
   "change-sets",

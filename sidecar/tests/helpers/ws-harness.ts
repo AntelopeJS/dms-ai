@@ -3,13 +3,13 @@ import { rawDataToText } from "../../src/server/raw-data.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
+import { z } from "zod";
 import type { PermissionBus } from "../../src/agent/permission-bus.js";
 import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
 } from "../../src/mcp/http-binding.js";
-import type { AiMcpServerStaticDeps } from "../../src/mcp/types.js";
 import { isProviderAvailable } from "../../src/providers/registry.js";
 import type { ProviderHostRuntime } from "../../src/providers/types.js";
 import { createHostSocketRegistry } from "../../src/server/host-socket-registry.js";
@@ -38,6 +38,7 @@ import type { SettingsStore } from "../../src/state/settings-store.js";
 import type { AppSettings } from "../../src/state/settings-types.js";
 import { createStore } from "../../src/state/store.js";
 import type { ProviderName } from "../../src/state/types.js";
+import { buildInertStaticMcpDeps } from "./provider-runner.js";
 
 export const CLIENT_TOKEN = "ws-harness-test-credential";
 
@@ -50,8 +51,10 @@ export const HOST_ROOT = "/tmp";
 
 export interface HarnessOptions {
   provider: ProviderName;
-  // A fresh project directory under the harness's temp dir, with change sets
-  // recorded in a shadow repository; the shared HOST_ROOT otherwise.
+  /**
+   * A fresh project directory under the harness's temp dir, with change sets
+   * recorded in a shadow repository; the shared HOST_ROOT otherwise.
+   */
   withProject?: boolean;
   settings?: Partial<AppSettings>;
   permissionBus?: PermissionBus;
@@ -72,33 +75,10 @@ export interface WsHarness {
   close: () => Promise<void>;
 }
 
-function buildMcpDeps(
-  hostState: ReturnType<typeof createHostState>,
-  navigationCompleter: ReturnType<typeof createNavigationCompleter>,
-): AiMcpServerStaticDeps {
-  return {
-    getCurrentPage: () => hostState.getCurrentPage(),
-    registry: {
-      getRegistry: async () => [],
-      getStaleSinceMs: () => null,
-      invalidate: () => {},
-    },
-    scanner: {
-      scan: async () => ({ importersByFile: new Map() }),
-      invalidate: () => {},
-    },
-    hostProjectRoot: HOST_ROOT,
-    moduleRoots: [],
-    logsClient: { getLogs: async () => [] },
-    builderClient: { call: async () => undefined },
-    databaseClient: { get: async () => [], post: async () => ({}) },
-    builderEnabled: false,
-    navigationCompleter,
-  };
-}
-
-// In-memory settings: the harness never writes them back to disk, and every
-// test that cares about a value passes it in.
+/**
+ * In-memory settings: the harness never writes them back to disk, and every
+ * test that cares about a value passes it in.
+ */
 function buildSettingsStore(settings: AppSettings): SettingsStore {
   let current = settings;
   return {
@@ -111,8 +91,10 @@ function buildSettingsStore(settings: AppSettings): SettingsStore {
   };
 }
 
-// The API key is not passed in any more: a provider reads its own environment,
-// exactly as it does in production. CODEX_FIXTURE.use() puts one there.
+/**
+ * The API key is not passed in any more: a provider reads its own environment,
+ * exactly as it does in production. CODEX_FIXTURE.use() puts one there.
+ */
 export function buildProviderRuntime(
   stateDir: string,
   registry: McpHttpRegistry,
@@ -126,13 +108,10 @@ export function buildProviderRuntime(
 }
 
 /**
- * The full connection stack — HTTP server, WS endpoints, runner — wired to one
- * provider. Both providers go through the same code path from here on, so a
- * test written once runs against either.
+ * A provider whose mock is not set up would fail every turn with an
+ * availability error, which reads as a broken test rather than a missing
+ * fixture. Say so here instead.
  */
-// A provider whose mock is not set up would fail every turn with an
-// availability error, which reads as a broken test rather than a missing
-// fixture. Say so here instead.
 function assertProviderReachable(provider: ProviderName): void {
   if (isProviderAvailable(provider)) return;
   throw new Error(
@@ -159,6 +138,11 @@ async function startProjectCheckpoints(root: string): Promise<Checkpoints> {
   return checkpoints;
 }
 
+/**
+ * The full connection stack — HTTP server, WS endpoints, runner — wired to one
+ * provider. Both providers go through the same code path from here on, so a
+ * test written once runs against either.
+ */
 export async function startWsHarness(
   options: HarnessOptions,
 ): Promise<WsHarness> {
@@ -206,7 +190,11 @@ export async function startWsHarness(
     skillDirs: options.skillDirs,
     conversationStore,
     settingsStore,
-    mcpDeps: buildMcpDeps(hostState, navigationCompleter),
+    mcpDeps: buildInertStaticMcpDeps(
+      () => hostState.getCurrentPage(),
+      navigationCompleter,
+      HOST_ROOT,
+    ),
     providerRuntime: buildProviderRuntime(
       join(tmpDir, ".state"),
       mcpHttpRegistry,
@@ -263,9 +251,38 @@ export async function openChat(port: number): Promise<WebSocket> {
   return socket;
 }
 
-export interface WireMessage {
-  type: string;
-  [key: string]: unknown;
+/** A nested record of a frame; only the fields a scenario reads are typed. */
+const wireNodeSchema = z.looseObject({
+  id: z.string().optional(),
+  kind: z.string().optional(),
+  label: z.string().optional(),
+  role: z.string().optional(),
+});
+
+/** One frame of the chat socket, the fields scenarios read typed and the rest kept as sent. */
+const wireMessageSchema = z.looseObject({
+  type: z.string(),
+  items: z
+    .array(z.looseObject({ id: z.string(), content: z.string() }))
+    .optional(),
+  ruleOptions: z.array(wireNodeSchema).optional(),
+  rules: z.array(wireNodeSchema).optional(),
+  messages: z.array(wireNodeSchema).optional(),
+  conversations: z.array(wireNodeSchema).optional(),
+  changeSet: wireNodeSchema.optional(),
+});
+
+export type WireNode = z.infer<typeof wireNodeSchema>;
+export type WireMessage = z.infer<typeof wireMessageSchema>;
+
+export function parseWireMessage(raw: string): WireMessage {
+  return wireMessageSchema.parse(JSON.parse(raw));
+}
+
+/** The value a scenario expects to be there, failing the scenario when it is not. */
+export function requireValue<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error("expected a value, found none");
+  return value;
 }
 
 export function sendHello(socket: WebSocket, conversationId: string): void {
@@ -286,7 +303,7 @@ export function answerPermission(
   socket: WebSocket,
   msg: WireMessage,
   decision: string,
-  rule?: unknown,
+  rule?: WireNode,
 ): void {
   socket.send(
     JSON.stringify({
@@ -316,8 +333,7 @@ export function collectUntil(
       options.timeoutMs,
     );
     socket.on("message", (data) => {
-      const raw = rawDataToText(data);
-      const parsed = JSON.parse(raw) as WireMessage;
+      const parsed = parseWireMessage(rawDataToText(data));
       events.push(parsed);
       options.onMessage?.(parsed, socket);
       if (!options.until(parsed)) return;
@@ -355,8 +371,7 @@ export function createCollector(
   const events: WireMessage[] = [];
   const waiters: WireMessageWaiter[] = [];
   socket.on("message", (data) => {
-    const raw = rawDataToText(data);
-    const parsed = JSON.parse(raw) as WireMessage;
+    const parsed = parseWireMessage(rawDataToText(data));
     events.push(parsed);
     for (let i = waiters.length - 1; i >= 0; i--) {
       if (waiters[i]?.matches(parsed) !== true) continue;
@@ -385,16 +400,20 @@ export function createCollector(
   return { events, next };
 }
 
-// `object`, not a message type: several cases send a frame the protocol should
-// reject, and not `unknown`, which would let `sendWire(socket, undefined)`
-// compile.
-// oxlint-disable-next-line anti-slop/no-object-parameters
+/**
+ * `object`, not a message type: several cases send a frame the protocol should
+ * reject, and not `unknown`, which would let `sendWire(socket, undefined)`
+ * compile.
+ */
+// oxlint-disable-next-line anti-slop/no-object-parameters -- a message type would forbid the frames the protocol should reject, and unknown would let sendWire(socket, undefined) compile
 export function sendWire(socket: WebSocket, msg: object): void {
   socket.send(JSON.stringify(msg));
 }
 
-// Deliberately without `provider`: that is how the chat changes a behaviour
-// setting, and sending the default would switch the backend as a side effect.
+/**
+ * Deliberately without `provider`: that is how the chat changes a behaviour
+ * setting, and sending the default would switch the backend as a side effect.
+ */
 export function sendSettings(
   socket: WebSocket,
   settings: Partial<Omit<AppSettings, "provider">>,
@@ -421,13 +440,15 @@ export function sendUserMessageWithAttachment(
   });
 }
 
-/** Calls one of the sidecar's HTTP routes the way the DMS backend does. */
+/**
+ * Calls one of the sidecar's HTTP routes the way the DMS backend does. The
+ * caller's headers win, whichever shape `HeadersInit` they come in.
+ */
 export async function callApi(
   port: number,
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  // The caller's headers win, whichever shape `HeadersInit` they come in.
   const headers = new Headers({
     Authorization: `Bearer ${CLIENT_TOKEN}`,
     "content-type": "application/json",

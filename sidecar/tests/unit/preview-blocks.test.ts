@@ -24,11 +24,13 @@ import type {
   PreviewNodeType,
 } from "../../src/protocol/preview.js";
 import {
+  type BlockPreviewServices,
   buildSnapshotEvent,
   emitBlockPreview,
   listAttachedImages,
+  type SnapshotServices,
 } from "../../src/server/chat-events.js";
-import type { SidecarServices } from "../../src/server/services.js";
+import type { ConversationStore } from "../../src/state/conversations.js";
 import { createConversationStore } from "../../src/state/conversations.js";
 import { createStore } from "../../src/state/store.js";
 
@@ -51,12 +53,23 @@ interface ToolResult {
   isError?: boolean;
 }
 
+type PreviewTool = ReturnType<typeof buildPreviewBlocksTool>;
+type PreviewArgs = Parameters<PreviewTool["handler"]>[0];
+
+const ABSENT_ARGS = {
+  description: undefined,
+  label: undefined,
+  tree: undefined,
+  sketch: undefined,
+  reference: undefined,
+  variants: undefined,
+};
+
 interface ToolLike {
   name: string;
-  schema: z.ZodRawShape;
+  schema: PreviewTool["schema"];
   handler: (
-    args: Record<string, unknown>,
-    extra: unknown,
+    args: Partial<PreviewArgs> & Pick<PreviewArgs, "title">,
   ) => Promise<ToolResult>;
 }
 
@@ -67,15 +80,27 @@ interface Harness {
 
 function buildHarness(attached: string[] = []): Harness {
   const shown: BlockPreviewType[] = [];
-  const tool = buildPreviewBlocksTool({
+  const built = buildPreviewBlocksTool({
     showPreview: (preview) => shown.push(preview),
     listAttachedImages: () => attached,
-  }) as unknown as ToolLike;
+  });
+  const tool: ToolLike = {
+    name: built.name,
+    schema: built.schema,
+    handler: (args) => built.handler({ ...ABSENT_ARGS, ...args }),
+  };
   return { shown, tool };
 }
 
-function parse(result: ToolResult): Record<string, any> {
-  return JSON.parse(result.content[0]?.text ?? "{}");
+const ParsedBodySchema = z.looseObject({
+  ok: z.boolean().optional(),
+  message: z.string().optional(),
+  data: z.looseObject({ previewId: z.string().optional() }).optional(),
+  error: z.looseObject({ code: z.string().optional() }).optional(),
+});
+
+function parse(result: ToolResult) {
+  return ParsedBodySchema.parse(JSON.parse(result.content[0]?.text ?? "{}"));
 }
 
 function nested(depth: number): PreviewNodeType {
@@ -109,14 +134,15 @@ describe("PreviewBlocks tool", () => {
 
   it("shows the preview and returns its id at once", async () => {
     const { shown, tool } = buildHarness();
-    const result = await tool.handler(
-      { title: "Revenue card", description: "Rounded corners", tree: KPI_NODE },
-      {},
-    );
+    const result = await tool.handler({
+      title: "Revenue card",
+      description: "Rounded corners",
+      tree: KPI_NODE,
+    });
     const body = parse(result);
     expect(body.ok).toBe(true);
     expect(shown).toHaveLength(1);
-    expect(body.data.previewId).toBe(shown[0]?.id);
+    expect(body.data?.previewId).toBe(shown[0]?.id);
     expect(shown[0]).toMatchObject({
       title: "Revenue card",
       description: "Rounded corners",
@@ -130,7 +156,7 @@ describe("PreviewBlocks tool", () => {
       { label: "Compact", tree: [KPI_NODE] },
       { label: "Detailed", tree: { ...KPI_NODE, options: { trend: 4 } } },
     ];
-    await tool.handler({ title: "Cards", tree: KPI_NODE, variants }, {});
+    await tool.handler({ title: "Cards", tree: KPI_NODE, variants });
     expect(shown[0]?.variants?.map((variant) => variant.label)).toEqual([
       "Compact",
       "Detailed",
@@ -139,29 +165,26 @@ describe("PreviewBlocks tool", () => {
 
   it("refuses a node with neither type nor componentName", async () => {
     const { shown, tool } = buildHarness();
-    const result = await tool.handler(
-      { title: "Bad", tree: { options: { a: 1 } } },
-      {},
-    );
+    const result = await tool.handler({
+      title: "Bad",
+      tree: { options: { a: 1 } },
+    });
     expect(result.isError).toBe(true);
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
     expect(shown).toHaveLength(0);
   });
 
   it("refuses a block loading from another origin", async () => {
     const { shown, tool } = buildHarness();
-    const result = await tool.handler(
-      {
-        title: "Remote",
-        tree: {
-          type: "KpiCard",
-          options: { fetchUrl: "https://x.example/kpi" },
-        },
+    const result = await tool.handler({
+      title: "Remote",
+      tree: {
+        type: "KpiCard",
+        options: { fetchUrl: "https://x.example/kpi" },
       },
-      {},
-    );
+    });
     const body = parse(result);
-    expect(body.error.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
+    expect(body.error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
     expect(body.message).toContain("fetchUrl");
     expect(shown).toHaveLength(0);
   });
@@ -174,17 +197,17 @@ describe("PreviewBlocks tool", () => {
         { type: "KpiCard", colSpan: 2, options: { fetchUrl: "/api/kpi" } },
       ],
     };
-    await tool.handler({ title: "Local", tree }, {});
+    await tool.handler({ title: "Local", tree });
     expect(shown[0]?.tree).toEqual(tree);
   });
 
   it("refuses a tree nested too deep", async () => {
     const { tool } = buildHarness();
-    const result = await tool.handler(
-      { title: "Deep", tree: nested(PREVIEW_MAX_DEPTH + 1) },
-      {},
-    );
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
+    const result = await tool.handler({
+      title: "Deep",
+      tree: nested(PREVIEW_MAX_DEPTH + 1),
+    });
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
   });
 
   it("counts the nodes of every variant against the cap", async () => {
@@ -192,37 +215,31 @@ describe("PreviewBlocks tool", () => {
     const half = Math.ceil(PREVIEW_MAX_NODES / 2) + 1;
     const many = Array.from({ length: half }, () => KPI_NODE);
     const section = { type: "Section", children: many };
-    const result = await tool.handler(
-      {
-        title: "Big",
-        tree: section,
-        variants: [{ label: "B", tree: section }],
-      },
-      {},
-    );
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
+    const result = await tool.handler({
+      title: "Big",
+      tree: section,
+      variants: [{ label: "B", tree: section }],
+    });
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
   });
 
   it("refuses a preview over the JSON size cap", async () => {
     const { tool } = buildHarness();
     const huge = { type: "Text", options: { text: "x".repeat(70_000) } };
-    const result = await tool.handler({ title: "Huge", tree: huge }, {});
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
+    const result = await tool.handler({ title: "Huge", tree: huge });
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
   });
 
   it("resolves `latest` to the last image the user attached", async () => {
     const { shown, tool } = buildHarness([MOCKUP_NAME, LATER_MOCKUP_NAME]);
-    await tool.handler(
-      {
-        title: "Card",
-        tree: KPI_NODE,
-        reference: {
-          attachmentId: PREVIEW_LATEST_ATTACHMENT_ID,
-          caption: "Your mockup",
-        },
+    await tool.handler({
+      title: "Card",
+      tree: KPI_NODE,
+      reference: {
+        attachmentId: PREVIEW_LATEST_ATTACHMENT_ID,
+        caption: "Your mockup",
       },
-      {},
-    );
+    });
     expect(shown[0]?.reference).toEqual({
       attachmentName: LATER_MOCKUP_NAME,
       url: undefined,
@@ -232,44 +249,35 @@ describe("PreviewBlocks tool", () => {
 
   it("accepts an attachment by name", async () => {
     const { shown, tool } = buildHarness([MOCKUP_NAME, LATER_MOCKUP_NAME]);
-    await tool.handler(
-      {
-        title: "Card",
-        tree: KPI_NODE,
-        reference: { attachmentId: MOCKUP_NAME },
-      },
-      {},
-    );
+    await tool.handler({
+      title: "Card",
+      tree: KPI_NODE,
+      reference: { attachmentId: MOCKUP_NAME },
+    });
     expect(shown[0]?.reference?.attachmentName).toBe(MOCKUP_NAME);
   });
 
   it("lists the attached images when the name is unknown", async () => {
     const { shown, tool } = buildHarness([MOCKUP_NAME]);
-    const result = await tool.handler(
-      {
-        title: "Card",
-        tree: KPI_NODE,
-        reference: { attachmentId: "nope.png" },
-      },
-      {},
-    );
+    const result = await tool.handler({
+      title: "Card",
+      tree: KPI_NODE,
+      reference: { attachmentId: "nope.png" },
+    });
     const body = parse(result);
-    expect(body.error.code).toBe(PREVIEW_ERROR_CODES.UNKNOWN_ATTACHMENT);
+    expect(body.error?.code).toBe(PREVIEW_ERROR_CODES.UNKNOWN_ATTACHMENT);
     expect(body.message).toContain(MOCKUP_NAME);
     expect(shown).toHaveLength(0);
   });
 
   it("refuses an attachment when the user attached no image", async () => {
     const { tool } = buildHarness();
-    const result = await tool.handler(
-      {
-        title: "Card",
-        tree: KPI_NODE,
-        reference: { attachmentId: PREVIEW_LATEST_ATTACHMENT_ID },
-      },
-      {},
-    );
-    expect(parse(result).error.code).toBe(
+    const result = await tool.handler({
+      title: "Card",
+      tree: KPI_NODE,
+      reference: { attachmentId: PREVIEW_LATEST_ATTACHMENT_ID },
+    });
+    expect(parse(result).error?.code).toBe(
       PREVIEW_ERROR_CODES.UNKNOWN_ATTACHMENT,
     );
   });
@@ -278,10 +286,7 @@ describe("PreviewBlocks tool", () => {
     "accepts the reference url %s",
     async (url) => {
       const { shown, tool } = buildHarness();
-      await tool.handler(
-        { title: "Card", tree: KPI_NODE, reference: { url } },
-        {},
-      );
+      await tool.handler({ title: "Card", tree: KPI_NODE, reference: { url } });
       expect(shown[0]?.reference?.url).toBe(url);
     },
   );
@@ -292,11 +297,12 @@ describe("PreviewBlocks tool", () => {
     "data:image/png;base64,AA",
   ])("refuses the reference url %s", async (url) => {
     const { shown, tool } = buildHarness();
-    const result = await tool.handler(
-      { title: "Card", tree: KPI_NODE, reference: { url } },
-      {},
-    );
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.INVALID_URL);
+    const result = await tool.handler({
+      title: "Card",
+      tree: KPI_NODE,
+      reference: { url },
+    });
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_URL);
     expect(shown).toHaveLength(0);
   });
 });
@@ -304,15 +310,12 @@ describe("PreviewBlocks tool", () => {
 describe("PreviewBlocks sketches", () => {
   it("shows a sketch beside the DMS tree, with a main tab label", async () => {
     const { shown, tool } = buildHarness();
-    const result = await tool.handler(
-      {
-        title: "Revenue card",
-        label: "DMS KpiCard",
-        tree: KPI_NODE,
-        variants: [{ label: "Custom sketch", sketch: SKETCH }],
-      },
-      {},
-    );
+    const result = await tool.handler({
+      title: "Revenue card",
+      label: "DMS KpiCard",
+      tree: KPI_NODE,
+      variants: [{ label: "Custom sketch", sketch: SKETCH }],
+    });
     expect(parse(result).ok).toBe(true);
     expect(shown[0]).toMatchObject({
       label: "DMS KpiCard",
@@ -323,18 +326,19 @@ describe("PreviewBlocks sketches", () => {
 
   it("accepts a sketch as the only view", async () => {
     const { shown, tool } = buildHarness();
-    await tool.handler({ title: "Custom", sketch: { html: "<p>Hi</p>" } }, {});
+    await tool.handler({ title: "Custom", sketch: { html: "<p>Hi</p>" } });
     expect(shown[0]?.tree).toBeUndefined();
     expect(shown[0]?.sketch).toEqual({ html: "<p>Hi</p>" });
   });
 
   it("refuses a view with neither tree nor sketch", async () => {
     const { shown, tool } = buildHarness();
-    const result = await tool.handler(
-      { title: "Empty", tree: KPI_NODE, variants: [{ label: "Nothing" }] },
-      {},
-    );
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
+    const result = await tool.handler({
+      title: "Empty",
+      tree: KPI_NODE,
+      variants: [{ label: "Nothing" }],
+    });
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_TREE);
     expect(shown).toHaveLength(0);
   });
 
@@ -372,36 +376,34 @@ describe("PreviewBlocks sketches", () => {
     ["a CSS import", { html: "<p>x</p>", css: "@import 'data:text/css,p{}';" }],
   ])("refuses a sketch with %s", async (_label, sketch) => {
     const { shown, tool } = buildHarness();
-    const result = await tool.handler(
-      { title: "Sketch", tree: KPI_NODE, variants: [{ label: "S", sketch }] },
-      {},
-    );
+    const result = await tool.handler({
+      title: "Sketch",
+      tree: KPI_NODE,
+      variants: [{ label: "S", sketch }],
+    });
     expect(result.isError).toBe(true);
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.INVALID_SKETCH);
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_SKETCH);
     expect(shown).toHaveLength(0);
   });
 
   it("keeps words that only look like handlers outside a tag", async () => {
     const { shown, tool } = buildHarness();
-    await tool.handler(
-      { title: "Text", sketch: { html: "<p>Status: on hold = 3 orders</p>" } },
-      {},
-    );
+    await tool.handler({
+      title: "Text",
+      sketch: { html: "<p>Status: on hold = 3 orders</p>" },
+    });
     expect(shown).toHaveLength(1);
   });
 
   it("counts sketches against the size cap", async () => {
     const { tool } = buildHarness();
     const half = "x".repeat(PREVIEW_MAX_JSON_BYTES / 2);
-    const result = await tool.handler(
-      {
-        title: "Huge",
-        sketch: { html: `<p>${half}</p>` },
-        variants: [{ label: "B", sketch: { html: `<p>${half}</p>` } }],
-      },
-      {},
-    );
-    expect(parse(result).error.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
+    const result = await tool.handler({
+      title: "Huge",
+      sketch: { html: `<p>${half}</p>` },
+      variants: [{ label: "B", sketch: { html: `<p>${half}</p>` } }],
+    });
+    expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
   });
 
   it("bounds the sketch height in the schema", () => {
@@ -414,7 +416,8 @@ describe("PreviewBlocks sketches", () => {
 describe("block preview transcript", () => {
   let dir: string;
   let sent: AnyServerEventType[];
-  let services: SidecarServices;
+  let services: SnapshotServices &
+    BlockPreviewServices & { conversationStore: ConversationStore };
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "dms-ai-preview-"));
@@ -436,7 +439,7 @@ describe("block preview transcript", () => {
           fullAuto: null,
         }),
       },
-    } as unknown as SidecarServices;
+    };
   });
 
   afterEach(async () => {

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { randomBytes } from "node:crypto";
 import os from "node:os";
+import { z } from "zod";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDatabaseClient } from "./database/database-client.js";
@@ -91,8 +92,10 @@ export interface ParsedArgs {
 
 type ArgParser = (value: string, acc: ParsedArgs) => void;
 
-// The parent passes the on-disk roots of every loaded module (from
-// interface-core) as a JSON array; malformed input degrades to no extra roots.
+/**
+ * The parent passes the on-disk roots of every loaded module (from
+ * interface-core) as a JSON array; malformed input degrades to no extra roots.
+ */
 function parseModuleRoots(value: string): string[] {
   try {
     const parsed = JSON.parse(value);
@@ -103,53 +106,78 @@ function parseModuleRoots(value: string): string[] {
   }
 }
 
-// The parent passes a JSON array of `{ module, dir }` skill sources (one per
-// directory declared in a loaded module's `antelopeJs.skills`, so a module may
-// contribute several entries); malformed entries are dropped and invalid JSON
-// degrades to no skill sources.
+/**
+ * The parent passes a JSON array of `{ module, dir }` skill sources (one per
+ * directory declared in a loaded module's `antelopeJs.skills`, so a module may
+ * contribute several entries); malformed entries are dropped and invalid JSON
+ * degrades to no skill sources.
+ */
+const SkillSourceSchema = z.looseObject({
+  module: z.string(),
+  dir: z.string(),
+});
+
 export function parseSkillDirs(value: string): SkillSource[] {
   try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (e): e is SkillSource =>
-        e !== null &&
-        typeof e === "object" &&
-        typeof (e as SkillSource).module === "string" &&
-        typeof (e as SkillSource).dir === "string",
-    );
+    const parsed = z.array(z.unknown()).safeParse(JSON.parse(value));
+    if (!parsed.success) return [];
+    return parsed.data.flatMap((e) => {
+      const source = SkillSourceSchema.safeParse(e);
+      return source.success ? [source.data] : [];
+    });
   } catch {
     return [];
   }
 }
 
-const ARG_PARSERS: Record<string, ArgParser> = {
-  "--module-roots": (v, a) => {
-    a.moduleRoots = parseModuleRoots(v);
-  },
-  "--skill-dirs": (v, a) => {
-    a.skillDirs = parseSkillDirs(v);
-  },
-  "--port": (v, a) => {
-    const n = Number(v);
-    if (!Number.isInteger(n) || n < 0 || n > 65535) {
-      throw new Error(`Invalid --port value: ${v}`);
-    }
-    a.port = n;
-  },
-  "--root": (v, a) => {
-    a.root = v;
-  },
-  "--backend-url": (v, a) => {
-    a.backendUrl = v;
-  },
-  [SIDECAR_BUILD_ID_FLAG]: (v, a) => {
-    a.buildId = v;
-  },
-  [SIDECAR_BUILDER_FLAG]: (v, a) => {
-    a.builderEnabled = v === "1";
-  },
-};
+const ARG_PARSERS = new Map<string, ArgParser>([
+  [
+    "--module-roots",
+    (v, a) => {
+      a.moduleRoots = parseModuleRoots(v);
+    },
+  ],
+  [
+    "--skill-dirs",
+    (v, a) => {
+      a.skillDirs = parseSkillDirs(v);
+    },
+  ],
+  [
+    "--port",
+    (v, a) => {
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 0 || n > 65535) {
+        throw new Error(`Invalid --port value: ${v}`);
+      }
+      a.port = n;
+    },
+  ],
+  [
+    "--root",
+    (v, a) => {
+      a.root = v;
+    },
+  ],
+  [
+    "--backend-url",
+    (v, a) => {
+      a.backendUrl = v;
+    },
+  ],
+  [
+    SIDECAR_BUILD_ID_FLAG,
+    (v, a) => {
+      a.buildId = v;
+    },
+  ],
+  [
+    SIDECAR_BUILDER_FLAG,
+    (v, a) => {
+      a.builderEnabled = v === "1";
+    },
+  ],
+]);
 
 function buildDefaults(): ParsedArgs {
   return {
@@ -163,13 +191,13 @@ function buildDefaults(): ParsedArgs {
   };
 }
 
-// Exported for the unit test that pins the flags the dms-ai module passes.
+/** Exported for the unit test that pins the flags the dms-ai module passes. */
 export function parseArgs(argv: readonly string[]): ParsedArgs {
   const acc = buildDefaults();
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     if (flag === undefined) continue;
-    const parser = ARG_PARSERS[flag];
+    const parser = ARG_PARSERS.get(flag);
     if (parser === undefined) {
       console.error(`[dms-ai] unknown arg: ${flag}`);
       continue;
@@ -184,8 +212,10 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   return acc;
 }
 
-// SIGHUP too: the sidecar runs in the backend's process group, so closing the
-// backend's terminal reaches it.
+/**
+ * SIGHUP is included because the sidecar runs in the backend's process group,
+ * so closing the backend's terminal reaches it.
+ */
 const SHUTDOWN_SIGNALS: readonly NodeJS.Signals[] = [
   "SIGTERM",
   "SIGINT",
@@ -193,7 +223,7 @@ const SHUTDOWN_SIGNALS: readonly NodeJS.Signals[] = [
 ];
 
 export interface ShutdownSignalSource {
-  on(signal: NodeJS.Signals, listener: () => void): unknown;
+  on(signal: NodeJS.Signals, listener: () => void): void;
 }
 
 interface ShutdownDeps {
@@ -310,6 +340,11 @@ async function startCheckpoints(
   return checkpoints;
 }
 
+/**
+ * Builds the WebSocket stack. The MCP deps passed to attachWsServer are the
+ * static ones; the per-conversation server (and its conversation-bound AskUser
+ * tool) is built inside attachWsServer.
+ */
 function buildWsStack({
   args,
   server,
@@ -353,8 +388,6 @@ function buildWsStack({
     skillDirs: args.skillDirs,
     conversationStore,
     settingsStore,
-    // Static MCP deps; the per-conversation server (and its conversation-bound
-    // AskUser tool) is built inside attachWsServer.
     mcpDeps: {
       getCurrentPage: () => hostState.getCurrentPage(),
       registry,
@@ -391,13 +424,20 @@ async function warnOnDuplicateSkillNames(
   console.warn(`${SKILL_NAME_COLLISION_WARNING} ${duplicateNames.join(", ")}`);
 }
 
+/**
+ * Boots the sidecar. The settings applier created here only persists; buildWsStack
+ * rebinds it to also apply the change to the live runner and permission bus and
+ * broadcast it to open chats. A sidecar killed outright can leave backend
+ * children holding a model connection and writing to disk, so each provider
+ * clears its own before anything new starts. The skill sources are recomputed
+ * per request so the live `allowLocalSkills` toggle is honored without a
+ * restart.
+ */
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   setBuilderAvailable(args.builderEnabled);
   const conversationStore = await buildConversationStore(args.root);
   const settingsStore = await buildSettingsStore(args.root);
-  // Default applier just persists; buildWsStack rebinds it to also apply the
-  // change to the live runner/permission bus and broadcast to open chats.
   const settingsApplier: SettingsApplier = {
     apply: (next) => settingsStore.set(next),
   };
@@ -415,9 +455,6 @@ async function main(): Promise<void> {
       os.homedir(),
     ),
   );
-  // A sidecar killed outright can leave backend children holding a model
-  // connection and writing to disk; each provider clears its own before
-  // anything new starts.
   await reapOrphanProviders(stateDirFor(args.root));
   const mcpHttpRegistry = createMcpHttpRegistry();
   const checkpoints = await startCheckpoints(
@@ -435,8 +472,6 @@ async function main(): Promise<void> {
     conversationStore,
     settingsStore,
     settingsApplier,
-    // Recompute per request so the live `allowLocalSkills` toggle is honored
-    // without restarting the sidecar.
     getSkillSources: () =>
       resolveSkillSources(
         args.skillDirs,
@@ -482,9 +517,11 @@ async function main(): Promise<void> {
   logStartup(args, port);
 }
 
-// Only boot when invoked as the real entry point (the spawned bin), so the
-// module's pure exports (parseSkillDirs, …) can be imported by tests without
-// starting a server.
+/**
+ * Only boot when invoked as the real entry point (the spawned bin), so the
+ * module's pure exports (parseSkillDirs, …) can be imported by tests without
+ * starting a server.
+ */
 function isEntryPoint(): boolean {
   const entry = process.argv[1];
   if (entry === undefined) return false;

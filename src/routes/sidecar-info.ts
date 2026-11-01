@@ -10,14 +10,14 @@ import {
 
 /**
  * Status only: the port and the client credential stay on the server, since
- * the browser reaches the sidecar through the channel routes.
+ * the browser reaches the sidecar through the channel routes. Each probe
+ * revives the sidecar, so navigation transparently respawns it after its idle
+ * shutdown and the panel reappears on the same page load.
  */
 @AuthOwnerOnly()
 export class AISidecarInfoController extends Controller(ROUTE_PREFIX) {
   @Get("/sidecar-info")
   async sidecarInfo() {
-    // Reviving here makes navigation transparently respawn the sidecar after
-    // its idle shutdown, so the panel reappears on the same page load.
     await ensureSidecarRunning();
     return HTTPResult.withHeaders(
       {
