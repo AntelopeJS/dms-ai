@@ -121,3 +121,14 @@ export const CLAUDE_DIAGNOSTIC_ERROR_PREFIX = "[ede_diagnostic]";
 
 export const CLAUDE_TURN_FAILED_MESSAGE =
   "The agent failed to complete the request.";
+
+/**
+ * What the CLI says when the API refuses the requested model: it does not
+ * exist, or the plan or API key has no access to it. The CLI reports it as
+ * text, not as a code, so the wording is the only handle on it.
+ */
+export const CLAUDE_MODEL_REFUSAL_PATTERN =
+  /issue with the selected model|may not exist or you may not have access|model[^.\n]{0,80}(?:not[ _]found|does not exist|is not available)/i;
+
+/** The model name the CLI puts on messages it writes itself, not the API. */
+export const CLAUDE_SYNTHETIC_MODEL = "<synthetic>";

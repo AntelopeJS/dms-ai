@@ -74,6 +74,7 @@ export function buildSnapshotEvent(
     changeSets: services.checkpoints.forConversation(conversationId),
     mode: services.conversationModes.describe(conversationId),
     totalTokens: conversation.tokenUsage?.totalTokens ?? 0,
+    model: conversation.model,
   };
 }
 

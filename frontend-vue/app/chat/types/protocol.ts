@@ -165,11 +165,19 @@ export interface FullAutoEndedNotice {
 	timestampMs: number;
 }
 
+export interface ModelFallbackNotice {
+	kind: "model_fallback";
+	requestedModel: string;
+	usedModel: string;
+	timestampMs: number;
+}
+
 export type Notice =
 	| AutoFixNotice
 	| PermissionExpiredNotice
 	| QuestionSkippedNotice
-	| FullAutoEndedNotice;
+	| FullAutoEndedNotice
+	| ModelFallbackNotice;
 
 export interface FullAutoState {
 	duration: FullAutoDuration;
