@@ -77,7 +77,7 @@
   },
   "dependencies": {
     "@antelopejs/interface-api": "file:.campaign/tgz/antelopejs-interface-api-f2a99b5.tgz",
-    "@antelopejs/interface-core": ">=0.2.4 <1.0.0",
+    "@antelopejs/interface-core": "file:.campaign/tgz/antelopejs-interface-core-6a8b526.tgz",
     "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz",
     "@anthropic-ai/claude-agent-sdk": "^0.2.131",
     "@anthropic-ai/claude-code": "^2.1.131",
@@ -124,7 +124,8 @@
       "@antelopejs/interface-database-decorators": "file:.campaign/tgz/antelopejs-interface-database-decorators-e79a62b.tgz",
       "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-d8a868f.tgz",
       "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-e0787e6.tgz",
-      "@antelopejs/interface-dms-builder": "file:.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz"
+      "@antelopejs/interface-dms-builder": "file:.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz",
+      "@antelopejs/interface-core": "file:.campaign/tgz/antelopejs-interface-core-6a8b526.tgz"
     }
   },
   "antelopeJs": {
