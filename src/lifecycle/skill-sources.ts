@@ -244,26 +244,36 @@ async function readAllDependencySkillSources(
   return nested.flat();
 }
 
-/**
- * Collects a loaded module's own skill sources plus those of its
- * dependencies. The module pre-registers itself in the scan map so modules
- * that depend on it do not rescan it as a dependency.
- */
-async function readModuleSkillSources(
+interface LoadedModule {
+  localPath: string;
+  name: string;
+  pkg: PackageManifest;
+}
+
+async function readLoadedModule(
   id: string,
   localPath: string,
+): Promise<LoadedModule | null> {
+  const pkg = await readPackageJson(localPath);
+  return pkg === null ? null : { localPath, name: pkg.name ?? id, pkg };
+}
+
+/**
+ * Collects a loaded module's own skill sources plus those of its
+ * dependencies.
+ */
+async function readModuleSkillSources(
+  loaded: LoadedModule,
   scans: DependencyScanMap,
 ): Promise<SkillSource[]> {
-  const pkg = await readPackageJson(localPath);
-  if (pkg === null) return [];
-  const moduleName = pkg.name ?? id;
-  if (!scans.has(moduleName)) {
-    scans.set(moduleName, Promise.resolve([]));
-  }
-  const own = skillSourcesFromPackage(pkg, localPath, toPluginName(moduleName));
+  const own = skillSourcesFromPackage(
+    loaded.pkg,
+    loaded.localPath,
+    toPluginName(loaded.name),
+  );
   const fromDependencies = await readAllDependencySkillSources(
-    localPath,
-    listDependencyNames(pkg, MODULE_DEPENDENCY_FIELDS),
+    loaded.localPath,
+    listDependencyNames(loaded.pkg, MODULE_DEPENDENCY_FIELDS),
     scans,
   );
   return [...own, ...fromDependencies];
@@ -318,20 +328,22 @@ async function readLoadedModulesSkillSources(
   scans: DependencyScanMap,
 ): Promise<SkillSource[]> {
   const ids = await ListModules();
-  const infos = await Promise.all(
+  const read = await Promise.all(
     ids.map((id) =>
       GetModuleInfo(id)
-        .then((i) => ({ id, i }))
+        .then((info) => {
+          const localPath = LocalPathSchema.safeParse(info.localPath);
+          return localPath.success
+            ? readLoadedModule(id, localPath.data)
+            : null;
+        })
         .catch(() => null),
     ),
   );
+  const loaded = read.filter((entry) => entry !== null);
+  for (const entry of loaded) scans.set(entry.name, Promise.resolve([]));
   const nested = await Promise.all(
-    infos.map((entry) => {
-      const localPath = LocalPathSchema.safeParse(entry?.i?.localPath);
-      return entry && localPath.success
-        ? readModuleSkillSources(entry.id, localPath.data, scans)
-        : Promise.resolve<SkillSource[]>([]);
-    }),
+    loaded.map((entry) => readModuleSkillSources(entry, scans)),
   );
   return nested.flat();
 }
