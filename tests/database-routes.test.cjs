@@ -198,3 +198,16 @@ void test("the Builder op route still runs the op a one-element array names, as 
   await controller.op(SIDECAR_TOKEN, { op: ["MapResources"], args: [{}] });
   assert.equal(calls.mapResources.length, 1);
 });
+
+void test("the Builder op route answers builder_unavailable, running nothing, to a request without arguments", async () => {
+  calls.mapResources = [];
+  const controller = new routes.AIBuilderController();
+  const refused = await controller.op(SIDECAR_TOKEN, { op: "MapResources" });
+  assert.ok(refused instanceof HTTPResult);
+  assert.equal(refused.getStatus(), 409);
+  assert.equal(
+    JSON.parse(TextSchema.parse(refused.getBody())).error,
+    "builder_unavailable",
+  );
+  assert.deepEqual(calls.mapResources, []);
+});
