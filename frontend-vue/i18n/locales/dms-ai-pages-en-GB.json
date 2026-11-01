@@ -314,6 +314,7 @@
 				"BuilderPageStructure": "Read page",
 				"BuilderCreatePage": "Create page",
 				"BuilderConfigurePage": "Configure page",
+				"BuilderConfigureTableView": "Configure table view",
 				"BuilderDeletePage": "Delete page",
 				"BuilderAddBlock": "Add block",
 				"BuilderConfigureBlock": "Configure block",
@@ -462,6 +463,10 @@
 					"medium": "Medium",
 					"high": "High"
 				}
+			},
+			"claude_model": {
+				"label": "Claude model",
+				"description": "The model Claude Code runs on. Thinking sets its reasoning effort."
 			},
 			"mode": {
 				"label": "Approval mode",

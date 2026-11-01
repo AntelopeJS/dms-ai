@@ -1,4 +1,8 @@
-import type { PermissionMode } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  EffortLevel,
+  PermissionMode,
+  ThinkingConfig,
+} from "@anthropic-ai/claude-agent-sdk";
 import { CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR } from "../../constants/claude.js";
 import { MCP_TOOL_TIMEOUT_MS } from "../../constants/mcp.js";
 import type {
@@ -28,17 +32,40 @@ export function resolvePermissionMode(settings: AppSettings): PermissionMode {
   return PERMISSION_MODE_BY_MODE[settings.mode];
 }
 
+/** The levels a thinking setting maps to; `max` is model-specific and never sent. */
+export type ClaudeEffort = Exclude<EffortLevel, "max">;
+
 /**
- * Mapped to setMaxThinkingTokens. On adaptive-thinking models (Opus 4.6+) the
- * value acts as on/off (0 = disabled) plus a budget ceiling; on models that
- * honor explicit budgets the levels stay meaningful.
+ * The CLI's reasoning effort for a thinking level, the mirror of Codex's
+ * mapping. `off` has no effort: thinking is disabled outright.
  */
-export const THINKING_TOKENS: Record<ThinkingLevel, number> = {
-  off: 0,
-  low: 4096,
-  medium: 12288,
-  high: 24576,
+export const CLAUDE_EFFORT_BY_THINKING: Record<
+  ThinkingLevel,
+  ClaudeEffort | undefined
+> = {
+  off: undefined,
+  low: "low",
+  medium: "medium",
+  high: "high",
 };
+
+/**
+ * The SDK options that pick the model and its reasoning depth. Adaptive
+ * thinking lets the model size its own budget; effort steers it. `off`
+ * disables thinking and sends no effort.
+ */
+export function resolveModelOptions(settings: AppSettings) {
+  const model = settings.claudeModel;
+  const effort = CLAUDE_EFFORT_BY_THINKING[settings.thinking];
+  if (effort === undefined) {
+    return { model, thinking: { type: "disabled" } satisfies ThinkingConfig };
+  }
+  return {
+    model,
+    thinking: { type: "adaptive" } satisfies ThinkingConfig,
+    effort,
+  };
+}
 
 export type ClaudeProcessEnv = Record<string, string | undefined>;
 

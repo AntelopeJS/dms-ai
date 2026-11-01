@@ -9,10 +9,10 @@ importers:
   .:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.2.131
+        specifier: ^0.2.141
         version: 0.2.141(zod@4.6.7)
       '@anthropic-ai/claude-code':
-        specifier: ^2.1.131
+        specifier: ^2.1.302
         version: 2.1.302
       '@modelcontextprotocol/sdk':
         specifier: 1.29.0

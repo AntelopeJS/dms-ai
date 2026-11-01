@@ -314,6 +314,7 @@
 				"BuilderPageStructure": "Lire une page",
 				"BuilderCreatePage": "Créer une page",
 				"BuilderConfigurePage": "Configurer une page",
+				"BuilderConfigureTableView": "Configurer une vue tableau",
 				"BuilderDeletePage": "Supprimer une page",
 				"BuilderAddBlock": "Ajouter un bloc",
 				"BuilderConfigureBlock": "Configurer un bloc",
@@ -462,6 +463,10 @@
 					"medium": "Moyenne",
 					"high": "Élevée"
 				}
+			},
+			"claude_model": {
+				"label": "Modèle Claude",
+				"description": "Le modèle sur lequel tourne Claude Code. La réflexion règle son niveau d'effort."
 			},
 			"mode": {
 				"label": "Mode de validation",
