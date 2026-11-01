@@ -19,30 +19,103 @@ import { ROUTE_PREFIX } from "../constants/module";
 import { SIDECAR_AUTH_HEADER } from "../constants/sidecar";
 import { isSidecarRequest, sidecarForbidden } from "./sidecar-auth";
 
-/**
- * The operations the sidecar may call: every operation of the interface except the ones named
- * here, picked by name so a key can never be paired with another operation.
- */
-const {
-  ConfigureResource: _configureResource,
-  ListDataSources: _listDataSources,
-  PreviewLayout: _previewLayout,
-  PreviewQuery: _previewQuery,
-  SetPageBlocks: _setPageBlocks,
-  ...ROUTED
-} = Builder.Operations;
+/** The operations the sidecar's tools never call; the route refuses them. */
+type Withheld =
+  | "ConfigureResource"
+  | "ListDataSources"
+  | "PreviewLayout"
+  | "PreviewQuery"
+  | "SetPageBlocks";
 
-type OpName = keyof typeof ROUTED;
-type OpArgs = { [N in OpName]: Parameters<(typeof ROUTED)[N]> };
+type OpName = Exclude<Builder.OperationName, Withheld>;
+type OpArgs = { [N in OpName]: Parameters<(typeof Builder.Operations)[N]> };
 
 /** What the Builder operations answer, as the union of their results. */
-type BuilderResult = Awaited<ReturnType<(typeof ROUTED)[OpName]>>;
+type BuilderResult = Awaited<ReturnType<(typeof Builder.Operations)[OpName]>>;
+
+const {
+  ListPages,
+  ListCategories,
+  GetCatalog,
+  GetPageStructure,
+  RefreshSourceIndex,
+  CreatePage,
+  ConfigurePage,
+  DeletePage,
+  CreateCategory,
+  ConfigureCategory,
+  DeleteCategory,
+  AddBlock,
+  ConfigureBlock,
+  MoveBlock,
+  RemoveBlock,
+  CreateResource,
+  DeleteResource,
+  AddField,
+  ConfigureField,
+  RemoveField,
+  ListResources,
+  GetResourceStructure,
+  ListQueryTemplates,
+  AddQuery,
+  ConfigureQuery,
+  RemoveQuery,
+  ConfigureProject,
+  AddModule,
+  ConfigureModule,
+  CreateLocalModule,
+  MapResources,
+  AnalyseDatabase,
+  GetAnalysis,
+  GetMapping,
+} = Builder.Operations;
+
+/**
+ * The operations the sidecar may call, named one by one: an operation the interface gains is
+ * refused until it is listed here or in `Withheld`.
+ */
+const OPS = {
+  ListPages,
+  ListCategories,
+  GetCatalog,
+  GetPageStructure,
+  RefreshSourceIndex,
+  CreatePage,
+  ConfigurePage,
+  DeletePage,
+  CreateCategory,
+  ConfigureCategory,
+  DeleteCategory,
+  AddBlock,
+  ConfigureBlock,
+  MoveBlock,
+  RemoveBlock,
+  CreateResource,
+  DeleteResource,
+  AddField,
+  ConfigureField,
+  RemoveField,
+  ListResources,
+  GetResourceStructure,
+  ListQueryTemplates,
+  AddQuery,
+  ConfigureQuery,
+  RemoveQuery,
+  ConfigureProject,
+  AddModule,
+  ConfigureModule,
+  CreateLocalModule,
+  MapResources,
+  AnalyseDatabase,
+  GetAnalysis,
+  GetMapping,
+} satisfies { [N in OpName]: (typeof Builder.Operations)[N] };
 
 type OpTable = {
   [N in OpName]: (...args: OpArgs[N]) => Promise<BuilderResult>;
 };
 
-const OPS: OpTable = ROUTED;
+const TABLE: OpTable = OPS;
 
 /** A request to run one operation, with the arguments that operation takes. */
 type BuilderOpRequest = { [N in OpName]: { op: N; args: OpArgs[N] } }[OpName];
@@ -70,7 +143,7 @@ function runOp<N extends OpName>(
   op: N,
   args: OpArgs[N],
 ): Promise<BuilderResult> {
-  return OPS[op](...args);
+  return TABLE[op](...args);
 }
 
 export class AIBuilderController extends Controller(ROUTE_PREFIX) {
