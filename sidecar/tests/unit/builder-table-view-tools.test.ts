@@ -236,6 +236,29 @@ describe("BuilderMapResources", () => {
   });
 });
 
+describe("BuilderMapResources relation columns", () => {
+  it("passes a null relation on, which keeps a foreign key column plain", async () => {
+    const orders = {
+      relation: "shop.orders",
+      tableView: true,
+      writable: false,
+      fields: [{ column: "customer_id", relation: null }],
+    };
+    const { result, calls } = await callTool("BuilderMapResources", {
+      module: "shop-tables",
+      connection: "shop",
+      resources: [orders],
+    });
+    expect(result.isError).toBeFalsy();
+    expect(calls[0]).toEqual({
+      op: "MapResources",
+      args: [
+        { module: "shop-tables", connection: "shop", resources: [orders] },
+      ],
+    });
+  });
+});
+
 describe("BuilderCreatePage", () => {
   it("takes an order and an icon, so a dashboard sorts before the mapped tables", async () => {
     const page = {
