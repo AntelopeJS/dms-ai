@@ -47,6 +47,7 @@ const MODULE_TOOLS = {
   },
   BuilderAddBlock: { icon: "i-ph-squares-four", source: "builder" },
   BuilderConfigureBlock: { icon: "i-ph-sliders", source: "builder" },
+  BuilderConfigureTableView: { icon: "i-ph-table", source: "builder" },
   BuilderMoveBlock: { icon: "i-ph-arrows-out-cardinal", source: "builder" },
   BuilderRemoveBlock: {
     icon: "i-ph-trash",

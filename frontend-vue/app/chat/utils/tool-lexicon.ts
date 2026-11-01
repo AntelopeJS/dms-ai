@@ -374,6 +374,11 @@ const BUILDER_TOOLS: Record<string, ToolLexiconEntry> = {
 		icon: ICONS.BLOCK,
 		target: firstOf("path"),
 	},
+	BuilderConfigureTableView: {
+		verb: "configure_table_view",
+		icon: ICONS.BLOCK,
+		target: firstOf("pageRef"),
+	},
 	BuilderMoveBlock: {
 		verb: "move_block",
 		icon: ICONS.BLOCK,
