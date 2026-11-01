@@ -1,5 +1,5 @@
 /** What `GET /ai/status` answers: the sidecar's status and its process state. */
-export interface AssistantStatus {
+export type AssistantStatus = {
   status: string;
   provider?: string;
   builderAvailable?: boolean;
@@ -14,4 +14,4 @@ export interface AssistantStatus {
   isRunning: boolean;
   hasGivenUp: boolean;
   disabled: boolean;
-}
+};

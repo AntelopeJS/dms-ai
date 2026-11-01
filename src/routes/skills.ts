@@ -7,6 +7,7 @@ import {
 } from "@antelopejs/interface-api";
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import type { BannerContent } from "@antelopejs/interface-dms/base";
+import type { JsonBody } from "../sidecar/json-body";
 import { I18N_SECTIONS } from "../constants/i18n";
 import { ROUTE_PREFIX } from "../constants/module";
 import { PAGE_LINKS } from "../constants/pages";
@@ -120,7 +121,7 @@ export class AISkillsController extends Controller(ROUTE_PREFIX) {
   }
 
   @Get(CONFLICTS_PATH)
-  async conflicts(): Promise<BannerContent | HTTPResult> {
+  async conflicts(): Promise<JsonBody | HTTPResult> {
     const shared = await readSidecar(
       CONFLICTS_PATH,
       CONFLICTS_ANSWER,

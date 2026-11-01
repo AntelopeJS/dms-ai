@@ -9,12 +9,10 @@ import {
   restartSidecar,
 } from "../lifecycle/spawn-sidecar";
 import { requestSidecar } from "../sidecar";
-import type {
-  BannerContent,
-  KeyValueListItem,
-} from "@antelopejs/interface-dms/base";
 import type { AssistantStatus } from "../types";
+import type { JsonBody } from "../sidecar/json-body";
 import { bannerAnswer } from "./banner";
+import { contentJson } from "./content-json";
 import { assistantUnavailable } from "./sidecar-results";
 import { OFFLINE_STATUS, statusBanner, statusFacts } from "./status-shapes";
 
@@ -75,11 +73,7 @@ async function readStatus(): Promise<AssistantStatus> {
 }
 
 /** What the status routes answer: the status, its rows, or its banner. */
-type StatusAnswer =
-  | AssistantStatus
-  | { items: KeyValueListItem[] }
-  | BannerContent
-  | HTTPResult;
+type StatusAnswer = AssistantStatus | JsonBody | HTTPResult;
 
 function fresh(body: StatusAnswer): HTTPResult {
   return HTTPResult.withHeaders(body, NO_STORE);
@@ -98,7 +92,7 @@ export class AIStatusController extends Controller(ROUTE_PREFIX) {
 
   @Get(`${STATUS_PATH}/facts`)
   async facts(): Promise<HTTPResult> {
-    return fresh({ items: statusFacts(await readStatus()) });
+    return fresh(contentJson({ items: statusFacts(await readStatus()) }));
   }
 
   @Get(`${STATUS_PATH}/banner`)

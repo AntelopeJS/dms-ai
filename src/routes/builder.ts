@@ -17,6 +17,7 @@ import {
 } from "../constants/builder";
 import { ROUTE_PREFIX } from "../constants/module";
 import { SIDECAR_AUTH_HEADER } from "../constants/sidecar";
+import { isJsonBody } from "../sidecar/json-body";
 import { isSidecarRequest, sidecarForbidden } from "./sidecar-auth";
 
 /** The operations the sidecar's tools never call; the route refuses them. */
@@ -156,9 +157,10 @@ export class AIBuilderController extends Controller(ROUTE_PREFIX) {
       return sidecarForbidden();
     }
     if (!body || !isOpName(body.op)) {
+      const op = body?.op;
       return new HTTPResult(HTTP_BAD_REQUEST, {
         error: "unknown_op",
-        op: body?.op,
+        op: isJsonBody(op) ? op : undefined,
       });
     }
     if (!isOpRequest(body)) {
