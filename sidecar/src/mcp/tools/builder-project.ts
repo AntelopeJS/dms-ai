@@ -1,4 +1,4 @@
-import type { JsonValue } from "../../protocol/json.js";
+import { type JsonValue, JsonValueSchema } from "../../protocol/json.js";
 import { z } from "zod";
 import type { BuilderClient } from "../../builder/builder-client.js";
 import {
@@ -34,6 +34,9 @@ export function opResult(value: JsonValue): McpToolResult {
     : { content: [{ type: "text", text }] };
 }
 
+/** A JSON object an agent supplies as free-form configuration; the Builder checks its members. */
+export const JSON_RECORD = z.record(z.string(), JsonValueSchema);
+
 export const TARGET_MODULE = z
   .string()
   .optional()
@@ -49,8 +52,8 @@ const IMPORT_OVERRIDE = z.object({
 
 const MODULE_ENTRY = z
   .object({
-    source: z.record(z.string(), z.unknown()).optional(),
-    config: z.record(z.string(), z.unknown()).optional(),
+    source: JSON_RECORD.optional(),
+    config: JSON_RECORD.optional(),
     env: z
       .record(z.string(), z.string())
       .optional()
@@ -184,7 +187,7 @@ const MAPPING_DESCRIPTION =
 const ANALYSIS_ANSWER = z.object({
   ok: z.unknown().optional(),
   data: z
-    .object({ id: z.unknown().optional(), status: z.unknown().optional() })
+    .object({ id: z.string().optional(), status: z.unknown().optional() })
     .optional()
     .catch(undefined),
 });
@@ -193,26 +196,47 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const MISSING_ANALYSIS_INPUT: JsonValue = {
+  ok: false,
+  error: {
+    code: "invalid_input",
+    detail:
+      "Pass `connection` and `module` to start an analysis, or `job` to read a running one.",
+  },
+};
+
+/** Reads the given job, or starts an analysis of the given connection and module. */
+async function startOrRead(
+  client: BuilderClient,
+  args: McpToolArgs<typeof ANALYSE_DATABASE_INPUT>,
+): Promise<JsonValue> {
+  if (args.job) {
+    return client.call("GetAnalysis", [args.job]);
+  }
+  if (args.connection === undefined || args.module === undefined) {
+    return MISSING_ANALYSIS_INPUT;
+  }
+  return client.call("AnalyseDatabase", [
+    {
+      connection: args.connection,
+      module: args.module,
+      schemas: args.schemas,
+    },
+  ]);
+}
+
 /** Starts an analysis, or reads the given job, and waits a while for its proposal. */
 async function analysis(
   client: BuilderClient,
   args: McpToolArgs<typeof ANALYSE_DATABASE_INPUT>,
 ): Promise<McpToolResult> {
-  const job = args.job;
-  let answer = await (job
-    ? client.call("GetAnalysis", [job])
-    : client.call("AnalyseDatabase", [
-        {
-          connection: args.connection,
-          module: args.module,
-          schemas: args.schemas,
-        },
-      ]));
+  let answer = await startOrRead(client, args);
   let state = ANALYSIS_ANSWER.safeParse(answer).data ?? {};
   const deadline = Date.now() + BUILDER_ANALYSIS_WAIT_MS;
   while (
     state.ok &&
     state.data?.status === "running" &&
+    state.data.id !== undefined &&
     Date.now() < deadline
   ) {
     await delay(BUILDER_ANALYSIS_POLL_MS);

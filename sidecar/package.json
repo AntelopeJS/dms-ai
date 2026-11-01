@@ -26,6 +26,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@antelopejs/interface-dms-builder": "file:../.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz",
     "@antelopejs/tooling-configs": "^0.2.11",
     "@openai/codex": "0.154.0",
     "@types/node": "^22.19.15",

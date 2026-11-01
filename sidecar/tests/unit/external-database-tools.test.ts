@@ -221,6 +221,47 @@ describe("the Builder's analysis tool", () => {
     expect(calls).toEqual([{ op: "GetMapping", args: ["erp", "erp-tables"] }]);
   });
 
+  it.each([
+    ["neither a connection nor a module", {}],
+    ["no module", { connection: "erp" }],
+    ["no connection", { module: "erp-tables" }],
+  ])(
+    "refuses to start an analysis with %s, calling nothing",
+    async (_label, input) => {
+      const calls: Recorded[] = [];
+      const result = await analyse(recordingClient(calls))(input);
+      expect(result.isError).toBe(true);
+      expect(JSON.parse(result.content[0]?.text ?? "")).toEqual({
+        ok: false,
+        error: {
+          code: "invalid_input",
+          detail:
+            "Pass `connection` and `module` to start an analysis, or `job` to read a running one.",
+        },
+      });
+      expect(calls).toEqual([]);
+    },
+  );
+
+  it("stops reading when a running answer carries no job id", async () => {
+    vi.useFakeTimers();
+    try {
+      const calls: Recorded[] = [];
+      const client: BuilderClient = {
+        call: async (op, args) => {
+          calls.push({ op, args });
+          return { ok: true, data: { status: "running" }, changes: [] };
+        },
+      };
+      const answered = analyse(client)({ job: "job-1" });
+      await vi.advanceTimersByTimeAsync(5_000);
+      await answered;
+      expect(calls).toEqual([{ op: "GetAnalysis", args: ["job-1"] }]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("reads a running job instead of starting another", async () => {
     const calls: Recorded[] = [];
     const client: BuilderClient = {
