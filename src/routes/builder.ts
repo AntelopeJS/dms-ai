@@ -19,56 +19,71 @@ import { ROUTE_PREFIX } from "../constants/module";
 import { SIDECAR_AUTH_HEADER } from "../constants/sidecar";
 import { isSidecarRequest, sidecarForbidden } from "./sidecar-auth";
 
-const OP_NAMES = [
-  "ListPages",
-  "ListCategories",
-  "GetCatalog",
-  "GetPageStructure",
-  "RefreshSourceIndex",
-  "CreatePage",
-  "ConfigurePage",
-  "DeletePage",
-  "CreateCategory",
-  "ConfigureCategory",
-  "DeleteCategory",
-  "AddBlock",
-  "ConfigureBlock",
-  "MoveBlock",
-  "RemoveBlock",
-  "CreateResource",
-  "DeleteResource",
-  "AddField",
-  "ConfigureField",
-  "RemoveField",
-  "ListResources",
-  "GetResourceStructure",
-  "ListQueryTemplates",
-  "AddQuery",
-  "ConfigureQuery",
-  "RemoveQuery",
-  "ConfigureProject",
-  "AddModule",
-  "ConfigureModule",
-  "CreateLocalModule",
-  "MapResources",
-  "AnalyseDatabase",
-  "GetAnalysis",
-  "GetMapping",
-] as const;
+type Operations = typeof Builder.Operations;
 
-type OpName = (typeof OP_NAMES)[number];
+/** Operations of the interface that the sidecar may not call. */
+type WithheldOpName =
+  | "ConfigureResource"
+  | "ListDataSources"
+  | "PreviewLayout"
+  | "PreviewQuery"
+  | "SetPageBlocks";
+
+type OpName = Exclude<Builder.OperationName, WithheldOpName>;
+type OpArgs = { [N in OpName]: Parameters<Operations[N]> };
 
 /** What the Builder operations answer, as the union of their results. */
-type BuilderResult = Awaited<ReturnType<(typeof Builder)[OpName]>>;
-type BuilderOp = (...args: unknown[]) => Promise<BuilderResult>;
+type BuilderResult = Awaited<ReturnType<Operations[OpName]>>;
 
-const OPS: Record<string, BuilderOp> = Object.fromEntries(
-  OP_NAMES.map((name) => [name, Builder[name] as BuilderOp]),
-);
+type OpTable = {
+  [N in OpName]: (...args: OpArgs[N]) => Promise<BuilderResult>;
+};
 
-interface BuilderOpBody {
-  op?: string;
-  args?: unknown[];
+const OPS: OpTable = {
+  ListPages: Builder.Operations.ListPages,
+  ListCategories: Builder.Operations.ListCategories,
+  GetCatalog: Builder.Operations.GetCatalog,
+  GetPageStructure: Builder.Operations.GetPageStructure,
+  RefreshSourceIndex: Builder.Operations.RefreshSourceIndex,
+  CreatePage: Builder.Operations.CreatePage,
+  ConfigurePage: Builder.Operations.ConfigurePage,
+  DeletePage: Builder.Operations.DeletePage,
+  CreateCategory: Builder.Operations.CreateCategory,
+  ConfigureCategory: Builder.Operations.ConfigureCategory,
+  DeleteCategory: Builder.Operations.DeleteCategory,
+  AddBlock: Builder.Operations.AddBlock,
+  ConfigureBlock: Builder.Operations.ConfigureBlock,
+  MoveBlock: Builder.Operations.MoveBlock,
+  RemoveBlock: Builder.Operations.RemoveBlock,
+  CreateResource: Builder.Operations.CreateResource,
+  DeleteResource: Builder.Operations.DeleteResource,
+  AddField: Builder.Operations.AddField,
+  ConfigureField: Builder.Operations.ConfigureField,
+  RemoveField: Builder.Operations.RemoveField,
+  ListResources: Builder.Operations.ListResources,
+  GetResourceStructure: Builder.Operations.GetResourceStructure,
+  ListQueryTemplates: Builder.Operations.ListQueryTemplates,
+  AddQuery: Builder.Operations.AddQuery,
+  ConfigureQuery: Builder.Operations.ConfigureQuery,
+  RemoveQuery: Builder.Operations.RemoveQuery,
+  ConfigureProject: Builder.Operations.ConfigureProject,
+  AddModule: Builder.Operations.AddModule,
+  ConfigureModule: Builder.Operations.ConfigureModule,
+  CreateLocalModule: Builder.Operations.CreateLocalModule,
+  MapResources: Builder.Operations.MapResources,
+  AnalyseDatabase: Builder.Operations.AnalyseDatabase,
+  GetAnalysis: Builder.Operations.GetAnalysis,
+  GetMapping: Builder.Operations.GetMapping,
+};
+
+/** A request to run one operation, with the arguments that operation takes. */
+type BuilderOpBody = { [N in OpName]: { op: N; args: OpArgs[N] } }[OpName];
+
+function runOp<N extends OpName>(
+  op: N,
+  args: OpArgs[N],
+): Promise<BuilderResult> {
+  return OPS[op](...args);
 }
 
 export class AIBuilderController extends Controller(ROUTE_PREFIX) {
@@ -80,16 +95,14 @@ export class AIBuilderController extends Controller(ROUTE_PREFIX) {
     if (!isSidecarRequest(token)) {
       return sidecarForbidden();
     }
-    const fn =
-      body?.op && Object.hasOwn(OPS, body.op) ? OPS[body.op] : undefined;
-    if (!fn) {
+    if (!body || !Object.hasOwn(OPS, body.op)) {
       return new HTTPResult(HTTP_BAD_REQUEST, {
         error: "unknown_op",
         op: body?.op,
       });
     }
     try {
-      const result = await fn(...(body?.args ?? []));
+      const result = await runOp(body.op, body.args);
       return result ?? { ok: true };
     } catch (err) {
       return new HTTPResult(HTTP_BUILDER_UNAVAILABLE, {

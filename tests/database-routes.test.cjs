@@ -96,10 +96,12 @@ function loadRoutes() {
     [
       "@antelopejs/interface-dms-builder",
       {
-        /** @param {unknown} input */
-        MapResources: async (input) => {
-          calls.mapResources.push({ input });
-          return { ok: true, data: {}, changes: [] };
+        Operations: {
+          /** @param {unknown} input */
+          MapResources: async (input) => {
+            calls.mapResources.push({ input });
+            return { ok: true, data: {}, changes: [] };
+          },
         },
       },
     ],
