@@ -35,6 +35,8 @@ const calls = {
   describe: [],
   /** @type {{ input: unknown }[]} */
   mapResources: [],
+  /** @type {string[]} */
+  unlisted: [],
 };
 
 const catalog = {
@@ -100,6 +102,14 @@ function loadRoutes() {
           /** @param {unknown} input */
           MapResources: async (input) => {
             calls.mapResources.push({ input });
+            return { ok: true, data: {}, changes: [] };
+          },
+          PublishSite: async () => {
+            calls.unlisted.push("PublishSite");
+            return { ok: true, data: {}, changes: [] };
+          },
+          SetPageBlocks: async () => {
+            calls.unlisted.push("SetPageBlocks");
             return { ok: true, data: {}, changes: [] };
           },
         },
@@ -191,6 +201,21 @@ for (const op of ["constructor", "toString", "hasOwnProperty", "__proto__"]) {
       op,
     });
     assert.deepEqual(calls.mapResources, []);
+  });
+}
+
+for (const op of ["PublishSite", "SetPageBlocks"]) {
+  void test(`the Builder op route refuses ${op}, which the interface carries but dms-ai does not list`, async () => {
+    calls.unlisted = [];
+    const controller = new routes.AIBuilderController();
+    const refused = await controller.op(SIDECAR_TOKEN, { op, args: [] });
+    assert.ok(refused instanceof HTTPResult);
+    assert.equal(refused.getStatus(), 400);
+    assert.deepEqual(JSON.parse(TextSchema.parse(refused.getBody())), {
+      error: "unknown_op",
+      op,
+    });
+    assert.deepEqual(calls.unlisted, []);
   });
 }
 
