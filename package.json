@@ -86,7 +86,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@antelopejs/interface-api-util": "file:.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz",
+    "@antelopejs/interface-api-util": "file:.campaign/tgz/antelopejs-interface-api-util-639f38b.tgz",
     "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-7a8719d.tgz",
     "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-02e0360.tgz",
     "@antelopejs/interface-database-decorators": "file:.campaign/tgz/antelopejs-interface-database-decorators-1234214.tgz",
@@ -119,7 +119,7 @@
   "pnpm": {
     "overrides": {
       "@antelopejs/interface-api": "file:.campaign/tgz/antelopejs-interface-api-2d1cc37.tgz",
-      "@antelopejs/interface-api-util": "file:.campaign/tgz/antelopejs-interface-api-util-cc740f8.tgz",
+      "@antelopejs/interface-api-util": "file:.campaign/tgz/antelopejs-interface-api-util-639f38b.tgz",
       "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-02e0360.tgz",
       "@antelopejs/interface-database-decorators": "file:.campaign/tgz/antelopejs-interface-database-decorators-1234214.tgz",
       "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-7a8719d.tgz",
