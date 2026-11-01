@@ -314,6 +314,7 @@
 				"BuilderPageStructure": "Read page",
 				"BuilderCreatePage": "Create page",
 				"BuilderConfigurePage": "Configure page",
+				"BuilderComposePage": "Compose page",
 				"BuilderConfigureTableView": "Configure table view",
 				"BuilderDeletePage": "Delete page",
 				"BuilderAddBlock": "Add block",
