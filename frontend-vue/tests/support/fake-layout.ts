@@ -2,6 +2,7 @@ type ResizeCallback = () => void;
 
 const observers = new Set<FakeResizeObserver>();
 const pendingScrollEvents = new Set<() => void>();
+const layoutPasses = new Set<() => void>();
 
 /**
  * jsdom has no layout, so no resize ever happens by itself: a test reports
@@ -40,9 +41,14 @@ function dispatchPendingScrollEvents(): void {
 	pendingScrollEvents.clear();
 }
 
-/** A frame: scroll events fire first, then resizes are reported. */
+/**
+ * A frame: scroll events fire first, then layout runs and the browser clamps
+ * or anchors the scroll position, then resizes are reported, and the scroll
+ * events layout caused fire at the start of the next frame.
+ */
 export function settleLayout(): void {
 	dispatchPendingScrollEvents();
+	for (const pass of layoutPasses) pass();
 	for (const observer of [...observers]) observer.deliver();
 	dispatchPendingScrollEvents();
 }
@@ -52,12 +58,13 @@ export interface FakeScroller {
 	extraContentPx: number;
 	viewportPx: number;
 	distanceFromBottom: () => number;
-	/** What the person does: a wheel notch up, then the scroll it causes. */
-	wheelTo: (scrollTop: number) => void;
-	/** The person drags the scrollbar thumb up to `scrollTop`. */
-	dragScrollbarTo: (scrollTop: number) => void;
-	/** What the browser does by itself, such as a clamp after a shrink. */
-	scrollWithoutPerson: (scrollTop: number) => void;
+	/** A scroll to `scrollTop` and the event it fires, from any source. */
+	scrollTo: (scrollTop: number) => void;
+	/**
+	 * Content above the viewport shrinks by `px` at the next layout, and scroll
+	 * anchoring moves the scroll position up by as much to keep the view still.
+	 */
+	collapseAbove: (px: number) => void;
 }
 
 const ROW_PX = 100;
@@ -65,6 +72,8 @@ const ROW_PX = 100;
 /** Gives a scroll container the geometry a browser would compute. */
 export function fakeScroller(el: HTMLElement): FakeScroller {
 	let scrollTop = 0;
+	let reportedTop = 0;
+	let anchorShiftPx = 0;
 	const dispatchScroll = (): void => {
 		el.dispatchEvent(new Event("scroll"));
 	};
@@ -72,27 +81,25 @@ export function fakeScroller(el: HTMLElement): FakeScroller {
 		extraContentPx: 0,
 		viewportPx: 400,
 		distanceFromBottom: () => el.scrollHeight - el.scrollTop - el.clientHeight,
-		wheelTo: (target) => {
+		scrollTo: (target) => {
 			dispatchPendingScrollEvents();
-			el.dispatchEvent(new WheelEvent("wheel", { deltaY: -120 }));
 			el.scrollTop = target;
 			dispatchPendingScrollEvents();
 		},
-		dragScrollbarTo: (target) => {
-			dispatchPendingScrollEvents();
-			el.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
-			el.scrollTop = target;
-			dispatchPendingScrollEvents();
-			window.dispatchEvent(new MouseEvent("pointerup"));
-		},
-		scrollWithoutPerson: (target) => {
-			dispatchPendingScrollEvents();
-			el.scrollTop = target;
-			dispatchPendingScrollEvents();
+		collapseAbove: (px) => {
+			scroller.extraContentPx -= px;
+			anchorShiftPx -= px;
 		},
 	};
 	const maxTop = (): number =>
 		Math.max(0, el.scrollHeight - scroller.viewportPx);
+	layoutPasses.add(() => {
+		scrollTop = Math.min(Math.max(0, el.scrollTop + anchorShiftPx), maxTop());
+		anchorShiftPx = 0;
+		if (scrollTop === reportedTop) return;
+		reportedTop = scrollTop;
+		pendingScrollEvents.add(dispatchScroll);
+	});
 	Object.defineProperties(el, {
 		clientHeight: { get: () => scroller.viewportPx },
 		scrollHeight: {
@@ -103,6 +110,7 @@ export function fakeScroller(el: HTMLElement): FakeScroller {
 			get: () => Math.min(scrollTop, maxTop()),
 			set: (value: number) => {
 				scrollTop = Math.min(Math.max(0, value), maxTop());
+				reportedTop = scrollTop;
 				pendingScrollEvents.add(dispatchScroll);
 			},
 		},

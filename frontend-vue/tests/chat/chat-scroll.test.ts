@@ -109,7 +109,7 @@ describe("the chat follows the conversation", () => {
 
 	it("does not pull the person back down once they scroll up", async () => {
 		const chat = await openChat();
-		chat.scroller.wheelTo(500);
+		chat.scroller.scrollTo(500);
 		await growTranscript(chat, 40);
 		chat.scroller.extraContentPx += 300;
 		await frame();
@@ -118,18 +118,9 @@ describe("the chat follows the conversation", () => {
 		).toBe(500);
 	});
 
-	it("stops following when the person drags the scrollbar up", async () => {
-		const chat = await openChat();
-		chat.scroller.dragScrollbarTo(500);
-		await growTranscript(chat, 40);
-		expect(
-			chat.panel.find<HTMLElement>(".chat-view-body").element.scrollTop,
-		).toBe(500);
-	});
-
 	it("jumps to the bottom when a message is sent from far up", async () => {
 		const chat = await openChat();
-		chat.scroller.wheelTo(200);
+		chat.scroller.scrollTo(200);
 		await sendMessage(chat.panel, "and now this");
 		await frame();
 		expect(chat.scroller.distanceFromBottom()).toBeLessThanOrEqual(
@@ -139,9 +130,9 @@ describe("the chat follows the conversation", () => {
 
 	it("follows again once the person scrolls back to the bottom", async () => {
 		const chat = await openChat();
-		chat.scroller.wheelTo(500);
+		chat.scroller.scrollTo(500);
 		const bottom = chat.scroller.viewportPx;
-		chat.scroller.scrollWithoutPerson(
+		chat.scroller.scrollTo(
 			chat.panel.find<HTMLElement>(".chat-view-body").element.scrollHeight -
 				bottom,
 		);
@@ -151,10 +142,63 @@ describe("the chat follows the conversation", () => {
 		);
 	});
 
-	it("does not mistake a scroll the browser makes for the person scrolling up", async () => {
+	it("stops following on an upward scroll that carries no input", async () => {
 		const chat = await openChat();
-		chat.scroller.scrollWithoutPerson(1000);
+		chat.scroller.scrollTo(500);
 		await growTranscript(chat, 40);
+		chat.scroller.extraContentPx += 300;
+		await frame();
+		expect(
+			chat.panel.find<HTMLElement>(".chat-view-body").element.scrollTop,
+		).toBe(500);
+	});
+
+	it("keeps following when content above the view collapses and scroll anchoring moves the view up", async () => {
+		const chat = await openChat();
+		chat.scroller.extraContentPx += 800;
+		await frame();
+		chat.scroller.collapseAbove(600);
+		await frame();
+		await frame();
+		expect(chat.scroller.distanceFromBottom()).toBeLessThanOrEqual(
+			BOTTOM_TOLERANCE_PX,
+		);
+		chat.scroller.extraContentPx += 400;
+		await frame();
+		expect(chat.scroller.distanceFromBottom()).toBeLessThanOrEqual(
+			BOTTOM_TOLERANCE_PX,
+		);
+	});
+
+	it("keeps following when a collapse above the view comes with growth below it", async () => {
+		const chat = await openChat();
+		chat.scroller.extraContentPx += 800;
+		await frame();
+		chat.scroller.collapseAbove(600);
+		chat.scroller.extraContentPx += 700;
+		await frame();
+		await frame();
+		expect(chat.scroller.distanceFromBottom()).toBeLessThanOrEqual(
+			BOTTOM_TOLERANCE_PX,
+		);
+	});
+
+	it("keeps following when the view gains height and the browser clamps the scroll", async () => {
+		const chat = await openChat();
+		chat.scroller.viewportPx += 250;
+		await frame();
+		await frame();
+		chat.scroller.extraContentPx += 500;
+		await frame();
+		expect(chat.scroller.distanceFromBottom()).toBeLessThanOrEqual(
+			BOTTOM_TOLERANCE_PX,
+		);
+	});
+
+	it("keeps following after the content shrinks under the view", async () => {
+		const chat = await openChat(60);
+		await growTranscript(chat, 20);
+		await growTranscript(chat, 30);
 		expect(chat.scroller.distanceFromBottom()).toBeLessThanOrEqual(
 			BOTTOM_TOLERANCE_PX,
 		);
@@ -162,7 +206,7 @@ describe("the chat follows the conversation", () => {
 
 	it("ends at the bottom for a chat started from outside that sends its prompt", async () => {
 		const chat = await openChat();
-		chat.scroller.wheelTo(200);
+		chat.scroller.scrollTo(200);
 		chat.harness.session.startConversation("build me a page", undefined, true);
 		await frame();
 		await frame();
@@ -173,7 +217,7 @@ describe("the chat follows the conversation", () => {
 
 	it("opens another chat at its bottom, even after scrolling up in this one", async () => {
 		const chat = await openChat();
-		chat.scroller.wheelTo(200);
+		chat.scroller.scrollTo(200);
 		chat.harness.session.openConversation("conv-other");
 		await frame();
 		deliver(chat.harness, {
@@ -181,6 +225,24 @@ describe("the chat follows the conversation", () => {
 			type: "conversation_snapshot",
 			messages: transcript(50),
 		});
+		await frame();
+		expect(chat.scroller.distanceFromBottom()).toBeLessThanOrEqual(
+			BOTTOM_TOLERANCE_PX,
+		);
+	});
+
+	it("keeps following in a shorter chat opened from the bottom of a long one", async () => {
+		const chat = await openChat(60);
+		chat.harness.session.openConversation("conv-other");
+		await frame();
+		deliver(chat.harness, {
+			conversationId: "conv-other",
+			type: "conversation_snapshot",
+			messages: transcript(8),
+		});
+		await frame();
+		await frame();
+		chat.scroller.extraContentPx += 500;
 		await frame();
 		expect(chat.scroller.distanceFromBottom()).toBeLessThanOrEqual(
 			BOTTOM_TOLERANCE_PX,
