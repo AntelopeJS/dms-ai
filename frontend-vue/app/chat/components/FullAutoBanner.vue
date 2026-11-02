@@ -31,7 +31,7 @@ const scope = computed<string>(() => {
 	<div class="cb-banner-auto" role="status">
 		<UIcon name="i-ph-lightning" class="cb-banner-auto__icon" />
 		<span class="cb-banner-auto__text">
-			<b>{{ t("dms_ai.common.mode.auto") }}</b>
+			<b>{{ t("dms_ai.common.mode.full_auto") }}</b>
 			· {{ scope }}
 		</span>
 		<UButton

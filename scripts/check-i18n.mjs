@@ -55,6 +55,18 @@ const PANEL_DYNAMIC_FAMILIES = {
 };
 
 const VIEWS_DYNAMIC_FAMILIES = {
+  "dms_ai.views.allowed": [
+    "read_auto",
+    "builder_auto",
+    "approved",
+    "rule",
+    "full_auto",
+    "auto_approved",
+    "auto_denied",
+    "blocked",
+    "denied",
+    "expired",
+  ],
   "dms_ai.views.skills.source": ["module", "local"],
 };
 

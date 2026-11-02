@@ -5,7 +5,7 @@
  */
 
 export type ProviderName = "claude" | "codex";
-export type ApprovalMode = "normal" | "acceptEdits" | "plan";
+export type ApprovalMode = "normal" | "auto" | "acceptEdits" | "plan";
 export type Scope = "safe" | "vibe";
 export type FullAutoDuration = "turn" | "30m" | "chat";
 
@@ -17,6 +17,8 @@ export type AllowedBy =
 	| "approved"
 	| "rule"
 	| "full_auto"
+	| "auto_approved"
+	| "auto_denied"
 	| "blocked"
 	| "denied"
 	| "expired";
@@ -172,12 +174,19 @@ export interface ModelFallbackNotice {
 	timestampMs: number;
 }
 
+export interface AutoUnavailableNotice {
+	kind: "auto_unavailable";
+	model: string;
+	timestampMs: number;
+}
+
 export type Notice =
 	| AutoFixNotice
 	| PermissionExpiredNotice
 	| QuestionSkippedNotice
 	| FullAutoEndedNotice
-	| ModelFallbackNotice;
+	| ModelFallbackNotice
+	| AutoUnavailableNotice;
 
 export interface FullAutoState {
 	duration: FullAutoDuration;

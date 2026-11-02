@@ -9,6 +9,7 @@ import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import { ROUTE_PREFIX } from "../constants/module";
 import {
   asFormValues,
+  nestDefaultModes,
   type SettingsBody,
   withNumbersAs,
 } from "../sidecar/settings-values";
@@ -37,7 +38,7 @@ function formSettings(settings: SettingsBody): SettingsBody {
 
 /** The partial update the sidecar takes: writable keys, numbers as numbers. */
 function sidecarUpdate(body: SettingsBody): SettingsBody {
-  const update = withNumbersAs(body, Number);
+  const update = nestDefaultModes(withNumbersAs(body, Number));
   for (const key of READ_ONLY_SETTINGS) delete update[key];
   return update;
 }

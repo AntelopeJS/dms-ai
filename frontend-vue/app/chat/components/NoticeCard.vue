@@ -31,6 +31,7 @@ const LOOKS: Record<Notice["kind"], NoticeLook> = {
 	question_skipped: { tone: "neutral", icon: "i-ph-arrow-bend-down-right" },
 	full_auto_ended: { tone: "neutral", icon: "i-ph-lightning-slash" },
 	model_fallback: { tone: "warning", icon: "i-ph-swap" },
+	auto_unavailable: { tone: "warning", icon: "i-ph-seal-warning" },
 };
 
 const showErrors = ref(false);
@@ -129,6 +130,14 @@ const expiredTool = computed<string>(() => {
 					t("dms_ai.panel.notice.model_fallback_text", {
 						requested: notice.requestedModel,
 						model: notice.usedModel,
+					})
+				}}
+			</template>
+			<template v-else-if="notice.kind === 'auto_unavailable'">
+				<b>{{ t("dms_ai.panel.notice.auto_unavailable_title") }}</b>
+				{{
+					t("dms_ai.panel.notice.auto_unavailable_text", {
+						model: notice.model,
 					})
 				}}
 			</template>

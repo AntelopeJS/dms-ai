@@ -116,7 +116,7 @@ describe("notices and errors", () => {
 			type: "settings_update",
 			settings: {
 				provider: "codex",
-				mode: "normal",
+				defaultModes: { claude: "auto", codex: "normal" },
 				thinking: "medium",
 				generationMode: "safe",
 				allowLocalSkills: false,

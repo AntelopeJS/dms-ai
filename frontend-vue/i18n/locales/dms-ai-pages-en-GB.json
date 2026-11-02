@@ -263,6 +263,8 @@
 				"approved": "Approved by you",
 				"rule": "Allowed by a rule",
 				"full_auto": "Full auto",
+				"auto_approved": "Allowed by Auto review",
+				"auto_denied": "Blocked by Auto review",
 				"blocked": "Blocked · safe mode",
 				"denied": "Denied by you",
 				"expired": "Expired"
@@ -469,12 +471,22 @@
 				"label": "Claude model",
 				"description": "The model Claude Code runs on. Thinking sets its reasoning effort."
 			},
+			"default_mode_claude": {
+				"label": "Default mode on Claude Code",
+				"description": "What Claude Code may do without asking you first. Auto review is the recommended default."
+			},
+			"default_mode_codex": {
+				"label": "Default mode on Codex",
+				"description": "What Codex may do without asking you first. Codex has no Auto review."
+			},
 			"mode": {
-				"label": "Approval mode",
-				"description": "What the assistant may do without asking you first.",
 				"normal": {
 					"label": "Ask first",
 					"description": "Asks before any change outside the Builder."
+				},
+				"auto": {
+					"label": "Auto review",
+					"description": "A safety check approves routine actions and blocks risky ones. Deletions and dependency changes still ask. Asks first on models or plans without it."
 				},
 				"acceptEdits": {
 					"label": "Accept edits",
@@ -484,7 +496,7 @@
 					"label": "Plan only",
 					"description": "Reads and proposes. Changes nothing."
 				},
-				"auto": {
+				"fullAuto": {
 					"label": "Full auto",
 					"description": "Not available as a default. Turn it on per chat, for a limited time."
 				}
@@ -617,7 +629,7 @@
 				"normal": "Ask first",
 				"acceptEdits": "Accept edits",
 				"plan": "Plan only",
-				"auto": "Full auto"
+				"auto": "Auto review"
 			},
 			"facts": {
 				"state": "Status",

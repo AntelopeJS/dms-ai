@@ -1,4 +1,5 @@
 import { computed, type ComputedRef, type Ref } from "vue";
+import { modeFor } from "../constants/modes";
 import { CLIENT_MESSAGE_TYPES } from "../constants/protocol";
 import type {
 	ApprovalMode,
@@ -31,8 +32,9 @@ function effectiveScope(scope: Scope, builderAvailable: boolean): Scope {
 
 /**
  * The active chat's approval mode, scope and Full auto: what the sidecar says,
- * or the defaults for new chats from the settings until it has. Changes apply
- * at once here and are sent for the sidecar to confirm.
+ * or the current provider's default from the settings until it has. A mode the
+ * provider does not have reads as Ask first. Changes apply at once here and
+ * are sent for the sidecar to confirm.
  */
 export function useConversationMode(
 	options: UseConversationModeOptions,
@@ -40,12 +42,13 @@ export function useConversationMode(
 	const current = computed<ConversationModeState>(() => {
 		const { settings, mode } = options;
 		const base: ConversationModeState = mode.value ?? {
-			mode: settings.value.mode,
+			mode: settings.value.defaultModes[settings.value.provider],
 			generationMode: settings.value.generationMode,
 			fullAuto: null,
 		};
 		return {
 			...base,
+			mode: modeFor(settings.value.provider, base.mode),
 			generationMode: effectiveScope(
 				base.generationMode,
 				settings.value.builderAvailable,

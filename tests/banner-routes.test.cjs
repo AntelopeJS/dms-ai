@@ -14,6 +14,7 @@ const {
 
 const TextSchema = z.string();
 const harness = useRouteHarness();
+const { SETTINGS_SECTIONS } = require("../dist/pages/settings/sections.js");
 
 const PAGE_LOCALES = PAGE_LOCALE_FILES.map(readLocale);
 const I18N_KEY = /\$dms_ai\.[A-Za-z0-9_.-]+/g;
@@ -38,7 +39,7 @@ const ONLINE_STATUS = {
   status: "ready",
   provider: "claude",
   builderAvailable: true,
-  mode: "normal",
+  mode: "auto",
   generationMode: "safe",
   workingConversations: 0,
   pendingApprovals: 0,
@@ -224,4 +225,22 @@ void test("hands a pasted return address to the sidecar, and its refusal back", 
   assert.equal(refused.getStatus(), 400);
   assert.deepEqual(bodyOf(refused), { message: "Not the sign-in address" });
   assert.deepEqual(sidecar.requests.at(-1).body, { url: pasted });
+});
+
+function optionLabel(item) {
+  return item.disabled ? `${String(item.value)}:off` : String(item.value);
+}
+
+void test("offers Auto review as a default on Claude Code only, and shows Full auto on both without letting it be picked", () => {
+  assert.deepEqual(
+    SETTINGS_SECTIONS.flatMap((section) => section.fields)
+      .filter((field) => field.id.startsWith("defaultMode"))
+      .map((field) =>
+        String(field.type.options.items.map(optionLabel).join(" ")),
+      ),
+    [
+      "normal auto acceptEdits plan fullAuto:off",
+      "normal acceptEdits plan fullAuto:off",
+    ],
+  );
 });

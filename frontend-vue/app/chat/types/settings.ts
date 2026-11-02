@@ -12,7 +12,7 @@ export interface ProviderAvailability {
 export interface AppSettings {
 	provider: ProviderName;
 	/** The default approval mode of new chats. */
-	mode: ApprovalMode;
+	defaultModes: Record<ProviderName, ApprovalMode>;
 	thinking: ThinkingLevel;
 	/** The default scope of new chats. */
 	generationMode: Scope;
