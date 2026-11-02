@@ -491,7 +491,7 @@
 				},
 				"acceptEdits": {
 					"label": "Accepter les modifications",
-					"description": "Applique les modifications de fichiers, sauf les fichiers de dépendances et les hooks git. Demande pour le reste, chaque commande comprise."
+					"description": "Applique les modifications de fichiers. Les fichiers de dépendances et les hooks git demandent encore avec Claude Code, pas avec Codex. Demande pour le reste, chaque commande comprise."
 				},
 				"plan": {
 					"label": "Plan seulement",

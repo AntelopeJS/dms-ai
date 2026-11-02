@@ -98,6 +98,11 @@ describe("permission previews and rules", () => {
     const edits = [
       join(root, "package.json"),
       join(root, ".git", "hooks", "pre-commit"),
+      join(root, ".git", "modules", "sub", "hooks", "pre-commit"),
+      join(root, ".git", "modules", "sub", "config"),
+      join(root, ".git", "worktrees", "w", "config.worktree"),
+      join(root, "vendor", "x", ".git", "hooks", "h"),
+      join(root, "src", "..", ".git", "modules", "sub", "hooks", "pre-commit"),
       join(root, ".husky", "pre-commit"),
       join(root, "lefthook.yml"),
     ];

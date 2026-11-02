@@ -54,14 +54,15 @@ const LEFTHOOK_CONFIG_NAMES = ["", "."].flatMap((dot) =>
 );
 
 /**
- * The files that make git run code: hook scripts, git's own config (its
- * `core.hooksPath` and `core.fsmonitor` name any program), and the config of
- * the hook managers. Each is a path ending, matched on lower-cased segments;
- * `**` stands for one or more trailing segments.
+ * The files that make git run code: everything inside a `.git` directory at
+ * any depth (the hooks and config of the repository, of a submodule under
+ * `.git/modules` and of a worktree under `.git/worktrees`; `core.hooksPath`
+ * and `core.fsmonitor` name any program), and the config of the hook
+ * managers. Each is a path ending, matched on lower-cased segments; `**`
+ * stands for one or more trailing segments.
  */
 export const GIT_HOOK_PATHS: readonly string[] = [
-  ".git/hooks/**",
-  ".git/config",
+  ".git/**",
   ".husky/**",
   ...LEFTHOOK_CONFIG_NAMES,
   ".pre-commit-config.yaml",
