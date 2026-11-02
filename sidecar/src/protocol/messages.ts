@@ -7,6 +7,7 @@ import { FULL_AUTO_DURATIONS, RULE_KINDS } from "../constants/audit.js";
 import {
   CHAT_MODES,
   CHECKPOINT_RETENTION_DAYS,
+  CODEX_CHAT_MODES,
   GENERATION_MODES,
   REQUEST_TIMEOUT_MINUTES,
   THINKING_LEVELS,
@@ -329,12 +330,17 @@ export const DeleteConversationMsg = z.object({
 
 /**
  * Every field optional: a settings change is merged over what is stored, so a
- * client that omits a field leaves it alone rather than resetting it. `auto` is
- * refused for `mode`: Full auto exists only per conversation.
+ * client that omits a field, or one provider's default mode, leaves it alone
+ * rather than resetting it.
  */
 export const SettingsPatchFields = {
   provider: z.enum(PROVIDER_NAMES).optional(),
-  mode: z.enum(CHAT_MODES).optional(),
+  defaultModes: z
+    .object({
+      claude: z.enum(CHAT_MODES).optional(),
+      codex: z.enum(CODEX_CHAT_MODES).optional(),
+    })
+    .optional(),
   thinking: z.enum(THINKING_LEVELS).optional(),
   claudeModel: z.string().trim().min(1).optional(),
   generationMode: z.enum(GENERATION_MODES).optional(),

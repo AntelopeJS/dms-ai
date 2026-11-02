@@ -69,6 +69,7 @@ const FALLBACK_ALLOWED_BY: AllowedBy = "read_auto";
 const OUTCOME_BY_DECISION: Partial<Record<AllowedBy, ToolOutcome>> = {
   blocked: "blocked",
   denied: "denied",
+  auto_denied: "denied",
   expired: "denied",
 };
 

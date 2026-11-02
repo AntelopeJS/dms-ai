@@ -3,6 +3,7 @@ import type {
   AppSettings,
   ChatMode,
   GenerationMode,
+  TurnSettings,
 } from "../state/settings-types.js";
 import type { FullAutoState } from "../state/types.js";
 
@@ -40,7 +41,7 @@ export function isFullAutoInForce(state: ConversationModeState): boolean {
 export function conversationSettings(
   settings: AppSettings,
   state: ConversationModeState,
-): AppSettings {
+): TurnSettings {
   const generationMode = effectiveGenerationMode(state.generationMode);
   const mode =
     state.fullAuto === null

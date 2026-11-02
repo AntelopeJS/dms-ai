@@ -11,14 +11,19 @@ import { type AgentRunner, createAgentRunner } from "../../src/agent/runner.js";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
-import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
+import {
+  DEFAULT_SETTINGS,
+  SAFE_MODE_DISALLOWED_TOOLS,
+} from "../../src/constants/settings.js";
 import { resolvePermissionMode } from "../../src/providers/claude/config.js";
 import { createClaudeProvider } from "../../src/providers/claude/provider.js";
 import {
-  type AppSettings,
   CHAT_MODES,
   type ChatMode,
+  type GenerationMode,
+  type TurnSettings,
 } from "../../src/state/settings-types.js";
+import { writeClaudeScript } from "../helpers/claude-scripts.js";
 import { createTestBus } from "../helpers/permission-bus.js";
 import {
   readClaudeTrace,
@@ -51,9 +56,14 @@ const SAFE_CASES = CHAT_MODES.flatMap((mode) =>
 
 function settingsFor(
   mode: ChatMode,
-  generationMode: AppSettings["generationMode"],
-): AppSettings {
-  return { ...DEFAULT_SETTINGS, mode, generationMode };
+  generationMode: GenerationMode,
+): TurnSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    defaultModes: { ...DEFAULT_SETTINGS.defaultModes, claude: mode },
+    mode,
+    generationMode,
+  };
 }
 
 describe("resolvePermissionMode", () => {
@@ -155,8 +165,8 @@ describe("safe mode on the Claude provider, whatever the permission mode", () =>
     await rm(dir, { recursive: true, force: true });
   });
 
-  function openRunner(settings: AppSettings, script: string): AgentRunner {
-    process.env.MOCK_CLAUDE_SCRIPT = join(SCRIPTS, script);
+  function openRunner(settings: TurnSettings, script: string): AgentRunner {
+    process.env.MOCK_CLAUDE_SCRIPT = resolve(SCRIPTS, script);
     const provider = createClaudeProvider({ timeoutMs: TURN_TIMEOUT_MS });
     runner = createAgentRunner(provider, { settings });
     return runner;
@@ -192,6 +202,22 @@ describe("safe mode on the Claude provider, whatever the permission mode", () =>
       ]);
       expect(prompts).toEqual([]);
       expect(traced("session")[0]?.permissionMode).not.toBe(BYPASS_MODE);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it.each(SAFE_MODE_DISALLOWED_TOOLS)(
+    "refuses %s under Auto review through the safe-mode hook",
+    async (tool) => {
+      const script = await writeClaudeScript(dir, tool, [
+        { id: "toolu_raw_1", name: tool, input: { file_path: "a.ts" } },
+      ]);
+      await runTurn(openRunner(settingsFor("auto", "safe"), script));
+      expect(traced("session")[0]?.permissionMode).toBe("auto");
+      expect(traced("tool")).toEqual([
+        { kind: "tool", name: tool, decidedBy: "hook", isAllowed: false },
+      ]);
+      expect(prompts).toEqual([]);
     },
     TEST_TIMEOUT_MS,
   );

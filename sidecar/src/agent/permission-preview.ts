@@ -321,7 +321,12 @@ const PREVIEW_BY_KIND: Record<PermissionKind, PreviewBuilder> = {
   other: async (options) => genericPreview(options),
 };
 
-function isAlwaysAsk(options: ParsedOptions): boolean {
+type AlwaysAskOptions = Pick<
+  ParsedOptions,
+  "toolName" | "args" | "alwaysAskDependencies" | "alwaysAskBlockRemoval"
+>;
+
+export function isAlwaysAsk(options: AlwaysAskOptions): boolean {
   if (isDestructiveBuilderTool(options.toolName)) return true;
   if (isConfigBuilderTool(options.toolName)) return true;
   if (options.alwaysAskBlockRemoval && isBlockRemovalTool(options.toolName)) {

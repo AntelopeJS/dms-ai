@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ProviderSession } from "../../src/agent/provider.js";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
-import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
+import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
@@ -98,7 +98,7 @@ describe("two live Codex conversations stay isolated", () => {
       });
       server = started.server;
       const provider = createCodexProvider({
-        settings: DEFAULT_SETTINGS,
+        settings: TURN_SETTINGS,
         stateDir: join(dir, ".state"),
         mcpHttpRegistry: registry,
         createMcpDeps: buildDeps,
@@ -110,7 +110,7 @@ describe("two live Codex conversations stay isolated", () => {
           conversationId,
           hostProjectRoot: dir,
           getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
-          settings: DEFAULT_SETTINGS,
+          settings: TURN_SETTINGS,
           onDisposed: () => {},
         });
         sessions.push(session);
@@ -126,7 +126,7 @@ describe("two live Codex conversations stay isolated", () => {
         const events: RunnerEvent[] = [];
         for await (const event of session.runTurn(
           { text: "where am I", attachments: [] },
-          DEFAULT_SETTINGS,
+          TURN_SETTINGS,
         )) {
           events.push(event);
         }

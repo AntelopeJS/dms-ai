@@ -34,7 +34,6 @@ import {
   type SessionControls,
 } from "../../agent/session.js";
 import { buildSystemPrompt } from "../../agent/system-prompt.js";
-import { effectiveGenerationMode } from "../../builder/capability.js";
 import { TURN_IDLE_TIMEOUT_MS } from "../../constants/agent.js";
 import {
   SDK_INCLUDE_PARTIAL_MESSAGES,
@@ -46,7 +45,6 @@ import {
 import {
   ASK_USER_QUESTION_BUILTIN_TOOL_NAME,
   ASK_USER_QUESTION_REDIRECT_MESSAGE,
-  FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES,
   MCP_SERVER_KEY,
 } from "../../constants/mcp.js";
 import { STATE_DIR_SEGMENTS } from "../../constants/paths.js";
@@ -57,11 +55,9 @@ import { buildSkillCatalog } from "../../skills/build-catalog.js";
 import { ensurePluginWrapper } from "../../skills/plugin-wrapper.js";
 import { resolveSkillSources } from "../../skills/resolve-sources.js";
 import type { SkillSource } from "../../skills/types.js";
-import type {
-  AppSettings,
-  GenerationMode,
-} from "../../state/settings-types.js";
+import type { TurnSettings } from "../../state/settings-types.js";
 import { buildTurnContent, type TurnContent } from "./attachments.js";
+import { isFirstPartyMcpTool } from "./auto-guard.js";
 import {
   buildClaudeEnv,
   type ClaudeEffort,
@@ -117,7 +113,7 @@ interface PromptOptionsInput {
   hooks: SdkHooks;
   canUseTool: CanUseTool | undefined;
   mcpServer: AiMcpServer | undefined;
-  settings: AppSettings;
+  settings: TurnSettings;
   abortController: AbortController;
   skillLoadout: SkillLoadout | undefined;
 }
@@ -241,10 +237,6 @@ export async function bridgeCanUseTool(
   return outcome.isAllowed ? buildAllowResult(input) : buildDenyResult(outcome);
 }
 
-function isFirstPartyMcpTool(toolName: string): boolean {
-  return FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES.has(toolName);
-}
-
 function buildAskUserRedirectResult(): SdkPermissionDeny {
   return {
     behavior: SDK_PERMISSION_BEHAVIOR.DENY,
@@ -310,20 +302,11 @@ function buildCanUseTool(deps: CanUseToolDeps): CanUseTool {
   };
 }
 
-/**
- * Skill source directories are auto-allowed for read-only tools too, so the
- * agent can read SKILL.md bodies and supporting files without prompting.
- */
 function resolveCanUseTool(
   ctx: ProviderSessionContext,
-  moduleRoots: string[],
-  skillRoots: string[],
+  readRoots: string[],
 ): CanUseTool | undefined {
   if (ctx.permissionBus === undefined) return undefined;
-  const readRoots = resolveReadRoots(ctx.hostProjectRoot, [
-    ...moduleRoots,
-    ...skillRoots,
-  ]);
   return buildCanUseTool({ bus: ctx.permissionBus, ctx, readRoots });
 }
 
@@ -347,10 +330,6 @@ interface SessionState {
   session: AgentSession;
   backend: ClaudeBackend;
   timeoutMs: number;
-}
-
-function activeGenerationMode(live: LiveSettings): GenerationMode {
-  return effectiveGenerationMode(live.settings.generationMode);
 }
 
 async function loadSharedSdk(config: ProviderConfig): Promise<LoadedSdk> {
@@ -394,17 +373,17 @@ async function submitTurn(
 
 function applyBackendSettings(
   backend: ClaudeBackend,
-  settings: AppSettings,
+  settings: TurnSettings,
 ): void {
   backend.live.settings = settings;
-  void backend.output
-    .setPermissionMode(resolvePermissionMode(settings))
-    .catch(() => undefined);
   const { model, effort } = resolveModelOptions(settings);
   if (backend.model.refused !== model) {
     backend.model.refused = null;
     void backend.output.setModel(model).catch(() => undefined);
   }
+  void backend.output
+    .setPermissionMode(resolvePermissionMode(settings))
+    .catch(() => undefined);
   void backend.output
     .applyFlagSettings({ effortLevel: effort ?? null })
     .catch(() => undefined);
@@ -430,7 +409,7 @@ function buildSessionControls(backend: ClaudeBackend): SessionControls {
 async function* runTurn(
   state: SessionState,
   input: TurnInput,
-  settings: AppSettings,
+  settings: TurnSettings,
 ): AsyncIterable<RunnerEvent> {
   state.backend.live.settings = settings;
   yield* state.session.sendTurn(input, state.timeoutMs);
@@ -453,19 +432,20 @@ async function buildSessionOptions(
     ctx.settings.allowLocalSkills,
     os.homedir(),
   );
+  const readRoots = resolveReadRoots(ctx.hostProjectRoot, [
+    ...config.moduleRoots,
+    ...skillSources.map((s) => s.dir),
+  ]);
   return buildPromptOptions({
     systemPrompt: await buildSessionPrompt(ctx),
     hooks: buildSafeModeHooks({
-      getGenerationMode: () => activeGenerationMode(live),
-      onBlocked: (callId, toolName) =>
-        ctx.onToolDecision?.({ callId, toolName, allowedBy: "blocked" }),
+      getSettings: () => live.settings,
+      readRoots,
+      hostProjectRoot: ctx.hostProjectRoot,
+      onToolDecision: ctx.onToolDecision,
       beforeMutation: ctx.beforeMutation,
     }),
-    canUseTool: resolveCanUseTool(
-      ctx,
-      config.moduleRoots,
-      skillSources.map((s) => s.dir),
-    ),
+    canUseTool: resolveCanUseTool(ctx, readRoots),
     mcpServer: ctx.mcpServer,
     settings: ctx.settings,
     abortController,
@@ -493,11 +473,7 @@ async function createProviderSession(
   };
   const state: SessionState = {
     session: createAgentSession({
-      events: toRunnerEvents(backend, {
-        onModelUsed: ctx.onModelUsed,
-        onModelFallback: ctx.onModelFallback,
-        onTokenUsage: ctx.onTokenUsage,
-      }),
+      events: toRunnerEvents(backend, ctx),
       controls: buildSessionControls(backend),
       abortController,
       onDisposed: ctx.onDisposed,

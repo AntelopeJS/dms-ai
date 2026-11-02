@@ -35,7 +35,10 @@ import {
 } from "../../src/state/conversations.js";
 import { createHostState } from "../../src/state/host-state.js";
 import type { SettingsStore } from "../../src/state/settings-store.js";
-import type { AppSettings } from "../../src/state/settings-types.js";
+import type {
+  AppSettings,
+  DefaultModes,
+} from "../../src/state/settings-types.js";
 import { createStore } from "../../src/state/store.js";
 import type { ProviderName } from "../../src/state/types.js";
 import { buildInertStaticMcpDeps } from "./provider-runner.js";
@@ -119,6 +122,8 @@ function assertProviderReachable(provider: ProviderName): void {
   );
 }
 
+const ASK_FIRST_ON_BOTH: DefaultModes = { claude: "normal", codex: "normal" };
+
 const PROJECT_DIR = "project";
 const PROJECT_STATE_SEGMENTS = ["node_modules", ".cache", "dms-ai"];
 const RETENTION_DAYS = 30;
@@ -161,6 +166,7 @@ export async function startWsHarness(
   const mcpHttpRegistry = createMcpHttpRegistry();
   const settingsStore = buildSettingsStore({
     ...DEFAULT_SETTINGS,
+    defaultModes: ASK_FIRST_ON_BOTH,
     provider: options.provider,
     ...options.settings,
   });

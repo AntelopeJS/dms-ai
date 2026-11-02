@@ -8,7 +8,7 @@ export const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
 
 export const DEFAULT_SETTINGS: AppSettings = {
   provider: DEFAULT_PROVIDER_NAME,
-  mode: "normal",
+  defaultModes: { claude: "auto", codex: "normal" },
   thinking: "medium",
   claudeModel: DEFAULT_CLAUDE_MODEL,
   generationMode: "safe",

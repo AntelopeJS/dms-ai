@@ -20,8 +20,13 @@ const TIMEOUT_MS = 2000;
 const WS_PATH = "/ws";
 const RETIRED_WS_PATHS = ["/ws/host", "/ws/iframe"];
 const CHAT_DOCUMENT_PATHS = ["/", "/index.html", "/assets/index.js"];
+interface SettingsBody {
+  requestTimeoutMinutes?: number;
+  defaultModes?: { claude?: string; codex?: string };
+}
+
 const NEXT_SETTINGS = {
-  mode: "plan",
+  defaultModes: { claude: "plan" },
   thinking: "medium",
   generationMode: "vibe",
   allowLocalSkills: false,
@@ -139,7 +144,7 @@ describe("sidecar client authentication", () => {
         body: JSON.stringify(NEXT_SETTINGS),
       });
       expect(response.status).toBe(401);
-      expect(server.settingsStore.get().mode).toBe("normal");
+      expect(server.settingsStore.get().defaultModes.claude).toBe("auto");
     }
   });
 
@@ -153,11 +158,11 @@ describe("sidecar client authentication", () => {
       body: JSON.stringify(NEXT_SETTINGS),
     });
     expect(response.status).toBe(200);
-    expect(server.settingsStore.get().mode).toBe("plan");
+    expect(server.settingsStore.get().defaultModes.claude).toBe("plan");
   });
 
-  it("refuses a stored Full auto and merges a partial body", async () => {
-    const put = (body: Record<string, string | number>) =>
+  it("refuses Auto review on Codex and merges a partial body", async () => {
+    const put = (body: SettingsBody) =>
       fetch(`http://127.0.0.1:${server.port}/settings`, {
         method: "PUT",
         headers: {
@@ -166,14 +171,17 @@ describe("sidecar client authentication", () => {
         },
         body: JSON.stringify(body),
       });
-    const refused = await put({ mode: "auto" });
+    const refused = await put({ defaultModes: { codex: "auto" } });
     expect(refused.status).toBe(400);
     expect(await refused.json()).toHaveProperty("message");
-    const merged = await put({ requestTimeoutMinutes: 15 });
+    const merged = await put({
+      requestTimeoutMinutes: 15,
+      defaultModes: { codex: "plan" },
+    });
     expect(merged.status).toBe(200);
     expect(await merged.json()).toMatchObject({
       requestTimeoutMinutes: 15,
-      mode: "normal",
+      defaultModes: { claude: "auto", codex: "plan" },
       checkpointRetentionDays: 30,
     });
   });

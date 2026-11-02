@@ -79,6 +79,7 @@ const claudeFixture: ProviderFixture = {
     delete process.env.MOCK_CLAUDE_SCRIPT;
     delete process.env.MOCK_CLAUDE_TRACE;
     delete process.env.MOCK_CLAUDE_REFUSED_MODEL;
+    delete process.env.MOCK_CLAUDE_AUTO_UNSUPPORTED_MODEL;
   },
 };
 

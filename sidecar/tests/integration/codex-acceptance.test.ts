@@ -14,7 +14,7 @@ import type { ProviderSession } from "../../src/agent/provider.js";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
 import { XDG_CONFIG_HOME_ENV } from "../../src/constants/chatgpt.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
-import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
+import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
@@ -25,7 +25,7 @@ import { createCodexProvider } from "../../src/providers/codex/provider.js";
 import { resolveCodexInstallation } from "../../src/providers/codex/resolve-binary.js";
 import { createHttpServer } from "../../src/server/http.js";
 import { createNavigationCompleter } from "../../src/server/navigation-completer.js";
-import type { AppSettings } from "../../src/state/settings-types.js";
+import type { TurnSettings } from "../../src/state/settings-types.js";
 import { readRecordedPids } from "../helpers/codex-pids.js";
 
 /**
@@ -127,9 +127,9 @@ async function startHarness(answer: PermissionOutcome): Promise<Harness> {
   };
 }
 
-function settingsFor(overrides: Partial<AppSettings>): AppSettings {
+function settingsFor(overrides: Partial<TurnSettings>): TurnSettings {
   return {
-    ...DEFAULT_SETTINGS,
+    ...TURN_SETTINGS,
     thinking: "off",
     generationMode: "vibe",
     ...overrides,
@@ -138,7 +138,7 @@ function settingsFor(overrides: Partial<AppSettings>): AppSettings {
 
 async function openSession(
   harness: Harness,
-  settings: AppSettings,
+  settings: TurnSettings,
 ): Promise<ProviderSession> {
   const provider = createCodexProvider({
     timeoutMs: TURN_TIMEOUT_MS,
@@ -162,7 +162,7 @@ async function openSession(
 async function collect(
   session: ProviderSession,
   text: string,
-  settings: AppSettings,
+  settings: TurnSettings,
 ): Promise<RunnerEvent[]> {
   const events: RunnerEvent[] = [];
   for await (const event of session.runTurn(

@@ -14,6 +14,7 @@ import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import {
   CHAT_MODES,
   CHECKPOINT_RETENTION_DAYS,
+  CODEX_CHAT_MODES,
   GENERATION_MODES,
   REQUEST_TIMEOUT_MINUTES,
   THINKING_LEVELS,
@@ -159,12 +160,19 @@ export const ModelFallbackNoticeSchema = z.object({
   timestampMs: z.number(),
 });
 
+export const AutoUnavailableNoticeSchema = z.object({
+  kind: z.literal("auto_unavailable"),
+  model: z.string(),
+  timestampMs: z.number(),
+});
+
 export const NoticeSchema = z.discriminatedUnion("kind", [
   AutoFixNoticeSchema,
   PermissionExpiredNoticeSchema,
   QuestionSkippedNoticeSchema,
   FullAutoEndedNoticeSchema,
   ModelFallbackNoticeSchema,
+  AutoUnavailableNoticeSchema,
 ]);
 
 export const QuestionAnswerRecordSchema = z.object({
@@ -287,7 +295,10 @@ export const ConversationListEvent = z.object({
 
 export const AppSettingsSchema = z.object({
   provider: z.enum(PROVIDER_NAMES),
-  mode: z.enum(CHAT_MODES),
+  defaultModes: z.object({
+    claude: z.enum(CHAT_MODES),
+    codex: z.enum(CODEX_CHAT_MODES),
+  }),
   thinking: z.enum(THINKING_LEVELS),
   claudeModel: z.string().default(DEFAULT_SETTINGS.claudeModel),
   generationMode: z.enum(GENERATION_MODES),

@@ -9,7 +9,6 @@ import {
   CHATGPT_TOKEN_SECRET_ENV,
   CHATGPT_TOKEN_URL_ENV,
 } from "../../src/constants/chatgpt.js";
-import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import {
   buildConfigToml,
   buildDenialReminder,
@@ -18,16 +17,17 @@ import {
   resolveModePolicy,
 } from "../../src/providers/codex/config.js";
 import {
-  type AppSettings,
   CHAT_MODES,
+  type TurnSettings,
 } from "../../src/state/settings-types.js";
+import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 
 const HOST_ROOT = "/srv/app";
 const MODULE_ROOT = "/srv/app/node_modules/dms-builder";
 const WORKSPACE = { hostProjectRoot: HOST_ROOT, moduleRoots: [MODULE_ROOT] };
 
-function settings(overrides: Partial<AppSettings>): AppSettings {
-  return { ...DEFAULT_SETTINGS, generationMode: "vibe", ...overrides };
+function settings(overrides: Partial<TurnSettings>): TurnSettings {
+  return { ...TURN_SETTINGS, generationMode: "vibe", ...overrides };
 }
 
 describe("mode mapping", () => {
@@ -70,6 +70,22 @@ describe("mode mapping", () => {
       expect(overrides.sandboxPolicy).not.toEqual({ type: "dangerFullAccess" });
     }
   });
+
+  it.each(["vibe", "safe"] as const)(
+    "runs a chat in Auto review exactly as Ask first, Codex having no Auto review (%s)",
+    (generationMode) => {
+      setBuilderAvailable(true);
+      try {
+        expect(
+          resolveModePolicy(settings({ mode: "auto", generationMode })),
+        ).toEqual(
+          resolveModePolicy(settings({ mode: "normal", generationMode })),
+        );
+      } finally {
+        setBuilderAvailable(false);
+      }
+    },
+  );
 
   it("declines every escalation in plan mode", () => {
     expect(
@@ -240,8 +256,8 @@ describe("ChatGPT plan provider", () => {
 });
 
 describe("safe-mode instructions", () => {
-  const safe = (): AppSettings => settings({ generationMode: "safe" });
-  const vibe = (): AppSettings => settings({ generationMode: "vibe" });
+  const safe = (): TurnSettings => settings({ generationMode: "safe" });
+  const vibe = (): TurnSettings => settings({ generationMode: "vibe" });
 
   beforeEach(() => setBuilderAvailable(true));
   afterEach(() => setBuilderAvailable(false));
