@@ -27,7 +27,7 @@ import { type DiffStats, diffTexts, parseUnifiedDiff } from "./line-diff.js";
 import {
   bareToolName,
   isBlockRemovalTool,
-  isCommandTool,
+  isBashTool,
   isConfigBuilderTool,
   isDestructiveBuilderTool,
   isEditTool,
@@ -333,7 +333,7 @@ function editsDependencyFile(options: ParsedOptions): boolean {
 }
 
 function isDependencyChange(options: ParsedOptions): boolean {
-  if (isCommandTool(options.toolName)) {
+  if (isBashTool(options.toolName)) {
     return detectDependencyChange(readString(options.args, "command")) !== null;
   }
   return options.isAutoReview && editsDependencyFile(options);

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { bareToolName, isCommandTool } from "../agent/tool-kinds.js";
+import { bareToolName, isBashTool } from "../agent/tool-kinds.js";
 import { parseArgs } from "../audit/activity-target.js";
 import {
   SKILL_FILE_NAME,
@@ -83,7 +83,7 @@ function usedSkill(message: StoredMessage, names: readonly string[]) {
   const toolName = bareToolName(message.toolName ?? "");
   const args = parseArgs(message.content);
   if (toolName === SKILL_TOOL_NAME) return skillToolName(args);
-  if (isCommandTool(toolName)) return skillFileRead(args, names);
+  if (isBashTool(toolName)) return skillFileRead(args, names);
   return undefined;
 }
 

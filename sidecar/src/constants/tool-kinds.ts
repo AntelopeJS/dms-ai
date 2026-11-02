@@ -125,7 +125,7 @@ function builtinToolsThat(reach: ToolReach): readonly string[] {
 /** Tools that write files the user can see in a diff. */
 export const EDIT_TOOL_NAMES = builtinToolsThat("editsFile");
 
-export const COMMAND_TOOL_NAMES: readonly string[] = ["Bash"];
+export const BASH_TOOL_NAMES: readonly string[] = ["Bash"];
 
 export const WEB_TOOL_NAMES = builtinToolsThat("fetchesWeb");
 

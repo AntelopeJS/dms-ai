@@ -5,7 +5,7 @@ import type {
 } from "../agent/runner-events.js";
 import {
   bareToolName,
-  isCommandTool,
+  isBashTool,
   isEditTool,
   isMutatingBuilderTool,
   isMutatingTool,
@@ -61,7 +61,7 @@ const DEFAULT_ALLOWED_BY: readonly AllowedByMatcher[] = [
   { allowedBy: "read_auto", matches: (name) => isReadOnlyTool(name) },
   { allowedBy: "full_auto", matches: (_name, isFullAuto) => isFullAuto },
   { allowedBy: "rule", matches: (name) => isEditTool(name) },
-  { allowedBy: "read_auto", matches: (name) => isCommandTool(name) },
+  { allowedBy: "read_auto", matches: (name) => isBashTool(name) },
 ];
 
 const FALLBACK_ALLOWED_BY: AllowedBy = "read_auto";

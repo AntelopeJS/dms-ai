@@ -10,7 +10,7 @@ import {
   BUILDER_READ_TOOL_NAMES,
   BUILTIN_READ_TOOL_NAMES,
   BUILTIN_TOOL_REACH,
-  COMMAND_TOOL_NAMES,
+  BASH_TOOL_NAMES,
   EDIT_TOOL_NAMES,
   PROJECT_READ_TOOL_NAMES,
   type ToolReach,
@@ -41,7 +41,7 @@ function isIn(names: readonly string[]): (toolName: string) => boolean {
 }
 
 export const isEditTool = isIn(EDIT_TOOL_NAMES);
-export const isCommandTool = isIn(COMMAND_TOOL_NAMES);
+export const isBashTool = isIn(BASH_TOOL_NAMES);
 export const isWebTool = isIn(WEB_TOOL_NAMES);
 const isBuilderTool = isIn(BUILDER_TOOL_NAMES);
 export const isDestructiveBuilderTool = isIn(BUILDER_DESTRUCTIVE_TOOL_NAMES);
@@ -63,7 +63,7 @@ export const isReadOnlyTool = isIn(READ_ONLY_TOOL_NAMES);
 export function isMutatingTool(toolName: string): boolean {
   return (
     isEditTool(toolName) ||
-    isCommandTool(toolName) ||
+    isBashTool(toolName) ||
     isMutatingBuilderTool(toolName)
   );
 }
@@ -76,7 +76,7 @@ interface KindMatcher {
 /** First match wins: destructive Builder ops before the other Builder ones. */
 const KIND_MATCHERS: readonly KindMatcher[] = [
   { kind: "edit", matches: isEditTool },
-  { kind: "command", matches: isCommandTool },
+  { kind: "command", matches: isBashTool },
   { kind: "web", matches: isWebTool },
   { kind: "destructive", matches: isDestructiveBuilderTool },
   { kind: "builder", matches: isBuilderTool },
