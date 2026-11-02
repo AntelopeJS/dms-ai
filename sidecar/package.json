@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@antelopejs/tooling-configs": "^0.2.11",
-    "@openai/codex": "0.154.0",
+    "@openai/codex": "0.166.0",
     "@types/node": "^22.19.15",
     "@types/ws": "^8.5.12",
     "knip": "^6.34.0",
