@@ -17,26 +17,36 @@ interface Stringable {
   toString(): string;
 }
 
+/** An Error as the buffer keeps it: the fields that survive serialisation. */
+function summarizeError(
+  error: Error,
+): Pick<Error, "name" | "message" | "stack"> {
+  return { name: error.name, message: error.message, stack: error.stack };
+}
+
 /**
- * Keeps an argument the buffer can serialise as it is. An Error becomes
- * `{ name, message, stack }`. Anything else that cannot be serialised (a cycle,
- * or a BigInt nested inside) becomes `toString()`'s result, which keeps a
- * custom `toString()` and only degrades to "[object Object]" for a plain object.
+ * Keeps an object the buffer can serialise as it is. One that cannot be
+ * serialised (a cycle, or a BigInt nested inside) becomes `toString()`'s
+ * result, which keeps a custom `toString()` and only degrades to
+ * "[object Object]" for a plain object.
  */
-function sanitizeArg(arg: unknown): unknown {
-  if (arg instanceof Error) {
-    return { name: arg.name, message: arg.message, stack: arg.stack };
+function sanitizeObject(value: Stringable): Stringable | string {
+  try {
+    JSON.stringify(value);
+    return value;
+  } catch {
+    return value.toString();
   }
-  if (isObject(arg)) {
-    try {
-      JSON.stringify(arg);
-      return arg;
-    } catch {
-      const printable: Stringable = arg;
-      return printable.toString();
-    }
+}
+
+function sanitizeArgs(args: Log["args"]): BufferedLog["args"] {
+  const sanitized: BufferedLog["args"] = [];
+  for (const arg of args) {
+    if (arg instanceof Error) sanitized.push(summarizeError(arg));
+    else if (isObject(arg)) sanitized.push(sanitizeObject(arg));
+    else sanitized.push(arg);
   }
-  return arg;
+  return sanitized;
 }
 
 function toBuffered(log: Log): BufferedLog {
@@ -44,7 +54,7 @@ function toBuffered(log: Log): BufferedLog {
     time: log.time,
     channel: log.channel,
     levelId: log.levelId,
-    args: Array.isArray(log.args) ? log.args.map(sanitizeArg) : [],
+    args: Array.isArray(log.args) ? sanitizeArgs(log.args) : [],
   };
 }
 

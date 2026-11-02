@@ -39,6 +39,7 @@ function isNumber(value: unknown): value is number {
 
 function parseContents(raw: string): ChangeSetFileContents {
   try {
+    // SAFETY: the file is this sidecar's own ChangeSetFileContents; `changeSets` and `nextNumber` are checked before use and the records are trusted as written.
     const parsed = JSON.parse(raw) as Partial<ChangeSetFileContents>;
     if (!Array.isArray(parsed.changeSets)) return emptyContents();
     return {

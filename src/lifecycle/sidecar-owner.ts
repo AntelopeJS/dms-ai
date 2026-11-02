@@ -57,6 +57,7 @@ interface OwnerRegistry {
 const ownerKey = Symbol.for(SIDECAR_OWNER_KEY);
 
 export function getSidecarOwner(): SidecarOwner {
+  // SAFETY: globalThis declares no member for this Symbol.for key, and this module is the only writer of that slot, which only ever holds a SidecarOwner.
   const registry = globalThis as OwnerRegistry;
   registry[ownerKey] ??= createSidecarOwner();
   return registry[ownerKey];

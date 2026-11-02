@@ -68,11 +68,17 @@ export interface CodexRequestOptions {
 }
 
 export interface CodexClient {
-  request<T>(
+  request(
     method: string,
     params?: JsonValue,
     options?: CodexRequestOptions,
-  ): Promise<T>;
+  ): Promise<void>;
+  requestDecoded<S extends z.ZodType>(
+    schema: S,
+    method: string,
+    params?: JsonValue,
+    options?: CodexRequestOptions,
+  ): Promise<z.output<S>>;
   notify(method: string, params?: JsonValue): void;
   /**
    * Fails every in-flight request and every later one. Called on dispose, and
@@ -98,6 +104,21 @@ function isServerRequest(frame: JsonRpcFrame): frame is ServerRequestFrame {
 
 function isResponse(frame: JsonRpcFrame): boolean {
   return frame.id !== undefined && frame.method === undefined;
+}
+
+function settleFrame<S extends z.ZodType>(
+  schema: S,
+  frame: JsonRpcFrame,
+  resolve: (value: z.output<S>) => void,
+  reject: (reason: Error) => void,
+): void {
+  if (frame.error !== undefined) {
+    reject(new Error(frame.error.message));
+    return;
+  }
+  const decoded = schema.safeParse(frame.result);
+  if (decoded.success) resolve(decoded.data);
+  else reject(decoded.error);
 }
 
 function parseFrame(line: string): JsonRpcFrame | null {
@@ -187,11 +208,12 @@ export function createCodexClient(
     }
   }
 
-  function trackRequest<T>(
+  function trackRequest<S extends z.ZodType>(
     id: number,
     options: CodexRequestOptions | undefined,
-  ): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
+    schema: S,
+  ): Promise<z.output<S>> {
+    return new Promise<z.output<S>>((resolve, reject) => {
       const timer =
         options?.timeoutMs === undefined
           ? null
@@ -209,11 +231,7 @@ export function createCodexClient(
         },
         settle: (frame) => {
           clear();
-          if (frame.error !== undefined) {
-            reject(new Error(frame.error.message));
-            return;
-          }
-          resolve(frame.result as T);
+          settleFrame(schema, frame, resolve, reject);
         },
       });
     });
@@ -223,18 +241,24 @@ export function createCodexClient(
   stdout.on("data", (chunk: string) => consume(chunk));
   stdout.on("close", () => abort(new Error(CODEX_TRANSPORT_CLOSED_MESSAGE)));
 
+  const requestDecoded: CodexClient["requestDecoded"] = (
+    schema,
+    method,
+    params,
+    options,
+  ) => {
+    if (aborted !== null) return Promise.reject(aborted);
+    const id = nextId++;
+    const settled = trackRequest(id, options, schema);
+    write({ id, method, params: params ?? {} });
+    return settled;
+  };
+
   return {
-    request<T>(
-      method: string,
-      params?: JsonValue,
-      options?: CodexRequestOptions,
-    ): Promise<T> {
-      if (aborted !== null) return Promise.reject(aborted);
-      const id = nextId++;
-      const settled = trackRequest<T>(id, options);
-      write({ id, method, params: params ?? {} });
-      return settled;
+    async request(method, params, options) {
+      await requestDecoded(z.unknown(), method, params, options);
     },
+    requestDecoded,
     notify(method: string, params?: JsonValue): void {
       write({ method, params: params ?? {} });
     },

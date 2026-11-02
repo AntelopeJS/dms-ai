@@ -20,6 +20,7 @@ export interface BuilderGateDecision {
  */
 export type BuilderGate = (
   toolName: string,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- these are the agent-supplied arguments of any Builder tool, whose schemas differ per tool and are open-world to the gate, which only forwards them
   args: Record<string, unknown>,
 ) => Promise<BuilderGateDecision>;
 
