@@ -302,6 +302,10 @@ function buildCanUseTool(deps: CanUseToolDeps): CanUseTool {
   };
 }
 
+/**
+ * Skill source directories are auto-allowed for read-only tools too, so the
+ * agent can read SKILL.md bodies and supporting files without prompting.
+ */
 function resolveCanUseTool(
   ctx: ProviderSessionContext,
   readRoots: string[],

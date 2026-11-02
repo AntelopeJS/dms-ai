@@ -37,6 +37,7 @@ export interface StreamBackend {
   model: ModelTrack;
 }
 
+/** What a session reports as its stream runs: the model, token usage, refused Auto review and tool decisions. */
 export type StreamHooks = Pick<
   ProviderSessionContext,
   | "onModelUsed"

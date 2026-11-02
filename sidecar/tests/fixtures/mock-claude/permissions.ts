@@ -192,6 +192,10 @@ async function askCanUseTool(
   return { decidedBy: "canUseTool", isAllowed };
 }
 
+/**
+ * The CLI's order: hooks first, then the commands it deems read-only, then the
+ * permission mode, then `canUseTool`.
+ */
 async function decide(
   block: ToolUseBlock,
   ctx: PermissionContext,
