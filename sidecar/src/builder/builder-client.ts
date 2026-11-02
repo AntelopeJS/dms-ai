@@ -1,5 +1,6 @@
 import {
   BUILDER_FETCH_TIMEOUT_MS,
+  BUILDER_SLOW_OP_TIMEOUTS_MS,
   BUILDER_LOG_PREFIX,
   BUILDER_OP_PATH,
 } from "../constants/builder.js";
@@ -35,7 +36,7 @@ export function createBuilderClient(opts: BuilderClientOptions): BuilderClient {
       const controller = new AbortController();
       const timer = setTimeout(
         () => controller.abort(),
-        BUILDER_FETCH_TIMEOUT_MS,
+        BUILDER_SLOW_OP_TIMEOUTS_MS.get(op) ?? BUILDER_FETCH_TIMEOUT_MS,
       );
       try {
         const response = await fetchImpl(url, {

@@ -9,6 +9,7 @@ import {
   note,
 } from "./builder-expr.js";
 import { buildQueryTools } from "./builder-queries.js";
+import { buildTableViewTools } from "./builder-table-view.js";
 import { type BuilderGate, gateBuilderTools } from "./builder-gate.js";
 import {
   buildProjectTools,
@@ -127,6 +128,7 @@ function buildUngatedBuilderTools(deps: BuilderToolsDeps) {
     buildCatalogTool(deps.builderClient),
     ...buildPageTools(run),
     ...buildBlockTools(run),
+    ...buildTableViewTools(run),
     ...buildResourceTools(run),
     ...buildQueryTools(run),
     ...buildProjectTools(deps.builderClient, deps.gate),
@@ -181,9 +183,20 @@ function buildPageTools(run: BuilderRun) {
         name: z.string(),
         displayName: z.string(),
         category: z.string(),
-        icon: z.string().optional(),
-        order: z.number().optional(),
-        description: z.string().optional(),
+        icon: z
+          .string()
+          .optional()
+          .describe("An icon name such as `i-ph-chart-line`."),
+        order: z
+          .number()
+          .optional()
+          .describe(
+            "Sorts the page among its category's pages, lowest first, then by title. Pages the Connect mapping writes take 100, so a dashboard takes 0 to come first in the menu.",
+          ),
+        description: z
+          .string()
+          .optional()
+          .describe("What the page is for, in a sentence."),
         module: TARGET_MODULE,
       },
       (input) => run("CreatePage", [input]),
@@ -191,7 +204,7 @@ function buildPageTools(run: BuilderRun) {
     defineTool(
       "BuilderConfigurePage",
       note(
-        "Updates a page's metadata (displayName, icon, order, description).",
+        "Updates a page's metadata: displayName, icon, order (lowest first, then by title; a dashboard takes 0, mapped table pages 100), description. Works on pages BuilderMapResources wrote too.",
       ),
       { pageRef: z.string(), patch: CONFIG },
       async ({ pageRef, patch }: { pageRef: string; patch: unknown }) =>

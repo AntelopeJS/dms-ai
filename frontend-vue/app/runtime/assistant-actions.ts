@@ -14,10 +14,12 @@ export interface PublicAssistantActions {
 	/**
 	 * Opens the assistant panel on a new conversation with `prompt` in the composer, unsent. With
 	 * `mode`, the conversation is set to it first: `plan` makes the agent end with a plan to approve.
+	 * With `send`, the prompt is sent as the first message once the stream is up, and the composer
+	 * stays empty.
 	 */
 	startConversation: (
 		prompt: string,
-		options?: { mode?: ConversationStartMode },
+		options?: { mode?: ConversationStartMode; send?: boolean },
 	) => void;
 }
 
@@ -36,6 +38,6 @@ export function publicAssistantActions(
 			return session.value !== null;
 		},
 		startConversation: (prompt, options) =>
-			session.value?.startConversation(prompt, options?.mode),
+			session.value?.startConversation(prompt, options?.mode, options?.send),
 	};
 }

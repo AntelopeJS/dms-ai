@@ -144,7 +144,7 @@ The proposal's values, without their rules, plus what you changed:
   { "relation": "sales.orders", "tableView": true, "writable": false, "tabs": { "column": "status" },
     "fields": [ { "column": "status", "filterable": true,
                   "display": { "kind": "badge", "items": [ { "value": "paid", "label": "Paid", "tone": "success" } ] } },
-                { "column": "ordered_at", "sortable": true }, { "column": "total", "display": { "kind": "price" } },
+                { "column": "ordered_at", "sortable": true }, { "column": "total", "display": { "kind": "price", "currency": "USD" } },
                 { "column": "customer_code", "relation": "sales.customers", "label": "Customer" } ] },
   { "relation": "sales.audit_log", "tableView": false, "writable": false,
     "fields": [ { "column": "at" }, { "column": "action" } ] }

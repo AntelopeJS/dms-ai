@@ -1,6 +1,21 @@
 export const SIDECAR_BUILDER_FLAG = "--builder-enabled";
 export const BUILDER_OP_PATH = "/ai/builder/op";
 export const BUILDER_FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * Builder operations that write many files and typecheck the project once, so they outlast the
+ * default wait. Mapping twelve tables takes minutes; abandoning it at 15 s left the write running
+ * in the backend while the assistant retried against it.
+ */
+export const BUILDER_SLOW_OP_TIMEOUTS_MS = new Map([
+  ["MapResources", 10 * 60_000],
+  ["ConfigureProject", 2 * 60_000],
+  ["AddModule", 2 * 60_000],
+  ["CreateLocalModule", 2 * 60_000],
+  ["CreateResource", 60_000],
+  ["DeleteResource", 60_000],
+  ["ConfigureTableView", 60_000],
+]);
 export const BUILDER_LOG_PREFIX = "[builder]";
 
 /**
@@ -17,6 +32,7 @@ export const BUILDER_TOOL_NAMES = [
   "BuilderDeletePage",
   "BuilderAddBlock",
   "BuilderConfigureBlock",
+  "BuilderConfigureTableView",
   "BuilderMoveBlock",
   "BuilderRemoveBlock",
   "BuilderCreateCategory",

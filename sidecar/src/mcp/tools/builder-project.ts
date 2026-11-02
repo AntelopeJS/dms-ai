@@ -16,6 +16,7 @@ import {
   type McpToolResult,
 } from "../define-tool.js";
 import type { BuilderGate } from "./builder-gate.js";
+import { TABLE_VIEW_SETTINGS } from "./builder-table-view-schema.js";
 
 /** The key the gate reads a config operation's dry-run changes from, for the approval card. */
 export const PLANNED_CHANGES_ARG = "plannedChanges";
@@ -105,9 +106,46 @@ const MAPPED_FIELD = z.object({
   searchable: z.boolean().optional(),
   relation: z
     .string()
+    .nullable()
     .optional()
     .describe(
-      "`schema.name` of another relation in this call, or one the module mapped before: makes the column a relation column onto that relation's single-column key.",
+      "`schema.name` of another relation in this call, or one the module mapped before: makes the column a relation column onto that relation's single-column key. Left out, a declared foreign key onto such a relation (with a TableView) becomes one anyway; null keeps the column a plain value.",
+    ),
+  display: z
+    .union([
+      z.object({
+        kind: z.literal("badge"),
+        items: z.array(
+          z.object({
+            value: z.string(),
+            label: z.string(),
+            tone: z.enum([
+              "neutral",
+              "primary",
+              "secondary",
+              "success",
+              "warning",
+              "error",
+              "info",
+            ]),
+          }),
+        ),
+      }),
+      z.object({
+        kind: z.literal("price"),
+        currency: z
+          .string()
+          .regex(/^[A-Z]{3}$/)
+          .optional()
+          .describe(
+            "ISO 4217 code of the amount (`USD`). Left out, the Builder reads it from the column comment or a one-value currency column, else amounts show in euros.",
+          ),
+      }),
+    ])
+    .nullable()
+    .optional()
+    .describe(
+      "How the column is drawn: a `badge` on a text column of few values, a `price` on an amount. The proposal's display when left out; `null` writes the column plain.",
     ),
 });
 
@@ -131,6 +169,35 @@ const MAPPED_RESOURCE = z.object({
     .boolean()
     .describe("False serves the TableView without new, edit and delete."),
   fields: z.array(MAPPED_FIELD),
+  tabs: z
+    .object({ column: z.string() })
+    .nullable()
+    .optional()
+    .describe(
+      "Tabs above the table by a filterable badge column: All, then one per value. The proposal's tabs when left out; `null` writes none.",
+    ),
+  icon: z
+    .string()
+    .optional()
+    .describe(
+      "The page's menu icon, an icon name such as `i-ph-shopping-cart`.",
+    ),
+  description: z
+    .string()
+    .optional()
+    .describe("What the page is for, in a sentence."),
+  order: z
+    .number()
+    .optional()
+    .describe(
+      "Sorts the page among its category's pages, lowest first. 100 by default, so a dashboard created with order 0 comes before the mapped tables.",
+    ),
+  tableOptions: z
+    .object(TABLE_VIEW_SETTINGS)
+    .optional()
+    .describe(
+      "Displays (kanban, cards, grouped), views and footer figures for the page's table, with the same checks as BuilderConfigureTableView; a refused choice is a warning and the page keeps what it had.",
+    ),
 });
 
 const EXCLUDED = z.object({

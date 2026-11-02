@@ -280,6 +280,7 @@ export const AppSettingsSchema = z.object({
   provider: z.enum(PROVIDER_NAMES),
   mode: z.enum(CHAT_MODES),
   thinking: z.enum(THINKING_LEVELS),
+  claudeModel: z.string().default(DEFAULT_SETTINGS.claudeModel),
   generationMode: z.enum(GENERATION_MODES),
   allowLocalSkills: z.boolean(),
   alwaysAskDependencies: z
