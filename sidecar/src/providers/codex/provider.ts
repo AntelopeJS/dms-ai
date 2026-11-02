@@ -62,7 +62,6 @@ import { createRunnerEventStream } from "./event-stream.js";
 import { createCodexPermissionHandler } from "./permissions.js";
 import { type CodexProcess, spawnCodexProcess } from "./process.js";
 import type { StopGraces } from "./stop.js";
-import type { v2 } from "./protocol/index.js";
 import {
   describeVersionMismatch,
   isCodexInstallationUsable,
@@ -70,9 +69,12 @@ import {
 } from "./resolve-binary.js";
 import {
   buildSkillExtraRoots,
+  type ListedSkillsEntry,
   isSafeModeSkillIndexed,
   type SkillNeutralizationInput,
   selectSkillsToDisable,
+  skillsListResponseSchema,
+  threadStartResponseSchema,
 } from "./skills.js";
 
 /** What the module hands down from the neutral ProviderRuntime. */
@@ -141,7 +143,7 @@ function clientInfo() {
 
 async function disableForeignSkills(
   process: CodexProcess,
-  listed: readonly v2.SkillsListEntry[],
+  listed: readonly ListedSkillsEntry[],
   input: SkillNeutralizationInput,
 ): Promise<void> {
   for (const params of selectSkillsToDisable(listed, input)) {
@@ -181,7 +183,8 @@ async function configureSkills(
       HANDSHAKE,
     );
   }
-  const listed = await process.client.request<v2.SkillsListResponse>(
+  const listed = await process.client.requestDecoded(
+    skillsListResponseSchema,
     CODEX_SKILLS_LIST_METHOD,
     {},
     HANDSHAKE,
@@ -204,7 +207,8 @@ async function startThread(
   ctx: ProviderSessionContext,
 ): Promise<string> {
   const policy = resolveModePolicy(ctx.settings);
-  const started = await process.client.request<v2.ThreadStartResponse>(
+  const started = await process.client.requestDecoded(
+    threadStartResponseSchema,
     CODEX_THREAD_START_METHOD,
     {
       cwd: ctx.hostProjectRoot,
