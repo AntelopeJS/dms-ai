@@ -1,16 +1,15 @@
 import type { ProviderName } from "./types.js";
 
 /**
- * The approval modes a conversation can be in:
- * - `normal` (Ask first): every call that changes something asks.
+ * The approval modes a conversation can be in, each the provider's own mode:
+ * - `normal` (Ask first): every command and every call that changes something
+ *   asks.
  * - `auto` (Auto review): the provider's own safety check approves routine
  *   calls and blocks risky ones; every shell command and the always-ask set
  *   still ask.
- * - `acceptEdits`: file edits run unasked, the rest asks.
+ * - `acceptEdits`: file edits run unasked; every command and the always-ask
+ *   set still ask.
  * - `plan`: the agent proposes a plan and changes nothing.
- *
- * Full auto is not one of them: it is a time-boxed overlay on one conversation
- * (see agent/conversation-modes), never a stored default.
  */
 export const CHAT_MODES = ["normal", "auto", "acceptEdits", "plan"] as const;
 export type ChatMode = (typeof CHAT_MODES)[number];
@@ -82,9 +81,9 @@ export interface AppSettings {
    * `~/.claude/skills` dir. Off keeps the agent reproducible across machines.
    */
   allowLocalSkills: boolean;
-  /** Adding or removing a dependency asks even in Full auto. */
+  /** Adding or removing a dependency asks in every mode. */
   alwaysAskDependencies: boolean;
-  /** Removing or moving a Builder block asks even in Full auto. */
+  /** Removing or moving a Builder block asks in every mode. */
   alwaysAskBlockRemoval: boolean;
   requestTimeoutMinutes: RequestTimeoutMinutes;
   /** Raise a DMS toast when a request arrives while the panel is closed. */

@@ -227,20 +227,20 @@ void test("hands a pasted return address to the sidecar, and its refusal back", 
   assert.deepEqual(sidecar.requests.at(-1).body, { url: pasted });
 });
 
-function optionLabel(item) {
-  return item.disabled ? `${String(item.value)}:off` : String(item.value);
-}
+const OptionValuesSchema = z.array(z.string());
 
-void test("offers Auto review as a default on Claude Code only, and shows Full auto on both without letting it be picked", () => {
+void test("offers Auto review as a default on Claude Code only, and no mode that approves for the person", () => {
   assert.deepEqual(
     SETTINGS_SECTIONS.flatMap((section) => section.fields)
       .filter((field) => field.id.startsWith("defaultMode"))
       .map((field) =>
-        String(field.type.options.items.map(optionLabel).join(" ")),
+        OptionValuesSchema.parse(
+          field.type.options.items.map((item) => String(item.value)),
+        ),
       ),
     [
-      "normal auto acceptEdits plan fullAuto:off",
-      "normal acceptEdits plan fullAuto:off",
+      ["normal", "auto", "acceptEdits", "plan"],
+      ["normal", "acceptEdits", "plan"],
     ],
   );
 });

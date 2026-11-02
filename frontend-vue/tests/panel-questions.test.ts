@@ -106,35 +106,17 @@ describe("questions, queue and modes", () => {
 		).toEqual(["queue_update", "queue_move", "queue_clear"]);
 	});
 
-	it("switches the chat's mode and scope, and confirms Full auto with a duration", async () => {
+	it("sends the chosen mode alone, with nothing that approves for the person", async () => {
 		const harness = createHarness();
 		const panel = await openPanel(harness);
 		await buttonWithText(panel, "Plan only").trigger("click");
-		await buttonWithText(panel, "Full auto…").trigger("click");
-		await nextTick();
-		const modal = panel.find(".u-modal");
-		expect(modal.text()).toContain("Turn on Full auto?");
-		await buttonWithText(modal, "30 minutes").trigger("click");
-		await buttonWithText(modal, "Turn on Full auto").trigger("click");
 		expect(sentOfType(harness, "set_conversation_mode")).toEqual([
 			{
 				type: "set_conversation_mode",
 				conversationId: CONVERSATION_ID,
 				mode: "plan",
 			},
-			{
-				type: "set_conversation_mode",
-				conversationId: CONVERSATION_ID,
-				fullAuto: { duration: "30m" },
-			},
 		]);
-		await nextTick();
-		const banner = panel.find(".cb-banner-auto");
-		expect(banner.text()).toContain("Full auto · for 30 minutes");
-		await buttonWithText(banner, "Turn off").trigger("click");
-		expect(sentOfType(harness, "set_conversation_mode").at(-1)).toMatchObject({
-			fullAuto: null,
-		});
 	});
 
 	it("runs a proposed plan in Ask first", async () => {

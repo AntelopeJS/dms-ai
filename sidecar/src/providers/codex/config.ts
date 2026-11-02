@@ -124,11 +124,10 @@ function buildSandboxPolicy(
 }
 
 /**
- * Policy in force for a conversation, read from its mode (Full auto already
- * folded in, see agent/effective-mode.ts). The generation mode goes through
- * effectiveGenerationMode, as the Claude path does: safe mode without the
- * Builder loaded has no write route at all, so it degrades to vibe rather than
- * declining everything. Safe mode pins the sandbox to read-only
+ * Policy in force for a conversation, read from its mode. The generation mode
+ * goes through effectiveGenerationMode, as the Claude path does: safe mode
+ * without the Builder loaded has no write route at all, so it degrades to vibe
+ * rather than declining everything. Safe mode pins the sandbox to read-only
  * whatever the chat mode says: the Builder MCP tools write through the host
  * over HTTP, so they are outside the sandbox and keep working.
  */

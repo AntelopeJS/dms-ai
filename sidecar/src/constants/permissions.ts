@@ -45,6 +45,29 @@ export const DEPENDENCY_FILE_NAMES: ReadonlySet<string> = new Set(
   ].map((name) => name.toLowerCase()),
 );
 
+const LEFTHOOK_CONFIG_NAMES = ["", "."].flatMap((dot) =>
+  ["", "-local"].flatMap((local) =>
+    ["yml", "yaml", "json", "jsonc", "toml"].map(
+      (extension) => `${dot}lefthook${local}.${extension}`,
+    ),
+  ),
+);
+
+/**
+ * The files that make git run code: hook scripts, git's own config (its
+ * `core.hooksPath` and `core.fsmonitor` name any program), and the config of
+ * the hook managers. Each is a path ending, matched on lower-cased segments;
+ * `**` stands for one or more trailing segments.
+ */
+export const GIT_HOOK_PATHS: readonly string[] = [
+  ".git/hooks/**",
+  ".git/config",
+  ".husky/**",
+  ...LEFTHOOK_CONFIG_NAMES,
+  ".pre-commit-config.yaml",
+  ".pre-commit-config.yml",
+];
+
 export const SDK_PERMISSION_BEHAVIOR = {
   ALLOW: "allow",
   DENY: "deny",

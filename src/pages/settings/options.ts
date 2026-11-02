@@ -68,25 +68,18 @@ const PLAN_MODE: ChoiceDeclaration = {
   value: "plan",
   icon: "i-ph-list-checks",
 };
-const FULL_AUTO_MODE: ChoiceDeclaration = {
-  value: "fullAuto",
-  icon: "i-ph-lightning",
-  disabled: true,
-};
 
 export const CLAUDE_MODE_OPTIONS = choices("mode", [
   NORMAL_MODE,
   AUTO_REVIEW_MODE,
   ACCEPT_EDITS_MODE,
   PLAN_MODE,
-  FULL_AUTO_MODE,
 ]);
 
 export const CODEX_MODE_OPTIONS = choices("mode", [
   NORMAL_MODE,
   ACCEPT_EDITS_MODE,
   PLAN_MODE,
-  FULL_AUTO_MODE,
 ]);
 
 export const SCOPE_OPTIONS = choices("generation_mode", [

@@ -32,7 +32,6 @@ describe("permission previews and rules", () => {
       hostProjectRoot: root,
       alwaysAskDependencies: true,
       alwaysAskBlockRemoval: true,
-      isAutoReview: false,
     });
 
   it("diffs an Edit against the file on disk, with real line numbers", async () => {
@@ -93,6 +92,26 @@ describe("permission previews and rules", () => {
       diff: "@@ -2 +2 @@\n-const b = 2;\n+const b = 3;\n",
     });
     expect(description.preview).toMatchObject({ added: 1, removed: 1 });
+  });
+
+  it("always asks before an edit of a dependency or git hook file, with no rule to keep", async () => {
+    const edits = [
+      join(root, "package.json"),
+      join(root, ".git", "hooks", "pre-commit"),
+      join(root, ".husky", "pre-commit"),
+      join(root, "lefthook.yml"),
+    ];
+    const descriptions = await Promise.all(
+      edits.map((file_path) =>
+        describeCall("Write", { file_path, content: "" }),
+      ),
+    );
+    expect(
+      descriptions.map((d) => ({
+        alwaysAsk: d.alwaysAsk,
+        rules: d.ruleOptions,
+      })),
+    ).toEqual(edits.map(() => ({ alwaysAsk: true, rules: [] })));
   });
 
   it("offers a domain rule for a fetch and none for a search", async () => {

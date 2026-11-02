@@ -9,8 +9,7 @@
 				"normal": "Demander d'abord",
 				"auto": "Revue automatique",
 				"acceptEdits": "Accepter les modifications",
-				"plan": "Plan seulement",
-				"full_auto": "Automatique complet"
+				"plan": "Plan seulement"
 			},
 			"scope": {
 				"safe": "Mode sûr",
@@ -293,13 +292,11 @@
 				},
 				"mode_menu": "Mode d'approbation · cette conversation",
 				"mode_desc": {
-					"normal": "Demande avant toute modification, commande ou requête web.",
-					"acceptEdits": "Applique les modifications de fichiers, demande pour les commandes et les requêtes web.",
+					"normal": "Demande avant toute modification, requête web ou commande, même en lecture seule.",
+					"acceptEdits": "Applique les modifications de fichiers, sauf les fichiers de dépendances et les hooks git. Demande avant chaque commande et requête web.",
 					"plan": "Lit et propose un plan. Ne modifie rien.",
-					"auto": "Un contrôle de sécurité approuve les modifications de fichiers courantes et l'accès au web. Les commandes shell, les fichiers de dépendances et les suppressions demandent encore votre accord.",
-					"full_auto": "Exécute tout sans demander, sauf les suppressions."
+					"auto": "Un contrôle de sécurité approuve les modifications de fichiers courantes et l'accès au web. Les commandes shell, les fichiers de dépendances, les hooks git et les suppressions demandent encore votre accord."
 				},
-				"full_auto_item": "Automatique complet…",
 				"default_mode": "Par défaut pour les nouvelles conversations",
 				"hint_send": "envoyer",
 				"hint_queue": "mettre en file",
@@ -309,20 +306,6 @@
 				"usage": "{count} jetons · cette conversation",
 				"usage_new": "nouvelle conversation",
 				"usage_offline": "hors ligne"
-			},
-			"full_auto": {
-				"title": "Activer le mode automatique complet ?",
-				"description": "L'assistant modifiera des fichiers et exécutera des commandes dans cette conversation sans demander. Les suppressions et les changements de dépendances demandent toujours. Chaque modification reste dans le lot de modifications et peut être annulée.",
-				"turn_off_after": "Désactiver après",
-				"duration_turn": "Ce tour",
-				"duration_30m": "30 minutes",
-				"duration_chat": "Fermeture de la conversation",
-				"confirm": "Activer le mode automatique complet",
-				"banner_turn": "ce tour seulement",
-				"banner_30m": "pendant 30 minutes",
-				"banner_chat": "jusqu'à la fermeture de la conversation",
-				"banner_until": "se termine dans {time}",
-				"turn_off": "Désactiver"
 			},
 			"drawer": {
 				"title": "Conversations",

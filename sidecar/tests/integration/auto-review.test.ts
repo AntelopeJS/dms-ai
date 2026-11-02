@@ -82,7 +82,7 @@ describe("Auto review on the full Claude stack", () => {
       process.env.MOCK_CLAUDE_SCRIPT = await writeClaudeScript(
         harness?.tmpDir ?? "",
         "listing",
-        [{ id: "toolu_ls", name: "Bash", input: { command: "ls src" } }],
+        [{ id: "toolu_read", name: "Read", input: { file_path: "src/a.ts" } }],
       );
       await runTurns(collector, 2);
       const notices = collector.events.filter((e) => e.type === "notice");
@@ -237,8 +237,8 @@ describe("Auto review on the full Claude stack", () => {
         [
           {
             id: REFUSED_CALL_ID,
-            name: "Bash",
-            input: { command: "rm -rf build" },
+            name: "Write",
+            input: { file_path: "build/out.js" },
             refusedBy: "mode",
           },
         ],

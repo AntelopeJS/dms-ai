@@ -11,7 +11,6 @@ import type {
   QuestionBus,
   QuestionReply,
 } from "../agent/question-bus.js";
-import { isAutoReviewInForce } from "../agent/effective-mode.js";
 import {
   isBlockRemovalTool,
   isConfigBuilderTool,
@@ -42,16 +41,10 @@ export interface RequestCancelServices {
 
 const ALLOWED: BuilderGateDecision = { isAllowed: true };
 
-export function permissionPolicy(
-  services: SidecarServices,
-  conversationId: string,
-): PermissionPolicy {
+export function permissionPolicy(services: SidecarServices): PermissionPolicy {
   const settings = services.settingsStore.get();
-  const modes = services.conversationModes;
   return {
     hostProjectRoot: services.hostProjectRoot,
-    isFullAuto: modes.isFullAuto(conversationId),
-    isAutoReview: isAutoReviewInForce(modes.state(conversationId)),
     timeoutMs: settings.requestTimeoutMinutes * MS_PER_MINUTE,
     alwaysAskDependencies: settings.alwaysAskDependencies,
     alwaysAskBlockRemoval: settings.alwaysAskBlockRemoval,

@@ -62,7 +62,6 @@ describe("the approval mode pill", () => {
 		await useProvider(harness, "claude");
 		const pill = modePill(panel);
 		expect(pill.text()).toBe("Auto review");
-		expect(pill.classes()).not.toContain("is-danger");
 		expect(pickerItems(panel)).toContain("Auto review");
 	});
 
@@ -74,7 +73,6 @@ describe("the approval mode pill", () => {
 			type: "conversation_mode",
 			mode: "auto",
 			generationMode: "safe",
-			fullAuto: null,
 		});
 		await nextTick();
 		expect(modePill(panel).text()).toBe("Ask first");
@@ -82,9 +80,22 @@ describe("the approval mode pill", () => {
 		expect(pickerItems(panel)).toContain("Ask first");
 	});
 
-	it("gives Full auto its own pill, apart from Auto review", async () => {
+	it.each(["claude", "codex"] as const)(
+		"offers no Full auto in the %s mode menu",
+		async (provider) => {
+			const harness = createHarness();
+			const panel = await openPanel(harness);
+			await useProvider(harness, provider);
+			const items = pickerItems(panel);
+			expect(items.length).toBeGreaterThan(0);
+			expect(items.filter((item) => /full auto/i.test(item))).toEqual([]);
+		},
+	);
+
+	it("keeps the pill on the chat's own mode when an older sidecar still sends Full auto", async () => {
 		const harness = createHarness();
 		const panel = await openPanel(harness);
+		await useProvider(harness, "claude");
 		deliver(harness, {
 			type: "conversation_mode",
 			mode: "auto",
@@ -92,10 +103,8 @@ describe("the approval mode pill", () => {
 			fullAuto: { duration: "chat" },
 		});
 		await nextTick();
-		const pill = modePill(panel);
-		expect(pill.text()).toBe("Full auto");
-		expect(pill.classes()).toContain("is-danger");
-		expect(panel.find(".cb-banner-auto").exists()).toBe(true);
+		expect(modePill(panel).text()).toBe("Auto review");
+		expect(panel.find(".cb-banner-auto").exists()).toBe(false);
 	});
 
 	it("says Auto review is not available, naming the model", async () => {

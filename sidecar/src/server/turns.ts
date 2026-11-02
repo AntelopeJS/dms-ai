@@ -382,7 +382,6 @@ async function finishTurn(
   } finally {
     recordUsage(services, conversationId);
     services.turns.end(conversationId);
-    services.conversationModes.endTurn(conversationId);
     broadcastConversationList(services);
   }
 }

@@ -31,8 +31,6 @@ export interface TestBusOptions {
 export function buildPolicy(overrides: Partial<PermissionPolicy> = {}) {
   return {
     hostProjectRoot: TEST_PROJECT_ROOT,
-    isFullAuto: false,
-    isAutoReview: false,
     timeoutMs: FAST_TIMEOUT_MS,
     alwaysAskDependencies: true,
     alwaysAskBlockRemoval: true,

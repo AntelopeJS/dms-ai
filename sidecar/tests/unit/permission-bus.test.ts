@@ -200,14 +200,8 @@ describe("permission bus", () => {
     t.bus.cancelConversation(CONVERSATION_ID);
   });
 
-  it("Full auto answers for the user, but never for the always-ask set", async () => {
-    const t = createTestBus({ policy: { isFullAuto: true } });
-    await expect(
-      t.bus.requestPermission(request(TEST_COMMAND)),
-    ).resolves.toMatchObject({
-      isAllowed: true,
-      allowedBy: "full_auto",
-    });
+  it("asks for the always-ask set with no rule to keep", async () => {
+    const t = createTestBus();
     void t.bus.requestPermission(request(DEPENDENCY_COMMAND));
     void t.bus.requestPermission(
       request({ pageRef: "/dashboard" }, CONVERSATION_ID, DELETE_PAGE),
@@ -233,15 +227,14 @@ describe("permission bus", () => {
     });
   });
 
-  it("lets block removal through when its always-ask setting is off", async () => {
-    const t = createTestBus({
-      policy: { isFullAuto: true, alwaysAskBlockRemoval: false },
-    });
-    await expect(
-      t.bus.requestPermission(
-        request({ path: "/p#a" }, CONVERSATION_ID, REMOVE_BLOCK),
-      ),
-    ).resolves.toMatchObject({ isAllowed: true, allowedBy: "full_auto" });
+  it("asks for block removal as an ordinary request when its always-ask setting is off", async () => {
+    const t = createTestBus({ policy: { alwaysAskBlockRemoval: false } });
+    void t.bus.requestPermission(
+      request({ path: "/p#a" }, CONVERSATION_ID, REMOVE_BLOCK),
+    );
+    const [prompt] = await t.waitForPrompts(1);
+    expect(prompt?.alwaysAsk).toBe(false);
+    t.bus.cancelConversation(CONVERSATION_ID);
   });
 
   it("forwards keepData for a resource deletion kept as data", async () => {

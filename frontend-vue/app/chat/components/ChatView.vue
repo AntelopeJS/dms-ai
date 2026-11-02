@@ -56,7 +56,6 @@ import ChatEmpty from "./ChatEmpty.vue";
 import Composer from "./Composer.vue";
 import ConnectionBanner from "./ConnectionBanner.vue";
 import ConversationDrawer from "./ConversationDrawer.vue";
-import FullAutoBanner from "./FullAutoBanner.vue";
 import MessageList from "./MessageList.vue";
 import PanelHeader, { type PanelStatusKind } from "./PanelHeader.vue";
 import QuestionDock from "./QuestionDock.vue";
@@ -217,20 +216,10 @@ const isEmpty = computed(
 	() => conversation.messages.value.length === 0 && !isRunning.value,
 );
 
-// Sent on the tab's stream itself: the chat's own channel is already closed
-// when the panel unmounts it.
-function leave(conversationId: string): void {
-	props.transport.send({
-		type: CLIENT_MESSAGE_TYPES.LEAVE_CONVERSATION,
-		conversationId,
-	});
-}
-
 function switchConversation(id: string): void {
 	follow();
 	isDrawerOpen.value = false;
 	if (id === activeId.value) return;
-	leave(activeId.value);
 	activeId.value = id;
 	persistConversationId(id);
 	conversation.reset();
@@ -425,11 +414,8 @@ onMounted(() => {
 	list.refresh();
 });
 
-// The DMS unmounts the panel's content when the panel closes: the chat is
-// left then, which ends a Full auto granted until the chat closes.
 onBeforeUnmount(() => {
 	document.removeEventListener("keydown", onDocumentKeydown);
-	leave(activeId.value);
 });
 </script>
 
@@ -451,12 +437,6 @@ onBeforeUnmount(() => {
 			:status="channel.connectionStatus.value"
 			:is-reviving="isReviving"
 			@reconnect="channel.reconnect"
-		/>
-		<FullAutoBanner
-			v-if="mode.current.value.fullAuto"
-			:full-auto="mode.current.value.fullAuto"
-			:now-ms="nowMs"
-			@turn-off="mode.stopFullAuto"
 		/>
 
 		<section
@@ -548,7 +528,6 @@ onBeforeUnmount(() => {
 				@stop="stopTurn"
 				@set-scope="mode.setScope"
 				@set-mode="mode.setMode"
-				@start-full-auto="mode.startFullAuto"
 				@open-settings="navigate(SETTINGS_PAGE_PATH)"
 			/>
 		</div>

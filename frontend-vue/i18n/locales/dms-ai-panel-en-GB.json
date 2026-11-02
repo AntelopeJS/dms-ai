@@ -9,8 +9,7 @@
 				"normal": "Ask first",
 				"auto": "Auto review",
 				"acceptEdits": "Accept edits",
-				"plan": "Plan only",
-				"full_auto": "Full auto"
+				"plan": "Plan only"
 			},
 			"scope": {
 				"safe": "Safe mode",
@@ -293,13 +292,11 @@
 				},
 				"mode_menu": "Approval mode · this chat",
 				"mode_desc": {
-					"normal": "Asks before any edit, command or web request.",
-					"acceptEdits": "Applies file edits, asks for commands and web requests.",
+					"normal": "Asks before any edit, web request or command, read-only commands included.",
+					"acceptEdits": "Applies file edits, except dependency and git hook files. Asks before every command and web request.",
 					"plan": "Reads and proposes a plan. Changes nothing.",
-					"auto": "A safety check approves routine file edits and web access. Shell commands, dependency files and deletions still ask.",
-					"full_auto": "Runs everything without asking, except deletions."
+					"auto": "A safety check approves routine file edits and web access. Shell commands, dependency files, git hooks and deletions still ask."
 				},
-				"full_auto_item": "Full auto…",
 				"default_mode": "Default for new chats",
 				"hint_send": "send",
 				"hint_queue": "queue",
@@ -309,20 +306,6 @@
 				"usage": "{count} tokens · this chat",
 				"usage_new": "new chat",
 				"usage_offline": "offline"
-			},
-			"full_auto": {
-				"title": "Turn on Full auto?",
-				"description": "The assistant will edit files and run commands in this chat without asking. Deletions and dependency changes still ask. Every change stays in the change set and can be undone.",
-				"turn_off_after": "Turn off after",
-				"duration_turn": "This turn",
-				"duration_30m": "30 minutes",
-				"duration_chat": "Closing the chat",
-				"confirm": "Turn on Full auto",
-				"banner_turn": "this turn only",
-				"banner_30m": "for 30 minutes",
-				"banner_chat": "until the chat closes",
-				"banner_until": "ends in {time}",
-				"turn_off": "Turn off"
 			},
 			"drawer": {
 				"title": "Conversations",

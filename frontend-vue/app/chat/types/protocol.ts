@@ -7,7 +7,6 @@
 export type ProviderName = "claude" | "codex";
 export type ApprovalMode = "normal" | "auto" | "acceptEdits" | "plan";
 export type Scope = "safe" | "vibe";
-export type FullAutoDuration = "turn" | "30m" | "chat";
 
 export type ToolOutcome = "done" | "failed" | "denied" | "blocked" | "stopped";
 
@@ -188,15 +187,9 @@ export type Notice =
 	| ModelFallbackNotice
 	| AutoUnavailableNotice;
 
-export interface FullAutoState {
-	duration: FullAutoDuration;
-	untilMs?: number;
-}
-
 export interface ConversationModeState {
 	mode: ApprovalMode;
 	generationMode: Scope;
-	fullAuto: FullAutoState | null;
 }
 
 export interface QuestionAnswerRecord {
