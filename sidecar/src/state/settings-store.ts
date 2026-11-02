@@ -73,11 +73,22 @@ const FLAT_SETTINGS_KEYS = FlatSettingsSchema.keyof().options;
 
 const LegacySettingsSchema = z.object({ mode: lenient(z.enum(CHAT_MODES)) });
 
-const LEGACY_MODE_SEEDS: Record<ChatMode, CodexChatMode> = {
-  normal: "normal",
-  auto: "normal",
-  acceptEdits: "acceptEdits",
-  plan: "plan",
+interface ModeSeed {
+  claude: ChatMode;
+  codex: CodexChatMode;
+}
+
+/**
+ * Where each mode saved before the default was per provider seeds the two
+ * providers. A saved `normal` was the only default then, written back by every
+ * settings save, so it is no choice over Auto review and seeds Claude Code with
+ * the default. The per-provider file never carries `mode`, so this runs once.
+ */
+const LEGACY_MODE_SEEDS: Record<ChatMode, ModeSeed> = {
+  normal: { claude: DEFAULT_SETTINGS.defaultModes.claude, codex: "normal" },
+  auto: { claude: "normal", codex: "normal" },
+  acceptEdits: { claude: "acceptEdits", codex: "acceptEdits" },
+  plan: { claude: "plan", codex: "plan" },
 };
 
 /**
@@ -106,8 +117,7 @@ export function mergeSettings(
 
 function storedDefaults(legacy: ChatMode | undefined): AppSettings {
   if (legacy === undefined) return DEFAULT_SETTINGS;
-  const seed = LEGACY_MODE_SEEDS[legacy];
-  return { ...DEFAULT_SETTINGS, defaultModes: { claude: seed, codex: seed } };
+  return { ...DEFAULT_SETTINGS, defaultModes: LEGACY_MODE_SEEDS[legacy] };
 }
 
 export function parseSettings(raw: string): AppSettings {
