@@ -73,6 +73,7 @@ interface SnapshotEvent {
 	changeSets?: ChangeSetSummary[];
 	mode?: SnapshotModeWire;
 	totalTokens?: number;
+	model?: string;
 }
 
 interface QueueStateEvent {
@@ -99,6 +100,7 @@ interface BlockPreviewEvent {
 
 interface UsageEvent {
 	totalTokens?: number;
+	model?: string;
 }
 
 type EventHandler = (state: ConversationState, event: never) => void;
@@ -290,6 +292,7 @@ function applySnapshot(state: ConversationState, event: SnapshotEvent): void {
 	state.changeSets.value = byId(event.changeSets ?? []);
 	state.mode.value = toModeState(event.mode) ?? state.mode.value;
 	state.totalTokens.value = event.totalTokens ?? state.totalTokens.value;
+	state.model.value = event.model ?? null;
 	state.isRunning.value = false;
 	state.progress.value = null;
 	state.isTurnInFlight.value = false;
@@ -379,6 +382,7 @@ function appendBlockPreview(
 }
 
 function applyUsage(state: ConversationState, event: UsageEvent): void {
+	if (event.model !== undefined) state.model.value = event.model;
 	if (typeof event.totalTokens !== "number") return;
 	state.totalTokens.value = event.totalTokens;
 }

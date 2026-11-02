@@ -152,11 +152,19 @@ export const FullAutoEndedNoticeSchema = z.object({
   timestampMs: z.number(),
 });
 
+export const ModelFallbackNoticeSchema = z.object({
+  kind: z.literal("model_fallback"),
+  requestedModel: z.string(),
+  usedModel: z.string(),
+  timestampMs: z.number(),
+});
+
 export const NoticeSchema = z.discriminatedUnion("kind", [
   AutoFixNoticeSchema,
   PermissionExpiredNoticeSchema,
   QuestionSkippedNoticeSchema,
   FullAutoEndedNoticeSchema,
+  ModelFallbackNoticeSchema,
 ]);
 
 export const QuestionAnswerRecordSchema = z.object({
@@ -253,6 +261,7 @@ export const ConversationSnapshotEvent = z.object({
   changeSets: z.array(ChangeSetSummarySchema),
   mode: ConversationModeSchema,
   totalTokens: z.number(),
+  model: z.string().optional(),
 });
 
 export const ConversationSummarySchema = z.object({
@@ -494,6 +503,8 @@ export const UsageEvent = z.object({
   type: z.literal(EVENT_TYPES.USAGE),
   conversationId: z.string(),
   totalTokens: z.number(),
+  /** The model that answered last; absent until a reply names it. */
+  model: z.string().optional(),
 });
 
 export const HostCommandNavigateEvent = z.object({
