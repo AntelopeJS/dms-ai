@@ -20,5 +20,6 @@ export default defineConfig({
 		// `// @vitest-environment jsdom` header.
 		environment: "node",
 		include: ["tests/**/*.test.ts"],
+		setupFiles: ["tests/support/setup-layout.ts"],
 	},
 });
