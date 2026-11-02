@@ -423,6 +423,7 @@
 				"label": "Coding agent",
 				"description": "Runs on this machine, in the project folder. Your code only goes to the provider you pick; a failing agent never falls back to the other.",
 				"unavailable": "Not set up on this machine",
+				"codex_not_signed_in": "Sign in with ChatGPT below to run Codex on your ChatGPT plan.",
 				"claude": {
 					"label": "Claude Code",
 					"description": "Anthropic · model chosen by Claude Code"

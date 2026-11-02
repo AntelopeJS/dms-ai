@@ -244,3 +244,45 @@ void test("offers Auto review as a default on Claude Code only, and no mode that
     ],
   );
 });
+
+const LockedProviderSchema = z.object({
+  fields: z.array(
+    z.object({
+      component: z.object({
+        options: z.object({ items: z.array(z.unknown()) }),
+      }),
+    }),
+  ),
+});
+
+void test("words the Codex sign-in reason in the settings page's own text, in every page locale", async () => {
+  reset();
+  answer("GET", "/settings", 200, {
+    providers: {
+      codex: {
+        available: false,
+        reason: "Sign in with ChatGPT in Assistant › Settings.",
+        code: "codex_not_signed_in",
+      },
+    },
+  });
+  const form = LockedProviderSchema.parse(
+    await harness.routes.applySidecarSettings(new Set(), {
+      fields: [
+        {
+          id: "provider",
+          type: "select",
+          component: { type: "x", options: { items: [{ value: "codex" }] } },
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(form.fields[0]?.component.options.items, [
+    {
+      value: "codex",
+      disabled: true,
+      description: "$dms_ai.settings.provider.codex_not_signed_in",
+    },
+  ]);
+  assert.deepEqual(untranslated(form), []);
+});

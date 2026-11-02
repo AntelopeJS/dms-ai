@@ -18,6 +18,11 @@ export const PROVIDER_UNAVAILABLE_REASONS = {
     "Sign in with ChatGPT in Assistant › Settings to run Codex on your ChatGPT plan.",
 } as const;
 
+/** The unavailability reasons a dashboard words itself, in its own language. */
+export const PROVIDER_UNAVAILABLE_CODES = ["codex_not_signed_in"] as const;
+export type ProviderUnavailableCode =
+  (typeof PROVIDER_UNAVAILABLE_CODES)[number];
+
 export const PROVIDER_LABELS = {
   claude: "Anthropic (Claude)",
   codex: "OpenAI (Codex)",

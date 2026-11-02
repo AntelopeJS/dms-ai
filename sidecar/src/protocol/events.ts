@@ -9,6 +9,7 @@ import {
   TOOL_OUTCOMES,
   TYPECHECK_OUTCOMES,
 } from "../constants/audit.js";
+import { PROVIDER_UNAVAILABLE_CODES } from "../constants/providers.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import {
   CHAT_MODES,
@@ -315,6 +316,7 @@ export const AppSettingsSchema = z.object({
 export const ProviderAvailabilitySchema = z.object({
   available: z.boolean(),
   reason: z.string().optional(),
+  code: z.enum(PROVIDER_UNAVAILABLE_CODES).optional(),
 });
 
 /**

@@ -477,6 +477,7 @@ onBeforeUnmount(() => {
 				v-if="providerProblem"
 				:agent-name="agentName"
 				:reason="settings.providers[settings.provider]?.reason ?? ''"
+				:code="settings.providers[settings.provider]?.code"
 				@open-settings="navigate(SETTINGS_PAGE_PATH)"
 			/>
 		</section>

@@ -423,6 +423,7 @@
 				"label": "Agent de code",
 				"description": "Tourne sur cette machine, dans le dossier du projet. Votre code ne part que chez le fournisseur choisi ; un agent en panne ne bascule jamais sur l'autre.",
 				"unavailable": "Non configuré sur cette machine",
+				"codex_not_signed_in": "Connectez-vous avec ChatGPT ci-dessous pour utiliser Codex avec votre forfait ChatGPT.",
 				"claude": {
 					"label": "Claude Code",
 					"description": "Anthropic · modèle choisi par Claude Code"
