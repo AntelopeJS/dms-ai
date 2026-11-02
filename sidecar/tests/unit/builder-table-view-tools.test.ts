@@ -236,7 +236,12 @@ describe("BuilderMapResources", () => {
     expect(calls[1]).toEqual({
       op: "MapResources",
       args: [
-        { module: "shop-tables", connection: "shop", resources: [resource] },
+        {
+          module: "shop-tables",
+          connection: "shop",
+          resources: [resource],
+          approvedPageRemovals: [],
+        },
       ],
     });
   });
@@ -259,7 +264,12 @@ describe("BuilderMapResources relation columns", () => {
     expect(calls.at(-1)).toEqual({
       op: "MapResources",
       args: [
-        { module: "shop-tables", connection: "shop", resources: [orders] },
+        {
+          module: "shop-tables",
+          connection: "shop",
+          resources: [orders],
+          approvedPageRemovals: [],
+        },
       ],
     });
   });

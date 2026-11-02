@@ -3,9 +3,11 @@ import {
   BUILDER_SLOW_OP_TIMEOUTS_MS,
   BUILDER_LOG_PREFIX,
   BUILDER_OP_PATH,
+  BUILDER_UNKNOWN_OP,
 } from "../constants/builder.js";
 import { SIDECAR_AUTH_HEADER } from "../constants/daemon.js";
 import { type JsonValue, JsonValueSchema } from "../protocol/json.js";
+import { z } from "zod";
 
 export interface BuilderClient {
   call(op: string, args: unknown[]): Promise<JsonValue>;
@@ -16,6 +18,14 @@ export interface BuilderClientOptions {
   token?: string;
   fetchImpl?: typeof fetch;
   logger?: Pick<Console, "warn">;
+}
+
+const REFUSAL_BODY = z.object({ error: z.string() });
+
+/** The error name of a refused request: the route's `unknown_op` for an operation the installed interface lacks. */
+async function refusalOf(response: Response): Promise<string | undefined> {
+  return REFUSAL_BODY.safeParse(await response.json().catch(() => undefined))
+    .data?.error;
 }
 
 const JSON_HEADERS = { "content-type": "application/json" };
@@ -46,6 +56,12 @@ export function createBuilderClient(opts: BuilderClientOptions): BuilderClient {
           signal: controller.signal,
         });
         if (!response.ok) {
+          if ((await refusalOf(response)) === BUILDER_UNKNOWN_OP) {
+            return {
+              ok: false,
+              error: { code: BUILDER_UNKNOWN_OP, detail: op },
+            };
+          }
           return {
             ok: false,
             error: {

@@ -60,6 +60,9 @@ describe("BuilderMapResources asks before it removes a page", () => {
       "PreviewMapResources",
       "MapResources",
     ]);
+    expect(calls[1]?.args).toEqual([
+      { ...INPUT, approvedPageRemovals: [PAGE] },
+    ]);
   });
 
   it("maps after a gate call with no pages when nothing is removed", async () => {
@@ -76,6 +79,56 @@ describe("BuilderMapResources asks before it removes a page", () => {
       "PreviewMapResources",
       "MapResources",
     ]);
+  });
+
+  it("approves no page when the preview listed none, so a page that appeared since is refused", async () => {
+    const calls: Recorded[] = [];
+    const gate: BuilderGate = async () => ({ isAllowed: true });
+    await mapResources(client(calls, []), gate)();
+    expect(calls[1]?.args).toEqual([{ ...INPUT, approvedPageRemovals: [] }]);
+  });
+
+  it("shows the agent the refusal of pages not approved as plain text", async () => {
+    const message =
+      "pages not approved for removal: pages.shop.shop-orders. The mapping would remove them now; nothing was written. Preview the mapping again and ask before removing them.";
+    const racing: BuilderClient = {
+      call: async (op) =>
+        op === "PreviewMapResources"
+          ? { ok: true, data: { pagesToRemove: [] }, changes: [] }
+          : {
+              ok: false,
+              error: {
+                code: "invalid_config",
+                issues: [{ pointer: "", message }],
+              },
+            },
+    };
+    const result = await mapResources(racing, async () => ({
+      isAllowed: true,
+    }))();
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual([{ type: "text", text: message }]);
+  });
+
+  it("says the Builder cannot preview page removals when its interface lacks the operation", async () => {
+    const calls: Recorded[] = [];
+    const gate = vi.fn<BuilderGate>(async () => ({ isAllowed: true }));
+    const old: BuilderClient = {
+      call: async (op, args) => {
+        calls.push({ op, args });
+        return {
+          ok: false,
+          error: { code: "unknown_op", detail: "PreviewMapResources" },
+        };
+      },
+    };
+    const result = await mapResources(old, gate)();
+    expect(result.isError).toBe(true);
+    expect(JSON.stringify(result.content)).toContain(
+      "this Builder version cannot preview page removals; update @antelopejs/dms-builder",
+    );
+    expect(gate).not.toHaveBeenCalled();
+    expect(calls.map((call) => call.op)).toEqual(["PreviewMapResources"]);
   });
 
   it("writes nothing when the person denies it", async () => {

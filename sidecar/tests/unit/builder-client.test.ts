@@ -55,4 +55,31 @@ describe("createBuilderClient", () => {
       BUILDER_FETCH_TIMEOUT_MS * 8,
     );
   });
+
+  it("names an operation the backend route does not know, instead of an opaque HTTP 400", async () => {
+    const client = createBuilderClient({
+      backendBaseUrl: BASE_URL,
+      fetchImpl: async () =>
+        new Response(JSON.stringify({ error: "unknown_op", op: "X" }), {
+          status: 400,
+        }),
+      logger: { warn: () => {} },
+    });
+    expect(await client.call("PreviewMapResources", [{}])).toEqual({
+      ok: false,
+      error: { code: "unknown_op", detail: "PreviewMapResources" },
+    });
+  });
+
+  it("keeps the status for any other refusal", async () => {
+    const client = createBuilderClient({
+      backendBaseUrl: BASE_URL,
+      fetchImpl: async () => new Response("nope", { status: 400 }),
+      logger: { warn: () => {} },
+    });
+    expect(await client.call("ListPages", [])).toEqual({
+      ok: false,
+      error: { code: "request_failed", detail: "HTTP 400" },
+    });
+  });
 });

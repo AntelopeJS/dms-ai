@@ -60,14 +60,14 @@ const PagesToRemoveArgsSchema = z.object({
   [PAGES_TO_REMOVE_ARG]: z.array(z.string()),
 });
 
-/** The pages a mapping's dry run found it would remove, as the handler hands them to the gate. */
+/** The pages a mapping's preview found it would remove, as the handler hands them to the gate. */
 export function pagesToRemoveOf(args: ToolArgs): string[] {
   return PagesToRemoveArgsSchema.safeParse(args).data?.pagesToRemove ?? [];
 }
 
 /**
  * Whether a Builder call waits for the person whatever the mode: deletions, project
- * configuration, and a mapping whose dry run found a page to remove.
+ * configuration, and a mapping whose preview found a page to remove.
  */
 export function asksBeforeBuilderCall(
   toolName: string,

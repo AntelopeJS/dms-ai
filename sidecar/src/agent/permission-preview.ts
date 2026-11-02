@@ -312,7 +312,7 @@ function plannedConfigPreview(options: ParsedOptions): DiffPreviewType | null {
 
 const PAGES_REMOVED_TARGET_SEPARATOR = ", ";
 
-/** The pages a mapping's dry run found it would remove, as a destructive card. */
+/** The pages a mapping's preview found it would remove, as a destructive card. */
 function removedPagesPreview(
   options: ParsedOptions,
 ): DestructivePreviewType | null {

@@ -1,5 +1,7 @@
 export const SIDECAR_BUILDER_FLAG = "--builder-enabled";
 export const BUILDER_OP_PATH = "/ai/builder/op";
+/** What the backend route answers for an operation the installed Builder interface does not export. */
+export const BUILDER_UNKNOWN_OP = "unknown_op";
 export const BUILDER_FETCH_TIMEOUT_MS = 15_000;
 
 /**
