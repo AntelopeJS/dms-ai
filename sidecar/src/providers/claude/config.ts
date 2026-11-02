@@ -3,6 +3,7 @@ import type {
   PermissionMode,
   ThinkingConfig,
 } from "@anthropic-ai/claude-agent-sdk";
+import { agentEnvironment } from "../../agent/project-secrets.js";
 import { CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR } from "../../constants/claude.js";
 import { MCP_TOOL_TIMEOUT_MS } from "../../constants/mcp.js";
 import type {
@@ -74,17 +75,20 @@ export function resolveModelOptions(settings: AppSettings) {
 
 export type ClaudeProcessEnv = Record<string, string | undefined>;
 
-/** The sidecar's environment with the MCP tool timeout set. */
 type ClaudeEnv = ClaudeProcessEnv &
   Record<typeof CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR, string>;
 
 /**
  * The CLI's environment: the sidecar's own (the SDK replaces it rather than
- * merging), with an MCP tool timeout that outlasts every wait on the user.
+ * merging) minus the variables the project's secret files assign, with an MCP
+ * tool timeout that outlasts every wait on the user.
  */
-export function buildClaudeEnv(baseEnv: ClaudeProcessEnv): ClaudeEnv {
+export function buildClaudeEnv(
+  baseEnv: ClaudeProcessEnv,
+  hostProjectRoot: string,
+): ClaudeEnv {
   return {
-    ...baseEnv,
+    ...agentEnvironment(baseEnv, hostProjectRoot),
     [CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR]: String(MCP_TOOL_TIMEOUT_MS),
   };
 }

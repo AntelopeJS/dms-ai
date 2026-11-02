@@ -69,6 +69,7 @@ import { createInputQueue } from "./input-queue.js";
 import { createModelTrack } from "./model-fallback.js";
 import { resolveClaudeBinary } from "./resolve-binary.js";
 import { buildSafeModeHooks, type SdkHooks } from "./safe-mode.js";
+import { withSecretFileGuard } from "./secret-files.js";
 import {
   type LiveSettings,
   type StreamBackend,
@@ -116,6 +117,7 @@ interface PromptOptionsInput {
   settings: TurnSettings;
   abortController: AbortController;
   skillLoadout: SkillLoadout | undefined;
+  hostProjectRoot: string;
 }
 
 function buildBasePromptOptions(input: PromptOptionsInput): PromptOptions {
@@ -128,10 +130,10 @@ function buildBasePromptOptions(input: PromptOptionsInput): PromptOptions {
     settingSources: SDK_SETTING_SOURCES_ISOLATED,
     includePartialMessages: SDK_INCLUDE_PARTIAL_MESSAGES,
     permissionMode: resolvePermissionMode(input.settings),
-    hooks: input.hooks,
+    hooks: withSecretFileGuard(input.hooks),
     ...resolveModelOptions(input.settings),
     abortController: input.abortController,
-    env: buildClaudeEnv(process.env),
+    env: buildClaudeEnv(process.env, input.hostProjectRoot),
   };
   const claudeBinary = resolveClaudeBinary();
   if (claudeBinary === undefined) return base;
@@ -454,6 +456,7 @@ async function buildSessionOptions(
     settings: ctx.settings,
     abortController,
     skillLoadout: await buildSkillLoadout(skillSources, ctx.hostProjectRoot),
+    hostProjectRoot: ctx.hostProjectRoot,
   });
 }
 
