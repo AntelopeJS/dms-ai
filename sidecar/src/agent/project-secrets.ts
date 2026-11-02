@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { realpath } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { parseEnv } from "node:util";
+import { z } from "zod";
 import {
   AGENT_REQUIRED_ENV_NAMES,
   SECRET_FILE_NAME,
@@ -20,6 +22,26 @@ export function isSecretFile(filePath: string): boolean {
   const name = (filePath.split(PATH_SEPARATOR).at(-1) ?? "").toLowerCase();
   if (SECRET_FILE_TEMPLATE_NAMES.has(name)) return false;
   return name === SECRET_FILE_NAME || name.startsWith(SECRET_FILE_NAME_PREFIX);
+}
+
+const notFoundSchema = z.object({ code: z.enum(["ENOENT", "ENOTDIR"]) });
+
+/**
+ * True when a tool call on `filePath` would reach a secret file: the path
+ * names one, or it is a link whose real path does. A relative path is taken
+ * from `cwd`. A path that does not exist yet cannot be a link, so its name
+ * decides. A path that cannot be resolved for any other reason is refused.
+ */
+export async function reachesSecretFile(
+  filePath: string,
+  cwd: string,
+): Promise<boolean> {
+  if (isSecretFile(filePath)) return true;
+  try {
+    return isSecretFile(await realpath(resolve(cwd, filePath)));
+  } catch (error) {
+    return !notFoundSchema.safeParse(error).success;
+  }
 }
 
 function readSecretFile(path: string): string {

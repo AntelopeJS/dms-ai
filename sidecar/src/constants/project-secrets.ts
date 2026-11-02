@@ -20,4 +20,4 @@ export const AGENT_REQUIRED_ENV_NAMES: ReadonlySet<string> = new Set([
 ]);
 
 export const SECRET_FILE_DENIED_MESSAGE =
-  "This file holds the project's secrets, so the assistant may not read or change it. Use the variable names listed in .env.example, and ask the user to set their values in .env.";
+  "Values in .env are kept from the assistant, so it may not read or change this file. Use the variable names from the project configuration, or from .env.example when there is one, and ask the user for the values.";
