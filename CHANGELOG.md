@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.9.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.8.0...v0.9.0)
+
+### 🚀 Enhancements
+
+- **sidecar:** List empty and failed data blocks in the NavigateToPage result ([#128](https://github.com/AntelopeJS/dms-ai/pull/128))
+- **sidecar:** Let the assistant compare periods and preview a query ([#127](https://github.com/AntelopeJS/dms-ai/pull/127))
+- **skills:** Plan analytics pages from the data with a dms-page-design skill ([#130](https://github.com/AntelopeJS/dms-ai/pull/130))
+- **sidecar:** Let the assistant set displays, views and footer figures on table pages ([#134](https://github.com/AntelopeJS/dms-ai/pull/134))
+- **sidecar:** Add BuilderComposePage to build or extend a whole page in one call ([#138](https://github.com/AntelopeJS/dms-ai/pull/138))
+- **sidecar:** Latest Claude Code and Agent SDK, model fallback, freshness checks ([#139](https://github.com/AntelopeJS/dms-ai/pull/139))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v0.8.0
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.7.0...v0.8.0)
