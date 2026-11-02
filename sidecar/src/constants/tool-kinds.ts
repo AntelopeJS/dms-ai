@@ -1,3 +1,4 @@
+import type { BUILTIN_TOOL_NAMES } from "@anthropic-ai/claude-agent-sdk";
 import { BUILDER_TOOL_NAMES } from "./builder.js";
 import { DATABASE_TOOL_NAMES } from "./database.js";
 import { QUERY_LOGS_TOOL_NAME } from "./logs.js";
@@ -10,17 +11,123 @@ import { FIND_PAGES_TOOL_NAME, LIST_PAGES_TOOL_NAME } from "./pages.js";
 import { PREVIEW_BLOCKS_TOOL_NAME } from "./preview.js";
 import { TYPECHECK_TOOL_NAME } from "./typecheck.js";
 
+/**
+ * What a built-in Claude Code tool can reach:
+ *
+ * - `readsPath`: reads the files at its path argument.
+ * - `editsFile`: writes a file.
+ * - `runsCommand`: runs a program now: a shell command, a watched command, a
+ *   language server.
+ * - `runsLater`: runs or schedules commands or agent turns beyond this turn, or
+ *   on another machine.
+ * - `fetchesWeb`: fetches a URL or searches the web.
+ * - `startsAgent`: starts a sub-agent.
+ * - `asksPerson`: the built-in question tool.
+ * - `inert`: changes nothing outside the conversation: tool loading, the todo
+ *   and task lists, skills, plan mode, the session's own agents and MCP
+ *   resources.
+ * - `reachesOutside`: acts outside the conversation another way: other Claude
+ *   sessions, git worktrees, Anthropic or third-party services, a phone.
+ */
+export type ToolReach =
+  | "readsPath"
+  | "editsFile"
+  | "runsCommand"
+  | "runsLater"
+  | "fetchesWeb"
+  | "startsAgent"
+  | "asksPerson"
+  | "inert"
+  | "reachesOutside";
+
+type UnlistedToolName =
+  | "Task"
+  | "DesignSync"
+  | "SendToProject"
+  | "SendToProjectContext"
+  | "MultiEdit"
+  | "LS"
+  | "NotebookRead";
+
+export const BUILTIN_TOOL_REACH = {
+  Read: "readsPath",
+  Glob: "readsPath",
+  Grep: "readsPath",
+  LS: "readsPath",
+  NotebookRead: "readsPath",
+  Write: "editsFile",
+  Edit: "editsFile",
+  MultiEdit: "editsFile",
+  NotebookEdit: "editsFile",
+  Bash: "runsCommand",
+  PowerShell: "runsCommand",
+  Monitor: "runsCommand",
+  LSP: "runsCommand",
+  CronCreate: "runsLater",
+  CronDelete: "runsLater",
+  ScheduleWakeup: "runsLater",
+  RemoteTrigger: "runsLater",
+  Workflow: "runsLater",
+  ProposeGoal: "runsLater",
+  WebFetch: "fetchesWeb",
+  WebSearch: "fetchesWeb",
+  Agent: "startsAgent",
+  Task: "startsAgent",
+  AskUserQuestion: "asksPerson",
+  ToolSearch: "inert",
+  TodoWrite: "inert",
+  TaskCreate: "inert",
+  TaskGet: "inert",
+  TaskUpdate: "inert",
+  TaskList: "inert",
+  TaskStop: "inert",
+  Skill: "inert",
+  EnterPlanMode: "inert",
+  ExitPlanMode: "inert",
+  ListAgents: "inert",
+  CronList: "inert",
+  SubagentHandback: "inert",
+  ReportFindings: "inert",
+  EndConversation: "inert",
+  WaitForMcpServers: "inert",
+  ListMcpResourcesTool: "inert",
+  ReadMcpResourceTool: "inert",
+  ReadMcpResourceDirTool: "inert",
+  SendMessage: "reachesOutside",
+  EnterWorktree: "reachesOutside",
+  ExitWorktree: "reachesOutside",
+  PushNotification: "reachesOutside",
+  Artifact: "reachesOutside",
+  ClaudeDesign: "reachesOutside",
+  DesignSync: "reachesOutside",
+  Projects: "reachesOutside",
+  SendToProject: "reachesOutside",
+  SendToProjectContext: "reachesOutside",
+  SendFeedback: "reachesOutside",
+  SendUserFile: "reachesOutside",
+  SendUserMessage: "reachesOutside",
+  ShareOnboardingGuide: "reachesOutside",
+  ShowOnboardingRolePicker: "reachesOutside",
+  OfferChromeSetup: "reachesOutside",
+  ReadNotifications: "reachesOutside",
+  propose_skills: "reachesOutside",
+} as const satisfies Record<
+  (typeof BUILTIN_TOOL_NAMES)[number] | UnlistedToolName,
+  ToolReach
+>;
+
+function builtinToolsThat(reach: ToolReach): readonly string[] {
+  return Object.entries(BUILTIN_TOOL_REACH).flatMap(([name, toolReach]) =>
+    toolReach === reach ? [name] : [],
+  );
+}
+
 /** Tools that write files the user can see in a diff. */
-export const EDIT_TOOL_NAMES: readonly string[] = [
-  "Edit",
-  "Write",
-  "MultiEdit",
-  "NotebookEdit",
-];
+export const EDIT_TOOL_NAMES = builtinToolsThat("editsFile");
 
 export const COMMAND_TOOL_NAMES: readonly string[] = ["Bash"];
 
-export const WEB_TOOL_NAMES: readonly string[] = ["WebFetch", "WebSearch"];
+export const WEB_TOOL_NAMES = builtinToolsThat("fetchesWeb");
 
 /** Built-in tools that never mutate anything. */
 export const BUILTIN_READ_TOOL_NAMES: readonly string[] = [

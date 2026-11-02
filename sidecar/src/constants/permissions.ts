@@ -24,7 +24,8 @@ export const PERMISSION_DENY_ALL_MESSAGE =
 
 /**
  * The dependency manifests, lockfiles and package-manager settings an edit
- * changes dependencies through.
+ * changes dependencies through, and the files a package manager runs or reads
+ * at install time.
  */
 export const DEPENDENCY_FILE_NAMES: ReadonlySet<string> = new Set(
   [
@@ -37,6 +38,10 @@ export const DEPENDENCY_FILE_NAMES: ReadonlySet<string> = new Set(
     "npm-shrinkwrap.json",
     "pnpm-workspace.yaml",
     ".npmrc",
+    ".pnpmfile.cjs",
+    ".yarnrc.yml",
+    ".yarnrc",
+    "bunfig.toml",
   ].map((name) => name.toLowerCase()),
 );
 

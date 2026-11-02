@@ -57,7 +57,7 @@ import { resolveSkillSources } from "../../skills/resolve-sources.js";
 import type { SkillSource } from "../../skills/types.js";
 import type { TurnSettings } from "../../state/settings-types.js";
 import { buildTurnContent, type TurnContent } from "./attachments.js";
-import { isFirstPartyMcpTool } from "./auto-guard.js";
+import { isFirstPartyMcpTool } from "./tool-guard.js";
 import {
   buildClaudeEnv,
   type ClaudeEffort,

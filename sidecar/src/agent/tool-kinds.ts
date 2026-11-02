@@ -9,11 +9,25 @@ import {
   BUILDER_MUTATING_TOOL_NAMES,
   BUILDER_READ_TOOL_NAMES,
   BUILTIN_READ_TOOL_NAMES,
+  BUILTIN_TOOL_REACH,
   COMMAND_TOOL_NAMES,
   EDIT_TOOL_NAMES,
   PROJECT_READ_TOOL_NAMES,
+  type ToolReach,
   WEB_TOOL_NAMES,
 } from "../constants/tool-kinds.js";
+
+const REACH_BY_BUILTIN_TOOL: ReadonlyMap<string, ToolReach> = new Map(
+  Object.entries(BUILTIN_TOOL_REACH),
+);
+
+/**
+ * What a built-in tool reaches, by the exact name the CLI hands the hook;
+ * undefined for any other name, MCP tools included.
+ */
+export function toolReachOf(toolName: string): ToolReach | undefined {
+  return REACH_BY_BUILTIN_TOOL.get(toolName);
+}
 
 /** The tool's own name, without the `mcp__dms-ai__` prefix the agent sees. */
 export function bareToolName(toolName: string): string {
