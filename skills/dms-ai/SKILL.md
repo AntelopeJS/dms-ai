@@ -28,5 +28,5 @@ The sidecar loads every directory a loaded module declares in `package.json` `an
 - Offline assistant: Restart on the Overview; lists and settings answer `503` while the sidecar is down.
 - Remote over plain HTTP: start the frontend with `DMS_COOKIE_SECURE=false`.
 - Deleting pages, tables, fields or queries asks in every mode, Auto review and Full auto included.
-- Claude Code defaults to Auto review (a safety check approves routine actions and blocks risky ones); Codex defaults to Ask first and has no Auto review. Full auto is per chat and time-boxed, never a default.
+- Claude Code defaults to Auto review (a safety check approves routine file edits and web access); every shell command still asks the person, and so does every edit of `package.json`, a lockfile, `pnpm-workspace.yaml` or `.npmrc` unless the person turned off the dependency approval. Codex defaults to Ask first and has no Auto review. Full auto is per chat and time-boxed, never a default.
 - Undo is limited to the checkpoint retention (7, 30 or 90 days).
