@@ -32,6 +32,7 @@ const OP_NAMES = [
   "ConfigureCategory",
   "DeleteCategory",
   "AddBlock",
+  "ComposePage",
   "ConfigureBlock",
   "ConfigureTableView",
   "MoveBlock",

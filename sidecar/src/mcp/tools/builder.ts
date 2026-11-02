@@ -8,6 +8,7 @@ import {
   hasExprSentinel,
   note,
 } from "./builder-expr.js";
+import { buildComposeTools } from "./builder-compose.js";
 import { buildQueryTools } from "./builder-queries.js";
 import { buildTableViewTools } from "./builder-table-view.js";
 import { type BuilderGate, gateBuilderTools } from "./builder-gate.js";
@@ -129,6 +130,7 @@ function buildUngatedBuilderTools(deps: BuilderToolsDeps) {
     ...buildPageTools(run),
     ...buildBlockTools(run),
     ...buildTableViewTools(run),
+    ...buildComposeTools(run),
     ...buildResourceTools(run),
     ...buildQueryTools(run),
     ...buildProjectTools(deps.builderClient, deps.gate),

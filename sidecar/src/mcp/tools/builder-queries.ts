@@ -37,13 +37,13 @@ const QUERY_COMPARE = z
     "Also answer the preceding period so a card shows a delta. Only meaningful when the query binds its period with `$param` `from` and `to`.",
   );
 
-const QUERY_ARGS = z
+export const QUERY_ARGS = z
   .record(z.string(), z.unknown())
   .describe(
     'The values the route would receive, by the name it exposes them under, e.g. `{ "from": "2026-01-01", "to": "2026-03-31" }` for a query binding `$param` `from` and `to`. With `compare`, also `compareFrom` and `compareTo`.',
   );
 
-const QUERY_FIELDS = {
+export const QUERY_FIELDS = {
   name: z
     .string()
     .describe(

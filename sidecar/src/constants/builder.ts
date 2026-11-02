@@ -31,6 +31,7 @@ export const BUILDER_TOOL_NAMES = [
   "BuilderConfigurePage",
   "BuilderDeletePage",
   "BuilderAddBlock",
+  "BuilderComposePage",
   "BuilderConfigureBlock",
   "BuilderConfigureTableView",
   "BuilderMoveBlock",
