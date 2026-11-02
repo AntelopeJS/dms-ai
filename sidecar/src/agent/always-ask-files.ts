@@ -71,7 +71,16 @@ export function isDependencyFile(path: string): boolean {
   return DEPENDENCY_FILE_NAMES.has(basename(path).toLowerCase());
 }
 
-const UNWALKED_DIRECTORY_NAMES: ReadonlySet<string> = new Set(["node_modules"]);
+const UNWALKED_DIRECTORY_NAMES: ReadonlySet<string> = new Set([
+  "node_modules",
+  "dist",
+  ".nuxt",
+  ".output",
+  ".next",
+  ".venv",
+  "venv",
+  "target",
+]);
 
 function isGitHookTree(path: string): boolean {
   const segments = pathSegments(path);
@@ -97,8 +106,8 @@ export interface AlwaysAskPaths {
 }
 
 /**
- * Lists the always-ask files under `roots`, without walking linked
- * directories or `node_modules`.
+ * Lists the always-ask files under `roots`. Linked directories and
+ * UNWALKED_DIRECTORY_NAMES are not walked.
  */
 export function findAlwaysAskPaths(roots: readonly string[]): AlwaysAskPaths {
   const gitHooks = new Set<string>();
