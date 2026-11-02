@@ -1,6 +1,6 @@
 ---
 name: dms-external-database
-description: Connects a DMS project to a client's existing database, runs the Builder's analysis of it, settles what the analysis could not decide from the catalog and aggregates, generates TableViews through the Builder, and plans analytics pages from the data. Use when the user wants pages over a database the project does not own, PostgreSQL, MongoDB or RethinkDB ("plug in our client's Postgres", "map their Mongo database", "generate the admin for this database", "finish the mapping the Builder proposed").
+description: Connects a DMS project to a client's existing database, runs the Builder's analysis of it, settles what the analysis could not decide from the catalog and aggregates, generates TableViews through the Builder, names them and gives each the table features its data supports, and always builds an analytics dashboard first in the menu. Use when the user wants pages over a database the project does not own, PostgreSQL, MongoDB or RethinkDB ("plug in our client's Postgres", "map their Mongo database", "generate the admin for this database", "finish the mapping the Builder proposed").
 icon: i-ph-database
 category: Builder
 tags: [Database, Builder, Pages, DMS]
@@ -91,8 +91,13 @@ profile of the whole database again: the Builder did it.
   neither is an array of ids as a relation.
 - **Editable.** Every TableView is proposed read-only. Make one editable only where the integrator
   wants it; show `writes` beside it, so a read-only role in this environment is visible.
-- **Analytics pages,** which the analysis does not make. Load the `dms-page-design` skill and
-  plan them from the data:
+- **Pages people can work with.** Load the `dms-page-design` skill. For every TableView, plan
+  from its columns, profiles and categories, as *Name every page* and *Tables* there say: a
+  title, an icon and a description; the tabs, saved views, display modes, footer totals and
+  KPI cards its data supports. Decide each from the data, and leave out what the data does
+  not support.
+- **The analytics dashboard,** which the analysis does not make. Every run ends with one,
+  first in the menu, even when the integrator only asked for the tables. Plan it from the data:
   1. **Inspect.** For each relation, read from the proposal its rows, its `time-axis` columns
      with their `range`, its `measure` columns, and its `enum-like` columns with their
      `categories`. Profile a column the proposal leaves without them, such as the main date
@@ -102,17 +107,24 @@ profile of the whole database again: the Builder did it.
      question names the relation, the measure (a sum of a `measure` column or a row count)
      and the grouping (the time axis or a column of the same relation).
   3. **Plan pages.** The relation with a time axis, a measure and the most rows is the main
-     fact relation (invoices, orders). It gets the first analytics page, named for its area
-     ("Sales"), holding every question about it. Another relation gets its own analytics page
-     only when it has its own time axis and at least 100 rows.
+     fact relation. It gets the dashboard, named for its area ("Sales", or "Overview" when it
+     also carries the other relations' headline figures), holding every question about it.
+     Another relation gets its own analytics page only when it has its own time axis and at
+     least 100 rows. When no relation has a time axis, the dashboard still exists: KPI cards
+     of counts and sums, and breakdowns by the category columns, with no period selector.
   4. **Choose blocks** for each question with `dms-page-design`, and its default period from
      the main time axis's real range.
 - **The minimum.** Your plan, and the pages you write, meet all of these:
-  - at least one analytics page, opened by a toolbar with a period selector;
+  - one analytics dashboard, first in the connection's menu (`order: 0`), opened by a toolbar
+    with a period selector when the data has dates;
+  - every page with a title in the owner's words, an icon and a description, never the raw
+    relation name;
+  - every table given the tabs, views, display modes, footer totals and KPI cards its data
+    supports, as `dms-page-design` *Tables* decides;
   - at least 3 different chart kinds on it when the data has the shapes for them;
   - a default period computed from the data's real dates, never assumed;
-  - every query previewed with `BuilderPreviewQuery` before it is added, and every block whose
-    preview is empty dropped or changed;
+  - every page built with one `BuilderComposePage` call, previewed first, and every block whose
+    preview is empty, zero or failed dropped or changed;
   - every page opened with `NavigateToPage` and its block report read before you report.
 - **Not possible yet:** breakdowns by a related entity's name, such as revenue per customer.
   Templates read one relation, so they would show ids. List them under *Not possible yet*,
@@ -129,19 +141,29 @@ again. Write nothing before Run.
 
 ## 5. Apply
 
-1. One `BuilderMapResources` with every relation of the settled proposal, TableViews and
-   stats-only relations alike, and the relations decided against in `excluded`
-   (REFERENCE.md *Mapping*).
-   - Send the proposal's choices as they stand where you changed nothing.
+Work in this order, so the most visible result lands first: map the tables, build the
+dashboard and check it, then add KPI rows above tables, then any second analytics page.
+
+1. `BuilderMapResources` in batches of 3 or 4 relations per call, TableViews and stats-only
+   relations alike; the relations decided against go in `excluded` on the first call
+   (REFERENCE.md *Mapping*). One call with every relation of a large database can abort.
+   - Send the proposal's choices as they stand where you changed nothing, plus per resource
+     the `title`, `icon`, `description` and `tableOptions` you planned.
    - On `invalid_config`, fix the choice it names and call again: a refused call writes nothing.
+     When the same choice is refused twice, drop it (send the relation without that display or
+     option) and say so in your report, rather than trying more variants.
    - It answers each relation's `ref`, which queries name it by, `category`, the connection's
      category ref (`pages.<connection>`), and `leftOut`: carry those into your report.
-2. Per analytics page, `BuilderCreatePage` with `module` set to the generated module and
-   `category` set to the `category` MapResources answered, then `NavigateToPage` to it. Add
-   the blocks in the order `dms-page-design` lays out. Per block, `BuilderPreviewQuery`, then
-   `BuilderAddQuery` with the `response` the block reads, then `BuilderAddBlock` with the
-   query's route as its `fetchUrl`.
+2. Per analytics page, one `BuilderComposePage` call with `create` (`name`, `displayName`,
+   `module` set to the generated module, `category` set to the `category` MapResources
+   answered, an icon, a description, and `order: 0` for the dashboard, 1, 2… for the next
+   ones) and every block in the order `dms-page-design` lays out, each data block with its
+   query inline. Preview first, then write, as `dms-page-design` *Build a page in one call*
+   says.
    - Queries read the mapped resources by their refs (`<connection>/<schema>/<relation>`).
+3. Per table page that gets KPI cards above its table, one `BuilderComposePage` call with
+   `placement: { "before": "table" }`, previewed first. A table option MapResources refused
+   comes back as a warning: fix it with `BuilderConfigureTableView`.
 
 To change a relation later, read its current choices with `BuilderMapping`, then call
 `BuilderMapResources` with that relation alone, its included columns as they are and only your
@@ -163,7 +185,8 @@ change made: a mapped relation is rewritten from the choices sent, and its page 
 Then report:
 
 - what the Builder mapped by its rules, and what you changed;
-- the pages made, with each analytics page's default period and the date range it came from;
+- the pages made, with each analytics page's default period and the date range it came from,
+  and per table the features you gave it and why;
 - every block that still shows no data, and why;
 - what was left out and why;
 - the open items left, which the integrator finds in the Builder's *Database* workspace;
