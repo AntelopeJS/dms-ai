@@ -35,6 +35,7 @@ import {
   CHATGPT_TOKEN_URL_ENV,
 } from "../../constants/chatgpt.js";
 import { ACCESS_TOKEN_SECRET } from "./chatgpt/http.js";
+import { bundledBwrapDirectory } from "./bundled-bwrap.js";
 import { buildConfigToml } from "./config.js";
 import type { CodexInstallation } from "./resolve-binary.js";
 import {
@@ -343,6 +344,15 @@ async function prepareCodexHome(options: CodexProcessOptions): Promise<string> {
   return codexHome;
 }
 
+function appServerPath(installation: CodexInstallation): string | undefined {
+  const inherited = process.env.PATH;
+  const directory = bundledBwrapDirectory(installation.binaryPath);
+  if (directory === undefined) return inherited;
+  return inherited === undefined
+    ? directory
+    : `${directory}${path.delimiter}${inherited}`;
+}
+
 function spawnChild(
   options: CodexProcessOptions,
   codexHome: string,
@@ -363,6 +373,7 @@ function spawnChild(
         [CODEX_MCP_TOKEN_ENV_VAR]: options.mcpToken,
         [CHATGPT_TOKEN_URL_ENV]: options.accessTokenUrl,
         [CHATGPT_TOKEN_SECRET_ENV]: ACCESS_TOKEN_SECRET,
+        PATH: appServerPath(options.installation),
       },
     },
   );
