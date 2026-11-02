@@ -1,9 +1,11 @@
 import { execFile } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { matchesGlob } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
+import type { AlwaysAskPaths } from "../../src/agent/always-ask-files.js";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import {
   CHATGPT_TOKEN_SECRET_ENV,
@@ -16,6 +18,10 @@ import {
   buildTurnOverrides,
   resolveModePolicy,
 } from "../../src/providers/codex/config.js";
+import {
+  buildPermissionProfiles,
+  CODEX_PERMISSION_PROFILES,
+} from "../../src/providers/codex/permission-profiles.js";
 import {
   CHAT_MODES,
   type TurnSettings,
@@ -30,60 +36,104 @@ function settings(overrides: Partial<TurnSettings>): TurnSettings {
   return { ...TURN_SETTINGS, generationMode: "vibe", ...overrides };
 }
 
+const FOUND: AlwaysAskPaths = {
+  gitHooks: [
+    `${HOST_ROOT}/.git`,
+    `${HOST_ROOT}/.husky`,
+    `${HOST_ROOT}/lefthook.yml`,
+  ],
+  dependencies: [
+    `${HOST_ROOT}/package.json`,
+    `${HOST_ROOT}/modules/shop/package.json`,
+  ],
+};
+const PERMISSION_INPUT = { ...WORKSPACE, alwaysAskPaths: FOUND };
+const CONFIG_INPUT = {
+  ...PERMISSION_INPUT,
+  mcpUrl: "http://127.0.0.1:4321/mcp",
+  nodePath: process.execPath,
+};
+const SCOPES = ["vibe", "safe"] as const;
+
+function turnProfile(overrides: Partial<TurnSettings>) {
+  const { permissions } = buildTurnOverrides(settings(overrides));
+  return buildPermissionProfiles(PERMISSION_INPUT)[permissions];
+}
+
+function withBuilder(check: () => void): void {
+  setBuilderAvailable(true);
+  try {
+    check();
+  } finally {
+    setBuilderAvailable(false);
+  }
+}
+
 describe("mode mapping", () => {
-  it("maps normal to read-only plus on-request, so each write escalates", () => {
-    const overrides = buildTurnOverrides(
-      settings({ mode: "normal" }),
-      WORKSPACE,
-    );
-    expect(overrides.approvalPolicy).toBe("on-request");
-    expect(overrides.sandboxPolicy).toEqual({
-      type: "readOnly",
-      networkAccess: false,
+  it.each(SCOPES)(
+    "keeps every secret file unreadable and the network closed in every mode (%s)",
+    (generationMode) => {
+      withBuilder(() => {
+        for (const mode of CHAT_MODES) {
+          const profile = turnProfile({ mode, generationMode });
+          const unreadable = (file: string) =>
+            profile.unreadableGlobs.some((glob) => matchesGlob(file, glob));
+          expect(unreadable(".env")).toBe(true);
+          expect(unreadable("modules/shop/.env.local")).toBe(true);
+          expect(unreadable(".env.example")).toBe(false);
+          expect(profile.networkEnabled).toBe(false);
+        }
+      });
+    },
+  );
+
+  it.each(["normal", "auto", "plan"] as const)(
+    "writes nothing without asking in %s",
+    (mode) => {
+      expect(turnProfile({ mode }).base).toBe(":read-only");
+    },
+  );
+
+  it.each(CHAT_MODES)("writes nothing without asking in safe %s", (mode) => {
+    withBuilder(() => {
+      expect(turnProfile({ mode, generationMode: "safe" }).base).toBe(
+        ":read-only",
+      );
     });
   });
 
-  it("maps acceptEdits to workspace-write over the host and module roots", () => {
-    const overrides = buildTurnOverrides(
-      settings({ mode: "acceptEdits" }),
-      WORKSPACE,
+  it("applies Accept edits, but not to the dependency and git hook files", () => {
+    const profile = turnProfile({ mode: "acceptEdits" });
+    expect(profile.base).toBe(":workspace");
+    expect(profile.readOnlyPaths).toEqual(
+      expect.arrayContaining([...FOUND.gitHooks, ...FOUND.dependencies]),
     );
-    expect(overrides.sandboxPolicy).toEqual({
-      type: "workspaceWrite",
-      writableRoots: [HOST_ROOT, MODULE_ROOT],
-      networkAccess: false,
-      excludeTmpdirEnvVar: false,
-      excludeSlashTmp: false,
+  });
+
+  it("still keeps git hook files read-only once dependencies stop asking", () => {
+    const profile = turnProfile({
+      mode: "acceptEdits",
+      alwaysAskDependencies: false,
     });
+    expect(profile.base).toBe(":workspace");
+    expect(profile.readOnlyPaths).toEqual(FOUND.gitHooks);
   });
 
-  it("leaves the network closed when edits are auto-accepted", () => {
-    expect(
-      resolveModePolicy(settings({ mode: "acceptEdits" })).networkAccess,
-    ).toBe(false);
+  it("writes in the module roots as in the project", () => {
+    expect(turnProfile({ mode: "acceptEdits" }).extraWorkspaceRoots).toEqual([
+      MODULE_ROOT,
+    ]);
   });
 
-  it("never grants full access in any mode", () => {
-    for (const mode of CHAT_MODES) {
-      const overrides = buildTurnOverrides(settings({ mode }), WORKSPACE);
-      expect(overrides.approvalPolicy).toBe("on-request");
-      expect(overrides.sandboxPolicy).not.toEqual({ type: "dangerFullAccess" });
-    }
-  });
-
-  it.each(["vibe", "safe"] as const)(
+  it.each(SCOPES)(
     "runs a chat in Auto review exactly as Ask first, Codex having no Auto review (%s)",
     (generationMode) => {
-      setBuilderAvailable(true);
-      try {
-        expect(
-          resolveModePolicy(settings({ mode: "auto", generationMode })),
-        ).toEqual(
-          resolveModePolicy(settings({ mode: "normal", generationMode })),
-        );
-      } finally {
-        setBuilderAvailable(false);
-      }
+      withBuilder(() => {
+        const auto = settings({ mode: "auto", generationMode });
+        const normal = settings({ mode: "normal", generationMode });
+        expect(resolveModePolicy(auto)).toEqual(resolveModePolicy(normal));
+        expect(buildTurnOverrides(auto)).toEqual(buildTurnOverrides(normal));
+      });
     },
   );
 
@@ -93,38 +143,13 @@ describe("mode mapping", () => {
     ).toBe(true);
   });
 
-  it("pins safe mode to read-only even when the mode would allow writes", () => {
-    setBuilderAvailable(true);
-    try {
-      const policy = resolveModePolicy(
-        settings({ mode: "acceptEdits", generationMode: "safe" }),
-      );
-      expect(policy.sandbox).toBe("read-only");
-      expect(policy.writable).toBe(false);
-      expect(policy.autoDeclineEscalations).toBe(true);
-    } finally {
-      setBuilderAvailable(false);
-    }
+  it.each(CHAT_MODES)("declines every escalation in safe %s", (mode) => {
+    withBuilder(() => {
+      const safe = settings({ mode, generationMode: "safe" });
+      expect(buildTurnOverrides(safe).approvalPolicy).toBe("on-request");
+      expect(resolveModePolicy(safe).autoDeclineEscalations).toBe(true);
+    });
   });
-
-  it.each(CHAT_MODES)(
-    "keeps safe mode read-only, offline and declining in %s mode",
-    (mode) => {
-      setBuilderAvailable(true);
-      try {
-        const safe = settings({ mode, generationMode: "safe" });
-        const overrides = buildTurnOverrides(safe, WORKSPACE);
-        expect(overrides.approvalPolicy).toBe("on-request");
-        expect(overrides.sandboxPolicy).toEqual({
-          type: "readOnly",
-          networkAccess: false,
-        });
-        expect(resolveModePolicy(safe).autoDeclineEscalations).toBe(true);
-      } finally {
-        setBuilderAvailable(false);
-      }
-    },
-  );
 
   it("degrades safe mode to vibe when the Builder is absent", () => {
     const policy = resolveModePolicy(
@@ -135,21 +160,17 @@ describe("mode mapping", () => {
   });
 
   it("translates the thinking level to a reasoning effort", () => {
-    expect(
-      buildTurnOverrides(settings({ thinking: "off" }), WORKSPACE).effort,
-    ).toBe("low");
-    expect(
-      buildTurnOverrides(settings({ thinking: "high" }), WORKSPACE).effort,
-    ).toBe("high");
+    expect(buildTurnOverrides(settings({ thinking: "off" })).effort).toBe(
+      "low",
+    );
+    expect(buildTurnOverrides(settings({ thinking: "high" })).effort).toBe(
+      "high",
+    );
   });
 });
 
 describe("config.toml", () => {
-  const toml = buildConfigToml({
-    mcpUrl: "http://127.0.0.1:4321/mcp",
-    hostProjectRoot: HOST_ROOT,
-    nodePath: process.execPath,
-  });
+  const toml = buildConfigToml(CONFIG_INPUT);
 
   it("declares the MCP server at process level", () => {
     expect(toml).toContain("[mcp_servers.dms-ai]");
@@ -165,6 +186,13 @@ describe("config.toml", () => {
     expect(toml).toContain('[projects."/srv/app"]');
     expect(toml).toContain('trust_level = "untrusted"');
     expect(toml).toContain("project_doc_max_bytes = 0");
+  });
+
+  it("runs a thread that names no profile read-only, set before any table", () => {
+    const topLevel = toml.split("\n[")[0] ?? "";
+    expect(topLevel).toContain(
+      `default_permissions = "${CODEX_PERMISSION_PROFILES.READ_ONLY}"`,
+    );
   });
 });
 
@@ -211,11 +239,7 @@ function authCommandArgs(toml: string): string[] {
 }
 
 describe("ChatGPT plan provider", () => {
-  const toml = buildConfigToml({
-    mcpUrl: "http://127.0.0.1:4321/mcp",
-    hostProjectRoot: HOST_ROOT,
-    nodePath: process.execPath,
-  });
+  const toml = buildConfigToml(CONFIG_INPUT);
   let tokenServer: TokenServer | undefined;
 
   afterEach(() => {

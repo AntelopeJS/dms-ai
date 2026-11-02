@@ -12,6 +12,7 @@ import type { RunnerEvent } from "../../agent/runner-events.js";
 import { createAgentSession } from "../../agent/session.js";
 import { TURN_IDLE_TIMEOUT_MS } from "../../constants/agent.js";
 import {
+  CODEX_CLIENT_CAPABILITIES,
   CODEX_CLIENT_NAME,
   CODEX_CLIENT_TITLE,
   CODEX_CLIENT_VERSION,
@@ -57,6 +58,7 @@ import {
   buildTurnOverrides,
   isSafeMode,
   resolveModePolicy,
+  selectPermissionProfile,
 } from "./config.js";
 import { createRunnerEventStream } from "./event-stream.js";
 import { createCodexPermissionHandler } from "./permissions.js";
@@ -135,7 +137,7 @@ function clientInfo() {
       title: CODEX_CLIENT_TITLE,
       version: CODEX_CLIENT_VERSION,
     },
-    capabilities: null,
+    capabilities: CODEX_CLIENT_CAPABILITIES,
   };
 }
 
@@ -203,13 +205,12 @@ async function startThread(
   process: CodexProcess,
   ctx: ProviderSessionContext,
 ): Promise<string> {
-  const policy = resolveModePolicy(ctx.settings);
   const started = await process.client.request<v2.ThreadStartResponse>(
     CODEX_THREAD_START_METHOD,
     {
       cwd: ctx.hostProjectRoot,
-      sandbox: policy.sandbox,
-      approvalPolicy: policy.approvalPolicy,
+      permissions: selectPermissionProfile(ctx.settings),
+      approvalPolicy: resolveModePolicy(ctx.settings).approvalPolicy,
       developerInstructions: buildDeveloperInstructions(ctx.settings),
       ephemeral: true,
     },
@@ -242,15 +243,11 @@ function assertSafeModeSkillAvailable(backend: CodexBackend): void {
  */
 async function submitTurn(
   backend: CodexBackend,
-  options: CodexProviderOptions,
   input: TurnInput,
 ): Promise<void> {
   assertSafeModeSkillAvailable(backend);
   backend.resumeApprovals();
-  const overrides = buildTurnOverrides(backend.live.settings, {
-    hostProjectRoot: backend.hostProjectRoot,
-    moduleRoots: options.moduleRoots ?? [],
-  });
+  const overrides = buildTurnOverrides(backend.live.settings);
   const payload = await buildCodexTurnInput(
     withDenialReminder(backend, input.text),
     input.attachments,
@@ -405,6 +402,7 @@ async function openCodexProcess(
       mcpUrl: options.getMcpUrl(),
       mcpToken,
       hostProjectRoot: ctx.hostProjectRoot,
+      moduleRoots: options.moduleRoots ?? [],
       accessTokenUrl: new URL(
         CHATGPT_ACCESS_TOKEN_PATH,
         options.getMcpUrl(),
@@ -481,7 +479,7 @@ async function createProviderSession(
   const session = createAgentSession({
     events: stream.iterator,
     controls: {
-      submitTurn: (input) => submitTurn(backend, options, input),
+      submitTurn: (input) => submitTurn(backend, input),
       interrupt: () => {
         permissions.cancelPending();
         interruptTurn(backend);

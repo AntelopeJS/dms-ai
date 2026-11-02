@@ -25,12 +25,16 @@ import type {
   ThinkingLevel,
   TurnSettings,
 } from "../../state/settings-types.js";
+import {
+  buildPermissionProfilesToml,
+  CODEX_PERMISSION_PROFILES,
+  type CodexPermissionInput,
+  type CodexPermissionProfileId,
+} from "./permission-profiles.js";
 import type { v2 } from "./protocol/index.js";
 
 export interface CodexModePolicy {
   approvalPolicy: v2.AskForApproval;
-  sandbox: v2.SandboxMode;
-  networkAccess: boolean;
   writable: boolean;
   /**
    * Plan mode declines every escalation instead of prompting: Codex has no
@@ -47,8 +51,6 @@ export interface CodexModePolicy {
  */
 const ASK_FIRST_POLICY: CodexModePolicy = {
   approvalPolicy: "on-request",
-  sandbox: "read-only",
-  networkAccess: false,
   writable: false,
   autoDeclineEscalations: false,
 };
@@ -56,22 +58,13 @@ const ASK_FIRST_POLICY: CodexModePolicy = {
 const CODEX_MODE_POLICIES: Record<ChatMode, CodexModePolicy> = {
   normal: ASK_FIRST_POLICY,
   auto: ASK_FIRST_POLICY,
-  /**
-   * Accepting edits is about writes, not about the network: the Claude path
-   * grants no egress here, and granting it would be a difference the user never
-   * asked for when they picked the other backend.
-   */
   acceptEdits: {
     approvalPolicy: "on-request",
-    sandbox: "workspace-write",
-    networkAccess: false,
     writable: true,
     autoDeclineEscalations: false,
   },
   plan: {
     approvalPolicy: "on-request",
-    sandbox: "read-only",
-    networkAccess: false,
     writable: false,
     autoDeclineEscalations: true,
   },
@@ -91,36 +84,8 @@ const CODEX_EFFORT_BY_THINKING: Record<ThinkingLevel, string> = {
 
 export interface CodexTurnOverrides {
   approvalPolicy: v2.AskForApproval;
-  sandboxPolicy: v2.SandboxPolicy;
+  permissions: CodexPermissionProfileId;
   effort: string;
-}
-
-export interface CodexWorkspace {
-  hostProjectRoot: string;
-  moduleRoots: readonly string[];
-}
-
-function writableRoots(workspace: CodexWorkspace): string[] {
-  const roots = [workspace.hostProjectRoot, ...workspace.moduleRoots];
-  return [...new Set(roots.map((root) => path.resolve(root)))];
-}
-
-function buildSandboxPolicy(
-  policy: CodexModePolicy,
-  workspace: CodexWorkspace,
-): v2.SandboxPolicy {
-  if (policy.sandbox === "danger-full-access")
-    return { type: "dangerFullAccess" };
-  if (!policy.writable) {
-    return { type: "readOnly", networkAccess: policy.networkAccess };
-  }
-  return {
-    type: "workspaceWrite",
-    writableRoots: writableRoots(workspace),
-    networkAccess: policy.networkAccess,
-    excludeTmpdirEnvVar: false,
-    excludeSlashTmp: false,
-  };
 }
 
 /**
@@ -134,27 +99,28 @@ function buildSandboxPolicy(
 export function resolveModePolicy(settings: TurnSettings): CodexModePolicy {
   const base = CODEX_MODE_POLICIES[settings.mode];
   if (effectiveGenerationMode(settings.generationMode) !== "safe") return base;
-  return {
-    ...base,
-    sandbox: "read-only",
-    writable: false,
-    networkAccess: false,
-    autoDeclineEscalations: true,
-  };
+  return { ...base, writable: false, autoDeclineEscalations: true };
+}
+
+export function selectPermissionProfile(
+  settings: TurnSettings,
+): CodexPermissionProfileId {
+  if (!resolveModePolicy(settings).writable) {
+    return CODEX_PERMISSION_PROFILES.READ_ONLY;
+  }
+  return settings.alwaysAskDependencies
+    ? CODEX_PERMISSION_PROFILES.EDIT_EXCEPT_HOOKS_AND_DEPENDENCIES
+    : CODEX_PERMISSION_PROFILES.EDIT_EXCEPT_HOOKS;
 }
 
 /**
  * Overrides sent with every `turn/start`. They persist for subsequent turns,
  * but resending them is what makes a live settings change take effect.
  */
-export function buildTurnOverrides(
-  settings: TurnSettings,
-  workspace: CodexWorkspace,
-): CodexTurnOverrides {
-  const policy = resolveModePolicy(settings);
+export function buildTurnOverrides(settings: TurnSettings): CodexTurnOverrides {
   return {
-    approvalPolicy: policy.approvalPolicy,
-    sandboxPolicy: buildSandboxPolicy(policy, workspace),
+    approvalPolicy: resolveModePolicy(settings).approvalPolicy,
+    permissions: selectPermissionProfile(settings),
     effort: CODEX_EFFORT_BY_THINKING[settings.thinking],
   };
 }
@@ -163,9 +129,8 @@ function tomlString(value: string): string {
   return JSON.stringify(value);
 }
 
-export interface CodexConfigInput {
+export interface CodexConfigInput extends CodexPermissionInput {
   mcpUrl: string;
-  hostProjectRoot: string;
   /** The Node binary the auth command runs on: the sidecar's own. */
   nodePath: string;
 }
@@ -212,6 +177,7 @@ export function buildConfigToml(input: CodexConfigInput): string {
   return [
     "project_doc_max_bytes = 0",
     `model_provider = ${tomlString(CODEX_MODEL_PROVIDER_ID)}`,
+    `default_permissions = ${tomlString(CODEX_PERMISSION_PROFILES.READ_ONLY)}`,
     "",
     `[model_providers.${CODEX_MODEL_PROVIDER_ID}]`,
     `name = ${tomlString(CODEX_MODEL_PROVIDER_NAME)}`,
@@ -234,6 +200,7 @@ export function buildConfigToml(input: CodexConfigInput): string {
     `[projects.${tomlString(path.resolve(input.hostProjectRoot))}]`,
     'trust_level = "untrusted"',
     "",
+    ...buildPermissionProfilesToml(input),
   ].join("\n");
 }
 

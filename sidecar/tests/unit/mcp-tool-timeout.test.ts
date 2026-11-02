@@ -39,6 +39,8 @@ describe("MCP tool timeout", () => {
     const toml = buildConfigToml({
       mcpUrl: "http://127.0.0.1:4321/mcp",
       hostProjectRoot: "/srv/app",
+      moduleRoots: [],
+      alwaysAskPaths: { gitHooks: [], dependencies: [] },
       nodePath: process.execPath,
     });
     const server = toml.split("[projects.")[0] ?? "";
