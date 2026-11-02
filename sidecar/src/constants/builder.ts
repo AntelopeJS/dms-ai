@@ -18,11 +18,7 @@ export const BUILDER_SLOW_OP_TIMEOUTS_MS = new Map([
 ]);
 export const BUILDER_LOG_PREFIX = "[builder]";
 
-/**
- * The names of every Builder MCP tool (must match the `tool("…")` names in
- * mcp/tools/builder.ts). They are typecheck-gated, atomic, and non-destructive by
- * design (a failed op writes nothing), so they are auto-allowed without a prompt.
- */
+/** The names of every Builder MCP tool. */
 export const BUILDER_TOOL_NAMES = [
   "BuilderCatalog",
   "BuilderListPages",

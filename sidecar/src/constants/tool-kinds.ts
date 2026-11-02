@@ -35,44 +35,61 @@ export const BUILTIN_READ_TOOL_NAMES: readonly string[] = [
   "ExitPlanMode",
 ];
 
-/** Builder tools that only read the Builder's model of the project. */
-export const BUILDER_READ_TOOL_NAMES: readonly string[] = [
-  "BuilderCatalog",
-  "BuilderListPages",
-  "BuilderPageStructure",
-  "BuilderListResources",
-  "BuilderResourceStructure",
-  "BuilderQueryTemplates",
-  "BuilderPreviewQuery",
-  "BuilderRefresh",
-  "BuilderAnalyseDatabase",
-  "BuilderMapping",
-];
+type BuilderToolKind =
+  | "read"
+  | "change"
+  | "deletion"
+  | "blockRemoval"
+  | "asksAfterDryRun";
 
-/** Builder deletions: they always ask, in every mode, Full auto included. */
-export const BUILDER_DESTRUCTIVE_TOOL_NAMES: readonly string[] = [
-  "BuilderDeletePage",
-  "BuilderDeleteResource",
-  "BuilderRemoveField",
-  "BuilderDeleteCategory",
-  "BuilderRemoveQuery",
-];
+const BUILDER_TOOL_KINDS = {
+  BuilderCatalog: "read",
+  BuilderListPages: "read",
+  BuilderPageStructure: "read",
+  BuilderCreatePage: "change",
+  BuilderConfigurePage: "change",
+  BuilderDeletePage: "deletion",
+  BuilderAddBlock: "change",
+  BuilderComposePage: "change",
+  BuilderConfigureBlock: "change",
+  BuilderConfigureTableView: "change",
+  BuilderMoveBlock: "blockRemoval",
+  BuilderRemoveBlock: "blockRemoval",
+  BuilderCreateCategory: "change",
+  BuilderConfigureCategory: "change",
+  BuilderDeleteCategory: "deletion",
+  BuilderRefresh: "read",
+  BuilderCreateResource: "change",
+  BuilderDeleteResource: "deletion",
+  BuilderListResources: "read",
+  BuilderResourceStructure: "read",
+  BuilderAddField: "change",
+  BuilderConfigureField: "change",
+  BuilderRemoveField: "deletion",
+  BuilderQueryTemplates: "read",
+  BuilderAddQuery: "change",
+  BuilderPreviewQuery: "read",
+  BuilderConfigureQuery: "change",
+  BuilderRemoveQuery: "deletion",
+  BuilderConfigureProject: "asksAfterDryRun",
+  BuilderMapResources: "change",
+  BuilderAnalyseDatabase: "read",
+  BuilderMapping: "read",
+} as const satisfies Record<
+  (typeof BUILDER_TOOL_NAMES)[number],
+  BuilderToolKind
+>;
 
-/** Asked whenever the `alwaysAskBlockRemoval` setting is on. */
-export const BUILDER_BLOCK_REMOVAL_TOOL_NAMES: readonly string[] = [
-  "BuilderRemoveBlock",
-  "BuilderMoveBlock",
-];
+function builderToolsOf(kind: BuilderToolKind): readonly string[] {
+  return BUILDER_TOOL_NAMES.filter((name) => BUILDER_TOOL_KINDS[name] === kind);
+}
+
+export const BUILDER_READ_TOOL_NAMES = builderToolsOf("read");
+export const BUILDER_DESTRUCTIVE_TOOL_NAMES = builderToolsOf("deletion");
+export const BUILDER_BLOCK_REMOVAL_TOOL_NAMES = builderToolsOf("blockRemoval");
+export const BUILDER_CONFIG_TOOL_NAMES = builderToolsOf("asksAfterDryRun");
 
 export const BUILDER_DELETE_RESOURCE_TOOL_NAME = "BuilderDeleteResource";
-
-/**
- * Builder edits of antelope.config.ts: they always ask, in every mode, Full auto included, and
- * they ask from inside their own handler, after a dry run, so the card shows the real diff.
- */
-export const BUILDER_CONFIG_TOOL_NAMES: readonly string[] = [
-  "BuilderConfigureProject",
-];
 
 /** The module's own tools that read or talk to the user, never mutate. */
 export const PROJECT_READ_TOOL_NAMES: readonly string[] = [
