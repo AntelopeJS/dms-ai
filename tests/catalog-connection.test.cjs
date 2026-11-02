@@ -16,6 +16,19 @@ const full = {
   CheckReference: async () => ({}),
 };
 const partial = { Info: async () => ({}), ListRelations: "not a function" };
+const defective = Object.fromEntries(
+  Object.keys(full).flatMap((name) => {
+    const without = Object.fromEntries(
+      Object.entries(full).filter(([key]) => key !== name),
+    );
+    return [
+      [`lacks-${name}`, without],
+      [`breaks-${name}`, { ...without, [name]: "not a function" }],
+    ];
+  }),
+);
+const defectivePath = (id) =>
+  `@ajs.connection/${id}/@antelopejs/interface-database-catalog`;
 
 function loadCatalog() {
   installRequireMocks(
@@ -29,11 +42,20 @@ function loadCatalog() {
           GetInterfaceInstances: () => [
             { id: "erp", path: FULL_PATH, selected: true },
             { id: "legacy", path: PARTIAL_PATH, selected: false },
+            ...Object.keys(defective).map((id) => ({
+              id,
+              path: defectivePath(id),
+              selected: false,
+            })),
           ],
         },
       ],
       [FULL_PATH, full],
       [PARTIAL_PATH, partial],
+      ...Object.entries(defective).map(([id, module]) => [
+        defectivePath(id),
+        module,
+      ]),
     ]),
   );
   for (const file of Object.keys(require.cache)) {
@@ -55,6 +77,15 @@ void test("a connection whose module lacks a catalog function is refused by name
       "Catalog connection legacy does not answer the interface-database-catalog functions",
   });
 });
+
+for (const id of Object.keys(defective)) {
+  void test(`connection ${id} is refused by name`, () => {
+    assert.throws(() => catalog.catalogOf(id), {
+      name: "TypeError",
+      message: `Catalog connection ${id} does not answer the interface-database-catalog functions`,
+    });
+  });
+}
 
 void test("an undeclared connection answers nothing", () => {
   assert.equal(catalog.catalogOf("crm"), undefined);
