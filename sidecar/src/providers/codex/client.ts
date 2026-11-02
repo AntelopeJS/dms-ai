@@ -213,6 +213,7 @@ export function createCodexClient(
             reject(new Error(frame.error.message));
             return;
           }
+          // SAFETY: frame.result is the app-server's JSON-RPC result for the request just sent, and every caller names the generated protocol response type of that method.
           resolve(frame.result as T);
         },
       });

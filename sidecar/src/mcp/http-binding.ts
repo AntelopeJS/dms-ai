@@ -40,6 +40,7 @@ function registerDefinition(
 ): void {
   server.registerTool(
     definition.name,
+    // oxlint-disable-next-line typescript/no-unsafe-assignment -- AnyMcpToolDefinition is McpToolDefinition<any> so that one list holds tools with different input schemas, which makes definition.schema any; the MCP SDK takes it as the raw zod shape the tool declared
     { description: definition.description, inputSchema: definition.schema },
     definition.handler,
   );

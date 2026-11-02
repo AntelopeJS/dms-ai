@@ -12,6 +12,7 @@ import "./pages";
 import "./routes";
 import { frontendModule } from "./frontend-module";
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- core calls construct with the raw project config and returns nothing, so no type of ours can narrow it; ConfigSchema.safeParse parses it on the next line
 export function construct(config: unknown): void {
   setConfig(ConfigSchema.safeParse(config).data ?? {});
 }

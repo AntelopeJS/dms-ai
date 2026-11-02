@@ -1,12 +1,15 @@
 {
   "rules": {
-    "anti-slop/no-chained-type-assertions": 1,
+    "anti-slop/no-chained-type-assertions": 0,
     "anti-slop/no-object-parameters": 1,
+    "anti-slop/no-unknown-parameters": 1,
+    "anti-slop/no-unsafe-dictionary-type": 1,
+    "typescript/no-unsafe-assignment": 1,
     "unicorn/no-useless-spread": 1
   },
   "tsExpectError": 1,
   "tsIgnore": 0,
-  "safety": 0,
+  "safety": 6,
   "config": {
     "anti-slop/no-chained-type-assertions for sidecar/tests/**": 1,
     "eslint/max-lines-per-function for sidecar/tests/**": 1,

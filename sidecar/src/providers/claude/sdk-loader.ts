@@ -20,5 +20,6 @@ export async function loadSdk(): Promise<LoadedSdk> {
     : REAL_SDK_PACKAGE;
   const opaque: string = specifier;
   const mod: unknown = await import(opaque);
+  // SAFETY: a computed import specifier is untyped, and both the agent SDK and the mock-claude fixture it can name export a `query` with the SDK's signature, the only member read here.
   return { query: (mod as LoadedSdk).query };
 }
