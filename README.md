@@ -54,7 +54,7 @@ Claude Code runs with its own credentials (its login, or `ANTHROPIC_API_KEY` in 
 
 | Package                                  | Supported         | Tested with |
 | ---------------------------------------- | ----------------- | ----------- |
-| `@antelopejs/agent-skills`               | `^0.1.0`          | —           |
+| `@antelopejs/agent-skills`               | `^0.1.0`          | `0.1.0`     |
 | `@antelopejs/interface-api`              | `>=0.0.15 <1.0.0` | `0.0.15`    |
 | `@antelopejs/interface-core`             | `>=0.2.4 <1.0.0`  | `0.2.4`     |
 | `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`  | `0.0.2`     |
