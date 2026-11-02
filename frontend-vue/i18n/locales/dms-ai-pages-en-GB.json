@@ -486,7 +486,7 @@
 				},
 				"auto": {
 					"label": "Auto review",
-					"description": "A safety check approves routine actions and blocks risky ones. Deletions and dependency changes still ask. Asks first on models or plans without it."
+					"description": "A safety check approves routine file edits and web access. Shell commands, dependency files and deletions still ask. Asks first on models or plans without it."
 				},
 				"acceptEdits": {
 					"label": "Accept edits",

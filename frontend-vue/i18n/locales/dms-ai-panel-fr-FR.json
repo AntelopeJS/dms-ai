@@ -296,7 +296,7 @@
 					"normal": "Demande avant toute modification, commande ou requête web.",
 					"acceptEdits": "Applique les modifications de fichiers, demande pour les commandes et les requêtes web.",
 					"plan": "Lit et propose un plan. Ne modifie rien.",
-					"auto": "Un contrôle de sécurité approuve les actions courantes et bloque les actions risquées. Les suppressions et les changements de dépendances demandent encore votre accord.",
+					"auto": "Un contrôle de sécurité approuve les modifications de fichiers courantes et l'accès au web. Les commandes shell, les fichiers de dépendances et les suppressions demandent encore votre accord.",
 					"full_auto": "Exécute tout sans demander, sauf les suppressions."
 				},
 				"full_auto_item": "Automatique complet…",

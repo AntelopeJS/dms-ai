@@ -486,7 +486,7 @@
 				},
 				"auto": {
 					"label": "Revue automatique",
-					"description": "Un contrôle de sécurité approuve les actions courantes et bloque les actions risquées. Les suppressions et les changements de dépendances demandent encore votre accord. Sur un modèle ou une offre qui ne la permet pas, l'assistant demande avant d'agir."
+					"description": "Un contrôle de sécurité approuve les modifications de fichiers courantes et l'accès au web. Les commandes shell, les fichiers de dépendances et les suppressions demandent encore votre accord. Sur un modèle ou une offre qui ne la permet pas, l'assistant demande avant d'agir."
 				},
 				"acceptEdits": {
 					"label": "Accepter les modifications",

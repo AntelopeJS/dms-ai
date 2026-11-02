@@ -296,7 +296,7 @@
 					"normal": "Asks before any edit, command or web request.",
 					"acceptEdits": "Applies file edits, asks for commands and web requests.",
 					"plan": "Reads and proposes a plan. Changes nothing.",
-					"auto": "A safety check approves routine actions and blocks risky ones. Deletions and dependency changes still ask.",
+					"auto": "A safety check approves routine file edits and web access. Shell commands, dependency files and deletions still ask.",
 					"full_auto": "Runs everything without asking, except deletions."
 				},
 				"full_auto_item": "Full auto…",
