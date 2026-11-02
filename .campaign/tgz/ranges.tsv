@@ -27,13 +27,13 @@
 @antelopejs/interface-dms-builder	package.json	optionalDependencies	>=0.2.3 <1.0.0
 @antelopejs/interface-dms-builder	package.json	pnpm.overrides	
 @antelopejs/interface-dms-builder	sidecar/package.json	devDependencies	>=0.3.0 <1.0.0
+@antelopejs/dms-frontend	playground/package.json	devDependencies	0.9.1
+@antelopejs/dms-frontend	playground/package.json	pnpm.overrides	
 @antelopejs/interface-core	package.json	dependencies	>=0.2.4 <1.0.0
 @antelopejs/interface-core	playground/package.json	dependencies	>=0.2.4 <1.0.0
 @antelopejs/interface-core	playground/package.json	pnpm.overrides	
 @antelopejs/interface-core	package.json	pnpm.overrides	
 @antelopejs/interface-core	sidecar/package.json	pnpm.overrides	
+@antelopejs/interface-core	sidecar/package.json	devDependencies	(added)
 @antelopejs/core	playground/package.json	devDependencies	>=1.17.1 <2
 @antelopejs/core	playground/package.json	pnpm.overrides	
-@antelopejs/dms-frontend	playground/package.json	devDependencies	0.9.1
-@antelopejs/dms-frontend	playground/package.json	pnpm.overrides	
-@antelopejs/interface-core	sidecar/package.json	devDependencies	
