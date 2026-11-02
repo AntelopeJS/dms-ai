@@ -11,6 +11,7 @@ import type {
   QuestionBus,
   QuestionReply,
 } from "../agent/question-bus.js";
+import { isAutoReviewInForce } from "../agent/effective-mode.js";
 import {
   isBlockRemovalTool,
   isConfigBuilderTool,
@@ -46,9 +47,11 @@ export function permissionPolicy(
   conversationId: string,
 ): PermissionPolicy {
   const settings = services.settingsStore.get();
+  const modes = services.conversationModes;
   return {
     hostProjectRoot: services.hostProjectRoot,
-    isFullAuto: services.conversationModes.isFullAuto(conversationId),
+    isFullAuto: modes.isFullAuto(conversationId),
+    isAutoReview: isAutoReviewInForce(modes.state(conversationId)),
     timeoutMs: settings.requestTimeoutMinutes * MS_PER_MINUTE,
     alwaysAskDependencies: settings.alwaysAskDependencies,
     alwaysAskBlockRemoval: settings.alwaysAskBlockRemoval,

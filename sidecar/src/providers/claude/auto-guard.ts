@@ -1,6 +1,6 @@
 import { isAlwaysAsk } from "../../agent/permission-preview.js";
 import { isAutoAllowedRead } from "../../agent/read-access.js";
-import { isWebTool } from "../../agent/tool-kinds.js";
+import { isCommandTool, isWebTool } from "../../agent/tool-kinds.js";
 import type { ToolArgs } from "../../agent/edit-targets.js";
 import { effectiveGenerationMode } from "../../builder/capability.js";
 import {
@@ -47,12 +47,15 @@ const isFirstPartyCall: HostDecidedRule = (call) =>
 const isBuiltInQuestion: HostDecidedRule = (call) =>
   call.toolName === ASK_USER_QUESTION_BUILTIN_TOOL_NAME;
 
-/** The always-ask set asks under Auto review as it does under Full auto. */
+const isCommandCall: HostDecidedRule = (call) => isCommandTool(call.toolName);
+
 const isAlwaysAskCall: HostDecidedRule = (call, scope) =>
   isAlwaysAsk({
     ...call,
+    hostProjectRoot: scope.hostProjectRoot,
     alwaysAskDependencies: scope.settings.alwaysAskDependencies,
     alwaysAskBlockRemoval: scope.settings.alwaysAskBlockRemoval,
+    isAutoReview: true,
   });
 
 /**
@@ -79,6 +82,7 @@ const isSafeScopeWebCall: HostDecidedRule = (call, scope) =>
 const HOST_DECIDED_RULES: readonly HostDecidedRule[] = [
   isFirstPartyCall,
   isBuiltInQuestion,
+  isCommandCall,
   isAlwaysAskCall,
   isUnreviewedRead,
   isSafeScopeWebCall,

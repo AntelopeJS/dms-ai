@@ -39,6 +39,7 @@ const MCP = MCP_TOOL_NAME_PREFIX;
 const DEPENDENCY_CHANGE = { command: "pnpm add jsvat" };
 const PLAIN_COMMAND = { command: "node -e \"console.log('hi')\"" };
 const WEB_PAGE = { url: "https://example.com/docs", prompt: "summarize" };
+const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 
 const ASKED = { decidedBy: "canUseTool", isAllowed: true };
 const REFUSED_WHEN_ASKED = { decidedBy: "canUseTool", isAllowed: false };
@@ -106,7 +107,7 @@ describe("Auto review on the Claude provider", () => {
     const announced: string[] = [];
     const { bus } = createTestBus({
       timeoutMs: PROMPT_TIMEOUT_MS,
-      policy: { hostProjectRoot: dir, ...options.policy },
+      policy: { hostProjectRoot: dir, isAutoReview: true, ...options.policy },
       extra: {
         onPromptChat: (request) => {
           prompts.push(request);
@@ -152,10 +153,143 @@ describe("Auto review on the Claude provider", () => {
   );
 
   it(
-    "leaves a dependency change to Auto review when the setting is off",
+    "asks before a dependency change as before any command when the setting is off",
     async () => {
       const turn = await runTurn(
         [{ id: "dep", name: "Bash", input: DEPENDENCY_CHANGE }],
+        {
+          settings: { alwaysAskDependencies: false },
+          policy: { alwaysAskDependencies: false },
+        },
+      );
+      expect(turn.prompts.map((p) => p.alwaysAsk)).toEqual([false]);
+      expect(turn.tools).toMatchObject([ASKED]);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "sends every command to the person, whatever it wraps or reads",
+    async () => {
+      const turn = await runTurn([
+        { id: "plain", name: "Bash", input: PLAIN_COMMAND },
+        {
+          id: "wrapped",
+          name: "Bash",
+          input: { command: 'sh -c "npm install is-odd"' },
+        },
+        { id: "read", name: "Bash", input: { command: "cat package.json" } },
+      ]);
+      expect(turn.prompts.map((p) => p.callId)).toEqual([
+        "plain",
+        "wrapped",
+        "read",
+      ]);
+      expect(turn.tools).toMatchObject([ASKED, ASKED, ASKED]);
+      expect(turn.decisions).toEqual([]);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "asks before an edit of each dependency manifest, lockfile and setting, as always-ask",
+    async () => {
+      const files = [
+        "package.json",
+        "pnpm-lock.yaml",
+        "package-lock.json",
+        "yarn.lock",
+        "bun.lockb",
+        "bun.lock",
+        "npm-shrinkwrap.json",
+        "pnpm-workspace.yaml",
+        ".npmrc",
+      ];
+      const turn = await runTurn(
+        files.map((file, index) => {
+          const name = EDIT_TOOLS[index % EDIT_TOOLS.length] ?? "Write";
+          const path = join(dir, "packages", "app", file);
+          const pathKey =
+            name === "NotebookEdit" ? "notebook_path" : "file_path";
+          return { id: file, name, input: { [pathKey]: path } };
+        }),
+      );
+      expect(turn.prompts.map((p) => [p.callId, p.alwaysAsk])).toEqual(
+        files.map((file) => [file, true]),
+      );
+      expect(turn.tools).toMatchObject(files.map(() => ASKED));
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "asks before a dependency file edit however its path is spelled, and leaves other edits to Auto review",
+    async () => {
+      const turn = await runTurn([
+        {
+          id: "relative",
+          name: "Write",
+          input: { file_path: "src/../package.json" },
+        },
+        {
+          id: "dotted",
+          name: "Edit",
+          input: { file_path: join(dir, "src", "..", "pnpm-lock.yaml") },
+        },
+        {
+          id: "trailing",
+          name: "Write",
+          input: { file_path: `${join(dir, "package.json")}/.` },
+        },
+        {
+          id: "cased",
+          name: "Write",
+          input: { file_path: join(dir, "Package.JSON") },
+        },
+        {
+          id: "outside",
+          name: "Write",
+          input: { file_path: "/elsewhere/.npmrc" },
+        },
+        {
+          id: "lookalike",
+          name: "Write",
+          input: { file_path: join(dir, "src", "package.json.ts") },
+        },
+      ]);
+      expect(turn.prompts.map((p) => [p.callId, p.alwaysAsk])).toEqual([
+        ["relative", true],
+        ["dotted", true],
+        ["trailing", true],
+        ["cased", true],
+        ["outside", true],
+      ]);
+      expect(turn.tools).toMatchObject([
+        ASKED,
+        ASKED,
+        ASKED,
+        ASKED,
+        ASKED,
+        REVIEWED,
+      ]);
+      expect(turn.decisions).toEqual([
+        { callId: "lookalike", toolName: "Write", allowedBy: "auto_approved" },
+      ]);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "leaves a dependency file edit to Auto review when the setting is off",
+    async () => {
+      const turn = await runTurn(
+        [
+          {
+            id: "manifest",
+            name: "Write",
+            input: { file_path: "package.json" },
+          },
+        ],
         {
           settings: { alwaysAskDependencies: false },
           policy: { alwaysAskDependencies: false },
@@ -257,21 +391,6 @@ describe("Auto review on the Claude provider", () => {
   );
 
   it(
-    "lets a plain command through Auto review unasked and records it as Auto review's",
-    async () => {
-      const turn = await runTurn([
-        { id: "plain", name: "Bash", input: PLAIN_COMMAND },
-      ]);
-      expect(turn.prompts).toEqual([]);
-      expect(turn.tools).toMatchObject([REVIEWED]);
-      expect(turn.decisions).toEqual([
-        { callId: "plain", toolName: "Bash", allowedBy: "auto_approved" },
-      ]);
-    },
-    TEST_TIMEOUT_MS,
-  );
-
-  it(
     "credits Auto review with no call the CLI runs without any review",
     async () => {
       const turn = await runTurn([
@@ -289,8 +408,8 @@ describe("Auto review on the Claude provider", () => {
       const turn = await runTurn([
         {
           id: "risky",
-          name: "Bash",
-          input: PLAIN_COMMAND,
+          name: "Write",
+          input: { file_path: "scripts/install.sh" },
           refusedBy: "classifier",
         },
       ]);
@@ -313,7 +432,7 @@ describe("Auto review on the Claude provider", () => {
           { id: "dep", name: "Bash", input: DEPENDENCY_CHANGE },
         ],
         {
-          policy: { isFullAuto: true },
+          policy: { isFullAuto: true, isAutoReview: false },
           resolveSettings: (_id, global) =>
             conversationSettings(global, {
               mode: "auto",

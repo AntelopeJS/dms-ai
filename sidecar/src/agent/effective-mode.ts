@@ -32,6 +32,11 @@ export function isFullAutoInForce(state: ConversationModeState): boolean {
   return effectiveGenerationMode(state.generationMode) === "vibe";
 }
 
+/** Whether the CLI's classifier approves for the user: Auto review, Full auto off. */
+export function isAutoReviewInForce(state: ConversationModeState): boolean {
+  return state.fullAuto === null && state.mode === "auto";
+}
+
 /**
  * The settings a conversation's turns run under: the global ones (provider,
  * thinking, skills) with the conversation's own mode and scope. Every consumer

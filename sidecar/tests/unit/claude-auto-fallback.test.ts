@@ -45,8 +45,8 @@ describe("Auto review the CLI will not run", () => {
     CLAUDE_FIXTURE.use("plain");
     process.env.MOCK_CLAUDE_TRACE = traceFile;
     process.env.MOCK_CLAUDE_AUTO_UNSUPPORTED_MODEL = WITHOUT_AUTO;
-    process.env.MOCK_CLAUDE_SCRIPT = await writeClaudeScript(dir, "plain", [
-      { id: "plain", name: "Bash", input: { command: "node -e 1" } },
+    process.env.MOCK_CLAUDE_SCRIPT = await writeClaudeScript(dir, "edit", [
+      { id: "edit", name: "Write", input: { file_path: "src/note.ts" } },
     ]);
   });
 

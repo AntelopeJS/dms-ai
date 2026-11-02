@@ -32,6 +32,7 @@ describe("permission previews and rules", () => {
       hostProjectRoot: root,
       alwaysAskDependencies: true,
       alwaysAskBlockRemoval: true,
+      isAutoReview: false,
     });
 
   it("diffs an Edit against the file on disk, with real line numbers", async () => {

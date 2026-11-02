@@ -22,6 +22,24 @@ export const PERMISSION_EXPIRED_MESSAGE =
 export const PERMISSION_DENY_ALL_MESSAGE =
   "The user denied this and every other pending request, and stopped the turn.";
 
+/**
+ * The dependency manifests, lockfiles and package-manager settings an edit
+ * changes dependencies through.
+ */
+export const DEPENDENCY_FILE_NAMES: ReadonlySet<string> = new Set(
+  [
+    "package.json",
+    "pnpm-lock.yaml",
+    "package-lock.json",
+    "yarn.lock",
+    "bun.lockb",
+    "bun.lock",
+    "npm-shrinkwrap.json",
+    "pnpm-workspace.yaml",
+    ".npmrc",
+  ].map((name) => name.toLowerCase()),
+);
+
 export const SDK_PERMISSION_BEHAVIOR = {
   ALLOW: "allow",
   DENY: "deny",

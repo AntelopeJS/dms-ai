@@ -4,7 +4,8 @@ import type { ProviderName } from "./types.js";
  * The approval modes a conversation can be in:
  * - `normal` (Ask first): every call that changes something asks.
  * - `auto` (Auto review): the provider's own safety check approves routine
- *   calls and blocks risky ones; the always-ask set still asks.
+ *   calls and blocks risky ones; every shell command and the always-ask set
+ *   still ask.
  * - `acceptEdits`: file edits run unasked, the rest asks.
  * - `plan`: the agent proposes a plan and changes nothing.
  *
