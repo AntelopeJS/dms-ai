@@ -8,6 +8,7 @@ import {
   VERSION_PREFIX,
 } from "../src/constants.mjs";
 import { loadDump } from "../src/dump.mjs";
+import { dumpEnvironment } from "../src/env-dump.mjs";
 import { runAppServer } from "../src/server.mjs";
 import { installSigtermBehaviour } from "../src/sigterm.mjs";
 
@@ -25,6 +26,7 @@ function startAppServer() {
     process.stderr.write(`${NO_SCRIPT_MESSAGE}\n`);
     process.exit(UNKNOWN_COMMAND_EXIT);
   }
+  dumpEnvironment();
   installSigtermBehaviour();
   runAppServer(loadDump(spec), process.stdin, process.stdout);
 }
