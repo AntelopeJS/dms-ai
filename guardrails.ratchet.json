@@ -8,9 +8,9 @@
     "anti-slop/no-unknown-parameters": 5,
     "anti-slop/no-unknown-returns": 2,
     "anti-slop/no-unsafe-dictionary-type": 2,
-    "anti-slop/require-safety-comment-for-type-assertion": 18,
+    "anti-slop/require-safety-comment-for-type-assertion": 17,
     "typescript/no-unsafe-argument": 84,
-    "typescript/no-unsafe-assignment": 261,
+    "typescript/no-unsafe-assignment": 260,
     "typescript/no-unsafe-return": 93,
     "typescript/use-unknown-in-catch-callback-variable": 8
   },
