@@ -11,10 +11,7 @@ import { type AgentRunner, createAgentRunner } from "../../src/agent/runner.js";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
-import {
-  DEFAULT_SETTINGS,
-  SAFE_MODE_DISALLOWED_TOOLS,
-} from "../../src/constants/settings.js";
+import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import { resolvePermissionMode } from "../../src/providers/claude/config.js";
 import { createClaudeProvider } from "../../src/providers/claude/provider.js";
 import {
@@ -37,6 +34,16 @@ const PROMPT_TIMEOUT_MS = 100;
 const TURN_TIMEOUT_MS = 10_000;
 const TEST_TIMEOUT_MS = 30_000;
 const BYPASS_MODE = "bypassPermissions";
+const RAW_TOOLS = [
+  "Write",
+  "Edit",
+  "MultiEdit",
+  "NotebookEdit",
+  "Bash",
+  "Monitor",
+  "CronCreate",
+  "ToolTheCliAddsNext",
+];
 
 interface RawCall {
   tool: string;
@@ -206,7 +213,7 @@ describe("safe mode on the Claude provider, whatever the permission mode", () =>
     TEST_TIMEOUT_MS,
   );
 
-  it.each(SAFE_MODE_DISALLOWED_TOOLS)(
+  it.each(RAW_TOOLS)(
     "refuses %s under Auto review through the safe-mode hook",
     async (tool) => {
       const script = await writeClaudeScript(dir, tool, [

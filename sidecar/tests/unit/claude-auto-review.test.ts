@@ -192,6 +192,30 @@ describe("Auto review on the Claude provider", () => {
   );
 
   it(
+    "sends a tool it does not leave to Auto review to the person, whatever its name",
+    async () => {
+      const install = { command: "npm install is-odd", timeout_ms: 1 };
+      const turn = await runTurn([
+        { id: "monitor", name: "Monitor", input: install },
+        { id: "cron", name: "CronCreate", input: { prompt: "npm i" } },
+        { id: "new", name: "ToolTheCliAddsNext", input: install },
+        { id: "mcp", name: "mcp__acme__Frobnicate", input: {} },
+        { id: "remote", name: "Agent", input: { isolation: "remote" } },
+      ]);
+      expect(turn.prompts.map((p) => p.callId)).toEqual([
+        "monitor",
+        "cron",
+        "new",
+        "mcp",
+        "remote",
+      ]);
+      expect(turn.tools).toMatchObject([ASKED, ASKED, ASKED, ASKED, ASKED]);
+      expect(turn.decisions).toEqual([]);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
     "asks before an edit of each dependency manifest, lockfile and setting, as always-ask",
     async () => {
       const files = [
@@ -204,6 +228,10 @@ describe("Auto review on the Claude provider", () => {
         "npm-shrinkwrap.json",
         "pnpm-workspace.yaml",
         ".npmrc",
+        ".pnpmfile.cjs",
+        ".yarnrc.yml",
+        ".yarnrc",
+        "bunfig.toml",
       ];
       const turn = await runTurn(
         files.map((file, index) => {

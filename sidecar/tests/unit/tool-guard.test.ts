@@ -1,0 +1,192 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
+import type { PreToolUseHookInput } from "@anthropic-ai/claude-agent-sdk";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { ToolArgs } from "../../src/agent/edit-targets.js";
+import { setBuilderAvailable } from "../../src/builder/capability.js";
+import { MCP_TOOL_NAME_PREFIX } from "../../src/constants/mcp.js";
+import { buildSafeModeHooks } from "../../src/providers/claude/safe-mode.js";
+import type {
+  ChatMode,
+  GenerationMode,
+} from "../../src/state/settings-types.js";
+import { TURN_SETTINGS } from "../helpers/turn-settings.js";
+
+const ROOT = "/work/app";
+const ASK = "ask";
+const DENY = "deny";
+const NONE = "none";
+
+interface Call {
+  name: string;
+  input: ToolArgs;
+}
+
+const call = (name: string, input: ToolArgs = {}): Call => ({
+  name,
+  input,
+});
+
+const INSTALL = "npm install is-odd";
+
+const COMMAND_RUNNERS: Call[] = [
+  call("Monitor", { command: INSTALL, description: "install", timeout_ms: 1 }),
+  call("PowerShell", { command: INSTALL }),
+  call("CronCreate", { cron: "* * * * *", prompt: `run ${INSTALL}` }),
+  call("ScheduleWakeup", { delaySeconds: 60, prompt: INSTALL }),
+  call("RemoteTrigger", { action: "run", trigger_id: "t1" }),
+  call("Workflow", { script: "export const meta = {}" }),
+];
+
+const OUTSIDE_REACHERS: Call[] = [
+  call("SendMessage", { to: "peer", message: INSTALL }),
+  call("EnterWorktree", { name: "side" }),
+  call("PushNotification", { message: "hi", status: "proactive" }),
+  call("Agent", { prompt: INSTALL, isolation: "remote" }),
+  call("Agent", { prompt: INSTALL, isolation: "worktree" }),
+];
+
+const UNKNOWN_TOOLS: Call[] = [
+  call("ToolTheCliAddsNext", { command: INSTALL }),
+  call("mcp__acme__Frobnicate", { target: "home" }),
+  call("mcp__other__BuilderDeletePage", { target: "home" }),
+];
+
+const INSTALL_HOOK_FILES: Call[] = [
+  ".pnpmfile.cjs",
+  ".yarnrc.yml",
+  ".yarnrc",
+  "bunfig.toml",
+].map((file) => call("Write", { file_path: join(ROOT, file), content: "" }));
+
+const SAFE_SCOPE_CALLS: Call[] = [
+  call("Read", { file_path: join(ROOT, "a.ts") }),
+  call("WebFetch", { url: "https://example.com", prompt: "read" }),
+  call("Agent", { prompt: "look around" }),
+  call("ToolSearch", { query: "select:Monitor" }),
+  call("Skill", { skill: "dms-ai" }),
+  call("AskUserQuestion", { questions: [] }),
+  call(`${MCP_TOOL_NAME_PREFIX}BuilderAddBlock`, {}),
+  call("Write", { file_path: join(homedir(), ".claude", "plans", "p.md") }),
+];
+
+async function decide(
+  { name, input }: Call,
+  mode: ChatMode,
+  generationMode: GenerationMode,
+): Promise<string> {
+  const hooks = buildSafeModeHooks({
+    getSettings: () => ({ ...TURN_SETTINGS, mode, generationMode }),
+    readRoots: [ROOT],
+    hostProjectRoot: ROOT,
+  });
+  const [matcher] = hooks.PreToolUse ?? [];
+  const hookInput: PreToolUseHookInput = {
+    session_id: "session-1",
+    transcript_path: "",
+    cwd: ROOT,
+    hook_event_name: "PreToolUse",
+    tool_name: name,
+    tool_use_id: "call-1",
+    tool_input: input,
+    permission_mode: mode === "normal" ? "default" : mode,
+  };
+  const output = await matcher.hooks[0](hookInput, "call-1", {
+    signal: new AbortController().signal,
+  });
+  if (!("hookSpecificOutput" in output)) return NONE;
+  const specific = output.hookSpecificOutput;
+  if (specific === undefined || !("permissionDecision" in specific)) {
+    return NONE;
+  }
+  return specific.permissionDecision ?? NONE;
+}
+
+async function decideAll(
+  calls: Call[],
+  mode: ChatMode,
+  generationMode: GenerationMode,
+): Promise<Array<[string, string]>> {
+  return Promise.all(
+    calls.map(async (c): Promise<[string, string]> => [
+      c.name,
+      await decide(c, mode, generationMode),
+    ]),
+  );
+}
+
+const each = (calls: Call[], decision: string): Array<[string, string]> =>
+  calls.map((c) => [c.name, decision]);
+
+describe("the PreToolUse guard under Auto review in Code scope", () => {
+  it("hands every tool that runs or schedules a command to the person", async () => {
+    expect(await decideAll(COMMAND_RUNNERS, "auto", "vibe")).toEqual(
+      each(COMMAND_RUNNERS, ASK),
+    );
+  });
+
+  it("hands every tool that acts outside the conversation to the person", async () => {
+    expect(await decideAll(OUTSIDE_REACHERS, "auto", "vibe")).toEqual(
+      each(OUTSIDE_REACHERS, ASK),
+    );
+  });
+
+  it("hands a tool it does not know to the person, another MCP server's included", async () => {
+    expect(await decideAll(UNKNOWN_TOOLS, "auto", "vibe")).toEqual(
+      each(UNKNOWN_TOOLS, ASK),
+    );
+  });
+
+  it("hands an edit of a file the package manager runs at install time to the person", async () => {
+    expect(await decideAll(INSTALL_HOOK_FILES, "auto", "vibe")).toEqual(
+      each(INSTALL_HOOK_FILES, ASK),
+    );
+  });
+
+  it("leaves ordinary edits, web access, sub-agents and inert tools to the classifier", async () => {
+    const reviewable = [
+      call("Write", { file_path: join(ROOT, "src", "a.ts"), content: "" }),
+      call("WebSearch", { query: "pnpm" }),
+      call("Agent", { prompt: "look around" }),
+      call("ToolSearch", { query: "select:Monitor" }),
+      call("TodoWrite", { todos: [] }),
+      call("Skill", { skill: "dms-ai" }),
+    ];
+    expect(await decideAll(reviewable, "auto", "vibe")).toEqual(
+      each(reviewable, NONE),
+    );
+  });
+
+  it("leaves a call outside Auto review alone", async () => {
+    expect(await decideAll(COMMAND_RUNNERS, "normal", "vibe")).toEqual(
+      each(COMMAND_RUNNERS, NONE),
+    );
+  });
+});
+
+describe("the PreToolUse guard in Safe scope", () => {
+  beforeEach(() => setBuilderAvailable(true));
+  afterEach(() => setBuilderAvailable(false));
+
+  const refused: Call[] = [
+    ...COMMAND_RUNNERS,
+    ...OUTSIDE_REACHERS,
+    ...UNKNOWN_TOOLS,
+    call("Bash", { command: "ls" }),
+    call("Write", { file_path: join(ROOT, "src", "a.ts"), content: "" }),
+  ];
+
+  it.each<ChatMode>(["normal", "auto", "acceptEdits", "plan"])(
+    "refuses every command, edit, outside reach and unknown tool in %s mode",
+    async (mode) => {
+      expect(await decideAll(refused, mode, "safe")).toEqual(
+        each(refused, DENY),
+      );
+    },
+  );
+
+  it("lets reads, web lookups, sub-agents, inert and first-party tools through", async () => {
+    const decisions = await decideAll(SAFE_SCOPE_CALLS, "normal", "safe");
+    expect(decisions.filter(([, decision]) => decision === DENY)).toEqual([]);
+  });
+});
