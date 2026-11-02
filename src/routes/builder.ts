@@ -54,6 +54,7 @@ const OP_NAMES = [
   "ConfigureModule",
   "CreateLocalModule",
   "MapResources",
+  "PreviewMapResources",
   "AnalyseDatabase",
   "GetAnalysis",
   "GetMapping",

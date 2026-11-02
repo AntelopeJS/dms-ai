@@ -26,11 +26,13 @@ import { isDependencyFile, isGitHookFile } from "./always-ask-files.js";
 import { type DiffStats, diffTexts, parseUnifiedDiff } from "./line-diff.js";
 import {
   bareToolName,
+  asksBeforeBuilderCall,
   isBlockRemovalTool,
   isBashTool,
   isConfigBuilderTool,
-  isDestructiveBuilderTool,
   isEditTool,
+  isPageRemovingBuilderTool,
+  pagesToRemoveOf,
   permissionKindOf,
 } from "./tool-kinds.js";
 
@@ -308,6 +310,24 @@ function plannedConfigPreview(options: ParsedOptions): DiffPreviewType | null {
   };
 }
 
+const PAGES_REMOVED_TARGET_SEPARATOR = ", ";
+
+/** The pages a mapping's dry run found it would remove, as a destructive card. */
+function removedPagesPreview(
+  options: ParsedOptions,
+): DestructivePreviewType | null {
+  if (!isPageRemovingBuilderTool(options.toolName)) return null;
+  const pages = pagesToRemoveOf(options.args);
+  if (pages.length === 0) return null;
+  return {
+    type: "destructive",
+    operation: bareToolName(options.toolName),
+    target: pages.join(PAGES_REMOVED_TARGET_SEPARATOR),
+    consequence: "removes_code",
+    canKeepData: false,
+  };
+}
+
 type PreviewBuilder = (
   options: ParsedOptions,
 ) => Promise<PermissionPreviewType>;
@@ -319,7 +339,9 @@ const PREVIEW_BY_KIND: Record<PermissionKind, PreviewBuilder> = {
   web: async (options) => webPreview(options),
   destructive: async (options) => destructivePreview(options),
   builder: async (options) =>
-    plannedConfigPreview(options) ?? genericPreview(options),
+    plannedConfigPreview(options) ??
+    removedPagesPreview(options) ??
+    genericPreview(options),
   other: async (options) => genericPreview(options),
 };
 
@@ -344,8 +366,7 @@ function isDependencyChange(options: ParsedOptions): boolean {
  * and a dependency change by command or by editing a dependency file.
  */
 export function isAlwaysAsk(options: ParsedOptions): boolean {
-  if (isDestructiveBuilderTool(options.toolName)) return true;
-  if (isConfigBuilderTool(options.toolName)) return true;
+  if (asksBeforeBuilderCall(options.toolName, options.args)) return true;
   if (options.alwaysAskBlockRemoval && isBlockRemovalTool(options.toolName)) {
     return true;
   }

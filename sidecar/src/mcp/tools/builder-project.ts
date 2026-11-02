@@ -8,6 +8,8 @@ import {
   BUILDER_CONFIGURE_PROJECT_TOOL_NAME,
   BUILDER_MAP_RESOURCES_TOOL_NAME,
   BUILDER_MAPPING_TOOL_NAME,
+  BUILDER_PREVIEW_MAP_RESOURCES_OP,
+  PAGES_TO_REMOVE_ARG,
 } from "../../constants/builder.js";
 import {
   type AnyMcpToolDefinition,
@@ -240,7 +242,7 @@ const ANALYSE_DATABASE_INPUT = {
 };
 
 const MAP_RESOURCES_DESCRIPTION =
-  "Maps relations of a connected database into a project module bound to it (created with BuilderConfigureProject): table classes and models with the database's names verbatim, DataAPI controllers and one TableView page per relation that has a key. Only your choices are sent: the Builder reads the relations' descriptions from its own catalog connection and checks every choice against them. A relation mapped before is rewritten from the new choices, its page created, kept or removed. `excluded` records relations decided against, so the next analysis does not propose them. Answers what was written and `leftOut`: columns a TableView cannot show, with why.";
+  "Maps relations of a connected database into a project module bound to it (created with BuilderConfigureProject): table classes and models with the database's names verbatim, DataAPI controllers and one TableView page per relation that has a key. Only your choices are sent: the Builder reads the relations' descriptions from its own catalog connection and checks every choice against them. A relation mapped before is rewritten from the new choices, its page created, kept or removed; a mapping that would remove a page asks the person first, listing it, and a denial writes nothing. `excluded` records relations decided against, so the next analysis does not propose them. Answers what was written and `leftOut`: columns a TableView cannot show, with why.";
 
 const ANALYSE_DATABASE_DESCRIPTION =
   "Runs the Builder's analysis of a connected database: it reads the catalog and the profiles and proposes a mapping by fixed rules, writing nothing. Answers the proposal: resources in the shape BuilderMapResources takes, each choice with its rule and `kind` (`fact` from the catalog, or `default`, a judgement to check), the relations excluded and why, and `open`: what the rules could not decide, each with its options. Profiling is slow: when the analysis is still running after a minute this answers its progress and `job`; call again with that `job` to read on.";
@@ -319,7 +321,50 @@ async function confirmedRun(
   return opResult(await client.call("ConfigureProject", [steps]));
 }
 
-/** The project-config and mapping tools. The config tool asks the user itself, with its diff. */
+const PREVIEW_ANSWER = z.object({
+  ok: z.literal(true),
+  data: z.object({ pagesToRemove: z.array(z.string()) }),
+});
+
+const UNREADABLE_PREVIEW = {
+  ok: false,
+  error: {
+    code: "request_failed",
+    detail: `${BUILDER_PREVIEW_MAP_RESOURCES_OP} answered no pagesToRemove`,
+  },
+} satisfies JsonValue;
+
+/**
+ * Asks the Builder which pages the mapping would remove, then asks the gate with them. The gate
+ * waits for the user only when there are some, and a denied mapping writes nothing.
+ */
+async function confirmedMapping(
+  client: BuilderClient,
+  gate: BuilderGate | undefined,
+  input: McpToolArgs<typeof MAP_RESOURCES_INPUT>,
+): Promise<McpToolResult> {
+  const answer = await client.call(BUILDER_PREVIEW_MAP_RESOURCES_OP, [input]);
+  const preview = PREVIEW_ANSWER.safeParse(answer);
+  if (!preview.success) {
+    const failed = OP_ANSWER.safeParse(answer).data?.ok === false;
+    return opResult(failed ? answer : UNREADABLE_PREVIEW);
+  }
+  if (gate) {
+    const decision = await gate(BUILDER_MAP_RESOURCES_TOOL_NAME, {
+      ...input,
+      [PAGES_TO_REMOVE_ARG]: preview.data.data.pagesToRemove,
+    });
+    if (!decision.isAllowed) {
+      return {
+        content: [{ type: "text", text: decision.message ?? "" }],
+        isError: true,
+      };
+    }
+  }
+  return opResult(await client.call("MapResources", [input]));
+}
+
+/** The project-config and mapping tools. The config tool asks the user itself, with its diff, and the mapping tool when it would remove a page. */
 export function buildProjectTools(
   client: BuilderClient,
   gate: BuilderGate | undefined,
@@ -335,7 +380,7 @@ export function buildProjectTools(
       BUILDER_MAP_RESOURCES_TOOL_NAME,
       MAP_RESOURCES_DESCRIPTION,
       MAP_RESOURCES_INPUT,
-      async (input) => opResult(await client.call("MapResources", [input])),
+      (input) => confirmedMapping(client, gate, input),
     ),
     defineTool(
       BUILDER_ANALYSE_DATABASE_TOOL_NAME,
