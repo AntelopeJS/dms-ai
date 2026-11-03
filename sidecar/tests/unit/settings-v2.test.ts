@@ -6,7 +6,7 @@ import {
   parseSettings,
 } from "../../src/state/settings-store.js";
 
-const SAVED_MODES = ["normal", "acceptEdits", "plan"] as const;
+const KEPT_LEGACY_MODES = ["acceptEdits", "plan"] as const;
 
 interface StoredFile {
   mode?: string;
@@ -53,12 +53,41 @@ describe("default mode per provider", () => {
     expect(storedModes({})).toEqual({ claude: "auto", codex: "normal" });
   });
 
-  it.each(SAVED_MODES)(
+  it.each(KEPT_LEGACY_MODES)(
     "keeps a mode saved before the default was per provider (%s) on both providers",
     (mode) => {
       expect(storedModes({ mode })).toEqual({ claude: mode, codex: mode });
     },
   );
+
+  it("reads a legacy normal, written back by every old settings save, as no mode chosen", () => {
+    expect(storedModes({ mode: "normal" })).toEqual({
+      claude: "auto",
+      codex: "normal",
+    });
+  });
+
+  it("keeps Ask first on Claude Code when a per-provider file chooses it", () => {
+    expect(storedModes({ defaultModes: { claude: "normal" } })).toEqual({
+      claude: "normal",
+      codex: "normal",
+    });
+  });
+
+  it("gives a file saved after the migration back unchanged, never flipping to the older value", () => {
+    const migrated = parseSettings(JSON.stringify({ mode: "normal" }));
+    const saved = JSON.stringify(migrated);
+    expect(JSON.parse(saved)).not.toHaveProperty("mode");
+    expect(parseSettings(saved)).toEqual(migrated);
+
+    const chosen = mergeSettings(migrated, {
+      defaultModes: { claude: "normal" },
+    });
+    expect(parseSettings(JSON.stringify(chosen)).defaultModes).toEqual({
+      claude: "normal",
+      codex: "normal",
+    });
+  });
 
   it("reads a stored global auto, the Full auto of an older version, as Ask first on both", () => {
     expect(storedModes({ mode: "auto" })).toEqual({
