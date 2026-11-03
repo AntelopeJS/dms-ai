@@ -12,6 +12,13 @@ covers:
   - src/pages/overview/status.ts
   - sidecar/src/index.ts
   - sidecar/src/server/idle-shutdown.ts
+  - sidecar/src/server/routing.ts
+  - sidecar/src/server/services.ts
+  - sidecar/src/state/sidecar-version.ts
+  - sidecar/src/server/http.ts
+  - sidecar/src/server/http-io.ts
+  - sidecar/src/server/http-params.ts
+  - sidecar/src/server/http-routes.ts
   - sidecar/src/state/lock.ts
 docs:
   - docs/2.installation.md

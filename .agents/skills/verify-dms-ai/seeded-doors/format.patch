@@ -1,0 +1,13 @@
+diff --git a/sidecar/src/state/settings-store.ts b/sidecar/src/state/settings-store.ts
+index 94f3189..f2a7c12 100644
+--- a/sidecar/src/state/settings-store.ts
++++ b/sidecar/src/state/settings-store.ts
+@@ -45,7 +45,7 @@ function lenient<T extends z.ZodType>(schema: T) {
+ const StoredSettingsSchema = z.object({
+   provider: lenient(z.enum(PROVIDER_NAMES)),
+   mode: lenient(z.enum(CHAT_MODES)),
+-  thinking: lenient(z.enum(THINKING_LEVELS)),
++  thinking: lenient(z.enum(THINKING_LEVELS)).transform(() => undefined),
+   claudeModel: lenient(z.string().trim().min(1)),
+   generationMode: lenient(z.enum(GENERATION_MODES)),
+   allowLocalSkills: lenient(z.boolean()),

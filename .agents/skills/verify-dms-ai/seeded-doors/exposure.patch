@@ -1,0 +1,12 @@
+diff --git a/src/routes/settings.ts b/src/routes/settings.ts
+index 80d7a01..58b7a62 100644
+--- a/src/routes/settings.ts
++++ b/src/routes/settings.ts
+@@ -49,7 +49,6 @@ function sidecarUpdate(body: SettingsBody): SettingsBody {
+  * refusal (400) or an unreachable sidecar (503) answers `{ message }`, so the
+  * form keeps the confirmed value and says "Not saved".
+  */
+-@AuthOwnerOnly()
+ export class AISettingsController extends Controller(ROUTE_PREFIX) {
+   @Get(SETTINGS_PATH)
+   getSettings(): Promise<SettingsBody | HTTPResult> {

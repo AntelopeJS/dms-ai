@@ -1,5 +1,6 @@
 import { guarded } from "../guard.mjs";
-import { ai, check, freshSidecar, list, pageHas, pick, same, selected, shownBy, text, until } from "../ai.mjs";
+import { writeFileSync } from "node:fs";
+import { ai, check, freshSidecar, list, pageHas, pick, same, selected, shownBy, sidecarPath, statusIs, stopBackend, text, until } from "../ai.mjs";
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
 
@@ -66,6 +67,25 @@ export const journeys = guarded([
       await ctx.restartBackend();
       await until(async () => text((await ai(ctx, "ready", "GET", "/status")).body, "status") === "ready", { timeoutMs: 60_000 });
       await ctx.verify("after a backend restart", [same("the same settings", picked(await settings(ctx, "read")), expected)]);
+    },
+  },
+  {
+    id: "a-stored-settings-file-is-read-back-by-the-next-start",
+    title: "a settings file left by an earlier run is read when the assistant starts: each field it holds is used, and a value or a key the file should not hold is ignored while the default stays",
+    entryPoint: "<project>/node_modules/.cache/dms-ai/settings.json, GET /ai/settings",
+    async run(/** @type {Ctx} */ ctx) {
+      await freshSidecar(ctx);
+      await stopBackend(ctx);
+      writeFileSync(sidecarPath(ctx, "settings.json"), JSON.stringify({ thinking: "high", mode: "acceptEdits", generationMode: "vibe", claudeModel: "claude-from-file", allowLocalSkills: true, requestTimeoutMinutes: 30, checkpointRetentionDays: 7, notifyRequests: false, provider: "nobody", alwaysAskDependencies: "yes", unknownKey: 1 }));
+      await ctx.restartBackend();
+      await statusIs(ctx, (status) => text(status, "status") === "ready", 60_000);
+      const body = await settings(ctx, "read what the file holds");
+      await ctx.verify("the file", [
+        same("the fields it holds", [pick(body, "thinking"), pick(body, "mode"), pick(body, "generationMode"), pick(body, "claudeModel"), pick(body, "allowLocalSkills"), pick(body, "requestTimeoutMinutes"), pick(body, "checkpointRetentionDays"), pick(body, "notifyRequests")], ["high", "acceptEdits", "vibe", "claude-from-file", true, "30", "7", false]),
+        same("an unknown provider keeps the default", pick(body, "provider"), "claude"),
+        same("a value of the wrong type keeps the default", pick(body, "alwaysAskDependencies"), true),
+        same("an unknown key is not served", pick(body, "unknownKey"), undefined),
+      ]);
     },
   },
   {

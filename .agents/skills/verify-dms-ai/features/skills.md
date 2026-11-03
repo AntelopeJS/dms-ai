@@ -1,6 +1,7 @@
 ---
 covers:
   - src/routes/skills.ts
+  - src/routes/list-query.ts
   - src/pages/skills/**
   - src/types/skills.ts
   - sidecar/src/skills/**

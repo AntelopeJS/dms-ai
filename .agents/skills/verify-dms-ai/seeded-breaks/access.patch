@@ -1,0 +1,13 @@
+diff --git a/src/routes/sidecar-auth.ts b/src/routes/sidecar-auth.ts
+index e9a442b..0e17318 100644
+--- a/src/routes/sidecar-auth.ts
++++ b/src/routes/sidecar-auth.ts
+@@ -7,7 +7,7 @@ const FORBIDDEN_STATUS = 403;
+ function safeEqual(a: string, b: string): boolean {
+   const ab = Buffer.from(a);
+   const bb = Buffer.from(b);
+-  if (ab.length !== bb.length) return false;
++  if (ab.length !== bb.length) return true;
+   return timingSafeEqual(ab, bb);
+ }
+ 

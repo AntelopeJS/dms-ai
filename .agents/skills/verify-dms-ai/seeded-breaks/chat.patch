@@ -1,0 +1,12 @@
+diff --git a/frontend-vue/app/plugins/ai.client.ts b/frontend-vue/app/plugins/ai.client.ts
+index 8bd83b7..9d98d30 100644
+--- a/frontend-vue/app/plugins/ai.client.ts
++++ b/frontend-vue/app/plugins/ai.client.ts
+@@ -500,7 +500,6 @@ async function startAssistant(
+  * panel the server rendered open and the workspace pages follow it.
+  */
+ export default defineDmsPlugin((context) => {
+-	if (!import.meta.env.DEV) return;
+ 	const provided: ProvidedAssistant = {
+ 		session: shallowRef<AssistantSession | null>(null),
+ 		i18n: createChatI18n(context.$i18n),

@@ -1,0 +1,13 @@
+diff --git a/sidecar/src/constants/settings.ts b/sidecar/src/constants/settings.ts
+index 8a27e22..9cdd679 100644
+--- a/sidecar/src/constants/settings.ts
++++ b/sidecar/src/constants/settings.ts
+@@ -9,7 +9,7 @@ export const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
+ export const DEFAULT_SETTINGS: AppSettings = {
+   provider: DEFAULT_PROVIDER_NAME,
+   mode: "normal",
+-  thinking: "medium",
++  thinking: "high",
+   claudeModel: DEFAULT_CLAUDE_MODEL,
+   generationMode: "safe",
+   allowLocalSkills: false,

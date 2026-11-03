@@ -6,6 +6,10 @@ covers:
   - src/constants/**
   - src/types/**
   - src/vocabulary/**
+  - src/pages/all.ts
+  - src/pages/index.ts
+  - src/pages/meta.ts
+  - src/pages/module.ts
 docs:
   - docs/1.introduction.md
 ---

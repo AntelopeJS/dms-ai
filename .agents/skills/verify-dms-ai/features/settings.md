@@ -18,6 +18,7 @@ The Settings page holds the defaults of new conversations. Each change saves as 
 
 - `the-defaults-are-the-documented-ones`: a new install answers the documented defaults and says what the install can do.
 - `every-setting-saves-alone-and-survives-a-restart`: each field saves on its own and survives a sidecar restart and a backend restart.
+- `a-stored-settings-file-is-read-back-by-the-next-start`: a settings file left by an earlier run is read when the assistant starts; wrong values and unknown keys are ignored.
 - `a-value-outside-the-options-is-refused-and-changes-nothing`: a value outside the options answers 400, nothing changes, an unknown field is ignored and the deletions switch cannot be turned off.
 - `the-page-saves-each-change-as-you-make-it`: a choice, a switch and a menu save at once and a reload shows them kept.
 - `the-page-disables-what-this-machine-cannot-do`: Codex, Full auto and Safe mode are disabled with their reason, and deletions are locked on.

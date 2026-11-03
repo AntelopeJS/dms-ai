@@ -385,7 +385,7 @@ export function bodyText(tab) {
 export async function pageHas(tab, name, pattern, want = true) {
   const found = await until(async () => pattern.test(await bodyText(tab)) === want, { timeoutMs: 20_000 });
   const body = await bodyText(tab);
-  return check(name, Boolean(found), body.replace(/\s+/g, " ").slice(0, 300));
+  return check(name, Boolean(found), body.replace(/\s+/g, " ").slice(0, 1800));
 }
 
 /**
@@ -399,4 +399,17 @@ export async function pageHas(tab, name, pattern, want = true) {
 export async function shownBy(tab, target, expected) {
   const found = await tab.locator(target).first().innerText({ timeout: 15_000 }).catch(() => "");
   return check(`${target.name} shows ${expected}`, found.trim() === expected, found.trim());
+}
+
+/**
+ * Stops the backend and its sidecar and waits until both are gone, so a journey can change the sidecar's folder.
+ *
+ * @param {Ctx} ctx The journey
+ * @returns {Promise<void>}
+ */
+export async function stopBackend(ctx) {
+  const backend = ctx.state.processes.find((entry) => entry.name === "backend");
+  const lock = sidecarLock(ctx);
+  if (backend && alive(backend.pid)) process.kill(backend.pid, "SIGTERM");
+  await until(() => !(backend && alive(backend.pid)) && !(lock && alive(lock.pid)), { timeoutMs: 30_000 });
 }
