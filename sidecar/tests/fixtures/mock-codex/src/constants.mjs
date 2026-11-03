@@ -39,6 +39,8 @@ export const GRANDCHILD_PID_FILE_ENV_VAR = "MOCK_CODEX_GRANDCHILD_PID_FILE";
 export const GRANDCHILD_COMMAND = "sleep";
 export const GRANDCHILD_ARGS = ["600"];
 
+export const ENV_DUMP_FILE_ENV_VAR = "MOCK_CODEX_ENV_DUMP_FILE";
+
 export const DEFAULT_VERSION = "9999.0.0";
 export const VERSION_ARGUMENT = "--version";
 export const VERSION_PREFIX = "codex-cli ";
