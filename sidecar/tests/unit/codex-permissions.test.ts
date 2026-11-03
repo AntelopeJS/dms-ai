@@ -18,6 +18,7 @@ afterAll(() => setBuilderAvailable(false));
 
 const CONVERSATION = "conv-perm";
 const ITEM_ID = "call_1";
+const PROJECT_ROOT = "/srv/app";
 const CHANGED_PATH = "/srv/app/src/page.ts";
 const COMMAND = "rm -rf build";
 const UNKNOWN_METHOD = "item/unknown/requestApproval";
@@ -51,6 +52,8 @@ function buildHandler(current: TurnSettings, outcome = APPROVED) {
     permissionBus: bus,
     getSettings: () => current,
     getChanges: changesOf,
+    hostProjectRoot: PROJECT_ROOT,
+    moduleRoots: [],
     onToolDecision: (decision) => decisions.push(decision),
   });
   return { handler, requestPermission, decisions };
@@ -159,6 +162,8 @@ describe("auto-decline modes", () => {
       permissionBus: bus,
       getSettings: () => current,
       getChanges: changesOf,
+      hostProjectRoot: PROJECT_ROOT,
+      moduleRoots: [],
     });
     await handler.handle(COMMAND_REQUEST);
     expect(requestPermission).not.toHaveBeenCalled();

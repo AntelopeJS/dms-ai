@@ -47,6 +47,16 @@ function suffixGlobs(stem: string): string[] {
   ];
 }
 
+/** True for a file name the secret file globs deny, in any letter case. */
+export function isSecretFileName(name: string): boolean {
+  const lower = name.toLowerCase();
+  if (lower === SECRET_FILE_NAME) return true;
+  return (
+    lower.startsWith(SECRET_FILE_NAME_PREFIX) &&
+    !SECRET_FILE_TEMPLATE_NAMES.has(lower)
+  );
+}
+
 /**
  * File-name globs, in the git-style syntax of Codex permission profiles, that
  * together match exactly the project's secret files: `.env` and `.env.*`

@@ -440,6 +440,8 @@ async function createProviderSession(
     permissionBus: ctx.permissionBus,
     getSettings: () => backendRef.current?.live.settings ?? ctx.settings,
     getChanges: (itemId) => adapter.getChanges(itemId),
+    hostProjectRoot: ctx.hostProjectRoot,
+    moduleRoots: options.moduleRoots ?? [],
     onToolDecision: ctx.onToolDecision,
     beforeMutation: ctx.beforeMutation,
   });

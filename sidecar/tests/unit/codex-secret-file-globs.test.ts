@@ -4,7 +4,10 @@ import {
   SECRET_FILE_NAME_PREFIX,
   SECRET_FILE_TEMPLATE_NAMES,
 } from "../../src/constants/project-secrets.js";
-import { SECRET_FILE_GLOBS } from "../../src/providers/codex/secret-file-globs.js";
+import {
+  isSecretFileName,
+  SECRET_FILE_GLOBS,
+} from "../../src/providers/codex/secret-file-globs.js";
 
 function isDenied(name: string): boolean {
   return SECRET_FILE_GLOBS.some((glob) => matchesGlob(name, glob));
@@ -59,5 +62,25 @@ describe("secret file globs", () => {
       (name) => !isDenied(name),
     );
     expect(missed).toEqual([]);
+  });
+
+  it("name the same files as isSecretFileName", () => {
+    const names = [
+      ".env",
+      ".ENV",
+      ".env.local",
+      ".Env.Local",
+      ".env.examples",
+      ".envrc",
+      "env",
+      "app.env",
+      ".env-local",
+      ...TEMPLATES,
+      ...TEMPLATES.flatMap(nearTemplates),
+    ];
+    const disagreeing = names.filter(
+      (name) => isSecretFileName(name) !== isDenied(name),
+    );
+    expect(disagreeing).toEqual([]);
   });
 });
