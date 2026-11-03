@@ -7,7 +7,7 @@
 <a href="https://discord.gg/g4pFt6eXqu"><img alt="Discord" src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000" data-illustration></a>
 <a href="https://dms.antelopejs.com/docs/modules/ai"><img alt="Documentation" src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000" data-illustration></a>
 
-**An AI development assistant inside the AntelopeJS DMS dashboard.**
+**An AI development assistant inside the [AntelopeJS DMS](https://github.com/AntelopeJS/dms) dashboard.**
 
 </div>
 
