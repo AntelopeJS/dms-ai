@@ -48,7 +48,9 @@ describe("createBuilderClient", () => {
       fetchImpl: answerAfter(BUILDER_FETCH_TIMEOUT_MS * 8),
       logger: { warn: () => {} },
     });
-    const pending = client.call("MapResources", [{}]);
+    const pending = client.call("MapResources", [
+      { module: "erp", connection: "erp", resources: [] },
+    ]);
     await vi.advanceTimersByTimeAsync(BUILDER_FETCH_TIMEOUT_MS * 8);
     expect(await pending).toMatchObject({ ok: true });
     expect(BUILDER_SLOW_OP_TIMEOUTS_MS.get("MapResources")).toBeGreaterThan(
