@@ -11,6 +11,8 @@ const SILENT_LOGGING = { Logging: { Info() {}, Warn() {}, Error() {} } };
  * sidecar that ignores SIGTERM would otherwise sit through all of it.
  */
 const TEST_STOP_TIMEOUT_MS = 500;
+/** The wait for a sidecar's lock, shortened for the case of one that never claims it. */
+const TEST_SPAWN_TIMEOUT_MS = 4000;
 
 /** Build id the launcher computes; a test changes it to simulate a rebuild. */
 const build = { id: "build-1" };
@@ -67,6 +69,7 @@ function loadLauncherGeneration() {
   installStubs();
   const constants = require("../../dist/constants/sidecar.js");
   constants.SIDECAR_STOP_TIMEOUT_MS = TEST_STOP_TIMEOUT_MS;
+  constants.SIDECAR_SPAWN_TIMEOUT_MS = TEST_SPAWN_TIMEOUT_MS;
   return require("../../dist/lifecycle/spawn-sidecar.js");
 }
 

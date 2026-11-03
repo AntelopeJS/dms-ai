@@ -10,7 +10,11 @@ const {
   FAKE_SIDECAR_PATH,
   loadLauncherGeneration,
 } = require("./helpers/sidecar-launcher.cjs");
-const { isZombie, readLockFile } = require("./helpers/process-state.cjs");
+const {
+  isZombie,
+  readLockFile,
+  readPidFile,
+} = require("./helpers/process-state.cjs");
 
 const SIDECAR_OWNER_KEY = Symbol.for("@antelopejs/dms-ai/sidecar-owner");
 const BACKEND_PATH = path.resolve(__dirname, "helpers/sidecar-backend.cjs");
@@ -18,6 +22,8 @@ const INITIAL_BUILD_ID = build.id;
 const REBUILT_BUILD_ID = "build-2";
 const WAIT_TIMEOUT_MS = 10_000;
 const WAIT_STEP_MS = 50;
+const ANSWER_WITHIN_MS = 2_500;
+const SPAWN_TIMEOUT_WITHIN_MS = 8_000;
 
 /** The sidecar works in the backend's working directory, where it keeps its lock. */
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "dms-ai-sidecar-"));
@@ -59,6 +65,62 @@ async function waitFor(check, label) {
     await delay(WAIT_STEP_MS);
   }
   assert.fail(`timed out waiting for ${label}`);
+}
+
+/**
+ * Runs `action` while `Date.now` answers one instant for good, as the demo's
+ * capture clock makes it, and puts the real clock back when it ends.
+ * @template T
+ * @param {() => Promise<T>} action
+ * @returns {Promise<T>}
+ */
+async function onFrozenClock(action) {
+  const realNow = Date.now;
+  const instant = realNow();
+  Date.now = () => instant;
+  try {
+    return await action();
+  } finally {
+    Date.now = realNow;
+  }
+}
+
+/**
+ * Fails instead of hanging when `work` outlasts `ms`, measured on a timer the
+ * frozen clock does not touch.
+ * @template T
+ * @param {Promise<T>} work
+ * @param {number} ms
+ * @param {string} label
+ * @returns {Promise<T>}
+ */
+function within(work, ms, label) {
+  /** @type {NodeJS.Timeout | undefined} */
+  let timer;
+  const expired = new Promise((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label} took more than ${ms}ms`)),
+      ms,
+    );
+  });
+  return Promise.race([work, expired]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * @param {"crash" | "silent"} mode
+ * @param {() => Promise<void>} action
+ */
+async function withFakeMode(mode, action) {
+  process.env.FAKE_SIDECAR_MODE = mode;
+  try {
+    await action();
+  } finally {
+    delete process.env.FAKE_SIDECAR_MODE;
+    const pidFile = path.join(root, "silent.pid");
+    const silentPid = readPidFile(pidFile);
+    if (silentPid !== null) track(silentPid);
+    fs.rmSync(pidFile, { force: true });
+  }
 }
 
 /** @param {number} pid */
@@ -191,4 +253,81 @@ void test("stopping the backend with Ctrl+C stops its sidecar", async () => {
   process.kill(-backendPid, "SIGINT");
   await waitFor(() => !isRunning(sidecarPid), "the sidecar to stop");
   assert.equal(readLock(), null);
+});
+
+void test("a sidecar that exits before it claims the lock is given up on, not waited for", async () => {
+  await withFakeMode("crash", async () => {
+    const launcher = loadLauncherGeneration();
+    await within(
+      launcher.spawnSidecar({ hostProjectRoot: root }),
+      ANSWER_WITHIN_MS,
+      "spawnSidecar",
+    );
+    await within(
+      launcher.ensureSidecarRunning(),
+      ANSWER_WITHIN_MS,
+      "ensureSidecarRunning",
+    );
+    assert.equal(launcher.isSidecarRunning(), false);
+    await waitFor(
+      () => launcher.hasSidecarGivenUp(),
+      "the crash budget to be spent",
+    );
+  });
+});
+
+void test("the wait for a sidecar that exits ends on a frozen clock too", async () => {
+  await withFakeMode("crash", async () => {
+    const launcher = loadLauncherGeneration();
+    await onFrozenClock(async () => {
+      await within(
+        launcher.spawnSidecar({ hostProjectRoot: root }),
+        ANSWER_WITHIN_MS,
+        "spawnSidecar",
+      );
+      await within(
+        launcher.ensureSidecarRunning(),
+        ANSWER_WITHIN_MS,
+        "ensureSidecarRunning",
+      );
+    });
+    assert.equal(launcher.isSidecarRunning(), false);
+    await waitFor(
+      () => launcher.hasSidecarGivenUp(),
+      "the crash budget to be spent",
+    );
+  });
+});
+
+void test("the wait for a sidecar that never claims the lock times out on a frozen clock", async () => {
+  await withFakeMode("silent", async () => {
+    const launcher = loadLauncherGeneration();
+    await onFrozenClock(() =>
+      within(
+        launcher.spawnSidecar({ hostProjectRoot: root }),
+        SPAWN_TIMEOUT_WITHIN_MS,
+        "spawnSidecar",
+      ),
+    );
+    assert.equal(launcher.isSidecarRunning(), false);
+  });
+});
+
+void test("a leftover sidecar that ignores SIGTERM is killed on a frozen clock too", async () => {
+  const leftoverPid = await startLeftover({
+    FAKE_SIDECAR_IGNORE_SHUTDOWN: "1",
+  });
+  const launcher = loadLauncherGeneration();
+  await onFrozenClock(() =>
+    within(
+      launcher.spawnSidecar({ hostProjectRoot: root }),
+      ANSWER_WITHIN_MS,
+      "spawnSidecar",
+    ),
+  );
+  const lock = readLock();
+  assert.ok(lock, "the new sidecar claimed the lock");
+  track(lock.pid);
+  assert.notEqual(lock.pid, leftoverPid);
+  assert.equal(isRunning(leftoverPid), false);
 });
