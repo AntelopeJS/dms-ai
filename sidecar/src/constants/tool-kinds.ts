@@ -147,7 +147,8 @@ type BuilderToolKind =
   | "change"
   | "deletion"
   | "blockRemoval"
-  | "asksAfterDryRun";
+  | "asksAfterDryRun"
+  | "asksWhenRemovingPages";
 
 const BUILDER_TOOL_KINDS = {
   BuilderCatalog: "read",
@@ -179,7 +180,7 @@ const BUILDER_TOOL_KINDS = {
   BuilderConfigureQuery: "change",
   BuilderRemoveQuery: "deletion",
   BuilderConfigureProject: "asksAfterDryRun",
-  BuilderMapResources: "change",
+  BuilderMapResources: "asksWhenRemovingPages",
   BuilderAnalyseDatabase: "read",
   BuilderMapping: "read",
 } as const satisfies Record<
@@ -195,6 +196,9 @@ export const BUILDER_READ_TOOL_NAMES = builderToolsOf("read");
 export const BUILDER_DESTRUCTIVE_TOOL_NAMES = builderToolsOf("deletion");
 export const BUILDER_BLOCK_REMOVAL_TOOL_NAMES = builderToolsOf("blockRemoval");
 export const BUILDER_CONFIG_TOOL_NAMES = builderToolsOf("asksAfterDryRun");
+export const BUILDER_PAGE_REMOVING_TOOL_NAMES = builderToolsOf(
+  "asksWhenRemovingPages",
+);
 
 export const BUILDER_DELETE_RESOURCE_TOOL_NAME = "BuilderDeleteResource";
 

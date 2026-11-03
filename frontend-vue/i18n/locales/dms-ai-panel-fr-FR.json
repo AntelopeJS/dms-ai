@@ -237,7 +237,8 @@
 					"delete_table": "Supprimer la table {target}",
 					"remove_field": "Retirer le champ {target}",
 					"delete_category": "Supprimer la catégorie {target}",
-					"remove_query": "Retirer la requête {target}"
+					"remove_query": "Retirer la requête {target}",
+					"map_resources": "Mapper les tables et retirer les pages {target}"
 				},
 				"consequence_deletes_data": "Retire le code et ses données",
 				"consequence_removes_code": "Retire le code · annulable"

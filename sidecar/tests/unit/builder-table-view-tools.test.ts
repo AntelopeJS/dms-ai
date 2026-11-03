@@ -41,6 +41,9 @@ function startServer(gate?: BuilderGate, answer?: JsonValue) {
     builderClient: {
       call: async (op, args) => {
         calls.push({ op, args });
+        if (op === "PreviewMapResources") {
+          return { ok: true, data: { pagesToRemove: [] }, changes: [] };
+        }
         return answer ?? { ok: true, data: { path: PAGE }, changes: [] };
       },
     },
@@ -226,11 +229,19 @@ describe("BuilderMapResources", () => {
       resources: [resource],
     });
     expect(result.isError).toBeFalsy();
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toEqual({
+    expect(calls.map((call) => call.op)).toEqual([
+      "PreviewMapResources",
+      "MapResources",
+    ]);
+    expect(calls[1]).toEqual({
       op: "MapResources",
       args: [
-        { module: "shop-tables", connection: "shop", resources: [resource] },
+        {
+          module: "shop-tables",
+          connection: "shop",
+          resources: [resource],
+          approvedPageRemovals: [],
+        },
       ],
     });
   });
@@ -250,10 +261,15 @@ describe("BuilderMapResources relation columns", () => {
       resources: [orders],
     });
     expect(result.isError).toBeFalsy();
-    expect(calls[0]).toEqual({
+    expect(calls.at(-1)).toEqual({
       op: "MapResources",
       args: [
-        { module: "shop-tables", connection: "shop", resources: [orders] },
+        {
+          module: "shop-tables",
+          connection: "shop",
+          resources: [orders],
+          approvedPageRemovals: [],
+        },
       ],
     });
   });

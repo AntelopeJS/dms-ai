@@ -54,19 +54,30 @@ const OP_NAMES = [
   "ConfigureModule",
   "CreateLocalModule",
   "MapResources",
+  "PreviewMapResources",
   "AnalyseDatabase",
   "GetAnalysis",
   "GetMapping",
 ] as const;
 
-type OpName = (typeof OP_NAMES)[number];
+/** The operations every Builder interface version exports, whose results type the answers. */
+type ReleasedOpName = Exclude<(typeof OP_NAMES)[number], "PreviewMapResources">;
 
 /** What the Builder operations answer, as the union of their results. */
-type BuilderResult = Awaited<ReturnType<(typeof Builder)[OpName]>>;
+type BuilderResult = Awaited<ReturnType<(typeof Builder)[ReleasedOpName]>>;
 type BuilderOp = (...args: unknown[]) => Promise<BuilderResult>;
 
-const OPS: Record<string, BuilderOp> = Object.fromEntries(
-  OP_NAMES.map((name) => [name, Builder[name] as BuilderOp]),
+const BUILDER_EXPORTS = new Map<string, unknown>(Object.entries(Builder));
+
+/**
+ * The operations the installed interface exports. Read by name, so an interface older than
+ * `PreviewMapResources` leaves that name out and the route answers `unknown_op` for it.
+ */
+const OPS = new Map<string, BuilderOp>(
+  OP_NAMES.flatMap((name) => {
+    const op = BUILDER_EXPORTS.get(name);
+    return op ? [[name, op as BuilderOp] as const] : [];
+  }),
 );
 
 interface BuilderOpBody {
@@ -83,7 +94,7 @@ export class AIBuilderController extends Controller(ROUTE_PREFIX) {
     if (!isSidecarRequest(token)) {
       return sidecarForbidden();
     }
-    const fn = body?.op ? OPS[body.op] : undefined;
+    const fn = body?.op ? OPS.get(body.op) : undefined;
     if (!fn) {
       return new HTTPResult(HTTP_BAD_REQUEST, {
         error: "unknown_op",

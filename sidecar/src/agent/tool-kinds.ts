@@ -1,5 +1,9 @@
+import { z } from "zod";
 import type { PermissionKind, ToolSource } from "../constants/audit.js";
-import { BUILDER_TOOL_NAMES } from "../constants/builder.js";
+import {
+  BUILDER_TOOL_NAMES,
+  PAGES_TO_REMOVE_ARG,
+} from "../constants/builder.js";
 import { MCP_TOOL_NAME_PREFIX } from "../constants/mcp.js";
 import {
   ASSISTANT_TOOL_NAMES,
@@ -7,6 +11,7 @@ import {
   BUILDER_CONFIG_TOOL_NAMES,
   BUILDER_DESTRUCTIVE_TOOL_NAMES,
   BUILDER_MUTATING_TOOL_NAMES,
+  BUILDER_PAGE_REMOVING_TOOL_NAMES,
   BUILDER_READ_TOOL_NAMES,
   BUILTIN_READ_TOOL_NAMES,
   BUILTIN_TOOL_REACH,
@@ -16,6 +21,7 @@ import {
   type ToolReach,
   WEB_TOOL_NAMES,
 } from "../constants/tool-kinds.js";
+import type { ToolArgs } from "./edit-targets.js";
 
 const REACH_BY_BUILTIN_TOOL: ReadonlyMap<string, ToolReach> = new Map(
   Object.entries(BUILTIN_TOOL_REACH),
@@ -48,6 +54,31 @@ export const isDestructiveBuilderTool = isIn(BUILDER_DESTRUCTIVE_TOOL_NAMES);
 export const isBlockRemovalTool = isIn(BUILDER_BLOCK_REMOVAL_TOOL_NAMES);
 export const isMutatingBuilderTool = isIn(BUILDER_MUTATING_TOOL_NAMES);
 export const isConfigBuilderTool = isIn(BUILDER_CONFIG_TOOL_NAMES);
+export const isPageRemovingBuilderTool = isIn(BUILDER_PAGE_REMOVING_TOOL_NAMES);
+
+const PagesToRemoveArgsSchema = z.object({
+  [PAGES_TO_REMOVE_ARG]: z.array(z.string()),
+});
+
+/** The pages a mapping's preview found it would remove, as the handler hands them to the gate. */
+export function pagesToRemoveOf(args: ToolArgs): string[] {
+  return PagesToRemoveArgsSchema.safeParse(args).data?.pagesToRemove ?? [];
+}
+
+/**
+ * Whether a Builder call waits for the person whatever the mode: deletions, project
+ * configuration, and a mapping whose preview found a page to remove.
+ */
+export function asksBeforeBuilderCall(
+  toolName: string,
+  args: ToolArgs,
+): boolean {
+  if (isDestructiveBuilderTool(toolName)) return true;
+  if (isConfigBuilderTool(toolName)) return true;
+  return (
+    isPageRemovingBuilderTool(toolName) && pagesToRemoveOf(args).length > 0
+  );
+}
 
 const READ_ONLY_TOOL_NAMES: readonly string[] = [
   ...BUILTIN_READ_TOOL_NAMES,

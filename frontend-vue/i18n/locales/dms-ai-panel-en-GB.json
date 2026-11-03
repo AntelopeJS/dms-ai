@@ -237,7 +237,8 @@
 					"delete_table": "Delete the table {target}",
 					"remove_field": "Remove the field {target}",
 					"delete_category": "Delete the category {target}",
-					"remove_query": "Remove the query {target}"
+					"remove_query": "Remove the query {target}",
+					"map_resources": "Map the tables and remove the pages {target}"
 				},
 				"consequence_deletes_data": "Removes the code and its data",
 				"consequence_removes_code": "Removes the code · undoable"

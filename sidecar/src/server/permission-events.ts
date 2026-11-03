@@ -12,9 +12,8 @@ import type {
   QuestionReply,
 } from "../agent/question-bus.js";
 import {
+  asksBeforeBuilderCall,
   isBlockRemovalTool,
-  isConfigBuilderTool,
-  isDestructiveBuilderTool,
 } from "../agent/tool-kinds.js";
 import { MS_PER_MINUTE } from "../constants/settings.js";
 import { PERMISSION_SETTLEMENTS } from "../constants/permissions.js";
@@ -235,9 +234,12 @@ export function onQuestionExpired(
   });
 }
 
-function needsUser(services: SidecarServices, toolName: string): boolean {
-  if (isDestructiveBuilderTool(toolName)) return true;
-  if (isConfigBuilderTool(toolName)) return true;
+function needsUser(
+  services: SidecarServices,
+  toolName: string,
+  args: Parameters<BuilderGate>[1],
+): boolean {
+  if (asksBeforeBuilderCall(toolName, args)) return true;
   return (
     services.settingsStore.get().alwaysAskBlockRemoval &&
     isBlockRemovalTool(toolName)
@@ -246,8 +248,8 @@ function needsUser(services: SidecarServices, toolName: string): boolean {
 
 /**
  * The Builder gate of one conversation: every mutating operation waits for
- * the turn's checkpoint, and deletions (plus block removals, by setting) wait
- * for the user through the permission bus.
+ * the turn's checkpoint, and deletions (plus block removals, by setting, and
+ * a mapping that removes a page) wait for the user through the permission bus.
  */
 export function buildBuilderGate(
   services: SidecarServices,
@@ -255,7 +257,7 @@ export function buildBuilderGate(
 ): BuilderGate {
   return async (toolName, args) => {
     await services.turns.get(conversationId)?.checkpoint.ready();
-    if (!needsUser(services, toolName)) return ALLOWED;
+    if (!needsUser(services, toolName, args)) return ALLOWED;
     const outcome = await services.permissionBus.requestPermission({
       conversationId,
       toolName,

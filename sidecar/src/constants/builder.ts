@@ -1,5 +1,7 @@
 export const SIDECAR_BUILDER_FLAG = "--builder-enabled";
 export const BUILDER_OP_PATH = "/ai/builder/op";
+/** What the backend route answers for an operation the installed Builder interface does not export. */
+export const BUILDER_UNKNOWN_OP = "unknown_op";
 export const BUILDER_FETCH_TIMEOUT_MS = 15_000;
 
 /**
@@ -56,6 +58,10 @@ export const BUILDER_TOOL_NAMES = [
 
 export const BUILDER_CONFIGURE_PROJECT_TOOL_NAME = "BuilderConfigureProject";
 export const BUILDER_MAP_RESOURCES_TOOL_NAME = "BuilderMapResources";
+/** The Builder operation that answers which pages a mapping would remove, writing nothing. */
+export const BUILDER_PREVIEW_MAP_RESOURCES_OP = "PreviewMapResources";
+/** The key the gate reads the pages a mapping would remove from, for the approval card. */
+export const PAGES_TO_REMOVE_ARG = "pagesToRemove";
 export const BUILDER_ANALYSE_DATABASE_TOOL_NAME = "BuilderAnalyseDatabase";
 export const BUILDER_MAPPING_TOOL_NAME = "BuilderMapping";
 /** How long BuilderAnalyseDatabase waits for the analysis before answering its progress. */
