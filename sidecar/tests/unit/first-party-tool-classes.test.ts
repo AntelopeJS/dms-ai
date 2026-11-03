@@ -24,7 +24,6 @@ function isAskedInEveryMode(name: string): boolean {
     hostProjectRoot: "/work/app",
     alwaysAskDependencies: false,
     alwaysAskBlockRemoval: true,
-    isAutoReview: true,
   });
 }
 

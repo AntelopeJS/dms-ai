@@ -26,9 +26,8 @@ const PERMISSION_MODE_BY_MODE: Record<ChatMode, PermissionMode> = {
 
 /**
  * The SDK permission mode these settings put a session in. Never
- * `bypassPermissions`: in that mode the CLI approves every tool call itself and
- * never asks `canUseTool`, so Full auto runs in `default` and lets the
- * permission bus answer (see agent/effective-mode.ts).
+ * `bypassPermissions`, in which the CLI approves every tool call itself and
+ * never asks `canUseTool`.
  *
  * `auto` is asked for, not granted: the CLI alone knows whether this model,
  * account, its settings and its own circuit breaker allow Auto review, and it

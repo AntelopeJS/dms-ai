@@ -2,17 +2,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { conversationSettings } from "../../src/agent/effective-mode.js";
 import type {
   PendingRequest,
   PermissionPolicy,
 } from "../../src/agent/permission-bus.js";
 import type { ToolDecision } from "../../src/agent/provider.js";
-import {
-  type AgentRunner,
-  type ConversationSettingsResolver,
-  createAgentRunner,
-} from "../../src/agent/runner.js";
+import { type AgentRunner, createAgentRunner } from "../../src/agent/runner.js";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
 import { MCP_TOOL_NAME_PREFIX } from "../../src/constants/mcp.js";
@@ -51,7 +46,6 @@ interface TurnOptions {
   settings?: Partial<AppSettings>;
   policy?: Partial<PermissionPolicy>;
   answer?: PermissionDecisionValue;
-  resolveSettings?: ConversationSettingsResolver;
 }
 
 interface Turn {
@@ -62,7 +56,7 @@ interface Turn {
   sessionMode: string | undefined;
 }
 
-describe("Auto review on the Claude provider", () => {
+describe("the permission modes on the Claude provider", () => {
   let dir: string;
   let traceFile: string;
   let runner: AgentRunner | undefined;
@@ -100,14 +94,14 @@ describe("Auto review on the Claude provider", () => {
     };
     runner = createAgentRunner(
       createClaudeProvider({ timeoutMs: TURN_TIMEOUT_MS }),
-      { settings, resolveSettings: options.resolveSettings },
+      { settings },
     );
     const prompts: PendingRequest[] = [];
     const decisions: ToolDecision[] = [];
     const announced: string[] = [];
     const { bus } = createTestBus({
       timeoutMs: PROMPT_TIMEOUT_MS,
-      policy: { hostProjectRoot: dir, isAutoReview: true, ...options.policy },
+      policy: { hostProjectRoot: dir, ...options.policy },
       extra: {
         onPromptChat: (request) => {
           prompts.push(request);
@@ -164,6 +158,78 @@ describe("Auto review on the Claude provider", () => {
       );
       expect(turn.prompts.map((p) => p.alwaysAsk)).toEqual([false]);
       expect(turn.tools).toMatchObject([ASKED]);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "asks before every command in Ask first, read-only ones included",
+    async () => {
+      const turn = await runTurn(
+        [
+          { id: "read", name: "Bash", input: { command: "cat package.json" } },
+          { id: "list", name: "Bash", input: { command: "ls -la" } },
+        ],
+        { settings: { defaultModes: { claude: "normal", codex: "normal" } } },
+      );
+      expect(turn.sessionMode).toBe("default");
+      expect(turn.prompts.map((p) => p.callId)).toEqual(["read", "list"]);
+      expect(turn.tools).toMatchObject([ASKED, ASKED]);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "asks before every command and the always-ask files in Accept edits, and applies other edits",
+    async () => {
+      const turn = await runTurn(
+        [
+          { id: "touch", name: "Bash", input: { command: "touch b.txt" } },
+          { id: "edit", name: "Write", input: { file_path: "src/a.ts" } },
+          {
+            id: "manifest",
+            name: "Write",
+            input: { file_path: "package.json" },
+          },
+          {
+            id: "hook",
+            name: "Write",
+            input: { file_path: ".git/hooks/pre-commit" },
+          },
+        ],
+        {
+          settings: {
+            defaultModes: { claude: "acceptEdits", codex: "acceptEdits" },
+          },
+        },
+      );
+      expect(turn.sessionMode).toBe("acceptEdits");
+      expect(turn.prompts.map((p) => [p.callId, p.alwaysAsk])).toEqual([
+        ["touch", false],
+        ["manifest", true],
+        ["hook", true],
+      ]);
+      expect(turn.tools).toMatchObject([ASKED, UNREVIEWED, ASKED, ASKED]);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "asks before an edit of a git hook file under Auto review",
+    async () => {
+      const turn = await runTurn([
+        {
+          id: "hook",
+          name: "Write",
+          input: { file_path: ".husky/pre-commit" },
+        },
+        { id: "manager", name: "Write", input: { file_path: "lefthook.yml" } },
+      ]);
+      expect(turn.prompts.map((p) => [p.callId, p.alwaysAsk])).toEqual([
+        ["hook", true],
+        ["manager", true],
+      ]);
+      expect(turn.tools).toMatchObject([ASKED, ASKED]);
     },
     TEST_TIMEOUT_MS,
   );
@@ -447,31 +513,6 @@ describe("Auto review on the Claude provider", () => {
         "auto_denied",
       ]);
       expect(turn.decisions.at(-1)).toMatchObject({ callId: "risky" });
-    },
-    TEST_TIMEOUT_MS,
-  );
-
-  it(
-    "under Full auto, lets the bus answer and still asks before a dependency change",
-    async () => {
-      const turn = await runTurn(
-        [
-          { id: "plain", name: "Bash", input: PLAIN_COMMAND },
-          { id: "dep", name: "Bash", input: DEPENDENCY_CHANGE },
-        ],
-        {
-          policy: { isFullAuto: true, isAutoReview: false },
-          resolveSettings: (_id, global) =>
-            conversationSettings(global, {
-              mode: "auto",
-              generationMode: "vibe",
-              fullAuto: { duration: "chat" },
-            }),
-        },
-      );
-      expect(turn.sessionMode).toBe("default");
-      expect(turn.prompts.map((p) => p.callId)).toEqual(["dep"]);
-      expect(turn.tools).toMatchObject([ASKED, ASKED]);
     },
     TEST_TIMEOUT_MS,
   );

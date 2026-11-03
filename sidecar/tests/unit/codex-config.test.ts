@@ -63,7 +63,7 @@ describe("mode mapping", () => {
     ).toBe(false);
   });
 
-  it("never grants full access: Full auto runs as normal, the bus answering", () => {
+  it("never grants full access in any mode", () => {
     for (const mode of CHAT_MODES) {
       const overrides = buildTurnOverrides(settings({ mode }), WORKSPACE);
       expect(overrides.approvalPolicy).toBe("on-request");

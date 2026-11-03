@@ -292,15 +292,7 @@ const handleSetConversationMode = on(
     ctx.conversationModes.update(msg.conversationId, {
       mode: msg.mode,
       generationMode: msg.generationMode,
-      fullAuto: msg.fullAuto,
     });
-  },
-);
-
-const handleLeaveConversation = on(
-  MESSAGE_TYPES.LEAVE_CONVERSATION,
-  (_s, msg, ctx) => {
-    ctx.conversationModes.leave(msg.conversationId);
   },
 );
 
@@ -428,7 +420,6 @@ const MESSAGE_HANDLERS = {
   [MESSAGE_TYPES.INTERRUPT_TURN]: handleInterruptTurn,
   [MESSAGE_TYPES.STOP_AUTOFIX]: handleStopAutoFix,
   [MESSAGE_TYPES.SET_CONVERSATION_MODE]: handleSetConversationMode,
-  [MESSAGE_TYPES.LEAVE_CONVERSATION]: handleLeaveConversation,
   [MESSAGE_TYPES.HOST_STATE_UPDATE]: handleHostStateUpdate,
   [MESSAGE_TYPES.HOST_NAVIGATION_COMPLETE]: handleHostNavigationComplete,
   [MESSAGE_TYPES.HOST_PAGE_BLOCKS]: handleHostPageBlocks,

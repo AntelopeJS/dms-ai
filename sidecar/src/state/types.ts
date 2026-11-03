@@ -2,7 +2,6 @@ import type {
   AllowedBy,
   ChangeFileStatus,
   ChangeSetState,
-  FullAutoDuration,
   PermissionKind,
   ToolOutcome,
   TypecheckOutcome,
@@ -18,7 +17,7 @@ import type { ChatMode, GenerationMode } from "./settings-types.js";
  *   permission bridge, independent of the tool_use/tool_result pair, so
  *   approve/deny rates can be derived.
  * - `notice` is something the sidecar did or saw on the user's behalf (an
- *   auto-fix turn, an expired request, a skipped question, Full auto ending),
+ *   auto-fix turn, an expired request, a skipped question),
  *   shown in the transcript as a notice rather than a user message.
  * - `change_set` is the change set a turn produced, by id; the summary travels
  *   separately.
@@ -85,6 +84,7 @@ export interface QuestionSkippedNotice {
   timestampMs: number;
 }
 
+/** Appears only in transcripts written by versions that had Full auto. */
 export interface FullAutoEndedNotice {
   kind: "full_auto_ended";
   timestampMs: number;
@@ -231,11 +231,6 @@ export interface ConversationSummary extends StoredConversationSummary {
   pendingApprovals: number;
   pendingQuestions: number;
   generationMode: GenerationMode;
-}
-
-export interface FullAutoState {
-  duration: FullAutoDuration;
-  untilMs?: number;
 }
 
 export interface ChangeSetFile {

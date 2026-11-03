@@ -1,8 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
-import { basename, dirname } from "node:path";
+import { dirname } from "node:path";
 import { z } from "zod";
 import type { PermissionKind } from "../constants/audit.js";
-import { DEPENDENCY_FILE_NAMES } from "../constants/permissions.js";
 import { BUILDER_DELETE_RESOURCE_TOOL_NAME } from "../constants/tool-kinds.js";
 import type {
   CommandPreviewType,
@@ -23,6 +22,7 @@ import {
   type ToolArgs,
   ToolArgsSchema,
 } from "./edit-targets.js";
+import { isDependencyFile, isGitHookFile } from "./always-ask-files.js";
 import { type DiffStats, diffTexts, parseUnifiedDiff } from "./line-diff.js";
 import {
   bareToolName,
@@ -68,7 +68,6 @@ export interface DescribeOptions {
   hostProjectRoot: string;
   alwaysAskDependencies: boolean;
   alwaysAskBlockRemoval: boolean;
-  isAutoReview: boolean;
 }
 
 interface ParsedOptions extends Omit<DescribeOptions, "args"> {
@@ -324,28 +323,36 @@ const PREVIEW_BY_KIND: Record<PermissionKind, PreviewBuilder> = {
   other: async (options) => genericPreview(options),
 };
 
-function editsDependencyFile(options: ParsedOptions): boolean {
-  if (!isEditTool(options.toolName)) return false;
-  return editTargetPaths(options.args).some((target) => {
-    const path = resolveInProject(options.hostProjectRoot, target);
-    return DEPENDENCY_FILE_NAMES.has(basename(path).toLowerCase());
-  });
+function editedPaths(options: ParsedOptions): string[] {
+  if (!isEditTool(options.toolName)) return [];
+  return editTargetPaths(options.args).map((target) =>
+    resolveInProject(options.hostProjectRoot, target),
+  );
 }
 
 function isDependencyChange(options: ParsedOptions): boolean {
   if (isBashTool(options.toolName)) {
     return detectDependencyChange(readString(options.args, "command")) !== null;
   }
-  return options.isAutoReview && editsDependencyFile(options);
+  return editedPaths(options).some(isDependencyFile);
 }
 
+/**
+ * Whether a request asks the person in every mode and offers no rule: a
+ * deletion or project-config change through the Builder, an edit of a file
+ * that makes git run code, and, while their settings are on, a block removal
+ * and a dependency change by command or by editing a dependency file.
+ */
 export function isAlwaysAsk(options: ParsedOptions): boolean {
   if (isDestructiveBuilderTool(options.toolName)) return true;
   if (isConfigBuilderTool(options.toolName)) return true;
   if (options.alwaysAskBlockRemoval && isBlockRemovalTool(options.toolName)) {
     return true;
   }
-  return options.alwaysAskDependencies && isDependencyChange(options);
+  return (
+    editedPaths(options).some(isGitHookFile) ||
+    (options.alwaysAskDependencies && isDependencyChange(options))
+  );
 }
 
 function editRuleOptions(options: ParsedOptions): PermissionRuleType[] {

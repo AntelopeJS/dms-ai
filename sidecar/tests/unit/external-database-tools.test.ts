@@ -72,7 +72,6 @@ describe("the external-database tools", () => {
       hostProjectRoot: ROOT,
       alwaysAskDependencies: false,
       alwaysAskBlockRemoval: false,
-      isAutoReview: false,
     });
     expect(description.alwaysAsk).toBe(true);
     expect(description.ruleOptions).toEqual([]);
@@ -107,7 +106,6 @@ describe("the external-database tools", () => {
       hostProjectRoot: ROOT,
       alwaysAskDependencies: false,
       alwaysAskBlockRemoval: false,
-      isAutoReview: false,
     });
     expect(description.preview).toMatchObject({ added: 3, removed: 0 });
     const lines =

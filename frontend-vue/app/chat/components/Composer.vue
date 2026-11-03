@@ -11,7 +11,6 @@ import type { CurrentPage } from "../types/conversation";
 import type {
 	ApprovalMode,
 	ConversationModeState,
-	FullAutoDuration,
 	ProviderName,
 	Scope,
 } from "../types/protocol";
@@ -22,7 +21,6 @@ import {
 } from "../utils/attachments";
 import { shortcutLabel } from "../utils/platform";
 import { pageChipLabel } from "../utils/suggestions";
-import FullAutoDialog from "./FullAutoDialog.vue";
 
 interface Props {
 	isDisabled: boolean;
@@ -45,7 +43,6 @@ interface Emits {
 	stop: [];
 	setScope: [scope: Scope];
 	setMode: [mode: ApprovalMode];
-	startFullAuto: [duration: FullAutoDuration];
 	openSettings: [];
 }
 
@@ -92,7 +89,6 @@ const historyKbd = shortcutLabel(HISTORY_KEY);
 
 const draft = ref("");
 const isPageIncluded = ref(true);
-const isFullAutoOpen = ref(false);
 const isFocused = ref(false);
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -107,7 +103,6 @@ const isSendDisabled = computed(
 const modeLook = computed(
 	() => MODE_LOOKS[props.mode.mode] ?? MODE_LOOKS.normal,
 );
-const isFullAuto = computed(() => props.mode.fullAuto !== null);
 
 watch(
 	() => props.page?.path,
@@ -137,20 +132,9 @@ const modeItems = computed(() => [
 		description: t(MODE_LOOKS[mode].descriptionKey),
 		icon: MODE_LOOKS[mode].icon,
 		type: "checkbox" as const,
-		checked: !isFullAuto.value && props.mode.mode === mode,
+		checked: props.mode.mode === mode,
 		onSelect: (): void => emit("setMode", mode),
 	})),
-	[
-		{
-			label: t("dms_ai.panel.composer.full_auto_item"),
-			description: t("dms_ai.panel.composer.mode_desc.full_auto"),
-			icon: "i-ph-lightning",
-			color: "error" as const,
-			onSelect: (): void => {
-				isFullAutoOpen.value = true;
-			},
-		},
-	],
 	[
 		{
 			label: t("dms_ai.panel.composer.default_mode"),
@@ -317,17 +301,9 @@ defineExpose({
 					:items="modeItems"
 					:content="{ side: 'top', align: 'start' }"
 				>
-					<button
-						type="button"
-						class="cb-mode-btn"
-						:class="{ 'is-danger': isFullAuto }"
-					>
-						<UIcon :name="isFullAuto ? 'i-ph-lightning' : modeLook.icon" />
-						{{
-							isFullAuto
-								? t("dms_ai.common.mode.full_auto")
-								: t(modeLook.labelKey)
-						}}
+					<button type="button" class="cb-mode-btn">
+						<UIcon :name="modeLook.icon" />
+						{{ t(modeLook.labelKey) }}
 						<UIcon name="i-ph-caret-down" />
 					</button>
 				</UDropdownMenu>
@@ -397,10 +373,6 @@ defineExpose({
 			</span>
 			<span class="cb-composer__usage">{{ usageLabel }}</span>
 		</div>
-		<FullAutoDialog
-			v-model:open="isFullAutoOpen"
-			@confirm="(duration) => emit('startFullAuto', duration)"
-		/>
 	</form>
 </template>
 
@@ -563,12 +535,6 @@ defineExpose({
 
 .cb-mode-btn.is-safe {
 	color: var(--ui-success);
-}
-
-.cb-mode-btn.is-danger {
-	border-color: var(--dms-error-line);
-	background: var(--dms-error-tint);
-	color: var(--ui-error);
 }
 
 .cb-composer__file {

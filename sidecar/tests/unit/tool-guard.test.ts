@@ -7,6 +7,7 @@ import { setBuilderAvailable } from "../../src/builder/capability.js";
 import { MCP_TOOL_NAME_PREFIX } from "../../src/constants/mcp.js";
 import { buildSafeModeHooks } from "../../src/providers/claude/safe-mode.js";
 import type {
+  AppSettings,
   ChatMode,
   GenerationMode,
 } from "../../src/state/settings-types.js";
@@ -59,6 +60,64 @@ const INSTALL_HOOK_FILES: Call[] = [
   "bunfig.toml",
 ].map((file) => call("Write", { file_path: join(ROOT, file), content: "" }));
 
+const write = (path: string): Call =>
+  call("Write", { file_path: path, content: "" });
+
+const COMMANDS: Call[] = [
+  call("Bash", { command: "cat package.json" }),
+  call("Bash", { command: "ls -la" }),
+  call("Bash", { command: "touch b.txt" }),
+  call("Monitor", {
+    command: "tail -f log",
+    description: "log",
+    timeout_ms: 1,
+  }),
+  call("PowerShell", { command: "Get-ChildItem" }),
+  call("LSP", { operation: "hover", filePath: join(ROOT, "a.ts") }),
+];
+
+const GIT_HOOK_FILES: Call[] = [
+  write(join(ROOT, ".git", "hooks", "pre-commit")),
+  write(".git/hooks/pre-push"),
+  write(join(ROOT, "src", "..", ".git", "hooks", "commit-msg")),
+  write(join(ROOT, ".GIT", "Hooks", "pre-commit")),
+  write("/elsewhere/repo/.git/hooks/post-checkout"),
+  write(join(ROOT, ".git", "modules", "sub", "hooks", "pre-commit")),
+  write(join(ROOT, ".git", "modules", "sub", "config")),
+  write(join(ROOT, ".git", "worktrees", "w", "config.worktree")),
+  write(join(ROOT, "vendor", "x", ".git", "hooks", "h")),
+  write("src/../vendor/../.git/modules/sub/hooks/pre-commit"),
+  call("Edit", {
+    file_path: join(ROOT, ".git", "config"),
+    old_string: "a",
+    new_string: "b",
+  }),
+  write(join(ROOT, ".husky", "pre-commit")),
+  write(join(ROOT, ".husky", "_", "husky.sh")),
+  write(join(ROOT, "lefthook.yml")),
+  write(join(ROOT, ".lefthook-local.yaml")),
+  write(join(ROOT, ".pre-commit-config.yaml")),
+];
+
+const DEPENDENCY_FILES: Call[] = [
+  write(join(ROOT, "package.json")),
+  write("src/../PACKAGE.JSON"),
+  write(join(ROOT, "pnpm-lock.yaml")),
+];
+
+const LEFT_TO_THE_CLI: Call[] = [
+  write(join(ROOT, "src", "a.ts")),
+  write(join(ROOT, "src", "hooks", "pre-commit.ts")),
+  write(join(ROOT, ".github", "workflows", "config")),
+  write(join(ROOT, ".gitignore")),
+  write(join(ROOT, "src", ".github", "config")),
+  write(join(ROOT, "my-lefthook.yml")),
+  call("Read", { file_path: join(ROOT, "package.json") }),
+  call("WebFetch", { url: "https://example.com", prompt: "read" }),
+  call("CronCreate", { cron: "* * * * *", prompt: "hi" }),
+  call("ToolSearch", { query: "select:Monitor" }),
+];
+
 const SAFE_SCOPE_CALLS: Call[] = [
   call("Read", { file_path: join(ROOT, "a.ts") }),
   call("WebFetch", { url: "https://example.com", prompt: "read" }),
@@ -74,9 +133,15 @@ async function decide(
   { name, input }: Call,
   mode: ChatMode,
   generationMode: GenerationMode,
+  settings: Partial<AppSettings> = {},
 ): Promise<string> {
   const hooks = buildSafeModeHooks({
-    getSettings: () => ({ ...TURN_SETTINGS, mode, generationMode }),
+    getSettings: () => ({
+      ...TURN_SETTINGS,
+      ...settings,
+      mode,
+      generationMode,
+    }),
     readRoots: [ROOT],
     hostProjectRoot: ROOT,
   });
@@ -106,11 +171,12 @@ async function decideAll(
   calls: Call[],
   mode: ChatMode,
   generationMode: GenerationMode,
+  settings: Partial<AppSettings> = {},
 ): Promise<Array<[string, string]>> {
   return Promise.all(
     calls.map(async (c): Promise<[string, string]> => [
       c.name,
-      await decide(c, mode, generationMode),
+      await decide(c, mode, generationMode, settings),
     ]),
   );
 }
@@ -157,10 +223,55 @@ describe("the PreToolUse guard under Auto review in Code scope", () => {
     );
   });
 
-  it("leaves a call outside Auto review alone", async () => {
-    expect(await decideAll(COMMAND_RUNNERS, "normal", "vibe")).toEqual(
-      each(COMMAND_RUNNERS, NONE),
+  it("hands an edit of a git hook file to the person", async () => {
+    expect(await decideAll(GIT_HOOK_FILES, "auto", "vibe")).toEqual(
+      each(GIT_HOOK_FILES, ASK),
     );
+  });
+});
+
+describe.each<ChatMode>(["normal", "acceptEdits"])(
+  "the PreToolUse guard in %s mode in Code scope",
+  (mode) => {
+    it("hands every command to the person, read-only ones included", async () => {
+      expect(await decideAll(COMMANDS, mode, "vibe")).toEqual(
+        each(COMMANDS, ASK),
+      );
+    });
+
+    it("hands an edit of a git hook or dependency file to the person", async () => {
+      const files = [...GIT_HOOK_FILES, ...DEPENDENCY_FILES];
+      expect(await decideAll(files, mode, "vibe")).toEqual(each(files, ASK));
+    });
+
+    it("hands a tool it does not know to the person", async () => {
+      expect(await decideAll(UNKNOWN_TOOLS, mode, "vibe")).toEqual(
+        each(UNKNOWN_TOOLS, ASK),
+      );
+    });
+
+    it("leaves ordinary edits, reads, web access and scheduling to the CLI", async () => {
+      expect(await decideAll(LEFT_TO_THE_CLI, mode, "vibe")).toEqual(
+        each(LEFT_TO_THE_CLI, NONE),
+      );
+    });
+
+    it("still asks before a git hook edit when dependency files no longer ask", async () => {
+      const settings = { alwaysAskDependencies: false };
+      expect(await decideAll(DEPENDENCY_FILES, mode, "vibe", settings)).toEqual(
+        each(DEPENDENCY_FILES, NONE),
+      );
+      expect(await decideAll(GIT_HOOK_FILES, mode, "vibe", settings)).toEqual(
+        each(GIT_HOOK_FILES, ASK),
+      );
+    });
+  },
+);
+
+describe("the PreToolUse guard in Plan only", () => {
+  it("leaves every call to the CLI, which changes nothing", async () => {
+    const calls = [...COMMANDS, ...GIT_HOOK_FILES, ...UNKNOWN_TOOLS];
+    expect(await decideAll(calls, "plan", "vibe")).toEqual(each(calls, NONE));
   });
 });
 

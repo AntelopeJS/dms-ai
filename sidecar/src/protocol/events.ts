@@ -4,12 +4,12 @@ import {
   ALLOWED_BY_VALUES,
   CHANGE_FILE_STATUSES,
   CHANGE_SET_STATES,
-  FULL_AUTO_DURATIONS,
   PERMISSION_KINDS,
   RULE_KINDS,
   TOOL_OUTCOMES,
   TYPECHECK_OUTCOMES,
 } from "../constants/audit.js";
+import { PROVIDER_UNAVAILABLE_CODES } from "../constants/providers.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import {
   CHAT_MODES,
@@ -148,6 +148,7 @@ export const QuestionSkippedNoticeSchema = z.object({
   timestampMs: z.number(),
 });
 
+/** Appears only in transcripts written by versions that had Full auto. */
 export const FullAutoEndedNoticeSchema = z.object({
   kind: z.literal("full_auto_ended"),
   timestampMs: z.number(),
@@ -242,11 +243,6 @@ export const ChangeSetSummarySchema = z.object({
   builderOps: z.number(),
 });
 
-export const FullAutoStateSchema = z.object({
-  duration: z.enum(FULL_AUTO_DURATIONS),
-  untilMs: z.number().optional(),
-});
-
 /**
  * A conversation's modes; `generationMode` is the effective one: vibe when the
  * Builder is absent.
@@ -255,7 +251,6 @@ export const ConversationModeSchema = z.object({
   conversationId: z.string(),
   mode: z.enum(CHAT_MODES),
   generationMode: z.enum(GENERATION_MODES),
-  fullAuto: FullAutoStateSchema.nullable(),
 });
 
 export const ConversationModeEvent = ConversationModeSchema.extend({
@@ -321,6 +316,7 @@ export const AppSettingsSchema = z.object({
 export const ProviderAvailabilitySchema = z.object({
   available: z.boolean(),
   reason: z.string().optional(),
+  code: z.enum(PROVIDER_UNAVAILABLE_CODES).optional(),
 });
 
 /**

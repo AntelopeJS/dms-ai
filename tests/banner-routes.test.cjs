@@ -227,20 +227,62 @@ void test("hands a pasted return address to the sidecar, and its refusal back", 
   assert.deepEqual(sidecar.requests.at(-1).body, { url: pasted });
 });
 
-function optionLabel(item) {
-  return item.disabled ? `${String(item.value)}:off` : String(item.value);
-}
+const OptionValuesSchema = z.array(z.string());
 
-void test("offers Auto review as a default on Claude Code only, and shows Full auto on both without letting it be picked", () => {
+void test("offers Auto review as a default on Claude Code only, and no mode that approves for the person", () => {
   assert.deepEqual(
     SETTINGS_SECTIONS.flatMap((section) => section.fields)
       .filter((field) => field.id.startsWith("defaultMode"))
       .map((field) =>
-        String(field.type.options.items.map(optionLabel).join(" ")),
+        OptionValuesSchema.parse(
+          field.type.options.items.map((item) => String(item.value)),
+        ),
       ),
     [
-      "normal auto acceptEdits plan fullAuto:off",
-      "normal acceptEdits plan fullAuto:off",
+      ["normal", "auto", "acceptEdits", "plan"],
+      ["normal", "acceptEdits", "plan"],
     ],
   );
+});
+
+const LockedProviderSchema = z.object({
+  fields: z.array(
+    z.object({
+      component: z.object({
+        options: z.object({ items: z.array(z.unknown()) }),
+      }),
+    }),
+  ),
+});
+
+void test("words the Codex sign-in reason in the settings page's own text, in every page locale", async () => {
+  reset();
+  answer("GET", "/settings", 200, {
+    providers: {
+      codex: {
+        available: false,
+        reason: "Sign in with ChatGPT in Assistant › Settings.",
+        code: "codex_not_signed_in",
+      },
+    },
+  });
+  const form = LockedProviderSchema.parse(
+    await harness.routes.applySidecarSettings(new Set(), {
+      fields: [
+        {
+          id: "provider",
+          type: "select",
+          component: { type: "x", options: { items: [{ value: "codex" }] } },
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(form.fields[0]?.component.options.items, [
+    {
+      value: "codex",
+      disabled: true,
+      description: "$dms_ai.settings.provider.codex_not_signed_in",
+    },
+  ]);
+  assert.deepEqual(untranslated(form), []);
 });

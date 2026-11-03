@@ -271,7 +271,7 @@
 			},
 			"allowed_metric": {
 				"deletions_asked": "Deletions asked",
-				"deletions_note": "Deletions always ask, even in Full auto"
+				"deletions_note": "Deletions always ask, in every mode"
 			},
 			"result": {
 				"done": "Done",
@@ -423,6 +423,7 @@
 				"label": "Coding agent",
 				"description": "Runs on this machine, in the project folder. Your code only goes to the provider you pick; a failing agent never falls back to the other.",
 				"unavailable": "Not set up on this machine",
+				"codex_not_signed_in": "Sign in with ChatGPT below to run Codex on your ChatGPT plan.",
 				"claude": {
 					"label": "Claude Code",
 					"description": "Anthropic · model chosen by Claude Code"
@@ -482,28 +483,24 @@
 			"mode": {
 				"normal": {
 					"label": "Ask first",
-					"description": "Asks before any change outside the Builder."
+					"description": "Asks before any change outside the Builder and before every command, read-only ones included."
 				},
 				"auto": {
 					"label": "Auto review",
-					"description": "A safety check approves routine file edits and web access. Shell commands, dependency files and deletions still ask. Asks first on models or plans without it."
+					"description": "A safety check approves routine file edits and web access. Shell commands, dependency files, git hooks and deletions still ask. Asks first on models or plans without it."
 				},
 				"acceptEdits": {
 					"label": "Accept edits",
-					"description": "Applies file edits, asks for the rest."
+					"description": "Applies file edits. Dependency and git hook files still ask with Claude Code, not with Codex. Asks for the rest, every command included."
 				},
 				"plan": {
 					"label": "Plan only",
 					"description": "Reads and proposes. Changes nothing."
-				},
-				"fullAuto": {
-					"label": "Full auto",
-					"description": "Not available as a default. Turn it on per chat, for a limited time."
 				}
 			},
 			"always_ask": {
 				"label": "Always ask for",
-				"description": "These ask in every mode, including Full auto."
+				"description": "These ask in every mode."
 			},
 			"always_ask_deletions": {
 				"label": "Deleting pages, tables, fields or queries",

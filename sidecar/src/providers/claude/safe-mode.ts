@@ -71,14 +71,14 @@ function isAskedInAskFirst(toolName: string): boolean {
   return isMutatingTool(toolName) || isWebTool(toolName);
 }
 
-function decideUnderAutoReview(
+function decideByMode(
   deps: PreToolUseDeps,
   call: PreToolUseCall,
   guarded: GuardedCall,
   scope: GuardScope,
 ): SyncHookJSONOutput {
-  if (isHostDecided(guarded, scope)) return HOST_DECISION;
-  if (isAskedInAskFirst(call.tool_name)) {
+  if (isHostDecided(guarded, scope, call.permission_mode)) return HOST_DECISION;
+  if (isAutoReviewOrUnstated(call) && isAskedInAskFirst(call.tool_name)) {
     deps.onToolDecision?.({
       callId: call.tool_use_id,
       toolName: call.tool_name,
@@ -95,7 +95,9 @@ function decideUnderAutoReview(
  * an edit. The generation mode is read on every call: a safe/vibe flip applies
  * to the next tool call without a new session. The same hook holds every
  * mutating tool until the turn's checkpoint is taken: it runs before the tool
- * whatever the permission mode, which `canUseTool` does not.
+ * whatever the permission mode, which `canUseTool` does not. In every mode but
+ * plan, it also sends to `canUseTool` each call the CLI would otherwise settle
+ * without asking the person (see isHostDecided).
  */
 export function buildSafeModeHooks(deps: PreToolUseDeps): SdkHooks {
   const preToolUse: HookCallback = async (input) => {
@@ -118,8 +120,7 @@ export function buildSafeModeHooks(deps: PreToolUseDeps): SdkHooks {
       return SAFE_MODE_DENIAL;
     }
     if (isMutatingTool(call.tool_name)) await deps.beforeMutation?.();
-    if (!isAutoReviewOrUnstated(call)) return NO_DECISION;
-    return decideUnderAutoReview(deps, call, guarded, scope);
+    return decideByMode(deps, call, guarded, scope);
   };
   return { [PRE_TOOL_USE_HOOK_EVENT]: [{ hooks: [preToolUse] }] };
 }

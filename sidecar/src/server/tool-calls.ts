@@ -26,7 +26,6 @@ import {
   STATUS,
   type ToolCallEndEventType,
 } from "../protocol/events.js";
-import type { ConversationModes } from "../agent/conversation-modes.js";
 import type { CallAudit, CallDecision } from "../audit/call-audit.js";
 import type { ConversationStore } from "../state/conversations.js";
 import type { ActiveTurn, TurnRegistry } from "./turn-registry.js";
@@ -39,7 +38,6 @@ export interface ToolCallServices {
     "get" | "appendMessage" | "patchMessages"
   >;
   callAudit: Pick<CallAudit, "lookup">;
-  conversationModes: Pick<ConversationModes, "isFullAuto">;
 }
 
 /**
@@ -49,7 +47,7 @@ export interface ToolCallServices {
  */
 interface AllowedByMatcher {
   allowedBy: AllowedBy;
-  matches: (toolName: string, isFullAuto: boolean) => boolean;
+  matches: (toolName: string) => boolean;
 }
 
 /**
@@ -59,7 +57,6 @@ interface AllowedByMatcher {
 const DEFAULT_ALLOWED_BY: readonly AllowedByMatcher[] = [
   { allowedBy: "builder_auto", matches: (name) => isMutatingBuilderTool(name) },
   { allowedBy: "read_auto", matches: (name) => isReadOnlyTool(name) },
-  { allowedBy: "full_auto", matches: (_name, isFullAuto) => isFullAuto },
   { allowedBy: "rule", matches: (name) => isEditTool(name) },
   { allowedBy: "read_auto", matches: (name) => isBashTool(name) },
 ];
@@ -75,15 +72,10 @@ const OUTCOME_BY_DECISION: Partial<Record<AllowedBy, ToolOutcome>> = {
 
 const STOPPED_RESULT = "stopped";
 
-function defaultAllowedBy(
-  services: ToolCallServices,
-  conversationId: string,
-  toolName: string,
-): AllowedBy {
-  const isFullAuto = services.conversationModes.isFullAuto(conversationId);
+function defaultAllowedBy(toolName: string): AllowedBy {
   return (
-    DEFAULT_ALLOWED_BY.find((m) => m.matches(toolName, isFullAuto))
-      ?.allowedBy ?? FALLBACK_ALLOWED_BY
+    DEFAULT_ALLOWED_BY.find((m) => m.matches(toolName))?.allowedBy ??
+    FALLBACK_ALLOWED_BY
   );
 }
 
@@ -198,8 +190,7 @@ export function endToolCall(
   const toolName = toolNameOf(services, conversationId, ev.callId);
   const decision = decisionOf(services, conversationId, ev.callId);
   const outcome = outcomeOf(ev, decision);
-  const allowedBy =
-    decision?.allowedBy ?? defaultAllowedBy(services, conversationId, toolName);
+  const allowedBy = decision?.allowedBy ?? defaultAllowedBy(toolName);
   trackEnd(services.turns.get(conversationId), ev, toolName, outcome);
   const status = ev.isError ? STATUS.ERROR : STATUS.SUCCESS;
   services.conversationStore.patchMessages(

@@ -25,14 +25,6 @@ const PANEL_DYNAMIC_FAMILIES = {
   "dms_ai.common.scope": ["safe", "vibe"],
   "dms_ai.common.agent": ["claude", "codex"],
   "dms_ai.panel.composer.scope_desc": ["safe", "vibe"],
-  "dms_ai.panel.full_auto": [
-    "duration_turn",
-    "duration_30m",
-    "duration_chat",
-    "banner_turn",
-    "banner_30m",
-    "banner_chat",
-  ],
   "dms_ai.panel.drawer": [
     "group_active",
     "group_today",

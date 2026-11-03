@@ -69,13 +69,14 @@ describe("codex binary version gate", () => {
     expect(isCodexInstallationUsable(installation())).toBe(true);
   });
 
-  it("reports a missing ChatGPT sign-in as its own reason", async () => {
+  it("reports a missing ChatGPT sign-in as its own reason, named for the dashboard to word", async () => {
     CODEX_FIXTURE.use("plain");
     await writeAuthRecord({ hostId: signedInRecord().hostId });
     try {
       expect(getProviderAvailability().codex).toEqual({
         available: false,
         reason: PROVIDER_UNAVAILABLE_REASONS.CODEX_NOT_SIGNED_IN,
+        code: "codex_not_signed_in",
       });
     } finally {
       await signInForTests();

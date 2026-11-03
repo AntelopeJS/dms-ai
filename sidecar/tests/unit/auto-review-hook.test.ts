@@ -57,8 +57,14 @@ describe("the PreToolUse hook and the permission mode the CLI states", () => {
     expect(run.output).toEqual(ASK);
   });
 
-  it("leaves a call outside Auto review to canUseTool, recording nothing", async () => {
-    const run = await preToolUse("node -e 1", "default");
+  it("hands a command to canUseTool in Ask first, recording no review", async () => {
+    const run = await preToolUse("ls", "default");
+    expect(run.output).toEqual(ASK);
+    expect(run.decisions).toEqual([]);
+  });
+
+  it("leaves a call in Plan only to the CLI, recording nothing", async () => {
+    const run = await preToolUse("node -e 1", "plan");
     expect(run.output).toEqual(NO_DECISION);
     expect(run.decisions).toEqual([]);
   });

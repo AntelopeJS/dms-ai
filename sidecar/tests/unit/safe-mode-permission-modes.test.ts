@@ -3,10 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { PendingRequest } from "../../src/agent/permission-bus.js";
-import {
-  conversationSettings,
-  isFullAutoInForce,
-} from "../../src/agent/effective-mode.js";
+import { conversationSettings } from "../../src/agent/effective-mode.js";
 import { type AgentRunner, createAgentRunner } from "../../src/agent/runner.js";
 import type { RunnerEvent } from "../../src/agent/runner-events.js";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
@@ -86,64 +83,17 @@ describe("resolvePermissionMode", () => {
     },
   );
 
-  it("never hands the SDK bypassPermissions, Full auto included", () => {
-    for (const generationMode of ["safe", "vibe"] as const) {
-      const settings = conversationSettings(DEFAULT_SETTINGS, {
-        mode: "acceptEdits",
-        generationMode,
-        fullAuto: { duration: "turn" },
-      });
-      expect(resolvePermissionMode(settings)).not.toBe(BYPASS_MODE);
+  it("runs every chat in its own mode and never in bypassPermissions", () => {
+    for (const mode of CHAT_MODES) {
+      for (const generationMode of ["safe", "vibe"] as const) {
+        const settings = conversationSettings(DEFAULT_SETTINGS, {
+          mode,
+          generationMode,
+        });
+        expect(settings.mode).toBe(mode);
+        expect(resolvePermissionMode(settings)).not.toBe(BYPASS_MODE);
+      }
     }
-  });
-});
-
-describe("Full auto per conversation", () => {
-  afterEach(() => setBuilderAvailable(false));
-
-  const FULL_AUTO = { duration: "30m" as const };
-
-  it("runs a Code mode chat in default mode, the bus answering for the user", () => {
-    setBuilderAvailable(true);
-    const state = {
-      mode: "plan" as const,
-      generationMode: "vibe" as const,
-      fullAuto: FULL_AUTO,
-    };
-    expect(conversationSettings(DEFAULT_SETTINGS, state).mode).toBe("normal");
-    expect(isFullAutoInForce(state)).toBe(true);
-  });
-
-  it("caps Full auto at acceptEdits in safe mode, prompts still reaching the user", () => {
-    setBuilderAvailable(true);
-    const state = {
-      mode: "normal" as const,
-      generationMode: "safe" as const,
-      fullAuto: FULL_AUTO,
-    };
-    expect(conversationSettings(DEFAULT_SETTINGS, state).mode).toBe(
-      "acceptEdits",
-    );
-    expect(isFullAutoInForce(state)).toBe(false);
-  });
-
-  it("follows Code mode when safe mode degrades for want of the Builder", () => {
-    const state = {
-      mode: "normal" as const,
-      generationMode: "safe" as const,
-      fullAuto: FULL_AUTO,
-    };
-    expect(isFullAutoInForce(state)).toBe(true);
-  });
-
-  it("keeps the chat's own mode when Full auto is off", () => {
-    const state = {
-      mode: "plan" as const,
-      generationMode: "vibe" as const,
-      fullAuto: null,
-    };
-    expect(conversationSettings(DEFAULT_SETTINGS, state).mode).toBe("plan");
-    expect(isFullAutoInForce(state)).toBe(false);
   });
 });
 
@@ -238,20 +188,6 @@ describe("safe mode on the Claude provider, whatever the permission mode", () =>
       expect(traced("tool")).toEqual([
         { kind: "tool", name: "Edit", decidedBy: "mode", isAllowed: true },
       ]);
-    },
-    TEST_TIMEOUT_MS,
-  );
-
-  it(
-    "shows why normal mode did not carry it either: a read-only command runs unasked",
-    async () => {
-      await runTurn(
-        openRunner(settingsFor("normal", "vibe"), "read-only-command.json"),
-      );
-      expect(traced("tool")).toEqual([
-        { kind: "tool", name: "Bash", decidedBy: "readOnly", isAllowed: true },
-      ]);
-      expect(prompts).toEqual([]);
     },
     TEST_TIMEOUT_MS,
   );
