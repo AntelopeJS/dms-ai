@@ -26,8 +26,8 @@ export const journeys = guarded([
       await tab.goto("/modules/ai/overview");
       await ctx.verify("the page", [
         pageHas(tab, "the status rows", /Status\s*Ready\s*Agent\s*Claude Code\s*Default scope\s*Code mode\s*Safe needs Builder\s*Approvals\s*Ask first\s*Builder\s*Not installed\s*Sidecar\s*localhost:\d+/),
-        pageHas(tab, "the four figures", /Actions\s*0[\s\S]*Change sets\s*0[\s\S]*Approved by you\s*0[\s\S]*Undone\s*0/),
-        pageHas(tab, "their captions", /Tool calls, Builder operations included[\s\S]*Turns that changed files, undone too[\s\S]*Requests you allowed when asked[\s\S]*Change sets rolled back/),
+        pageHas(tab, "the four figures", /Actions\s*0\s*\S*\s*0\.0% vs 0\s*Tool calls, Builder operations included\s*Change sets\s*0\s*\S*\s*0\.0% vs 0\s*Turns that changed files, undone too\s*Approved by you\s*0\s*\S*\s*0\.0% vs 0\s*Requests you allowed when asked\s*Undone\s*0\s*\S*\s*0\.0% vs 0\s*Change sets rolled back/i),
+        pageHas(tab, "their captions", /Tool calls, Builder operations included/),
         pageHas(tab, "the empty chart", /No action over this period/),
         pageHas(tab, "no change sets", /No changes yet/),
         pageHas(tab, "no tools", /No tool ran over this period/),

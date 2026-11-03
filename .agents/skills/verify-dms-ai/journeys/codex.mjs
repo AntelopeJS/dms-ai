@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { guarded } from "../guard.mjs";
 import { ai, check, freshSidecar, list, pageHas, pick, same, sidecarLock, statusIs, text } from "../ai.mjs";
 
@@ -70,6 +70,7 @@ export const journeys = guarded([
         same("with a message", results.filter(([, , message]) => message === ""), []),
         same("the first says what to paste", results[0][2], "Paste the whole address of the page OpenAI sent you to, starting with http://127.0.0.1."),
       ]);
+      const authFile = `${ctx.state.home}/.config/dms-ai/chatgpt-auth.json`;
       const banner = await ai(ctx, "banner", "GET", "/codex/account/banner");
       const logout = await ai(ctx, "sign out while signed out", "POST", "/codex/logout");
       const settings = await ai(ctx, "settings", "GET", "/settings");
@@ -77,7 +78,8 @@ export const journeys = guarded([
         same("the banner offers the sign-in", text(banner.body, "title"), "$dms_ai.settings.chatgpt.signed_out.title"),
         same("signing out answers revoked", [logout.status, pick(logout.body, "isRevoked")], [200, true]),
         same("Codex stays unavailable", pick(settings.body, "providers", "codex", "available"), false),
-        same("no ChatGPT sign-in file was written", existsSync(`${ctx.state.home}/.config/dms-ai/chatgpt-auth.json`), false),
+        same("the sign-in file holds the host identity and no token", existsSync(authFile) ? Object.keys(JSON.parse(readFileSync(authFile, "utf8"))).sort() : [], ["hostId", "savedAt"]),
+        same("and is readable by its owner only (mode 0600)", existsSync(authFile) ? (statSync(authFile).mode & 0o777).toString(8) : "0600", "600"),
       ]);
     },
   },

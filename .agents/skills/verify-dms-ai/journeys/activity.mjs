@@ -35,7 +35,7 @@ export const journeys = guarded([
         tab.visible({ role: "radio", name: "Last 30 days" }),
         selected(tab, { role: "radio", name: "All time" }, true),
         selected(tab, { role: "radio", name: "Last 7 days" }, false),
-        pageHas(tab, "the tabs", /All\s*Changed files\s*Asked you\s*Denied or blocked\s*Failed/),
+        pageHas(tab, "the tabs", /All\s*0\s*Changed files\s*0\s*Asked you\s*0\s*Denied or blocked\s*0\s*Failed\s*0/),
         tab.visible({ role: "button", name: "Export CSV" }),
       ]);
     },

@@ -383,7 +383,7 @@ export function bodyText(tab) {
  * @returns {Promise<Check>} The check
  */
 export async function pageHas(tab, name, pattern, want = true) {
-  const found = await until(async () => pattern.test(await bodyText(tab)) === want, { timeoutMs: 20_000 });
+  const found = await until(async () => pattern.test((await bodyText(tab)).replace(/\s+/g, " ")) === want, { timeoutMs: 20_000 });
   const body = await bodyText(tab);
   return check(name, Boolean(found), body.replace(/\s+/g, " ").slice(0, 1800));
 }
