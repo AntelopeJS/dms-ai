@@ -12,10 +12,18 @@ import {
   NAVIGATE_UNKNOWN_ROUTE_SUFFIX,
 } from "../../constants/mcp.js";
 import { NAVIGATE_TIMEOUT_MS } from "../../constants/timing.js";
+import {
+  type BlockHealth,
+  describeBlocks,
+  summarizeBlocks,
+} from "../../pages/block-health.js";
 import type { RegistryClient } from "../../pages/registry-client.js";
 import { isKnownRoute } from "../../pages/route-match.js";
 import { type AnyServerEventType, EVENT_TYPES } from "../../protocol/events.js";
-import type { NavigationCompleter } from "../../server/navigation-completer.js";
+import type {
+  NavigationCompleter,
+  NavigationLanding,
+} from "../../server/navigation-completer.js";
 import type { CurrentPage } from "../../state/host-state.js";
 import { defineTool, type McpToolResult } from "../define-tool.js";
 
@@ -88,7 +96,9 @@ function buildContent(
   targetPath: string,
   isCompleted: boolean,
   landedOn: CurrentPage,
+  blocks: BlockHealth | null,
 ): McpToolResult {
+  const message = buildResultText(targetPath, isCompleted, landedOn);
   return textContent(
     JSON.stringify({
       ok: true,
@@ -96,10 +106,23 @@ function buildContent(
         path: targetPath,
         navigation: isCompleted ? "completed" : "timeout",
         currentPage: landedOn,
+        blocks: blocks ?? undefined,
       },
-      message: buildResultText(targetPath, isCompleted, landedOn),
+      message:
+        blocks === null ? message : `${message}. ${describeBlocks(blocks)}`,
     }),
   );
+}
+
+/**
+ * The health of the page's data blocks, when the host announced a report and
+ * sent it in time; null otherwise (an older host, a page without data blocks).
+ */
+async function awaitBlockHealth(
+  landing: NavigationLanding | null,
+): Promise<BlockHealth | null> {
+  const report = await landing?.blocks;
+  return report ? summarizeBlocks(report) : null;
 }
 
 /**
@@ -123,8 +146,14 @@ export function buildNavigateToPageTool(deps: NavigateToPageDeps) {
         NAVIGATE_TIMEOUT_MS,
       );
       deps.sendToHost(buildNavigationEvent(targetPath));
-      const isCompleted = await waitPromise;
-      return buildContent(targetPath, isCompleted, deps.getCurrentPage());
+      const landing = await waitPromise;
+      const blocks = await awaitBlockHealth(landing);
+      return buildContent(
+        targetPath,
+        landing !== null,
+        deps.getCurrentPage(),
+        blocks,
+      );
     },
   );
 }

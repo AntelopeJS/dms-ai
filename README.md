@@ -4,7 +4,7 @@
 
 <a href="https://www.npmjs.com/package/@antelopejs/dms-ai"><img alt="npm" src="https://img.shields.io/npm/v/@antelopejs/dms-ai?style=for-the-badge&labelColor=000000&color=000000" data-illustration></a>
 <a href="./LICENSE"><img alt="License" src="https://img.shields.io/npm/l/@antelopejs/dms-ai?style=for-the-badge&labelColor=000000&color=000000" data-illustration></a>
-<a href="https://discord.gg/sjK28QHrA7"><img alt="Discord" src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000" data-illustration></a>
+<a href="https://discord.gg/g4pFt6eXqu"><img alt="Discord" src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000" data-illustration></a>
 <a href="https://dms.antelopejs.com/docs/modules/ai"><img alt="Documentation" src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000" data-illustration></a>
 
 **An AI development assistant inside the AntelopeJS DMS dashboard.**
@@ -56,11 +56,12 @@ Restart the backend, then the frontend. Sign in as an owner and press `Ctrl` `Sh
 
 | Package                                  | Supported                                                         | Tested with                                                       |
 | ---------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `@antelopejs/agent-skills`               | `^0.1.0`                                                          | `0.1.0`                                                           |
 | `@antelopejs/interface-api`              | `file:.campaign/tgz/antelopejs-interface-api-015a93a.tgz`         | `file:.campaign/tgz/antelopejs-interface-api-015a93a.tgz`         |
 | `@antelopejs/interface-core`             | `file:.campaign/tgz/antelopejs-interface-core-f7df541.tgz`        | `file:.campaign/tgz/antelopejs-interface-core-f7df541.tgz`        |
 | `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`                                                  | `0.0.2`                                                           |
-| `@antelopejs/interface-dms`              | `file:.campaign/tgz/antelopejs-interface-dms-42d657b.tgz`         | `file:.campaign/tgz/antelopejs-interface-dms-42d657b.tgz`         |
-| `@antelopejs/interface-dms-builder`      | `file:.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz` |
+| `@antelopejs/interface-dms`              | `file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz`         | `file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz`         |
+| `@antelopejs/interface-dms-builder`      | `file:.campaign/tgz/antelopejs-interface-dms-builder-71b3ce9.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-builder-71b3ce9.tgz` |
 
 <!-- antelopejs-docs-compat:end -->
 

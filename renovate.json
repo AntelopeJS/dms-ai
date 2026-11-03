@@ -1,4 +1,18 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>AntelopeJS/.github:renovate.json5"]
+  "extends": ["github>AntelopeJS/.github:renovate.json5"],
+  "packageRules": [
+    {
+      "description": "Claude Code and its Agent SDK ship every few days and go in lockstep: one pull request, at any time, ahead of the weekly queue. A 0.x SDK minor is a range change, so the range is bumped.",
+      "matchPackageNames": [
+        "@anthropic-ai/claude-agent-sdk",
+        "@anthropic-ai/claude-code"
+      ],
+      "groupName": "Claude Code and Agent SDK",
+      "schedule": ["at any time"],
+      "prPriority": 10,
+      "minimumReleaseAge": "0 days",
+      "rangeStrategy": "bump"
+    }
+  ]
 }

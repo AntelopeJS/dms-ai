@@ -1,0 +1,50 @@
+[
+  {
+    "type": "assistant",
+    "parent_tool_use_id": null,
+    "uuid": "00000000-0000-0000-0000-000000000401",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000",
+    "message": {
+      "id": "msg_mock_401",
+      "type": "message",
+      "role": "assistant",
+      "model": "<synthetic>",
+      "stop_reason": "stop_sequence",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 10,
+        "output_tokens": 12,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "There's an issue with the selected model (claude-refused-9). It may not exist or you may not have access to it. Run --model to pick a different model."
+        }
+      ]
+    },
+    "error": "invalid_request"
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "duration_ms": 250,
+    "duration_api_ms": 200,
+    "is_error": true,
+    "num_turns": 1,
+    "result": "There's an issue with the selected model (claude-refused-9). It may not exist or you may not have access to it. Run --model to pick a different model.",
+    "stop_reason": "end_turn",
+    "total_cost_usd": 0,
+    "usage": {
+      "input_tokens": 10,
+      "output_tokens": 12,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0
+    },
+    "modelUsage": {},
+    "permission_denials": [],
+    "uuid": "00000000-0000-0000-0000-000000000402",
+    "session_id": "mock-session-00000000-0000-0000-0000-000000000000"
+  }
+]

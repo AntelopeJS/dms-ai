@@ -1,6 +1,6 @@
 {
   "name": "@antelopejs/dms-ai",
-  "version": "0.7.0",
+  "version": "0.9.0",
   "description": "AI development assistant for the AntelopeJS DMS: a chat panel next to every page and a coding agent that edits the project in reviewable, undoable change sets.",
   "keywords": [
     "ai",
@@ -47,7 +47,7 @@
     "prepack": "pnpm run build && pnpm run build:sidecar",
     "frontend:dev": "cd playground && pnpm frontend:dev",
     "dev": "cd playground && pnpm dev",
-    "lint": "oxlint && pnpm --dir frontend-vue lint && antelopejs-check-interface-ranges && node scripts/check-playground-install.mjs && node scripts/check-i18n.mjs",
+    "lint": "oxlint && pnpm --dir frontend-vue lint && node node_modules/@antelopejs/dms/frontend-vue/scripts/check-api-error-presentation.mjs frontend-vue/app && antelopejs-check-interface-ranges && node scripts/check-playground-install.mjs && node scripts/check-i18n.mjs",
     "lint:fix": "oxlint --fix && oxfmt . && pnpm --dir frontend-vue lint:fix",
     "typecheck": "tsc --noEmit && pnpm --dir frontend-vue typecheck:chat && pnpm --dir sidecar typecheck",
     "test": "pnpm run test:node",
@@ -74,16 +74,18 @@
     "suppressions:update": "antelopejs-suppressions --update"
   },
   "dependencies": {
+    "@antelopejs/agent-skills": "^0.1.0",
     "@antelopejs/interface-api": "file:.campaign/tgz/antelopejs-interface-api-015a93a.tgz",
     "@antelopejs/interface-core": "file:.campaign/tgz/antelopejs-interface-core-f7df541.tgz",
-    "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-42d657b.tgz",
-    "@anthropic-ai/claude-agent-sdk": "^0.2.131",
-    "@anthropic-ai/claude-code": "^2.1.131",
+    "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.316",
+    "@anthropic-ai/claude-code": "^2.1.316",
     "@modelcontextprotocol/sdk": "1.29.0",
     "ws": "^8.18.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@antelopejs/dms": "file:.campaign/tgz/antelopejs-dms-14e671d.tgz",
     "@antelopejs/interface-api-util": "file:.campaign/tgz/antelopejs-interface-api-util-639f38b.tgz",
     "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-bca1ca6.tgz",
     "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-02e0360.tgz",
@@ -111,7 +113,7 @@
   },
   "optionalDependencies": {
     "@antelopejs/interface-database-catalog": ">=0.0.1 <1.0.0",
-    "@antelopejs/interface-dms-builder": "file:.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz"
+    "@antelopejs/interface-dms-builder": "file:.campaign/tgz/antelopejs-interface-dms-builder-71b3ce9.tgz"
   },
   "packageManager": "pnpm@10.2.0",
   "pnpm": {
@@ -121,8 +123,8 @@
       "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-02e0360.tgz",
       "@antelopejs/interface-database-decorators": "file:.campaign/tgz/antelopejs-interface-database-decorators-1234214.tgz",
       "@antelopejs/interface-data-api": "file:.campaign/tgz/antelopejs-interface-data-api-bca1ca6.tgz",
-      "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-42d657b.tgz",
-      "@antelopejs/interface-dms-builder": "file:.campaign/tgz/antelopejs-interface-dms-builder-8bb51ff.tgz",
+      "@antelopejs/interface-dms": "file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz",
+      "@antelopejs/interface-dms-builder": "file:.campaign/tgz/antelopejs-interface-dms-builder-71b3ce9.tgz",
       "@antelopejs/interface-core": "file:.campaign/tgz/antelopejs-interface-core-f7df541.tgz"
     }
   },

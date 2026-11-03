@@ -314,6 +314,8 @@
 				"BuilderPageStructure": "Lire une page",
 				"BuilderCreatePage": "Créer une page",
 				"BuilderConfigurePage": "Configurer une page",
+				"BuilderComposePage": "Composer une page",
+				"BuilderConfigureTableView": "Configurer une vue tableau",
 				"BuilderDeletePage": "Supprimer une page",
 				"BuilderAddBlock": "Ajouter un bloc",
 				"BuilderConfigureBlock": "Configurer un bloc",
@@ -332,6 +334,7 @@
 				"BuilderRemoveField": "Retirer un champ",
 				"BuilderQueryTemplates": "Lire les modèles de requêtes",
 				"BuilderAddQuery": "Ajouter une requête",
+				"BuilderPreviewQuery": "Aperçu de la requête",
 				"BuilderConfigureQuery": "Configurer une requête",
 				"BuilderRemoveQuery": "Retirer une requête",
 				"UndoChangeSet": "Annuler un lot de modifications",
@@ -461,6 +464,10 @@
 					"medium": "Moyenne",
 					"high": "Élevée"
 				}
+			},
+			"claude_model": {
+				"label": "Modèle Claude",
+				"description": "Le modèle sur lequel tourne Claude Code. La réflexion règle son niveau d'effort."
 			},
 			"mode": {
 				"label": "Mode de validation",

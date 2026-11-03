@@ -46,7 +46,9 @@ const MODULE_TOOLS = {
     isDestructive: true,
   },
   BuilderAddBlock: { icon: "i-ph-squares-four", source: "builder" },
+  BuilderComposePage: { icon: "i-ph-layout", source: "builder" },
   BuilderConfigureBlock: { icon: "i-ph-sliders", source: "builder" },
+  BuilderConfigureTableView: { icon: "i-ph-table", source: "builder" },
   BuilderMoveBlock: { icon: "i-ph-arrows-out-cardinal", source: "builder" },
   BuilderRemoveBlock: {
     icon: "i-ph-trash",
@@ -78,6 +80,7 @@ const MODULE_TOOLS = {
   },
   BuilderQueryTemplates: { icon: "i-ph-books", source: "builder" },
   BuilderAddQuery: { icon: "i-ph-database", source: "builder" },
+  BuilderPreviewQuery: { icon: "i-ph-eye", source: "builder" },
   BuilderConfigureQuery: { icon: "i-ph-database", source: "builder" },
   BuilderRemoveQuery: {
     icon: "i-ph-trash",

@@ -232,4 +232,45 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
     const result = await handlerPromise;
     expect(result.content[0]?.text).toContain("/x");
   });
+
+  it("hands the tool the block report the host sends over its socket", async () => {
+    const client = new WebSocket(buildHostUrl(handle.port), {
+      headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
+    });
+    await waitForOpen(client);
+    sendHostHello(client);
+    await settle();
+    const incoming = waitForMessage(client);
+    const toolDef = buildNavigateToPageTool({
+      sendToHost: handle.hostSocketRegistry.send,
+      navigationCompleter: handle.navigationCompleter,
+      registry: {
+        getRegistry: async () => [],
+        getStaleSinceMs: () => null,
+        invalidate: () => {},
+      },
+      getCurrentPage: () => ({ path: NAVIGATE_TARGET }),
+    });
+    const handlerPromise = toolDef.handler({ path: NAVIGATE_TARGET });
+    await incoming;
+    client.send(
+      JSON.stringify({
+        type: "host_navigation_complete",
+        path: NAVIGATE_TARGET,
+        blocksWithinMs: 15_000,
+      }),
+    );
+    client.send(
+      JSON.stringify({
+        type: "host_page_blocks",
+        path: NAVIGATE_TARGET,
+        status: "settled",
+        checked: 2,
+        blocks: [{ path: "revenue", type: "ChartCard", state: "empty" }],
+      }),
+    );
+    const result = await handlerPromise;
+    client.close();
+    expect(result.content[0]?.text).toContain("revenue (ChartCard)");
+  });
 });

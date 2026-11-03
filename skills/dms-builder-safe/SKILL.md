@@ -38,9 +38,9 @@ its safe-mode branch.
   TableView `Column` `type`, a resource field's `dataType`), pass a **DataType value**
   `{ $dataType: "<id>", config: {…} }` — an id from `BuilderCatalog`'s `dataTypes`.
   Never pass a raw `$expr`; safe mode refuses it.
-- Config fields the catalog marks `x-component` hold a nested component (e.g. a
-  ChartCard's `chart`), which safe mode cannot construct — there is no `$expr` escape
-  hatch. Treat them like `opaque_target`: explain and ask to switch to Code mode.
+- Config fields the catalog marks `x-component` hold a nested block (e.g. a
+  ChartCard's `chart`): pass a **block value** `{ $block: { type: "<type>", config: {…} } }`
+  with a `type` from `BuilderCatalog`. It is validated and allowed in safe mode.
 - To name a builder-generated resource class inside config — e.g. a relation column's
   `dataApiController` — pass a **reference value**
   `{ $ref: { resource: "<ref>", as?: "dataApi" | "table" | "model" } }` (default `as`
@@ -92,14 +92,16 @@ resource workflow (`BuilderListResources` / `BuilderCreateResource` with `locati
 and `routes` / field ops / `BuilderDeleteResource`), field semantics and reserved
 names, and the engine-support caveat for resource ops.
 
-## Queries (computed numbers a DataAPI can't serve)
+## Queries (computed data a DataAPI can't serve)
 
-A **query** is a derived-data endpoint on a *page*: a GET route returning one computed
-number — a count, a sum, an average — backed by a generated method on a resource's model.
-The DataAPI serves rows; a query serves an aggregate over them, and a **KpiCard** is the
-usual consumer. Add one with `BuilderAddQuery` on the page that will display it (not the
-resource's page), wire the returned `route` as the card's `fetchUrl`, and read it back
-through `BuilderPageStructure`'s `queries`. See [REFERENCE.md](REFERENCE.md) for the
+A **query** is a derived-data endpoint on a *page*: a GET route serving an aggregate (a
+count, a sum, an average) or one point per group (a series), backed by a generated method on
+a resource's model. The DataAPI serves rows; a query serves what KPI cards, charts and ranked
+lists read. Its `response` arranges the answer for the block: `value` for a `KpiCard`,
+`card` for a `ChartCard`, `items` for a `TopListCard`, `series` for a bare chart. Run
+`BuilderPreviewQuery` first to see the answer, then add it with `BuilderAddQuery` on the page
+that will display it (not the resource's page), wire the returned `route` as the block's
+`fetchUrl`, and read it back through `BuilderPageStructure`'s `queries`. See [REFERENCE.md](REFERENCE.md) for the
 template catalog, route-bound params, opaque read-back, and the full query workflow.
 
 ## Errors & escalation

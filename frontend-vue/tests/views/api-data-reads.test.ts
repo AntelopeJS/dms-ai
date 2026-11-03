@@ -15,6 +15,7 @@ import ActivityDetail from "../../app/components/ActivityDetail.vue";
 import ChangesView from "../../app/components/ChangesView.vue";
 import ChangeSetPanel from "../../app/views/ChangeSetPanel.vue";
 import UnavailableState from "../../app/views/UnavailableState.vue";
+import { installApiErrorPresenter } from "../support/api-error-presenter";
 
 // The views read what they render with the DMS's `useApiData`, which a server
 // render hands to the browser (this repository has no renderer to run it:
@@ -241,6 +242,7 @@ beforeEach(() => {
 	vi.stubGlobal("useApiPagedData", useApiPagedData);
 	vi.stubGlobal("refreshPageBlocks", refreshPageBlocks);
 	vi.stubGlobal("useAuthFetch", () => ({ $authFetch: authFetch }));
+	installApiErrorPresenter();
 	vi.stubGlobal("useI18n", () => ({
 		t: (key: string) => key,
 		te: () => false,

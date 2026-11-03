@@ -1,5 +1,5 @@
 import type { ActivityResult, AllowedBy } from "./types";
-import type { Tone } from "#dms-ui/app/types/tone";
+import type { Tone } from "#dms-core/app/types/tone";
 
 export const AI_ROUTES = {
 	status: "/ai/status",

@@ -25,11 +25,14 @@ import {
   MOCK_BYPASS_UNAVAILABLE_ERROR,
   MOCK_CAN_USE_TOOL_BEHAVIOR_ALLOW,
   MOCK_DEFAULT_MODE,
+  MOCK_DEFAULT_MODEL,
   MOCK_DEFAULT_SCRIPT_RELATIVE,
   MOCK_HOOK_DENY,
   MOCK_INTERRUPTED_RESULT,
   MOCK_PLAN_MODE,
   MOCK_PRE_TOOL_USE_EVENT,
+  MOCK_REFUSAL_SCRIPT_RELATIVE,
+  MOCK_REFUSED_MODEL_ENV_VAR,
   MOCK_READ_ONLY_COMMANDS,
   MOCK_SCRIPT_ENV_VAR,
   MOCK_SHELL_COMMAND_ARG,
@@ -95,7 +98,13 @@ interface PermissionState {
   isBypassAvailable: boolean;
 }
 
+/** The model one query runs on; `undefined` is the CLI's default. */
+interface ModelState {
+  model: string | undefined;
+}
+
 interface BuildMockQueryArgs {
+  modelState: ModelState;
   prompt: string | AsyncIterable<SDKUserMessage>;
   scriptPath: string;
   signal?: AbortSignal;
@@ -229,12 +238,12 @@ async function askCanUseTool(
 ): Promise<ToolDecision> {
   if (ctx.canUseTool === undefined)
     return { decidedBy: "none", isAllowed: true };
-  const result: PermissionResult = await ctx.canUseTool(
+  const result: PermissionResult | null = await ctx.canUseTool(
     block.name,
     block.input,
-    { signal: ctx.signal, toolUseID: block.id },
+    { signal: ctx.signal, toolUseID: block.id, requestId: block.id },
   );
-  const isAllowed = result.behavior === MOCK_CAN_USE_TOOL_BEHAVIOR_ALLOW;
+  const isAllowed = result?.behavior === MOCK_CAN_USE_TOOL_BEHAVIOR_ALLOW;
   return { decidedBy: "canUseTool", isAllowed };
 }
 
@@ -345,11 +354,21 @@ function buildInterruptedResult(): SDKMessage {
   };
 }
 
-async function* replayOnce(
+async function entriesFor(
   entries: SDKMessage[],
+  modelState: ModelState,
+): Promise<SDKMessage[]> {
+  const refused = process.env[MOCK_REFUSED_MODEL_ENV_VAR];
+  if (refused === undefined || modelState.model !== refused) return entries;
+  return loadScript(resolve(here, MOCK_REFUSAL_SCRIPT_RELATIVE));
+}
+
+async function* replayOnce(
+  scripted: SDKMessage[],
   args: BuildMockQueryArgs,
   interrupted: InterruptFlag,
 ): AsyncGenerator<SDKMessage, void> {
+  const entries = await entriesFor(scripted, args.modelState);
   const permCtx = buildPermissionContext(args);
   for (const entry of entries) {
     await delay(MOCK_STREAM_DELAY_MS, args.signal);
@@ -402,14 +421,19 @@ function setPermissionMode(
 function buildControlSurface(
   interrupted: InterruptFlag,
   permissions: PermissionState,
+  modelState: ModelState,
 ): Omit<Query, keyof AsyncGenerator<SDKMessage, void>> {
   return {
     interrupt: async () => {
       interrupted.requested = true;
+      return undefined;
     },
     setPermissionMode: (mode: PermissionMode) =>
       setPermissionMode(permissions, mode),
-    setModel: unsupported("setModel"),
+    setModel: async (model?: string) => {
+      modelState.model = model;
+      appendTrace({ kind: "model", model: model ?? MOCK_DEFAULT_MODEL });
+    },
     setMaxThinkingTokens: unsupported("setMaxThinkingTokens"),
     applyFlagSettings: unsupported("applyFlagSettings"),
     initializationResult: unsupported("initializationResult"),
@@ -429,6 +453,15 @@ function buildControlSurface(
     streamInput: unsupported("streamInput"),
     stopTask: unsupported("stopTask"),
     backgroundTasks: unsupported("backgroundTasks"),
+    readMcpResource: unsupported("readMcpResource"),
+    reinitialize: unsupported("reinitialize"),
+    reloadOutputStyles: unsupported("reloadOutputStyles"),
+    reloadSkills: unsupported("reloadSkills"),
+    setMcpPermissionModeOverride: unsupported("setMcpPermissionModeOverride"),
+    updateSettings: unsupported("updateSettings"),
+    usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: unsupported(
+      "usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET",
+    ),
     close: unsupported("close"),
   };
 }
@@ -436,13 +469,18 @@ function buildControlSurface(
 function buildQuery(args: BuildMockQueryArgs): Query {
   const interrupted: InterruptFlag = { requested: false };
   const stream = createMessageStream(args, interrupted);
-  const control = buildControlSurface(interrupted, args.permissions);
+  const control = buildControlSurface(
+    interrupted,
+    args.permissions,
+    args.modelState,
+  );
   return Object.assign(stream, control);
 }
 
 interface TraceEntry {
   kind: string;
   name?: string;
+  model?: string;
   decidedBy?: DecidingLayer;
   isAllowed?: boolean;
   permissionMode?: PermissionMode;
@@ -492,6 +530,7 @@ export function query(params: MockQueryParamsWithScript): Query {
   const opts = params.options;
   traceOptions(opts);
   return buildQuery({
+    modelState: { model: opts?.model },
     prompt: params.prompt,
     scriptPath: resolveScriptPath(params.scriptPath),
     signal: opts?.abortController?.signal,

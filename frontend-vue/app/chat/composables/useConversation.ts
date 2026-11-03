@@ -49,6 +49,8 @@ export interface UseConversationResult {
 	mode: Ref<ConversationModeState | null>;
 	/** Tokens this chat has used so far; null until the sidecar says. */
 	totalTokens: Ref<number | null>;
+	/** The model that answered last; null until a reply names it. */
+	model: Ref<string | null>;
 	sendUserMessage: (
 		content: string,
 		attachments?: PendingAttachment[],
@@ -76,6 +78,7 @@ export interface ConversationState {
 	changeSets: Ref<Record<string, ChangeSetSummary>>;
 	mode: Ref<ConversationModeState | null>;
 	totalTokens: Ref<number | null>;
+	model: Ref<string | null>;
 	/**
 	 * When the calls of the stored transcript started and ended. A re-attach
 	 * replays the running turn's events, and the replayed calls take their
@@ -285,6 +288,7 @@ function reset(state: ConversationState): void {
 	state.changeSets.value = {};
 	state.mode.value = null;
 	state.totalTokens.value = null;
+	state.model.value = null;
 	state.callTimes.clear();
 }
 
@@ -302,6 +306,7 @@ function createConversationState(
 		changeSets: ref<Record<string, ChangeSetSummary>>({}),
 		mode: ref<ConversationModeState | null>(null),
 		totalTokens: ref<number | null>(null),
+		model: ref<string | null>(null),
 		callTimes: new Map(),
 	};
 }
@@ -326,6 +331,7 @@ export function useConversation(
 		changeSets: state.changeSets,
 		mode: state.mode,
 		totalTokens: state.totalTokens,
+		model: state.model,
 		sendUserMessage: (content, attachments = [], extra = {}) =>
 			sendUserMessage(state, content, attachments, extra),
 		retry: () => retry(state),

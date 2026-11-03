@@ -142,7 +142,9 @@
 				"expired_title": "{tool} request expired.",
 				"expired_text": "“{summary}” was not answered in time, so it was denied at {time} and the assistant was told why.",
 				"question_skipped": "You let the assistant decide “{header}”.",
-				"full_auto_ended": "Full auto ended at {time}. The assistant asks first again."
+				"full_auto_ended": "Full auto ended at {time}. The assistant asks first again.",
+				"model_fallback_title": "Switched to {model}.",
+				"model_fallback_text": "The requested model, {requested}, was refused (unknown, or no access on this plan). This answer comes from {model}, the default model."
 			},
 			"errors": {
 				"turn_title": "The turn stopped.",
@@ -430,6 +432,8 @@
 			"configure_page": "Configure page",
 			"delete_page": "Delete page",
 			"add_block": "Add block",
+			"compose_page": "Compose page",
+			"configure_table_view": "Configure table view",
 			"configure_block": "Configure block",
 			"move_block": "Move block",
 			"remove_block": "Remove block",
@@ -446,6 +450,7 @@
 			"remove_field": "Remove field",
 			"browse_queries": "Browse query templates",
 			"add_query": "Add query",
+			"preview_query": "Preview query",
 			"configure_query": "Configure query",
 			"remove_query": "Remove query",
 			"search_tools": "Load tools",

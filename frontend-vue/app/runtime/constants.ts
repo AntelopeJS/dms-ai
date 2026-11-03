@@ -40,6 +40,7 @@ export const HELLO_MESSAGE_TYPE = "hello";
 export const LOG_PREFIX = "[dms-ai]";
 export const HOST_STATE_UPDATE_TYPE = "host_state_update";
 export const HOST_NAVIGATION_COMPLETE_TYPE = "host_navigation_complete";
+export const HOST_PAGE_BLOCKS_TYPE = "host_page_blocks";
 export const HOST_COMMAND_NAVIGATE_TYPE = "host_command_navigate";
 /** Frames of the tab's stream meant for the dashboard; every other one is the chat's. */
 export const HOST_COMMAND_TYPES: ReadonlySet<string> = new Set([

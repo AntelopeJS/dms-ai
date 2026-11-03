@@ -43,6 +43,8 @@ export interface ConversationStore {
   ): void;
   /** Records which backend produced the transcript. */
   markProvider(conversationId: string, provider: ProviderName): void;
+  /** Records the model that answered last. */
+  markModel(conversationId: string, model: string): void;
   /** Adds one turn's usage to the conversation total. */
   addTokenUsage(conversationId: string, usage: TokenUsage): void;
   /** Adds one turn's usage to the total and to the dated usage log. */
@@ -137,6 +139,17 @@ function markProvider(
   const conversation = ensureConversation(state, conversationId);
   if (conversation.provider === provider) return;
   conversation.provider = provider;
+  persistCache(state);
+}
+
+function markModel(
+  state: CacheState,
+  conversationId: string,
+  model: string,
+): void {
+  const conversation = ensureConversation(state, conversationId);
+  if (conversation.model === model) return;
+  conversation.model = model;
   persistCache(state);
 }
 
@@ -260,6 +273,7 @@ export function createConversationStore(
     patchMessages: (id, matches, patch) =>
       patchMessages(state, id, matches, patch),
     markProvider: (id, provider) => markProvider(state, id, provider),
+    markModel: (id, model) => markModel(state, id, model),
     addTokenUsage: (id, usage) => addTokenUsage(state, id, usage),
     recordTurnUsage: (id, usage, timestampMs) =>
       recordTurnUsage(state, id, usage, timestampMs),

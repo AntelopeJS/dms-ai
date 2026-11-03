@@ -4,10 +4,13 @@ import { DEFAULT_PROVIDER_NAME } from "../state/types.js";
 export const SETTINGS_FILE_NAME = "settings.json";
 export const SETTINGS_LOG_PREFIX = "[dms-ai sidecar settings]";
 
+export const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
+
 export const DEFAULT_SETTINGS: AppSettings = {
   provider: DEFAULT_PROVIDER_NAME,
   mode: "normal",
   thinking: "medium",
+  claudeModel: DEFAULT_CLAUDE_MODEL,
   generationMode: "safe",
   allowLocalSkills: false,
   alwaysAskDependencies: true,
