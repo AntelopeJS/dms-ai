@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { matchesGlob } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -14,8 +15,12 @@ import {
   buildDenialReminder,
   buildDeveloperInstructions,
   buildTurnOverrides,
-  resolveModePolicy,
+  declinesEscalations,
 } from "../../src/providers/codex/config.js";
+import {
+  buildPermissionProfile,
+  CODEX_READ_ONLY_PROFILE,
+} from "../../src/providers/codex/permission-profiles.js";
 import {
   CHAT_MODES,
   type TurnSettings,
@@ -30,126 +35,99 @@ function settings(overrides: Partial<TurnSettings>): TurnSettings {
   return { ...TURN_SETTINGS, generationMode: "vibe", ...overrides };
 }
 
+const CONFIG_INPUT = {
+  ...WORKSPACE,
+  mcpUrl: "http://127.0.0.1:4321/mcp",
+  nodePath: process.execPath,
+};
+const SCOPES = ["vibe", "safe"] as const;
+
+function withBuilder(check: () => void): void {
+  setBuilderAvailable(true);
+  try {
+    check();
+  } finally {
+    setBuilderAvailable(false);
+  }
+}
+
 describe("mode mapping", () => {
-  it("maps normal to read-only plus on-request, so each write escalates", () => {
-    const overrides = buildTurnOverrides(
-      settings({ mode: "normal" }),
-      WORKSPACE,
-    );
-    expect(overrides.approvalPolicy).toBe("on-request");
-    expect(overrides.sandboxPolicy).toEqual({
-      type: "readOnly",
-      networkAccess: false,
+  it.each(SCOPES)(
+    "runs every mode under the read-only profile, so each file edit asks (%s)",
+    (generationMode) => {
+      withBuilder(() => {
+        for (const mode of CHAT_MODES) {
+          expect(
+            buildTurnOverrides(settings({ mode, generationMode })),
+          ).toMatchObject({
+            approvalPolicy: "on-request",
+            permissions: CODEX_READ_ONLY_PROFILE,
+          });
+        }
+      });
+    },
+  );
+
+  it.each(
+    SCOPES.flatMap((scope) =>
+      (["auto", "acceptEdits"] as const).map((mode) => [mode, scope] as const),
+    ),
+  )("runs %s exactly as Ask first in %s", (mode, generationMode) => {
+    withBuilder(() => {
+      const chosen = settings({ mode, generationMode });
+      const normal = settings({ mode: "normal", generationMode });
+      expect(buildTurnOverrides(chosen)).toEqual(buildTurnOverrides(normal));
+      expect(declinesEscalations(chosen)).toBe(declinesEscalations(normal));
     });
   });
 
-  it("maps acceptEdits to workspace-write over the host and module roots", () => {
-    const overrides = buildTurnOverrides(
-      settings({ mode: "acceptEdits" }),
-      WORKSPACE,
-    );
-    expect(overrides.sandboxPolicy).toEqual({
-      type: "workspaceWrite",
-      writableRoots: [HOST_ROOT, MODULE_ROOT],
-      networkAccess: false,
-      excludeTmpdirEnvVar: false,
-      excludeSlashTmp: false,
+  it("keeps every secret file unreadable, in the module roots too", () => {
+    const profile = buildPermissionProfile(WORKSPACE);
+    const unreadable = (file: string) =>
+      profile.unreadableGlobs.some((glob) => matchesGlob(file, glob));
+    expect(unreadable(".env")).toBe(true);
+    expect(unreadable("modules/shop/.env.local")).toBe(true);
+    expect(unreadable(".env.example")).toBe(false);
+    expect(profile.extraWorkspaceRoots).toEqual([MODULE_ROOT]);
+  });
+
+  it("asks before escalations in Ask first and Accept edits", () => {
+    expect(declinesEscalations(settings({ mode: "normal" }))).toBe(false);
+    expect(declinesEscalations(settings({ mode: "acceptEdits" }))).toBe(false);
+  });
+
+  it("declines every escalation in plan mode", () => {
+    expect(declinesEscalations(settings({ mode: "plan" }))).toBe(true);
+  });
+
+  it.each(CHAT_MODES)("declines every escalation in safe %s", (mode) => {
+    withBuilder(() => {
+      expect(
+        declinesEscalations(settings({ mode, generationMode: "safe" })),
+      ).toBe(true);
     });
   });
 
-  it("leaves the network closed when edits are auto-accepted", () => {
+  it("degrades safe mode to vibe when the Builder is absent", () => {
     expect(
-      resolveModePolicy(settings({ mode: "acceptEdits" })).networkAccess,
+      declinesEscalations(
+        settings({ mode: "acceptEdits", generationMode: "safe" }),
+      ),
     ).toBe(false);
   });
 
-  it("never grants full access in any mode", () => {
-    for (const mode of CHAT_MODES) {
-      const overrides = buildTurnOverrides(settings({ mode }), WORKSPACE);
-      expect(overrides.approvalPolicy).toBe("on-request");
-      expect(overrides.sandboxPolicy).not.toEqual({ type: "dangerFullAccess" });
-    }
-  });
-
-  it.each(["vibe", "safe"] as const)(
-    "runs a chat in Auto review exactly as Ask first, Codex having no Auto review (%s)",
-    (generationMode) => {
-      setBuilderAvailable(true);
-      try {
-        expect(
-          resolveModePolicy(settings({ mode: "auto", generationMode })),
-        ).toEqual(
-          resolveModePolicy(settings({ mode: "normal", generationMode })),
-        );
-      } finally {
-        setBuilderAvailable(false);
-      }
-    },
-  );
-
-  it("declines every escalation in plan mode", () => {
-    expect(
-      resolveModePolicy(settings({ mode: "plan" })).autoDeclineEscalations,
-    ).toBe(true);
-  });
-
-  it("pins safe mode to read-only even when the mode would allow writes", () => {
-    setBuilderAvailable(true);
-    try {
-      const policy = resolveModePolicy(
-        settings({ mode: "acceptEdits", generationMode: "safe" }),
-      );
-      expect(policy.sandbox).toBe("read-only");
-      expect(policy.writable).toBe(false);
-      expect(policy.autoDeclineEscalations).toBe(true);
-    } finally {
-      setBuilderAvailable(false);
-    }
-  });
-
-  it.each(CHAT_MODES)(
-    "keeps safe mode read-only, offline and declining in %s mode",
-    (mode) => {
-      setBuilderAvailable(true);
-      try {
-        const safe = settings({ mode, generationMode: "safe" });
-        const overrides = buildTurnOverrides(safe, WORKSPACE);
-        expect(overrides.approvalPolicy).toBe("on-request");
-        expect(overrides.sandboxPolicy).toEqual({
-          type: "readOnly",
-          networkAccess: false,
-        });
-        expect(resolveModePolicy(safe).autoDeclineEscalations).toBe(true);
-      } finally {
-        setBuilderAvailable(false);
-      }
-    },
-  );
-
-  it("degrades safe mode to vibe when the Builder is absent", () => {
-    const policy = resolveModePolicy(
-      settings({ mode: "acceptEdits", generationMode: "safe" }),
-    );
-    expect(policy.writable).toBe(true);
-    expect(policy.autoDeclineEscalations).toBe(false);
-  });
-
   it("translates the thinking level to a reasoning effort", () => {
-    expect(
-      buildTurnOverrides(settings({ thinking: "off" }), WORKSPACE).effort,
-    ).toBe("low");
-    expect(
-      buildTurnOverrides(settings({ thinking: "high" }), WORKSPACE).effort,
-    ).toBe("high");
+    expect(buildTurnOverrides(settings({ thinking: "off" })).effort).toBe(
+      "low",
+    );
+    expect(buildTurnOverrides(settings({ thinking: "high" })).effort).toBe(
+      "high",
+    );
   });
 });
 
 describe("config.toml", () => {
-  const toml = buildConfigToml({
-    mcpUrl: "http://127.0.0.1:4321/mcp",
-    hostProjectRoot: HOST_ROOT,
-    nodePath: process.execPath,
-  });
+  const toml = buildConfigToml(CONFIG_INPUT);
 
   it("declares the MCP server at process level", () => {
     expect(toml).toContain("[mcp_servers.dms-ai]");
@@ -165,6 +143,19 @@ describe("config.toml", () => {
     expect(toml).toContain('[projects."/srv/app"]');
     expect(toml).toContain('trust_level = "untrusted"');
     expect(toml).toContain("project_doc_max_bytes = 0");
+  });
+
+  it("runs a thread that names no profile read-only, set before any table", () => {
+    const topLevel = toml.split("\n[")[0] ?? "";
+    expect(topLevel).toContain(
+      `default_permissions = "${CODEX_READ_ONLY_PROFILE}"`,
+    );
+  });
+
+  it("closes the network", () => {
+    expect(toml).toContain(
+      `[permissions.${CODEX_READ_ONLY_PROFILE}.network]\nenabled = false`,
+    );
   });
 });
 
@@ -211,11 +202,7 @@ function authCommandArgs(toml: string): string[] {
 }
 
 describe("ChatGPT plan provider", () => {
-  const toml = buildConfigToml({
-    mcpUrl: "http://127.0.0.1:4321/mcp",
-    hostProjectRoot: HOST_ROOT,
-    nodePath: process.execPath,
-  });
+  const toml = buildConfigToml(CONFIG_INPUT);
   let tokenServer: TokenServer | undefined;
 
   afterEach(() => {

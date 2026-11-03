@@ -18,10 +18,12 @@ import {
   TOOL_LEXICON,
 } from "../../constants/tool-lexicon.js";
 import { EDIT_PATHS_KEY } from "../../agent/edit-targets.js";
+import { resolveReadRoots } from "../../agent/read-access.js";
 import type { TurnSettings } from "../../state/settings-types.js";
 import type { CodexFileChange } from "./adapter.js";
 import type { CodexServerRequest } from "./client.js";
-import { resolveModePolicy } from "./config.js";
+import { declinesEscalations } from "./config.js";
+import { createPatchDirectories } from "./patch-directories.js";
 
 type CodexApprovalDecisionResponse = {
   decision: string;
@@ -33,6 +35,8 @@ export interface CodexPermissionDeps {
   /** Read live, so a safe/vibe flip takes effect without a new session. */
   getSettings: () => TurnSettings;
   getChanges: (itemId: string) => CodexFileChange[];
+  hostProjectRoot: string;
+  moduleRoots: readonly string[];
   onToolDecision?: (decision: ToolDecision) => void;
   /** Awaited before an approved change runs (the turn's checkpoint). */
   beforeMutation?: () => Promise<void>;
@@ -51,6 +55,7 @@ interface ApprovalSubject {
   toolName: string;
   args: Record<string, string | string[]>;
   callId?: string;
+  changes: readonly CodexFileChange[];
 }
 
 const commandApprovalParamsSchema = z.object({
@@ -87,6 +92,10 @@ export function createCodexPermissionHandler(
 ): CodexPermissionHandler {
   let denials = 0;
   let cancelled = false;
+  const patchRoots = {
+    hostProjectRoot: deps.hostProjectRoot,
+    roots: resolveReadRoots(deps.hostProjectRoot, deps.moduleRoots),
+  };
 
   function describeCommand(params: CommandApprovalParams): ApprovalSubject {
     const { command, itemId } = params;
@@ -94,6 +103,7 @@ export function createCodexPermissionHandler(
       toolName: TOOL_LEXICON.BASH,
       args: { [BASH_COMMAND_ARG]: command ?? "" },
       callId: itemId,
+      changes: [],
     };
   }
 
@@ -117,6 +127,7 @@ export function createCodexPermissionHandler(
         [CODEX_CHANGE_DIFF_ARG]: first?.diff ?? "",
       },
       callId: itemId,
+      changes,
     };
   }
 
@@ -156,6 +167,7 @@ export function createCodexPermissionHandler(
     countDenial(outcome.isAllowed);
     if (!outcome.isAllowed) return decline();
     await deps.beforeMutation?.();
+    await createPatchDirectories(subject.changes, patchRoots);
     return accept();
   }
 
@@ -181,7 +193,7 @@ export function createCodexPermissionHandler(
       }
       if (cancelled) return decline();
       const subject = describe();
-      if (resolveModePolicy(deps.getSettings()).autoDeclineEscalations) {
+      if (declinesEscalations(deps.getSettings())) {
         return block(subject);
       }
       return ask(subject);

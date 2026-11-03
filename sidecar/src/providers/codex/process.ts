@@ -52,6 +52,7 @@ export interface CodexProcessOptions {
   mcpUrl: string;
   mcpToken: string;
   hostProjectRoot: string;
+  moduleRoots: readonly string[];
   /** The sidecar route the app-server's auth command reads its token from. */
   accessTokenUrl: string;
   handlers: CodexClientHandlers;
@@ -337,6 +338,7 @@ async function prepareCodexHome(options: CodexProcessOptions): Promise<string> {
     buildConfigToml({
       mcpUrl: options.mcpUrl,
       hostProjectRoot: options.hostProjectRoot,
+      moduleRoots: options.moduleRoots,
       nodePath: process.execPath,
     }),
   );

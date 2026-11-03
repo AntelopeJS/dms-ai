@@ -294,7 +294,8 @@
 				"mode_menu": "Mode d'approbation · cette conversation",
 				"mode_desc": {
 					"normal": "Demande avant toute modification, requête web ou commande, même en lecture seule.",
-					"acceptEdits": "Applique les modifications de fichiers. Les fichiers de dépendances et les hooks git demandent encore avec Claude Code, pas avec Codex. Demande avant chaque commande et requête web.",
+					"acceptEdits": "Applique les modifications de fichiers, sauf les fichiers de dépendances et les hooks git. Demande avant chaque commande et requête web.",
+					"acceptEdits_codex": "Avec Codex, fonctionne comme Demander d'abord : demande avant chaque modification de fichier, fichiers de dépendances et hooks git compris, et avant toute commande qui écrit.",
 					"plan": "Lit et propose un plan. Ne modifie rien.",
 					"auto": "Un contrôle de sécurité approuve les modifications de fichiers courantes et l'accès au web. Les commandes shell, les fichiers de dépendances, les hooks git et les suppressions demandent encore votre accord."
 				},

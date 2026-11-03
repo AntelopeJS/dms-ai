@@ -13,7 +13,11 @@ import { BASH_COMMAND_ARG } from "../../src/constants/tool-lexicon.js";
 import { bridgeCanUseTool } from "../../src/providers/claude/provider.js";
 import { createCodexPermissionHandler } from "../../src/providers/codex/permissions.js";
 import { PROVIDER_NAMES, type ProviderName } from "../../src/state/types.js";
-import { createTestBus, type TestBus } from "../helpers/permission-bus.js";
+import {
+  createTestBus,
+  TEST_PROJECT_ROOT,
+  type TestBus,
+} from "../helpers/permission-bus.js";
 import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 
 const CONVERSATION = "conv-parity";
@@ -37,6 +41,8 @@ const BINDINGS: Record<ProviderName, AskThroughBinding> = {
       permissionBus: bus,
       getSettings: () => ({ ...TURN_SETTINGS, generationMode: "vibe" }),
       getChanges: () => [],
+      hostProjectRoot: TEST_PROJECT_ROOT,
+      moduleRoots: [],
     });
     const answer = await handler.handle({
       id: 0,

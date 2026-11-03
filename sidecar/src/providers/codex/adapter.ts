@@ -38,7 +38,10 @@ const fileChangeItemSchema = z.object({
   changes: z.array(
     z.object({
       path: z.string(),
-      kind: z.object({ type: z.string() }),
+      kind: z.object({
+        type: z.string(),
+        move_path: z.string().nullish(),
+      }),
       diff: z.string(),
     }),
   ),
@@ -107,6 +110,8 @@ export interface CodexFileChange {
   path: string;
   kind: string;
   diff: string;
+  /** Where an update moves the file to, when it moves it. */
+  movePath?: string;
 }
 
 export interface CodexAdapter {
@@ -262,6 +267,7 @@ export function createCodexAdapter(): CodexAdapter {
         path: change.path,
         kind: change.kind.type,
         diff: change.diff,
+        movePath: change.kind.move_path ?? undefined,
       })),
     );
     return item.changes.map((change, index) =>

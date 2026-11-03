@@ -36,19 +36,12 @@ const GENERATION_CODEX_HOME = path.join(SIDECAR_ROOT, ".codex-home-generate");
  */
 const PROTOCOL_ROOTS = [
   "v2/AskForApproval",
-  "v2/FileUpdateChange",
-  "v2/SandboxMode",
-  "v2/SandboxPolicy",
   "v2/SkillMetadata",
   "v2/SkillScope",
   "v2/SkillsConfigWriteParams",
   "v2/SkillsListEntry",
   "v2/SkillsListResponse",
   "v2/ThreadStartResponse",
-  "v2/ThreadTokenUsageUpdatedNotification",
-  "v2/Turn",
-  "v2/TurnPlanStep",
-  "v2/TurnStartedNotification",
   "v2/UserInput",
 ];
 

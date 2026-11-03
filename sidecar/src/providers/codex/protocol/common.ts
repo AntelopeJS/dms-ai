@@ -24,13 +24,30 @@ export type FunctionCallOutputBody = string | Array<FunctionCallOutputContentIte
  * Responses API compatible content items that can be returned by a tool call.
  * This is a subset of ContentItem with the types we support as function call outputs.
  */
-export type FunctionCallOutputContentItem = { "type": "input_text", text: string, } | { "type": "input_image", image_url: string, detail?: ImageDetail, } | { "type": "input_audio", audio_url: string, } | { "type": "encrypted_content", encrypted_content: string, };
+export type FunctionCallOutputContentItem = { "type": "input_text", text: string, } | { "type": "input_image", detail?: ImageDetail, } & ({ image_url: string, } | { file_id: string, }) | { "type": "input_audio", audio_url: string, } | { "type": "encrypted_content", encrypted_content: string, };
 
 export type ImageDetail = "auto" | "low" | "high" | "original";
 
 export type ImageGenerationFailure = { "type": "usageLimitExceeded", limitId: string, resetsAt: number | null, };
 
-export type ImageGenerationItem = { id: string, status: string, revisedPrompt: string | null, result: string, transparentBackground?: boolean, failure: ImageGenerationFailure | null, savedPath?: AbsolutePathBuf, };
+/**
+ * A local image file successfully read for this exact image-generation request.
+ */
+export type ImageGenerationInputImage = { path: AbsolutePathBuf,
+/**
+ * Lowercase SHA-256 of the file bytes read before image normalization.
+ */
+sha256: string, };
+
+export type ImageGenerationItem = { id: string, status: string, revisedPrompt: string | null, transparentBackground?: boolean, failure: ImageGenerationFailure | null, savedPath?: AbsolutePathBuf,
+/**
+ * Observed local inputs for a completed generation, absent on older items.
+ */
+inputImages?: Array<ImageGenerationInputImage>,
+/**
+ * Image generation identifier for the generated image, when provided by the image backend.
+ */
+generationId: string | null, } & ({ fileId: string, } | { result: string, });
 
 /**
  * A UTF-8 path for preserving raw path compatibility at the app-server API
@@ -57,12 +74,12 @@ export type ImageGenerationItem = { id: string, status: string, revisedPrompt: s
 export type LegacyAppPathString = string;
 
 /**
- * Classifies an assistant message as interim commentary or final answer text.
+ * Classifies assistant text as commentary, a partial answer, or a terminal answer.
  *
  * Providers do not emit this consistently, so callers must treat `None` as
  * "phase unknown" and keep compatibility behavior for legacy models.
  */
-export type MessagePhase = "commentary" | "final_answer";
+export type MessagePhase = "commentary" | "partial_answer" | "final_answer";
 
 /**
  * See https://platform.openai.com/docs/guides/reasoning?api-mode=responses#get-started-with-reasoning
