@@ -151,7 +151,7 @@ describe("the history drawer", () => {
 				id: "c-old",
 				title: "Why is order pending?",
 				createdAtMs: 1,
-				updatedAtMs: Date.now() - 3_600_000,
+				updatedAtMs: Date.now() - 1_000,
 				messageCount: 2,
 				filesChanged: 0,
 				filesUndone: 1,
