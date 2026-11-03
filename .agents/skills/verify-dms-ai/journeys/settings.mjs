@@ -1,6 +1,8 @@
 import { guarded } from "../guard.mjs";
 import { writeFileSync } from "node:fs";
-import { ai, check, freshSidecar, list, pageHas, pick, same, selected, shownBy, sidecarPath, statusIs, stopBackend, text, until } from "../ai.mjs";
+import { sampleChangeSets, sampleConversations } from "../sample.mjs";
+import { seedStore } from "../seed.mjs";
+import { ai, check, clickUntil, freshSidecar, list, pageHas, pick, same, selected, shownBy, sidecarPath, statusIs, stopBackend, text, until } from "../ai.mjs";
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
 
@@ -99,7 +101,16 @@ export const journeys = guarded([
         [{ mode: "full-auto" }, /normal.*acceptEdits.*plan/s],
         [{ generationMode: "code" }, /safe.*vibe/s],
         [{ requestTimeoutMinutes: "7" }, /5\|15\|30/],
+        [{ requestTimeoutMinutes: "14" }, /5\|15\|30/],
+        [{ requestTimeoutMinutes: "45" }, /5\|15\|30/],
+        [{ requestTimeoutMinutes: "60" }, /5\|15\|30/],
+        [{ requestTimeoutMinutes: "0" }, /5\|15\|30/],
+        [{ requestTimeoutMinutes: 60 }, /5\|15\|30/],
         [{ checkpointRetentionDays: "8" }, /7\|30\|90/],
+        [{ checkpointRetentionDays: "14" }, /7\|30\|90/],
+        [{ checkpointRetentionDays: "1" }, /7\|30\|90/],
+        [{ checkpointRetentionDays: "180" }, /7\|30\|90/],
+        [{ checkpointRetentionDays: 180 }, /7\|30\|90/],
         [{ claudeModel: "" }, /Too small/],
       ];
       const checks = [];
@@ -192,6 +203,91 @@ export const journeys = guarded([
       ]);
       const chosen = list((await ai(ctx, "read", "GET", "/settings")).body, "x").length;
       await ctx.verify("nothing was changed by looking", [same("defaults", picked(await settings(ctx, "read")), DEFAULTS), same("no rows", chosen, 0)]);
+    },
+  },
+  {
+    id: "the-menus-and-choices-offer-exactly-the-documented-options",
+    title: "Deny after offers 5, 15 and 30 minutes and Checkpoints Keep 7, 30 and 90 days, nothing else; Thinking has four choices, the agent two, the approval mode four and the scope two",
+    entryPoint: "/modules/ai/settings",
+    async run(/** @type {Ctx} */ ctx) {
+      await freshSidecar(ctx);
+      const tab = await ctx.tab();
+      await tab.signIn("admin");
+      await tab.goto("/modules/ai/settings");
+      const options = async (/** @type {string} */ name) => {
+        await clickUntil(tab, { role: "combobox", name }, /minutes|days/);
+        const found = await tab.page.getByRole("option").allTextContents();
+        await tab.press("Escape");
+        return found.map((entry) => entry.trim());
+      };
+      await ctx.verify("the menus", [
+        same("Deny after: 5, 15 and 30 minutes", await options("Deny after"), ["5 minutes", "15 minutes", "30 minutes"]),
+        same("Checkpoints: 7, 30 and 90 days", await options("Checkpoints"), ["Keep 7 days", "Keep 30 days", "Keep 90 days"]),
+      ]);
+      const names = async (/** @type {string[]} */ list) => list;
+      await ctx.verify("the choices", [
+        check("12 radio buttons in all", (await tab.page.getByRole("radio").count()) === 12, await tab.page.getByRole("radio").count()),
+        same("Thinking", await names(await Promise.all(["Off", "Low", "Medium", "High"].map(async (name) => (await tab.page.getByRole("radio", { name, exact: true }).count()) === 1 ? name : ""))), ["Off", "Low", "Medium", "High"]),
+        same("the agent", await Promise.all(["Claude Code", "Codex"].map(async (name) => (await tab.page.getByRole("radio", { name, exact: true }).count()) === 1 ? name : ""))  , ["Claude Code", "Codex"]),
+        same("the approval mode", await Promise.all(["Ask first", "Accept edits", "Plan only", "Full auto"].map(async (name) => (await tab.page.getByRole("radio", { name, exact: true }).count()) === 1 ? name : "")), ["Ask first", "Accept edits", "Plan only", "Full auto"]),
+        same("the scope", await Promise.all(["Safe mode · recommended", "Code mode"].map(async (name) => (await tab.page.getByRole("radio", { name, exact: true }).count()) === 1 ? name : "")), ["Safe mode · recommended", "Code mode"]),
+        check("four switches", (await tab.page.getByRole("switch").count()) === 4, await tab.page.getByRole("switch").count()),
+      ]);
+    },
+  },
+  {
+    id: "every-label-of-the-page-is-the-documented-one",
+    title: "the Settings page carries each section, setting, option, hint and banner label the docs name, in the documented order",
+    entryPoint: "/modules/ai/settings",
+    async run(/** @type {Ctx} */ ctx) {
+      await freshSidecar(ctx);
+      const tab = await ctx.tab();
+      await tab.signIn("admin");
+      await tab.goto("/modules/ai/settings");
+      const inOrder = (/** @type {string[]} */ labels) => new RegExp(labels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[\\s\\S]*"), "i");
+      await ctx.verify("the page, top to bottom", [
+        pageHas(tab, "the title and its subtitle", /Settings\s*Defaults for new conversations\. Changes save as you go/),
+        pageHas(tab, "the banner", inOrder(["Saved instantly", "Run Codex on your ChatGPT plan", "Sign in with ChatGPT", "Paste the return address"])),
+        pageHas(tab, "the sections", inOrder(["Agent", "Approvals", "Scope", "Skills", "History", "Usage"])),
+        pageHas(tab, "the agent settings", inOrder(["Coding agent", "Claude Code", "Codex", "Thinking", "Off", "Low", "Medium", "High", "Claude model"])),
+        pageHas(tab, "the approval settings", inOrder(["Approval mode", "Ask first", "Accept edits", "Plan only", "Full auto", "Always ask for", "Deleting pages, tables, fields or queries", "Adding or removing dependencies", "Removing or moving Builder blocks", "Unanswered requests", "Deny after", "Notify me in the DMS"])),
+        pageHas(tab, "the scope settings", inOrder(["Scope", "Safe mode · recommended", "Code mode"])),
+        pageHas(tab, "the skills and history settings", inOrder(["Machine-local skills", "Use machine-local skills", "Checkpoints", "Keep 30 days"])),
+        pageHas(tab, "the usage section", inOrder(["Usage", "Tokens · last 14 days", "Last 14 days", "Tokens", "Conversations"])),
+        pageHas(tab, "the hints", /Applies to new turns\. Open chats lose the agent's memory; transcripts stay\./),
+        pageHas(tab, "the thinking hint", /Applies from the next message/),
+        pageHas(tab, "the approvals hint", /Applies to new conversations/),
+        pageHas(tab, "the Always ask for hint", /These ask in every mode, including Full auto\./),
+        pageHas(tab, "the dependencies hint", /Package installs and removals run by a command\./),
+        pageHas(tab, "the Builder blocks hint", /Even when other Builder operations run automatically\./),
+        pageHas(tab, "the unanswered hint", /What happens to a request nobody answers\./),
+        pageHas(tab, "the notify hint", /Shows a toast when a request arrives while the assistant panel is closed\./),
+        pageHas(tab, "the local skills hint", /Adds skills from ~\/\.claude\/skills on this machine\. Not shared with teammates or other environments\./),
+        pageHas(tab, "the checkpoints hint", /Change sets older than this can no longer be undone\./),
+        pageHas(tab, "the usage hint", /Counted per conversation\. Your provider bills them\./),
+      ]);
+    },
+  },
+  {
+    id: "usage-counts-the-stored-tokens-of-the-last-14-days",
+    title: "the Usage section totals the tokens of the conversations of the last 14 days (1,400 over 2 conversations here), leaves out older ones, and names the biggest conversation",
+    entryPoint: "GET /ai/metrics/usage, /usage/summary, /modules/ai/settings",
+    async run(/** @type {Ctx} */ ctx) {
+      const now = Date.now();
+      await seedStore(ctx, { conversations: sampleConversations(now, { one: "cs-one", two: "cs-two" }), build: () => sampleChangeSets(ctx, now) });
+      const usage = await ai(ctx, "usage", "GET", "/metrics/usage");
+      const summary = await ai(ctx, "summary", "GET", "/metrics/usage/summary");
+      const days = list(usage.body, "series").flatMap((series) => list(series, "data"));
+      await ctx.verify("the routes", [
+        same("14 days", days.length, 14),
+        same("the total", pick(usage.body, "value"), 1400),
+        same("the days add up to it", days.reduce((total, day) => total + Number(pick(day, "y")), 0), 1400),
+        same("the summary rows", list(summary.body, "items").map((row) => [text(row, "id"), pick(row, "value")]), [["tokens", 1400], ["conversations", 2], ["top", "Add a revenue chart"]]),
+      ]);
+      const tab = await ctx.tab();
+      await tab.signIn("admin");
+      await tab.goto("/modules/ai/settings");
+      await ctx.verify("the section", [pageHas(tab, "tokens and conversations", /Tokens\s*1,400\s*Conversations\s*2/i), pageHas(tab, "the biggest conversation", /Add a revenue chart/)]);
     },
   },
   {

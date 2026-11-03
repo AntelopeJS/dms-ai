@@ -1,7 +1,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { guarded } from "../guard.mjs";
-import { ai, check, freshSidecar, list, pageHas, pick, same, text, until } from "../ai.mjs";
+import { ai, check, choose, freshSidecar, list, pageHas, pick, same, sidecarPath, statusIs, text, until } from "../ai.mjs";
+import { sampleChangeSets, sampleConversations } from "../sample.mjs";
+import { seedStore } from "../seed.mjs";
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
 
@@ -143,6 +145,69 @@ export const journeys = guarded([
       await ai(ctx, "switch it off", "PUT", "/settings", { body: { allowLocalSkills: false } });
       const gone = await until(async () => (await catalog(ctx, "local")).length === 0, { timeoutMs: 20_000 });
       await ctx.verify("switching off", [check("the local skill leaves", gone, gone)]);
+    },
+  },
+  {
+    id: "use-counts-and-last-use-come-from-the-conversations",
+    title: "a skill's use count over 30 days, its last use and its last conversation come from the Skill calls in the stored conversations, and the cards are sorted by use, most used first",
+    entryPoint: "GET /ai/skills/catalog, /modules/ai/skills",
+    async run(/** @type {Ctx} */ ctx) {
+      const now = Date.now();
+      await seedStore(ctx, { conversations: sampleConversations(now, { one: "cs-one", two: "cs-two" }), build: () => sampleChangeSets(ctx, now) });
+      const rows = await catalog(ctx, "");
+      const named = (/** @type {string} */ name) => rows.find((row) => text(row, "name") === name);
+      const used = named("dms-ai");
+      await ctx.verify("the catalog", [
+        same("dms-ai: used 4 times", pick(used, "uses30d"), 4),
+        same("dms-ai-code-mode: once", pick(named("dms-ai-code-mode"), "uses30d"), 1),
+        same("dms-builder-safe: once, ten days ago", pick(named("dms-builder-safe"), "uses30d"), 1),
+        same("a skill never called", pick(named("dms-pages"), "uses30d"), 0),
+        same("the last use of dms-ai is the latest of its calls", Date.parse(text(used, "lastUsedAt")) > now - 3 * 3_600_000 && Date.parse(text(used, "lastUsedAt")) < now - 2 * 3_600_000, true),
+        same("and its conversation", text(used, "lastConversationId"), "conv-new"),
+        same("its last use is that day", Math.round((now - Date.parse(text(named("dms-builder-safe"), "lastUsedAt"))) / 86_400_000), 10),
+        same("a skill never called has no last use", pick(named("dms-pages"), "lastUsedAt"), undefined),
+      ]);
+      const tab = await ctx.tab();
+      await tab.signIn("admin");
+      await tab.goto("/modules/ai/skills");
+      await ctx.verify("the page", [
+        pageHas(tab, "dms-ai first with its count, then dms-ai-code-mode", /dms-ai dms-ai Module[^\n]*4 uses[\s\S]*dms-ai-code-mode dms-ai Module[^\n]*1 use/i),
+        pageHas(tab, "the others never used", /never used/),
+      ]);
+    },
+  },
+  {
+    id: "the-page-lists-24-skills-and-opens-a-panel-768-px-wide",
+    title: "with 30 machine-local skills the Local tab counts 30 and lists 24 cards on the first page and 6 on the second; the reading panel of a card is 768 px wide on a large screen",
+    entryPoint: "/modules/ai/skills",
+    async run(/** @type {Ctx} */ ctx) {
+      await freshSidecar(ctx);
+      for (let index = 1; index <= 30; index += 1) {
+        const name = `local-skill-${String(index).padStart(2, "0")}`;
+        localSkill(ctx, name, `---\nname: ${name}\ndescription: Local skill number ${index}. Use when the verification asks for it.\n---\n\n# ${name}\n`);
+      }
+      await ai(ctx, "switch machine-local skills on", "PUT", "/settings", { body: { allowLocalSkills: true } });
+      await ai(ctx, "restart so the folder is read", "POST", "/sidecar/restart");
+      await statusIs(ctx, (status) => text(status, "status") === "ready", 60_000);
+      const local = await until(async () => (await catalog(ctx, "local")).length === 30, { timeoutMs: 30_000, everyMs: 1500 });
+      await ctx.verify("the catalog", [check("30 local skills", local, local)]);
+      const tab = await ctx.tab();
+      await tab.signIn("admin");
+      await tab.page.setViewportSize({ width: 1440, height: 900 });
+      await tab.goto("/modules/ai/skills");
+      await tab.click({ role: "button", name: "Local 30" });
+      const cards = () => tab.page.locator("article").count();
+      await until(async () => (await cards()) > 0, { timeoutMs: 15_000 });
+      await ctx.verify("the first page", [check("24 cards", (await cards()) === 24, await cards()), pageHas(tab, "the tab count", /Local\s*30/), pageHas(tab, "the pager", /Page 1 of 2|24 of 30|1 of 2/)]);
+      await tab.snapshot("page one of the local skills");
+      await ctx.verify("the pager text", [pageHas(tab, "names the page", /Page 1 of 2/)]);
+      await tab.click({ role: "button", name: "Next page" });
+      await until(async () => (await cards()) === 6, { timeoutMs: 15_000 });
+      await ctx.verify("the second page", [check("6 cards", (await cards()) === 6, await cards()), pageHas(tab, "page 2 of 2", /Page 2 of 2/)]);
+      await tab.page.locator("article").first().click();
+      await until(async () => (await tab.page.getByRole("dialog").count()) > 0, { timeoutMs: 15_000 });
+      const box = await tab.page.getByRole("dialog").first().boundingBox();
+      await ctx.verify("the reading panel", [same("768 px wide", box === null ? null : Math.round(box.width), 768), pageHas(tab, "its position among the cards", /Skill \d+ of 30/), pageHas(tab, "its rows", /Source\s*Local[\s\S]*Origin\s*~\/\.claude\/skills[\s\S]*Used\s*0/)]);
     },
   },
   {

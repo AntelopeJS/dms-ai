@@ -1,5 +1,5 @@
 import { guarded } from "../guard.mjs";
-import { ai, check, same, selected, text, until } from "../ai.mjs";
+import { ai, check, choose, same, selected, text, until } from "../ai.mjs";
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
 
@@ -24,8 +24,8 @@ export const journeys = guarded([
         tab.shows(/localhost:\d+/),
       ]);
       await tab.goto("/modules/ai/settings");
-      await tab.click({ role: "radio", name: "High" });
-      const saved = await until(async () => text((await ai(ctx, "read the settings", "GET", "/settings")).body, "thinking") === "high");
+      await choose(tab, { role: "radio", name: "High" });
+      const saved = await until(async () => text((await ai(ctx, "read the settings", "GET", "/settings")).body, "thinking") === "high", { timeoutMs: 45_000, everyMs: 1500 });
       await ctx.verify("the choice is saved as you make it", [check("thinking is high through the API", saved, saved)], { critical: true });
       await tab.reload();
       await ctx.verify("a reload keeps it", [selected(tab, { role: "radio", name: "High" }, true), selected(tab, { role: "radio", name: "Medium" }, false)]);

@@ -33,6 +33,7 @@ declare module "playwright-core" {
     focus(options?: Timeout): Promise<void>;
     count(): Promise<number>;
     innerText(options?: Timeout): Promise<string>;
+    boundingBox(): Promise<{ x: number; y: number; width: number; height: number } | null>;
     isChecked(options?: Timeout): Promise<boolean>;
     isDisabled(options?: Timeout): Promise<boolean>;
     isVisible(options?: Timeout): Promise<boolean>;

@@ -283,7 +283,7 @@ export async function until(read, options = {}) {
 export function alive(pid) {
   try {
     process.kill(pid, 0);
-    return true;
+    return !/^\d+ \(.*\) Z/.test(readFileSync(`/proc/${pid}/stat`, "utf8"));
   } catch {
     return false;
   }
@@ -412,4 +412,49 @@ export async function stopBackend(ctx) {
   const lock = sidecarLock(ctx);
   if (backend && alive(backend.pid)) process.kill(backend.pid, "SIGTERM");
   await until(() => !(backend && alive(backend.pid)) && !(lock && alive(lock.pid)), { timeoutMs: 30_000 });
+}
+
+/**
+ * Clicks a radio button or a switch until it is selected: the dashboard hydrates after it renders, and a click
+ * that lands first does nothing. Gives up after six clicks and leaves the next check to fail.
+ *
+ * @param {Tab} tab The tab
+ * @param {{ role: string, name: string, exact?: boolean }} target The control
+ * @returns {Promise<void>}
+ */
+export async function choose(tab, target) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await tab.click(target);
+    const done = await until(async () => tab.locator(target).first().isChecked({ timeout: 2000 }).catch(() => false), { timeoutMs: 6000, everyMs: 500 });
+    if (done) return;
+  }
+}
+
+/**
+ * The window a period option sends: from `days` ago to now, compared with the same length before.
+ *
+ * @param {number} now The time
+ * @param {number} days The length of the period
+ * @returns {string} The query string
+ */
+export function periodQuery(now, days) {
+  const iso = (/** @type {number} */ offset) => new Date(now - offset * 86_400_000).toISOString();
+  return `from=${iso(days)}&to=${iso(0)}&compareFrom=${iso(2 * days)}&compareTo=${iso(days)}`;
+}
+
+/**
+ * Clicks a control until the page shows what it opens: a click that lands before the dashboard hydrates does
+ * nothing. Gives up after six clicks and leaves the next check to fail.
+ *
+ * @param {Tab} tab The tab
+ * @param {{ role: string, name: string, exact?: boolean }} target The control
+ * @param {RegExp} opens The text the page shows once it worked
+ * @returns {Promise<void>}
+ */
+export async function clickUntil(tab, target, opens) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await tab.click(target);
+    const shown = await until(async () => opens.test((await bodyText(tab)).replace(/\s+/g, " ")), { timeoutMs: 4000, everyMs: 500 });
+    if (shown) return;
+  }
 }

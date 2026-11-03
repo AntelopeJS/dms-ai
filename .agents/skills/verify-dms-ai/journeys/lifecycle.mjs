@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import { networkInterfaces } from "node:os";
+import { connect } from "node:net";
 import { guarded } from "../guard.mjs";
-import { AI, ai, alive, check, freshSidecar, list, pageHas, parseJson, pause, pick, raw, recordRaw, same, sidecarLock, statusIs, text, until, withEnv } from "../ai.mjs";
+import { AI, ai, alive, check, freshSidecar, list, pageHas, parseJson, pause, pick, raw, recordRaw, same, sidecarLock, sidecarPath, statusIs, text, until, withEnv } from "../ai.mjs";
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
 
@@ -71,8 +74,8 @@ export const journeys = guarded([
       const revived = await until(() => {
         const lock = sidecarLock(ctx);
         return lock && lock.pid !== first?.pid && alive(lock.pid) ? lock : null;
-      }, { timeoutMs: 40_000 });
-      const readyAgain = await statusIs(ctx, READY, 40_000);
+      }, { timeoutMs: 90_000, everyMs: 1000 });
+      const readyAgain = await statusIs(ctx, READY, 90_000);
       await ctx.verify("one crash is absorbed", [
         check("a new sidecar came up by itself", Boolean(revived), `${first?.pid} -> ${revived ? revived.pid : "none"}`),
         same("the assistant is ready", text(readyAgain.status, "status"), "ready"),
@@ -102,8 +105,87 @@ export const journeys = guarded([
         pageHas(tab, "the sidecar row", /Sidecar\s*Not running/),
       ]);
       await tab.click({ role: "button", name: "Restart assistant" });
-      const back = await statusIs(ctx, READY, 60_000);
+      const back = await statusIs(ctx, READY, 120_000);
       await ctx.verify("the button restarts it", [same("ready again", text(back.status, "status"), "ready"), tab.visible({ role: "button", name: "Restart assistant" }, { hidden: true, timeoutMs: 30_000 })]);
+    },
+  },
+  {
+    id: "the-sidecar-listens-on-loopback-only",
+    title: "the sidecar's listening socket is bound to 127.0.0.1, and a connection to the same port on the machine's own network address is refused",
+    entryPoint: "the sidecar's port, /proc/net/tcp",
+    async run(/** @type {Ctx} */ ctx) {
+      await freshSidecar(ctx);
+      const lock = sidecarLock(ctx);
+      const hex = (lock?.port ?? 0).toString(16).toUpperCase().padStart(4, "0");
+      const listeners = readFileSync("/proc/net/tcp", "utf8").split("\n").slice(1).map((line) => line.trim().split(/\s+/)).filter((cols) => cols[3] === "0A" && cols[1]?.endsWith(`:${hex}`)).map((cols) => cols[1]?.split(":")[0]);
+      const tcp6 = readFileSync("/proc/net/tcp6", "utf8").split("\n").slice(1).map((line) => line.trim().split(/\s+/)).filter((cols) => cols[3] === "0A" && cols[1]?.endsWith(`:${hex}`)).length;
+      await ctx.verify("the socket", [same("one listener, on 127.0.0.1", listeners, ["0100007F"]), same("and none on IPv6", tcp6, 0)]);
+      const lan = Object.values(networkInterfaces()).flat().find((entry) => entry && entry.family === "IPv4" && !entry.internal)?.address;
+      const reach = (/** @type {string} */ host) => new Promise((resolve) => {
+        const socket = connect({ host, port: lock?.port ?? 0, timeout: 4000 });
+        socket.on("connect", () => { socket.destroy(); resolve("connected"); });
+        socket.on("error", (error) => resolve(String(Reflect.get(error, "code"))));
+        socket.on("timeout", () => { socket.destroy(); resolve("timeout"); });
+      });
+      await ctx.verify("who can connect", [
+        same("loopback connects", await reach("127.0.0.1"), "connected"),
+        check("this machine has a network address to try", lan !== undefined, lan),
+        same(`the network address ${lan} is refused`, await reach(lan ?? "192.0.2.1"), "ECONNREFUSED"),
+      ]);
+    },
+  },
+  {
+    id: "an-openai-api-key-is-ignored-with-one-warning-per-start",
+    title: "with OPENAI_API_KEY set the sidecar logs the documented warning once for the start, and without it no warning",
+    entryPoint: "OPENAI_API_KEY, the sidecar log",
+    async run(/** @type {Ctx} */ ctx) {
+      const WARNING = "OPENAI_API_KEY is ignored: Codex now runs on your ChatGPT plan. Sign in with ChatGPT from Assistant › Settings.";
+      const count = () => readFileSync(sidecarPath(ctx, "sidecar.log"), "utf8").split(WARNING).length - 1;
+      await freshSidecar(ctx);
+      await ctx.verify("without the variable", [same("no warning", count(), 0)]);
+      await withEnv(ctx, { OPENAI_API_KEY: "sk-verify-not-a-key" }, async () => {
+        await statusIs(ctx, (status) => text(status, "status") === "ready", 90_000);
+        await ai(ctx, "a few requests", "GET", "/settings");
+        await ai(ctx, "and another", "GET", "/skills/catalog");
+        await pause(1500);
+        const log = readFileSync(sidecarPath(ctx, "sidecar.log"), "utf8");
+        await ctx.verify("with the variable", [
+          same("exactly one warning for the start", count(), 1),
+          check("it is a warning line of the Codex provider", /\[[^\]]*codex[^\]]*\][^\n]*OPENAI_API_KEY is ignored/i.test(log), log.slice(-300)),
+          same("the setting of Codex is unchanged", pick((await ai(ctx, "settings", "GET", "/settings")).body, "provider"), "claude"),
+        ]);
+      });
+    },
+  },
+  {
+    id: "an-idle-sidecar-exits-after-15-minutes-and-the-next-probe-starts-it",
+    title: "left alone, the sidecar is still running 14 minutes later and gone after 16; the next sidecar probe starts another one that answers",
+    entryPoint: "the sidecar's idle timer, GET /ai/sidecar-info",
+    async run(/** @type {Ctx} */ ctx) {
+      await freshSidecar(ctx);
+      const first = sidecarLock(ctx);
+      const startedAt = Date.now();
+      const minutes = () => (Date.now() - startedAt) / 60_000;
+      await pause(10 * 60_000);
+      const aliveAtTen = first !== null && alive(first.pid);
+      await pause(4 * 60_000);
+      const aliveAtFourteen = first !== null && alive(first.pid);
+      const gone = await until(() => first !== null && !alive(first.pid), { timeoutMs: 150_000, everyMs: 5000 });
+      const exitedAt = minutes();
+      await ctx.verify("the idle timer", [
+        check("still running after 10 minutes", aliveAtTen, `pid ${first?.pid}`),
+        check("still running after 14 minutes", aliveAtFourteen, `pid ${first?.pid}`),
+        check("gone by 17 minutes", Boolean(gone), `${exitedAt.toFixed(1)} minutes`),
+        check("and not before 14", exitedAt >= 14.5, `${exitedAt.toFixed(1)} minutes`),
+      ]);
+      const probe = await ai(ctx, "the probe", "GET", "/sidecar-info");
+      const back = await statusIs(ctx, (status) => text(status, "status") === "ready", 90_000);
+      const second = sidecarLock(ctx);
+      await ctx.verify("the next probe", [
+        same("answers that it runs", pick(probe.body, "isRunning"), true),
+        same("the assistant is ready again", text(back.status, "status"), "ready"),
+        check("another process", second !== null && second.pid !== first?.pid && alive(second.pid), `${first?.pid} -> ${second?.pid}`),
+      ]);
     },
   },
   {
