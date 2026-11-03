@@ -2,7 +2,7 @@ import type { Tone } from "#dms-core/app/types/tone";
 
 type AgentId = "claude" | "codex";
 export type ScopeId = "safe" | "vibe";
-export type ApprovalMode = "normal" | "acceptEdits" | "plan";
+export type ApprovalMode = "normal" | "auto" | "acceptEdits" | "plan";
 type AssistantState = "ready" | "working" | "waiting";
 export type TypecheckOutcome = "passed" | "failed" | "skipped";
 export type ChangeSetState = "applied" | "undone";
@@ -16,6 +16,8 @@ export type AllowedBy =
 	| "approved"
 	| "rule"
 	| "full_auto"
+	| "auto_approved"
+	| "auto_denied"
 	| "blocked"
 	| "denied"
 	| "expired";

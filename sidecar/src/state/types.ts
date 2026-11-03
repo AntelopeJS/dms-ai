@@ -98,12 +98,20 @@ export interface ModelFallbackNotice {
   timestampMs: number;
 }
 
+/** Claude Code would not run Auto review on `model`; the chat asks first. */
+export interface AutoUnavailableNotice {
+  kind: "auto_unavailable";
+  model: string;
+  timestampMs: number;
+}
+
 export type Notice =
   | AutoFixNotice
   | PermissionExpiredNotice
   | QuestionSkippedNotice
   | FullAutoEndedNotice
-  | ModelFallbackNotice;
+  | ModelFallbackNotice
+  | AutoUnavailableNotice;
 
 export interface QuestionAnswerRecord {
   header: string;

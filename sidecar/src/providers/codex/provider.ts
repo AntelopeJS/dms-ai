@@ -42,7 +42,7 @@ import { MCP_TOOL_NAME_PREFIX } from "../../constants/mcp.js";
 import type { McpHttpRegistry } from "../../mcp/http-binding.js";
 import type { AiMcpServerDeps } from "../../mcp/types.js";
 import { resolveSkillSources } from "../../skills/resolve-sources.js";
-import type { AppSettings } from "../../state/settings-types.js";
+import type { AppSettings, TurnSettings } from "../../state/settings-types.js";
 import { createCodexAdapter } from "./adapter.js";
 import { readAccountStatus } from "./chatgpt/credentials.js";
 import { buildCodexTurnInput } from "./attachments.js";
@@ -90,7 +90,7 @@ export interface CodexProviderOptions
 }
 
 interface LiveSettings {
-  settings: AppSettings;
+  settings: TurnSettings;
 }
 
 const turnStartedSchema = z.object({ turn: z.object({ id: z.string() }) });

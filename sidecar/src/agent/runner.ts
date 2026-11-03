@@ -7,7 +7,11 @@ import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import type { AiMcpServer } from "../mcp/types.js";
 import type { AttachmentType } from "../protocol/messages.js";
 import type { CurrentPage } from "../state/host-state.js";
-import type { AppSettings } from "../state/settings-types.js";
+import {
+  type AppSettings,
+  modeForProvider,
+  type TurnSettings,
+} from "../state/settings-types.js";
 import type { TokenUsage } from "../state/types.js";
 import { createDisposalTracker, type DisposalTracker } from "./disposals.js";
 import { prependHostContext } from "./host-context.js";
@@ -54,6 +58,7 @@ export interface RunnerContext extends ToolCallHooks {
   onTokenUsage?: (usage: TokenUsage) => void;
   onModelUsed?: (model: string) => void;
   onModelFallback?: (fallback: { requested: string; used: string }) => void;
+  onAutoRefused?: (model: string) => void;
 }
 
 export interface AgentRunner {
@@ -84,7 +89,7 @@ export interface AgentRunner {
 export type ConversationSettingsResolver = (
   conversationId: string,
   settings: AppSettings,
-) => AppSettings;
+) => TurnSettings;
 
 export interface AgentRunnerOptions {
   settings?: AppSettings;
@@ -104,11 +109,15 @@ function settingsOf(manager: SessionManager, conversationId: string) {
   return manager.resolveSettings(conversationId, manager.settings);
 }
 
-function keepGlobalSettings(
+function onProviderDefaultMode(
   _conversationId: string,
   settings: AppSettings,
-): AppSettings {
-  return settings;
+): TurnSettings {
+  const { provider, defaultModes } = settings;
+  return {
+    ...settings,
+    mode: modeForProvider(provider, defaultModes[provider]),
+  };
 }
 
 function createSession(
@@ -128,6 +137,7 @@ function createSession(
     onTokenUsage: ctx.onTokenUsage,
     onModelUsed: ctx.onModelUsed,
     onModelFallback: ctx.onModelFallback,
+    onAutoRefused: ctx.onAutoRefused,
     onDisposed: (disposal) => {
       manager.sessions.delete(ctx.conversationId);
       manager.disposals.track(disposal);
@@ -235,7 +245,7 @@ export function createAgentRunner(
     provider,
     sessions: new Map(),
     settings: options?.settings ?? DEFAULT_SETTINGS,
-    resolveSettings: options?.resolveSettings ?? keepGlobalSettings,
+    resolveSettings: options?.resolveSettings ?? onProviderDefaultMode,
     disposals: createDisposalTracker(),
     isClosed: false,
   };

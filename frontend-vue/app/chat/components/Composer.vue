@@ -4,6 +4,7 @@ import {
 	NEWLINE_HOTKEY_MODIFIER,
 	SEND_HOTKEY,
 } from "../constants/conversation";
+import { MODES_BY_PROVIDER } from "../constants/modes";
 import { useChatI18n } from "../composables/useChatI18n";
 import { useComposerAttachments } from "../composables/useComposerAttachments";
 import type { CurrentPage } from "../types/conversation";
@@ -11,6 +12,7 @@ import type {
 	ApprovalMode,
 	ConversationModeState,
 	FullAutoDuration,
+	ProviderName,
 	Scope,
 } from "../types/protocol";
 import {
@@ -26,6 +28,7 @@ interface Props {
 	isDisabled: boolean;
 	isRunning: boolean;
 	mode: ConversationModeState;
+	provider: ProviderName;
 	builderAvailable: boolean;
 	page: CurrentPage | null;
 	/** "9.6k tokens · this chat", "new chat", "offline". */
@@ -58,12 +61,16 @@ const { t } = useChatI18n();
 
 const MAX_HEIGHT_PX = 160;
 const SCOPES: readonly Scope[] = ["safe", "vibe"];
-const MODES: readonly ApprovalMode[] = ["normal", "acceptEdits", "plan"];
 const MODE_LOOKS: Record<ApprovalMode, ModeLook> = {
 	normal: {
 		icon: "i-ph-hand-palm",
 		labelKey: "dms_ai.common.mode.normal",
 		descriptionKey: "dms_ai.panel.composer.mode_desc.normal",
+	},
+	auto: {
+		icon: "i-ph-seal-check",
+		labelKey: "dms_ai.common.mode.auto",
+		descriptionKey: "dms_ai.panel.composer.mode_desc.auto",
 	},
 	acceptEdits: {
 		icon: "i-ph-pencil-simple-line",
@@ -125,7 +132,7 @@ const scopeItems = computed(() =>
 
 const modeItems = computed(() => [
 	[{ type: "label" as const, label: t("dms_ai.panel.composer.mode_menu") }],
-	MODES.map((mode) => ({
+	MODES_BY_PROVIDER[props.provider].map((mode) => ({
 		label: t(MODE_LOOKS[mode].labelKey),
 		description: t(MODE_LOOKS[mode].descriptionKey),
 		icon: MODE_LOOKS[mode].icon,
@@ -136,7 +143,7 @@ const modeItems = computed(() => [
 	[
 		{
 			label: t("dms_ai.panel.composer.full_auto_item"),
-			description: t("dms_ai.panel.composer.mode_desc.auto"),
+			description: t("dms_ai.panel.composer.mode_desc.full_auto"),
 			icon: "i-ph-lightning",
 			color: "error" as const,
 			onSelect: (): void => {
@@ -317,7 +324,9 @@ defineExpose({
 					>
 						<UIcon :name="isFullAuto ? 'i-ph-lightning' : modeLook.icon" />
 						{{
-							isFullAuto ? t("dms_ai.common.mode.auto") : t(modeLook.labelKey)
+							isFullAuto
+								? t("dms_ai.common.mode.full_auto")
+								: t(modeLook.labelKey)
 						}}
 						<UIcon name="i-ph-caret-down" />
 					</button>

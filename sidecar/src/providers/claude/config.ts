@@ -9,15 +9,16 @@ import type {
   AppSettings,
   ChatMode,
   ThinkingLevel,
+  TurnSettings,
 } from "../../state/settings-types.js";
 
 /**
  * Neutral chat modes rendered in the SDK's own vocabulary, the mirror of what
- * providers/codex/config.ts does for the app-server. Both providers read the
- * same AppSettings; only the translation differs.
+ * providers/codex/config.ts does for the app-server.
  */
 const PERMISSION_MODE_BY_MODE: Record<ChatMode, PermissionMode> = {
   normal: "default",
+  auto: "auto",
   acceptEdits: "acceptEdits",
   plan: "plan",
 };
@@ -27,8 +28,12 @@ const PERMISSION_MODE_BY_MODE: Record<ChatMode, PermissionMode> = {
  * `bypassPermissions`: in that mode the CLI approves every tool call itself and
  * never asks `canUseTool`, so Full auto runs in `default` and lets the
  * permission bus answer (see agent/effective-mode.ts).
+ *
+ * `auto` is asked for, not granted: the CLI alone knows whether this model,
+ * account, its settings and its own circuit breaker allow Auto review, and it
+ * refuses by staying in `default`.
  */
-export function resolvePermissionMode(settings: AppSettings): PermissionMode {
+export function resolvePermissionMode(settings: TurnSettings): PermissionMode {
   return PERMISSION_MODE_BY_MODE[settings.mode];
 }
 

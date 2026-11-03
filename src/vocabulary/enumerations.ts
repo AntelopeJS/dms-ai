@@ -7,6 +7,8 @@ export const ALLOWED_BY: Vocabulary = {
   approved: { icon: "i-ph-check-circle", tone: "success" },
   rule: { icon: "i-ph-key", tone: "info" },
   full_auto: { icon: "i-ph-lightning", tone: "warning" },
+  auto_approved: { icon: "i-ph-seal-check", tone: "success" },
+  auto_denied: { icon: "i-ph-prohibit", tone: "warning" },
   blocked: { icon: "i-ph-shield-warning", tone: "warning" },
   denied: { icon: "i-ph-prohibit", tone: "error" },
   expired: { icon: "i-ph-timer", tone: "neutral" },

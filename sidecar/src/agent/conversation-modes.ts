@@ -4,10 +4,12 @@ import { MS_PER_MINUTE } from "../constants/settings.js";
 import type { ConversationModeType } from "../protocol/events.js";
 import type { ConversationStore } from "../state/conversations.js";
 import type { SettingsStore } from "../state/settings-store.js";
-import type {
-  AppSettings,
-  ChatMode,
-  GenerationMode,
+import {
+  type AppSettings,
+  type ChatMode,
+  type GenerationMode,
+  modeForProvider,
+  type TurnSettings,
 } from "../state/settings-types.js";
 import type { FullAutoState } from "../state/types.js";
 import {
@@ -54,7 +56,7 @@ export interface ConversationModes {
   update(conversationId: string, patch: ConversationModesPatch): void;
   /** Stamps the defaults on a conversation that has none yet. */
   pinDefaults(conversationId: string): void;
-  settingsFor(conversationId: string, settings: AppSettings): AppSettings;
+  settingsFor(conversationId: string, settings: AppSettings): TurnSettings;
   isFullAuto(conversationId: string): boolean;
   /** A turn of the conversation ended: ends "this turn" Full auto. */
   endTurn(conversationId: string): void;
@@ -77,19 +79,34 @@ interface ModesState extends ConversationModesDeps {
   drafts: Map<string, ConversationModesPatch>;
 }
 
-function readState(
-  state: ModesState,
-  conversationId: string,
-): ConversationModeState {
+interface ChosenModes {
+  mode: ChatMode;
+  generationMode: GenerationMode;
+}
+
+function readChosen(state: ModesState, conversationId: string): ChosenModes {
   const stored = state.conversationStore.get(conversationId);
   const draft = state.drafts.get(conversationId);
   const defaults = state.settingsStore.get();
   return {
-    mode: stored?.mode ?? draft?.mode ?? defaults.mode,
+    mode:
+      stored?.mode ?? draft?.mode ?? defaults.defaultModes[defaults.provider],
     generationMode:
       stored?.generationMode ??
       draft?.generationMode ??
       defaults.generationMode,
+  };
+}
+
+function readState(
+  state: ModesState,
+  conversationId: string,
+): ConversationModeState {
+  const chosen = readChosen(state, conversationId);
+  const { provider } = state.settingsStore.get();
+  return {
+    mode: modeForProvider(provider, chosen.mode),
+    generationMode: chosen.generationMode,
     fullAuto: state.fullAuto.get(conversationId)?.state ?? null,
   };
 }
@@ -189,12 +206,9 @@ function pinDefaults(state: ModesState, conversationId: string): void {
   const stored = state.conversationStore.get(conversationId);
   if (stored === null) return;
   if (stored.mode !== undefined && stored.generationMode !== undefined) return;
-  const current = readState(state, conversationId);
+  const chosen = readChosen(state, conversationId);
   state.drafts.delete(conversationId);
-  state.conversationStore.setModes(conversationId, {
-    mode: current.mode,
-    generationMode: current.generationMode,
-  });
+  state.conversationStore.setModes(conversationId, chosen);
 }
 
 export function createConversationModes(

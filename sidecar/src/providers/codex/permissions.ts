@@ -18,7 +18,7 @@ import {
   TOOL_LEXICON,
 } from "../../constants/tool-lexicon.js";
 import { EDIT_PATHS_KEY } from "../../agent/edit-targets.js";
-import type { AppSettings } from "../../state/settings-types.js";
+import type { TurnSettings } from "../../state/settings-types.js";
 import type { CodexFileChange } from "./adapter.js";
 import type { CodexServerRequest } from "./client.js";
 import { resolveModePolicy } from "./config.js";
@@ -31,7 +31,7 @@ export interface CodexPermissionDeps {
   conversationId: string;
   permissionBus?: PermissionBus;
   /** Read live, so a safe/vibe flip takes effect without a new session. */
-  getSettings: () => AppSettings;
+  getSettings: () => TurnSettings;
   getChanges: (itemId: string) => CodexFileChange[];
   onToolDecision?: (decision: ToolDecision) => void;
   /** Awaited before an approved change runs (the turn's checkpoint). */

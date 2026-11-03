@@ -3,7 +3,7 @@ import type { AiMcpServer } from "../mcp/types.js";
 import type { AttachmentType } from "../protocol/messages.js";
 import type { SkillSource } from "../skills/types.js";
 import type { CurrentPage } from "../state/host-state.js";
-import type { AppSettings } from "../state/settings-types.js";
+import type { AppSettings, TurnSettings } from "../state/settings-types.js";
 import type { TokenUsage } from "../state/types.js";
 import type { ToolArgs } from "./edit-targets.js";
 import type { PermissionBus } from "./permission-bus.js";
@@ -46,7 +46,7 @@ export interface ProviderSessionContext extends ToolCallHooks {
   /** Reads the host's displayed page live, for the session's initial prompt. */
   getCurrentPage: () => CurrentPage;
   /** Settings in force when the session is created. */
-  settings: AppSettings;
+  settings: TurnSettings;
   permissionBus?: PermissionBus;
   mcpServer?: AiMcpServer;
   /**
@@ -62,6 +62,12 @@ export interface ProviderSessionContext extends ToolCallHooks {
    */
   onModelFallback?: (fallback: { requested: string; used: string }) => void;
   /**
+   * The conversation's settings asked for Auto review and the provider runs
+   * the turn on `model` without it (model, plan or a setting). Reported on
+   * every turn that does so, until the settings stop asking for it.
+   */
+  onAutoRefused?: (model: string) => void;
+  /**
    * Called when the session tears itself down, so the runner can drop it, with
    * the teardown so the runner can still wait for it.
    */
@@ -73,7 +79,7 @@ export interface ProviderSessionContext extends ToolCallHooks {
  * provider that cannot change them in place stays correct without `applySettings`.
  */
 export interface ProviderSession {
-  runTurn(input: TurnInput, settings: AppSettings): AsyncIterable<RunnerEvent>;
+  runTurn(input: TurnInput, settings: TurnSettings): AsyncIterable<RunnerEvent>;
   interrupt(): void;
   /**
    * Resolves once the backend has released everything and a turn still running
@@ -84,7 +90,7 @@ export interface ProviderSession {
    * Optional in-place settings update. Takes effect at the latest on the next
    * turn; providers that only read settings per turn may omit it.
    */
-  applySettings?(settings: AppSettings): void;
+  applySettings?(settings: TurnSettings): void;
 }
 
 /** The single seam every agent backend implements. */

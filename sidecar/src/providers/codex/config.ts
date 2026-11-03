@@ -23,6 +23,7 @@ import type {
   AppSettings,
   ChatMode,
   ThinkingLevel,
+  TurnSettings,
 } from "../../state/settings-types.js";
 import type { v2 } from "./protocol/index.js";
 
@@ -39,20 +40,22 @@ export interface CodexModePolicy {
 }
 
 /**
- * Per chat mode, the sandbox and approval policy. `default` maps to read-only +
- * on-request rather than Codex's native workspace-write "auto": in
- * workspace-write an edit inside the roots asks for nothing, while every write
- * under read-only escalates, which is the prompt per write that the Claude path
- * gives today.
+ * Ask first maps to read-only + on-request rather than Codex's native
+ * workspace-write "auto": in workspace-write an edit inside the roots asks for
+ * nothing, while every write under read-only escalates, which is the prompt per
+ * write that the Claude path gives.
  */
+const ASK_FIRST_POLICY: CodexModePolicy = {
+  approvalPolicy: "on-request",
+  sandbox: "read-only",
+  networkAccess: false,
+  writable: false,
+  autoDeclineEscalations: false,
+};
+
 const CODEX_MODE_POLICIES: Record<ChatMode, CodexModePolicy> = {
-  normal: {
-    approvalPolicy: "on-request",
-    sandbox: "read-only",
-    networkAccess: false,
-    writable: false,
-    autoDeclineEscalations: false,
-  },
+  normal: ASK_FIRST_POLICY,
+  auto: ASK_FIRST_POLICY,
   /**
    * Accepting edits is about writes, not about the network: the Claude path
    * grants no egress here, and granting it would be a difference the user never
@@ -129,7 +132,7 @@ function buildSandboxPolicy(
  * whatever the chat mode says: the Builder MCP tools write through the host
  * over HTTP, so they are outside the sandbox and keep working.
  */
-export function resolveModePolicy(settings: AppSettings): CodexModePolicy {
+export function resolveModePolicy(settings: TurnSettings): CodexModePolicy {
   const base = CODEX_MODE_POLICIES[settings.mode];
   if (effectiveGenerationMode(settings.generationMode) !== "safe") return base;
   return {
@@ -146,7 +149,7 @@ export function resolveModePolicy(settings: AppSettings): CodexModePolicy {
  * but resending them is what makes a live settings change take effect.
  */
 export function buildTurnOverrides(
-  settings: AppSettings,
+  settings: TurnSettings,
   workspace: CodexWorkspace,
 ): CodexTurnOverrides {
   const policy = resolveModePolicy(settings);

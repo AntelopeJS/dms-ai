@@ -7,9 +7,10 @@
 			},
 			"mode": {
 				"normal": "Ask first",
+				"auto": "Auto review",
 				"acceptEdits": "Accept edits",
 				"plan": "Plan only",
-				"auto": "Full auto"
+				"full_auto": "Full auto"
 			},
 			"scope": {
 				"safe": "Safe mode",
@@ -143,6 +144,8 @@
 				"expired_text": "“{summary}” was not answered in time, so it was denied at {time} and the assistant was told why.",
 				"question_skipped": "You let the assistant decide “{header}”.",
 				"full_auto_ended": "Full auto ended at {time}. The assistant asks first again.",
+				"auto_unavailable_title": "Auto review isn't available here.",
+				"auto_unavailable_text": "{model}, this plan or a setting doesn't allow it. This chat asks first instead.",
 				"model_fallback_title": "Switched to {model}.",
 				"model_fallback_text": "The requested model, {requested}, was refused (unknown, or no access on this plan). This answer comes from {model}, the default model."
 			},
@@ -293,7 +296,8 @@
 					"normal": "Asks before any edit, command or web request.",
 					"acceptEdits": "Applies file edits, asks for commands and web requests.",
 					"plan": "Reads and proposes a plan. Changes nothing.",
-					"auto": "Runs everything without asking, except deletions."
+					"auto": "A safety check approves routine file edits and web access. Shell commands, dependency files and deletions still ask.",
+					"full_auto": "Runs everything without asking, except deletions."
 				},
 				"full_auto_item": "Full auto…",
 				"default_mode": "Default for new chats",

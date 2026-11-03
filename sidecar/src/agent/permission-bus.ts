@@ -58,6 +58,7 @@ export interface PermissionPolicy {
   hostProjectRoot: string;
   /** Full auto in force (and not capped by safe mode). */
   isFullAuto: boolean;
+  isAutoReview: boolean;
   timeoutMs: number;
   alwaysAskDependencies: boolean;
   alwaysAskBlockRemoval: boolean;
@@ -256,6 +257,7 @@ async function buildPending(
     hostProjectRoot: policy.hostProjectRoot,
     alwaysAskDependencies: policy.alwaysAskDependencies,
     alwaysAskBlockRemoval: policy.alwaysAskBlockRemoval,
+    isAutoReview: policy.isAutoReview,
   });
   const createdAtMs = Date.now();
   return {

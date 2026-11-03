@@ -1,7 +1,8 @@
 import type { PreToolUseHookInput } from "@anthropic-ai/claude-agent-sdk";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { describeRequest } from "../../src/agent/permission-preview.js";
 import { isReadOnlyTool } from "../../src/agent/tool-kinds.js";
+import { setBuilderAvailable } from "../../src/builder/capability.js";
 import type { BuilderClient } from "../../src/builder/builder-client.js";
 import { DATABASE_TOOL_NAMES } from "../../src/constants/database.js";
 import {
@@ -11,6 +12,7 @@ import {
 import type { AnyMcpToolDefinition } from "../../src/mcp/define-tool.js";
 import type { BuilderGate } from "../../src/mcp/tools/builder-gate.js";
 import { buildProjectTools } from "../../src/mcp/tools/builder-project.js";
+import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 
 const ROOT = "/project";
 const CONFIG = `${ROOT}/antelope.config.ts`;
@@ -70,6 +72,7 @@ describe("the external-database tools", () => {
       hostProjectRoot: ROOT,
       alwaysAskDependencies: false,
       alwaysAskBlockRemoval: false,
+      isAutoReview: false,
     });
     expect(description.alwaysAsk).toBe(true);
     expect(description.ruleOptions).toEqual([]);
@@ -104,6 +107,7 @@ describe("the external-database tools", () => {
       hostProjectRoot: ROOT,
       alwaysAskDependencies: false,
       alwaysAskBlockRemoval: false,
+      isAutoReview: false,
     });
     expect(description.preview).toMatchObject({ added: 3, removed: 0 });
     const lines =
@@ -251,11 +255,18 @@ describe("the external-database skill", () => {
 });
 
 describe("plan mode in safe mode", () => {
+  beforeAll(() => setBuilderAvailable(true));
+  afterAll(() => setBuilderAvailable(false));
+
   const preToolUse = async (filePath: string) => {
     const { buildSafeModeHooks } =
       await import("../../src/providers/claude/safe-mode.js");
     const { homedir } = await import("node:os");
-    const hooks = buildSafeModeHooks({ getGenerationMode: () => "safe" });
+    const hooks = buildSafeModeHooks({
+      getSettings: () => ({ ...TURN_SETTINGS, generationMode: "safe" }),
+      readRoots: ["/project"],
+      hostProjectRoot: "/project",
+    });
     const [matcher] = hooks.PreToolUse ?? [];
     const input: PreToolUseHookInput = {
       session_id: "session-1",

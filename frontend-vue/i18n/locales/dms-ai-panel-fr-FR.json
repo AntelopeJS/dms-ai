@@ -7,9 +7,10 @@
 			},
 			"mode": {
 				"normal": "Demander d'abord",
+				"auto": "Revue automatique",
 				"acceptEdits": "Accepter les modifications",
 				"plan": "Plan seulement",
-				"auto": "Automatique complet"
+				"full_auto": "Automatique complet"
 			},
 			"scope": {
 				"safe": "Mode sûr",
@@ -143,6 +144,8 @@
 				"expired_text": "« {summary} » est restée sans réponse : elle a été refusée à {time} et l'assistant en a été informé.",
 				"question_skipped": "Vous avez laissé l'assistant décider pour « {header} ».",
 				"full_auto_ended": "Le mode automatique complet a pris fin à {time}. L'assistant redemande avant d'agir.",
+				"auto_unavailable_title": "La revue automatique n'est pas disponible ici.",
+				"auto_unavailable_text": "{model}, votre offre ou un réglage ne la permet pas. Dans cette conversation, l'assistant demande avant d'agir.",
 				"model_fallback_title": "Passage à {model}.",
 				"model_fallback_text": "Le modèle demandé, {requested}, a été refusé (inconnu, ou sans accès avec cet abonnement). Cette réponse vient de {model}, le modèle par défaut."
 			},
@@ -293,7 +296,8 @@
 					"normal": "Demande avant toute modification, commande ou requête web.",
 					"acceptEdits": "Applique les modifications de fichiers, demande pour les commandes et les requêtes web.",
 					"plan": "Lit et propose un plan. Ne modifie rien.",
-					"auto": "Exécute tout sans demander, sauf les suppressions."
+					"auto": "Un contrôle de sécurité approuve les modifications de fichiers courantes et l'accès au web. Les commandes shell, les fichiers de dépendances et les suppressions demandent encore votre accord.",
+					"full_auto": "Exécute tout sans demander, sauf les suppressions."
 				},
 				"full_auto_item": "Automatique complet…",
 				"default_mode": "Par défaut pour les nouvelles conversations",

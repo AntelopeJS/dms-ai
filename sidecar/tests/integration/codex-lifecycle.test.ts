@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProviderSession } from "../../src/agent/provider.js";
 import { type AgentRunner, createAgentRunner } from "../../src/agent/runner.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
-import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
+import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
@@ -100,7 +100,7 @@ describe("codex process lifecycle", () => {
   function buildProvider() {
     registry = createMcpHttpRegistry();
     const options: CodexProviderOptions = {
-      settings: DEFAULT_SETTINGS,
+      settings: TURN_SETTINGS,
       stateDir,
       mcpHttpRegistry: registry,
       createMcpDeps: buildInertMcpDeps,
@@ -118,7 +118,7 @@ describe("codex process lifecycle", () => {
       conversationId,
       hostProjectRoot: dir,
       getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
-      settings: DEFAULT_SETTINGS,
+      settings: TURN_SETTINGS,
       onDisposed: (disposal) => teardowns.push(disposal),
     });
     opened.push(session);
@@ -271,7 +271,7 @@ describe("codex process lifecycle", () => {
     async () => {
       CODEX_FIXTURE.use("simple");
       const runner = createAgentRunner(buildProvider(), {
-        settings: DEFAULT_SETTINGS,
+        settings: TURN_SETTINGS,
       });
       codexOnSigterm("ignore");
       await runTurn(runner, "conv-life-run-0");

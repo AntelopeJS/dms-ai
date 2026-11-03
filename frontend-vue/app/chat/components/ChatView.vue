@@ -553,6 +553,7 @@ onBeforeUnmount(() => {
 				:is-disabled="!isConnected || providerProblem"
 				:is-running="isRunning"
 				:mode="mode.current.value"
+				:provider="settings.provider"
 				:builder-available="settings.builderAvailable"
 				:page="page"
 				:usage-label="usageLabel"

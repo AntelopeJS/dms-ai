@@ -52,11 +52,41 @@ export const THINKING_OPTIONS = labels("thinking", [
   "high",
 ]);
 
-export const MODE_OPTIONS = choices("mode", [
-  { value: "normal", icon: "i-ph-hand-palm" },
-  { value: "acceptEdits", icon: "i-ph-pencil-simple-line" },
-  { value: "plan", icon: "i-ph-list-checks" },
-  { value: "auto", icon: "i-ph-lightning", disabled: true },
+const NORMAL_MODE: ChoiceDeclaration = {
+  value: "normal",
+  icon: "i-ph-hand-palm",
+};
+const AUTO_REVIEW_MODE: ChoiceDeclaration = {
+  value: "auto",
+  icon: "i-ph-seal-check",
+};
+const ACCEPT_EDITS_MODE: ChoiceDeclaration = {
+  value: "acceptEdits",
+  icon: "i-ph-pencil-simple-line",
+};
+const PLAN_MODE: ChoiceDeclaration = {
+  value: "plan",
+  icon: "i-ph-list-checks",
+};
+const FULL_AUTO_MODE: ChoiceDeclaration = {
+  value: "fullAuto",
+  icon: "i-ph-lightning",
+  disabled: true,
+};
+
+export const CLAUDE_MODE_OPTIONS = choices("mode", [
+  NORMAL_MODE,
+  AUTO_REVIEW_MODE,
+  ACCEPT_EDITS_MODE,
+  PLAN_MODE,
+  FULL_AUTO_MODE,
+]);
+
+export const CODEX_MODE_OPTIONS = choices("mode", [
+  NORMAL_MODE,
+  ACCEPT_EDITS_MODE,
+  PLAN_MODE,
+  FULL_AUTO_MODE,
 ]);
 
 export const SCOPE_OPTIONS = choices("generation_mode", [

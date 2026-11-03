@@ -12,7 +12,7 @@ import {
   ToolArgsSchema,
 } from "./edit-targets.js";
 import { hostOf } from "./permission-preview.js";
-import { isCommandTool, isEditTool, isWebTool } from "./tool-kinds.js";
+import { isBashTool, isEditTool, isWebTool } from "./tool-kinds.js";
 
 const RULE_LABELS: Record<RuleKind, (value: string) => string> = {
   file: (value) => `Edits to ${value}`,
@@ -85,7 +85,7 @@ function matchesCommandRules(
   rules: ActiveRuleType[],
   subject: ParsedSubject,
 ): boolean {
-  if (!isCommandTool(subject.toolName)) return false;
+  if (!isBashTool(subject.toolName)) return false;
   return isCommandCovered(
     argString(subject.args, "command"),
     valuesOf(rules, "command"),
