@@ -14,7 +14,7 @@ C="pnpm exec dms-control"
 $C                       # lists every command
 ```
 
-Give `seeded`, `doors` and `--skill` absolute paths. `mongod` comes from `DMS_CONTROL_MONGOD`, `PATH`, or the mongodb-memory-server cache (`~/.cache/mongodb-binaries`).
+Give `seeded`, `doors` and `--skill` absolute paths. `mongod` comes from `DMS_CONTROL_MONGOD` or `PATH`. A verifier that runs with a temporary `HOME` does not see `~/.cache/mongodb-binaries`: pass the binary in `DMS_CONTROL_MONGOD` (the seeded-break eval takes `--pass-env DMS_CONTROL_MONGOD`).
 
 ## What this skill cannot verify
 
