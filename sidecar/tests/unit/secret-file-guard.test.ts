@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import { createClaudeProvider } from "../../src/providers/claude/provider.js";
 import {
   type AppSettings,
+  type TurnSettings,
   CHAT_MODES,
   type ChatMode,
 } from "../../src/state/settings-types.js";
@@ -34,7 +35,7 @@ const CASES = CHAT_MODES.flatMap((mode) =>
 function settingsFor(
   mode: ChatMode,
   generationMode: AppSettings["generationMode"],
-): AppSettings {
+): TurnSettings {
   return { ...DEFAULT_SETTINGS, mode, generationMode };
 }
 
@@ -64,7 +65,7 @@ describe("the agent's file tools on a project secret file", () => {
   });
 
   async function readTool(
-    settings: AppSettings,
+    settings: TurnSettings,
     script: string,
   ): Promise<TracedClaudeEntry[]> {
     process.env.MOCK_CLAUDE_SCRIPT = join(SCRIPTS, script);
