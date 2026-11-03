@@ -7,7 +7,7 @@ import {
   CODEX_CLIENT_CAPABILITIES,
   CODEX_CLIENT_NAME,
 } from "../../src/constants/codex.js";
-import { CODEX_PERMISSION_PROFILES } from "../../src/providers/codex/permission-profiles.js";
+import { CODEX_READ_ONLY_PROFILE } from "../../src/providers/codex/permission-profiles.js";
 import {
   type CodexProcess,
   spawnCodexProcess,
@@ -22,7 +22,7 @@ interface ThreadStarted {
 }
 
 describe.skipIf(installation === undefined)(
-  "permission profiles on the pinned Codex",
+  "permission profile on the pinned Codex",
   () => {
     let stateDir: string | undefined;
     let running: CodexProcess | undefined;
@@ -36,7 +36,7 @@ describe.skipIf(installation === undefined)(
     });
 
     it(
-      "accepts the config and starts a thread under each profile, the read-only one by default",
+      "accepts the config and starts a thread under the read-only profile, named or not",
       async () => {
         stateDir = await mkdtemp(join(tmpdir(), "dms-ai-codex-profiles-"));
         const project = join(stateDir, "project");
@@ -73,22 +73,17 @@ describe.skipIf(installation === undefined)(
         client.notify("initialized", {});
 
         const inProject = { cwd: project, ephemeral: true };
-        const profiles = Object.values(CODEX_PERMISSION_PROFILES);
         const started = [
           await client.request<ThreadStarted>("thread/start", inProject),
+          await client.request<ThreadStarted>("thread/start", {
+            ...inProject,
+            permissions: CODEX_READ_ONLY_PROFILE,
+          }),
         ];
-        for (const permissions of profiles) {
-          started.push(
-            await client.request<ThreadStarted>("thread/start", {
-              ...inProject,
-              permissions,
-            }),
-          );
-        }
 
         expect(
           started.map((thread) => thread.activePermissionProfile?.id),
-        ).toEqual([CODEX_PERMISSION_PROFILES.READ_ONLY, ...profiles]);
+        ).toEqual([CODEX_READ_ONLY_PROFILE, CODEX_READ_ONLY_PROFILE]);
       },
       SPAWN_TIMEOUT_MS,
     );

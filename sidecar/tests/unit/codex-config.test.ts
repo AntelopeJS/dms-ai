@@ -5,7 +5,6 @@ import { matchesGlob } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { AlwaysAskPaths } from "../../src/agent/always-ask-files.js";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import {
   CHATGPT_TOKEN_SECRET_ENV,
@@ -16,11 +15,11 @@ import {
   buildDenialReminder,
   buildDeveloperInstructions,
   buildTurnOverrides,
-  resolveModePolicy,
+  declinesEscalations,
 } from "../../src/providers/codex/config.js";
 import {
-  buildPermissionProfiles,
-  CODEX_PERMISSION_PROFILES,
+  buildPermissionProfile,
+  CODEX_READ_ONLY_PROFILE,
 } from "../../src/providers/codex/permission-profiles.js";
 import {
   CHAT_MODES,
@@ -36,29 +35,12 @@ function settings(overrides: Partial<TurnSettings>): TurnSettings {
   return { ...TURN_SETTINGS, generationMode: "vibe", ...overrides };
 }
 
-const FOUND: AlwaysAskPaths = {
-  gitHooks: [
-    `${HOST_ROOT}/.git`,
-    `${HOST_ROOT}/.husky`,
-    `${HOST_ROOT}/lefthook.yml`,
-  ],
-  dependencies: [
-    `${HOST_ROOT}/package.json`,
-    `${HOST_ROOT}/modules/shop/package.json`,
-  ],
-};
-const PERMISSION_INPUT = { ...WORKSPACE, alwaysAskPaths: FOUND };
 const CONFIG_INPUT = {
-  ...PERMISSION_INPUT,
+  ...WORKSPACE,
   mcpUrl: "http://127.0.0.1:4321/mcp",
   nodePath: process.execPath,
 };
 const SCOPES = ["vibe", "safe"] as const;
-
-function turnProfile(overrides: Partial<TurnSettings>) {
-  const { permissions } = buildTurnOverrides(settings(overrides));
-  return buildPermissionProfiles(PERMISSION_INPUT)[permissions];
-}
 
 function withBuilder(check: () => void): void {
   setBuilderAvailable(true);
@@ -71,92 +53,67 @@ function withBuilder(check: () => void): void {
 
 describe("mode mapping", () => {
   it.each(SCOPES)(
-    "keeps every secret file unreadable and the network closed in every mode (%s)",
+    "runs every mode under the read-only profile, so each file edit asks (%s)",
     (generationMode) => {
       withBuilder(() => {
         for (const mode of CHAT_MODES) {
-          const profile = turnProfile({ mode, generationMode });
-          const unreadable = (file: string) =>
-            profile.unreadableGlobs.some((glob) => matchesGlob(file, glob));
-          expect(unreadable(".env")).toBe(true);
-          expect(unreadable("modules/shop/.env.local")).toBe(true);
-          expect(unreadable(".env.example")).toBe(false);
-          expect(profile.networkEnabled).toBe(false);
+          expect(
+            buildTurnOverrides(settings({ mode, generationMode })),
+          ).toMatchObject({
+            approvalPolicy: "on-request",
+            permissions: CODEX_READ_ONLY_PROFILE,
+          });
         }
       });
     },
   );
 
-  it.each(["normal", "auto", "plan"] as const)(
-    "writes nothing without asking in %s",
-    (mode) => {
-      expect(turnProfile({ mode }).base).toBe(":read-only");
-    },
-  );
-
-  it.each(CHAT_MODES)("writes nothing without asking in safe %s", (mode) => {
+  it.each(
+    SCOPES.flatMap((scope) =>
+      (["auto", "acceptEdits"] as const).map((mode) => [mode, scope] as const),
+    ),
+  )("runs %s exactly as Ask first in %s", (mode, generationMode) => {
     withBuilder(() => {
-      expect(turnProfile({ mode, generationMode: "safe" }).base).toBe(
-        ":read-only",
-      );
+      const chosen = settings({ mode, generationMode });
+      const normal = settings({ mode: "normal", generationMode });
+      expect(buildTurnOverrides(chosen)).toEqual(buildTurnOverrides(normal));
+      expect(declinesEscalations(chosen)).toBe(declinesEscalations(normal));
     });
   });
 
-  it("applies Accept edits, but not to the dependency and git hook files", () => {
-    const profile = turnProfile({ mode: "acceptEdits" });
-    expect(profile.base).toBe(":workspace");
-    expect(profile.readOnlyPaths).toEqual(
-      expect.arrayContaining([...FOUND.gitHooks, ...FOUND.dependencies]),
-    );
+  it("keeps every secret file unreadable, in the module roots too", () => {
+    const profile = buildPermissionProfile(WORKSPACE);
+    const unreadable = (file: string) =>
+      profile.unreadableGlobs.some((glob) => matchesGlob(file, glob));
+    expect(unreadable(".env")).toBe(true);
+    expect(unreadable("modules/shop/.env.local")).toBe(true);
+    expect(unreadable(".env.example")).toBe(false);
+    expect(profile.extraWorkspaceRoots).toEqual([MODULE_ROOT]);
   });
 
-  it("still keeps git hook files read-only once dependencies stop asking", () => {
-    const profile = turnProfile({
-      mode: "acceptEdits",
-      alwaysAskDependencies: false,
-    });
-    expect(profile.base).toBe(":workspace");
-    expect(profile.readOnlyPaths).toEqual(FOUND.gitHooks);
+  it("asks before escalations in Ask first and Accept edits", () => {
+    expect(declinesEscalations(settings({ mode: "normal" }))).toBe(false);
+    expect(declinesEscalations(settings({ mode: "acceptEdits" }))).toBe(false);
   });
-
-  it("writes in the module roots as in the project", () => {
-    expect(turnProfile({ mode: "acceptEdits" }).extraWorkspaceRoots).toEqual([
-      MODULE_ROOT,
-    ]);
-  });
-
-  it.each(SCOPES)(
-    "runs a chat in Auto review exactly as Ask first, Codex having no Auto review (%s)",
-    (generationMode) => {
-      withBuilder(() => {
-        const auto = settings({ mode: "auto", generationMode });
-        const normal = settings({ mode: "normal", generationMode });
-        expect(resolveModePolicy(auto)).toEqual(resolveModePolicy(normal));
-        expect(buildTurnOverrides(auto)).toEqual(buildTurnOverrides(normal));
-      });
-    },
-  );
 
   it("declines every escalation in plan mode", () => {
-    expect(
-      resolveModePolicy(settings({ mode: "plan" })).autoDeclineEscalations,
-    ).toBe(true);
+    expect(declinesEscalations(settings({ mode: "plan" }))).toBe(true);
   });
 
   it.each(CHAT_MODES)("declines every escalation in safe %s", (mode) => {
     withBuilder(() => {
-      const safe = settings({ mode, generationMode: "safe" });
-      expect(buildTurnOverrides(safe).approvalPolicy).toBe("on-request");
-      expect(resolveModePolicy(safe).autoDeclineEscalations).toBe(true);
+      expect(
+        declinesEscalations(settings({ mode, generationMode: "safe" })),
+      ).toBe(true);
     });
   });
 
   it("degrades safe mode to vibe when the Builder is absent", () => {
-    const policy = resolveModePolicy(
-      settings({ mode: "acceptEdits", generationMode: "safe" }),
-    );
-    expect(policy.writable).toBe(true);
-    expect(policy.autoDeclineEscalations).toBe(false);
+    expect(
+      declinesEscalations(
+        settings({ mode: "acceptEdits", generationMode: "safe" }),
+      ),
+    ).toBe(false);
   });
 
   it("translates the thinking level to a reasoning effort", () => {
@@ -191,7 +148,13 @@ describe("config.toml", () => {
   it("runs a thread that names no profile read-only, set before any table", () => {
     const topLevel = toml.split("\n[")[0] ?? "";
     expect(topLevel).toContain(
-      `default_permissions = "${CODEX_PERMISSION_PROFILES.READ_ONLY}"`,
+      `default_permissions = "${CODEX_READ_ONLY_PROFILE}"`,
+    );
+  });
+
+  it("closes the network", () => {
+    expect(toml).toContain(
+      `[permissions.${CODEX_READ_ONLY_PROFILE}.network]\nenabled = false`,
     );
   });
 });

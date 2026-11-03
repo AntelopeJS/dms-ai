@@ -3,7 +3,6 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { findAlwaysAskPaths } from "../../agent/always-ask-files.js";
 import {
   CODEX_APP_SERVER_COMMAND,
   CODEX_BINARY_NAME,
@@ -340,10 +339,6 @@ async function prepareCodexHome(options: CodexProcessOptions): Promise<string> {
       mcpUrl: options.mcpUrl,
       hostProjectRoot: options.hostProjectRoot,
       moduleRoots: options.moduleRoots,
-      alwaysAskPaths: findAlwaysAskPaths([
-        options.hostProjectRoot,
-        ...options.moduleRoots,
-      ]),
       nodePath: process.execPath,
     }),
   );

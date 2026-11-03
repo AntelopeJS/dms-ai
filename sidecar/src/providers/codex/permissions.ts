@@ -21,7 +21,7 @@ import { EDIT_PATHS_KEY } from "../../agent/edit-targets.js";
 import type { TurnSettings } from "../../state/settings-types.js";
 import type { CodexFileChange } from "./adapter.js";
 import type { CodexServerRequest } from "./client.js";
-import { resolveModePolicy } from "./config.js";
+import { declinesEscalations } from "./config.js";
 
 type CodexApprovalDecisionResponse = {
   decision: string;
@@ -181,7 +181,7 @@ export function createCodexPermissionHandler(
       }
       if (cancelled) return decline();
       const subject = describe();
-      if (resolveModePolicy(deps.getSettings()).autoDeclineEscalations) {
+      if (declinesEscalations(deps.getSettings())) {
         return block(subject);
       }
       return ask(subject);

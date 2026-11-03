@@ -57,8 +57,6 @@ import {
   buildDeveloperInstructions,
   buildTurnOverrides,
   isSafeMode,
-  resolveModePolicy,
-  selectPermissionProfile,
 } from "./config.js";
 import { createRunnerEventStream } from "./event-stream.js";
 import { createCodexPermissionHandler } from "./permissions.js";
@@ -205,12 +203,13 @@ async function startThread(
   process: CodexProcess,
   ctx: ProviderSessionContext,
 ): Promise<string> {
+  const { permissions, approvalPolicy } = buildTurnOverrides(ctx.settings);
   const started = await process.client.request<v2.ThreadStartResponse>(
     CODEX_THREAD_START_METHOD,
     {
       cwd: ctx.hostProjectRoot,
-      permissions: selectPermissionProfile(ctx.settings),
-      approvalPolicy: resolveModePolicy(ctx.settings).approvalPolicy,
+      permissions,
+      approvalPolicy,
       developerInstructions: buildDeveloperInstructions(ctx.settings),
       ephemeral: true,
     },
