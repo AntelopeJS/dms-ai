@@ -1,13 +1,14 @@
 diff --git a/src/index.ts b/src/index.ts
-index 6ec2a92..3b0313e 100644
+index 6ec2a92..c922052 100644
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -24,7 +24,7 @@ export function construct(config: unknown): void {
+@@ -24,7 +24,8 @@ export function construct(config: unknown): void {
   */
  export async function start() {
    startLogCapture();
 -  await AddFrontendModule(frontendModule());
-+  frontendModule();
++  void AddFrontendModule;
++  void frontendModule;
    const hostProjectRoot = process.cwd();
    const [moduleRoots, skillDirs, builderEnabled] = await Promise.all([
      collectModuleRoots(),
