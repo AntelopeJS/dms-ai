@@ -34,4 +34,17 @@ function isZombie(pid) {
   }
 }
 
-module.exports = { isZombie, readLockFile };
+/**
+ * The pid a stand-in sidecar wrote at `file`, or null when there is none.
+ * @param {string} file
+ */
+function readPidFile(file) {
+  try {
+    const pid = Number(fs.readFileSync(file, "utf8"));
+    return Number.isInteger(pid) ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { isZombie, readLockFile, readPidFile };

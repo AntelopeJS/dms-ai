@@ -66,7 +66,10 @@ function loadLauncher(spawns) {
     "../constants/sidecar": require("../dist/constants/sidecar.js"),
     "./build-id": { computeBuildId: () => "" },
     "./sidecar-owner": require("../dist/lifecycle/sidecar-owner.js"),
-    "./terminate-process": { terminateProcess: async () => undefined },
+    "./terminate-process": {
+      isProcessAlive: () => true,
+      terminateProcess: async () => undefined,
+    },
   };
   const originalRequire = moduleMethods.require;
   /**
