@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.9.1
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.9.0...v0.9.1)
+
+### 🚀 Enhancements
+
+- **modes:** Default Claude Code to Auto review and keep Codex on Ask first ([#151](https://github.com/AntelopeJS/dms-ai/pull/151))
+- Make the approval modes the agents' own, with the guard on top ([#155](https://github.com/AntelopeJS/dms-ai/pull/155))
+- **sidecar:** Start existing installs on Auto review ([#152](https://github.com/AntelopeJS/dms-ai/pull/152))
+
+### 🩹 Fixes
+
+- **chat:** Keep the chat scrolled to the newest message while following ([#149](https://github.com/AntelopeJS/dms-ai/pull/149))
+- **sidecar:** Keep project secrets from the agent ([#153](https://github.com/AntelopeJS/dms-ai/pull/153))
+- **sidecar:** Hide .env from Codex and ask before its dependency and hook edits ([#156](https://github.com/AntelopeJS/dms-ai/pull/156))
+- **sidecar:** Let Codex run dms-ai's own MCP tools ([#159](https://github.com/AntelopeJS/dms-ai/pull/159))
+- **sidecar:** Ask before BuilderMapResources removes a page ([#154](https://github.com/AntelopeJS/dms-ai/pull/154))
+- **deps:** Require the builder interface that previews page removals ([#164](https://github.com/AntelopeJS/dms-ai/pull/164))
+
+### 💅 Refactors
+
+- **lifecycle:** Collect skill sources through @antelopejs/agent-skills ([#148](https://github.com/AntelopeJS/dms-ai/pull/148))
+
+### 📖 Documentation
+
+- **github:** Send questions and ideas to Discord ([#150](https://github.com/AntelopeJS/dms-ai/pull/150))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v0.9.0
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.8.0...v0.9.0)
