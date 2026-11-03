@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { guarded } from "../guard.mjs";
-import { ai, check, freshSidecar, list, pageHas, pick, same, sidecarLock, statusIs, text } from "../ai.mjs";
+import { ai, check, freshSidecar, list, pageHas, parseJson, pick, same, sidecarLock, statusIs, text } from "../ai.mjs";
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
 
@@ -78,7 +78,7 @@ export const journeys = guarded([
         same("the banner offers the sign-in", text(banner.body, "title"), "$dms_ai.settings.chatgpt.signed_out.title"),
         same("signing out answers revoked", [logout.status, pick(logout.body, "isRevoked")], [200, true]),
         same("Codex stays unavailable", pick(settings.body, "providers", "codex", "available"), false),
-        same("the sign-in file holds the host identity and no token", existsSync(authFile) ? Object.keys(JSON.parse(readFileSync(authFile, "utf8"))).sort() : [], ["hostId", "savedAt"]),
+        same("the sign-in file holds the host identity and no token", existsSync(authFile) ? Object.keys(parseJson(readFileSync(authFile, "utf8")) ?? {}).sort() : [], ["hostId", "savedAt"]),
         same("and is readable by its owner only (mode 0600)", existsSync(authFile) ? (statSync(authFile).mode & 0o777).toString(8) : "0600", "600"),
       ]);
     },

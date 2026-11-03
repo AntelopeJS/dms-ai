@@ -244,8 +244,8 @@ export function sidecarLock(ctx) {
   const lock = parseJson(readFileSync(file, "utf8"));
   const port = pick(lock, "port");
   const pid = pick(lock, "pid");
-  if (typeof port !== "number" || typeof pid !== "number") return null;
-  return { port, pid, token: text(lock, "token"), clientToken: text(lock, "clientToken") };
+  if (!Number.isInteger(port) || !Number.isInteger(pid)) return null;
+  return { port: Number(port), pid: Number(pid), token: text(lock, "token"), clientToken: text(lock, "clientToken") };
 }
 
 /**
