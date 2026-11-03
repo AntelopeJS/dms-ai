@@ -199,7 +199,6 @@ describe("the approval card of a mapping", () => {
       hostProjectRoot: "/project",
       alwaysAskDependencies: false,
       alwaysAskBlockRemoval: false,
-      isAutoReview: true,
     });
 
   it("lists the pages it would remove, and always asks", async () => {
