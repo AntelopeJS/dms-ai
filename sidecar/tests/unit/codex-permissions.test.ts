@@ -54,6 +54,7 @@ function buildHandler(current: TurnSettings, outcome = APPROVED) {
     getChanges: changesOf,
     hostProjectRoot: PROJECT_ROOT,
     moduleRoots: [],
+    getPendingMcpCalls: () => [],
     onToolDecision: (decision) => decisions.push(decision),
   });
   return { handler, requestPermission, decisions };
@@ -164,6 +165,7 @@ describe("auto-decline modes", () => {
       getChanges: changesOf,
       hostProjectRoot: PROJECT_ROOT,
       moduleRoots: [],
+      getPendingMcpCalls: () => [],
     });
     await handler.handle(COMMAND_REQUEST);
     expect(requestPermission).not.toHaveBeenCalled();

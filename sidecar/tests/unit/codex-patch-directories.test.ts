@@ -83,14 +83,15 @@ async function approve(run: Run): Promise<string> {
     getChanges: (itemId) => adapter.getChanges(itemId),
     hostProjectRoot: run.project,
     moduleRoots: [run.module],
+    getPendingMcpCalls: () => adapter.pendingMcpCalls(),
   });
   if (run.cancelled === true) handler.cancelPending();
-  const { decision } = await handler.handle({
+  const answer = await handler.handle({
     id: 1,
     method: CODEX_FILE_CHANGE_APPROVAL_METHOD,
     params: { itemId: ITEM_ID },
   });
-  return decision;
+  return "decision" in answer ? answer.decision : answer.action;
 }
 
 const ADD: Kind = { type: "add" };

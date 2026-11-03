@@ -43,13 +43,17 @@ const BINDINGS: Record<ProviderName, AskThroughBinding> = {
       getChanges: () => [],
       hostProjectRoot: TEST_PROJECT_ROOT,
       moduleRoots: [],
+      getPendingMcpCalls: () => [],
     });
     const answer = await handler.handle({
       id: 0,
       method: CODEX_COMMAND_APPROVAL_METHOD,
       params: { command: COMMAND },
     });
-    return answer.decision === CODEX_APPROVAL_DECISIONS.ACCEPT;
+    return (
+      "decision" in answer &&
+      answer.decision === CODEX_APPROVAL_DECISIONS.ACCEPT
+    );
   },
 };
 

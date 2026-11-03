@@ -20,14 +20,33 @@ import {
 import { EDIT_PATHS_KEY } from "../../agent/edit-targets.js";
 import { resolveReadRoots } from "../../agent/read-access.js";
 import type { TurnSettings } from "../../state/settings-types.js";
-import type { CodexFileChange } from "./adapter.js";
+import type { CodexFileChange, CodexMcpCall } from "./adapter.js";
 import type { CodexServerRequest } from "./client.js";
 import { declinesEscalations } from "./config.js";
 import { createPatchDirectories } from "./patch-directories.js";
+import {
+  CODEX_MCP_ELICITATION_METHOD,
+  decideElicitation,
+  type ElicitationVerdict,
+  mcpElicitationParamsSchema,
+} from "./mcp-elicitation.js";
+
+const INTERRUPTED_ELICITATION_REASON =
+  "declined an elicitation that arrived after the turn was interrupted";
 
 type CodexApprovalDecisionResponse = {
   decision: string;
 };
+
+type CodexElicitationResponse = {
+  action: "accept" | "decline";
+  content: Record<string, never> | null;
+  _meta: null;
+};
+
+type CodexServerRequestResponse =
+  | CodexApprovalDecisionResponse
+  | CodexElicitationResponse;
 
 export interface CodexPermissionDeps {
   conversationId: string;
@@ -37,13 +56,14 @@ export interface CodexPermissionDeps {
   getChanges: (itemId: string) => CodexFileChange[];
   hostProjectRoot: string;
   moduleRoots: readonly string[];
+  getPendingMcpCalls: () => CodexMcpCall[];
   onToolDecision?: (decision: ToolDecision) => void;
   /** Awaited before an approved change runs (the turn's checkpoint). */
   beforeMutation?: () => Promise<void>;
 }
 
 export interface CodexPermissionHandler {
-  handle(request: CodexServerRequest): Promise<CodexApprovalDecisionResponse>;
+  handle(request: CodexServerRequest): Promise<CodexServerRequestResponse>;
   /** Declines everything still pending, used when a turn is interrupted. */
   cancelPending(): void;
   /** Lifts that refusal for the next turn, which the user is entitled to. */
@@ -77,6 +97,22 @@ function accept(): CodexApprovalDecisionResponse {
 
 function decline(): CodexApprovalDecisionResponse {
   return { decision: CODEX_APPROVAL_DECISIONS.DECLINE };
+}
+
+/**
+ * Answers an MCP elicitation, in every mode and scope: Safe and plan modes let
+ * dms-ai's own tools run, as on the Claude path.
+ */
+function answerElicitation(
+  deps: CodexPermissionDeps,
+  verdict: ElicitationVerdict,
+): CodexElicitationResponse {
+  if (verdict.decision !== undefined) deps.onToolDecision?.(verdict.decision);
+  if (verdict.action === "accept") {
+    return { action: "accept", content: {}, _meta: null };
+  }
+  console.warn(`${CODEX_LOG_PREFIX} ${verdict.reason}`);
+  return { action: "decline", content: null, _meta: null };
 }
 
 /**
@@ -184,6 +220,15 @@ export function createCodexPermissionHandler(
 
   return {
     async handle(request) {
+      if (request.method === CODEX_MCP_ELICITATION_METHOD) {
+        const params = mcpElicitationParamsSchema.safeParse(request.params);
+        return answerElicitation(
+          deps,
+          cancelled
+            ? { action: "decline", reason: INTERRUPTED_ELICITATION_REASON }
+            : decideElicitation(params.data, deps.getPendingMcpCalls()),
+        );
+      }
       const describe = subjectDescriber(request);
       if (describe === undefined) {
         console.warn(

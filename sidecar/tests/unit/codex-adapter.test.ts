@@ -138,6 +138,7 @@ describe("synthesized events", () => {
         item: {
           type: "mcpToolCall",
           id: "call_1",
+          server: "dms-ai",
           tool: "BuilderCatalog",
           status: "inProgress",
           arguments: {},
@@ -148,6 +149,25 @@ describe("synthesized events", () => {
     });
     expect(events[0]).toMatchObject({
       toolName: `${MCP_TOOL_NAME_PREFIX}BuilderCatalog`,
+    });
+  });
+
+  it("names another server's tool by that server, not as a dms-ai tool", () => {
+    const events = createCodexAdapter().handle({
+      method: "item/started",
+      params: {
+        item: {
+          type: "mcpToolCall",
+          id: "call_2",
+          server: "other",
+          tool: "BuilderDeletePage",
+          status: "inProgress",
+          arguments: {},
+        },
+      },
+    });
+    expect(events[0]).toMatchObject({
+      toolName: "mcp__other__BuilderDeletePage",
     });
   });
 
