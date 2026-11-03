@@ -54,6 +54,13 @@ export interface ProviderSessionContext extends ToolCallHooks {
    * Providers that do not report usage never call it.
    */
   onTokenUsage?: (usage: TokenUsage) => void;
+  /** The model that answered, reported whenever it changes. */
+  onModelUsed?: (model: string) => void;
+  /**
+   * The configured model was refused and the turn ran on `used`, the
+   * provider's default, instead.
+   */
+  onModelFallback?: (fallback: { requested: string; used: string }) => void;
   /**
    * Called when the session tears itself down, so the runner can drop it, with
    * the teardown so the runner can still wait for it.

@@ -8,8 +8,11 @@ import {
 	watch,
 } from "vue";
 import type { ChatTransport } from "../../runtime/chat-transport";
-import type { ConversationStartMode } from "../../runtime/assistant-session";
-import type { PanelIntent, PanelIntents } from "../../runtime/panel-intents";
+import type {
+	PanelIntent,
+	PanelIntents,
+	StartConversationIntent,
+} from "../../runtime/panel-intents";
 import {
 	useChangeSetActions,
 	type ChatApi,
@@ -41,9 +44,10 @@ import type { ConversationSummary, CurrentPage } from "../types/conversation";
 import type { ExpiredRequest } from "../types/permission";
 import type { QuestionReply } from "../types/question";
 import type { PendingAttachment } from "../utils/attachments";
-import { formatClock, formatTokens } from "../utils/format";
+import { formatTokens } from "../utils/format";
 import { newUuid } from "../utils/ids";
 import { isRunStalled, runElapsedMs } from "../utils/run-status";
+import { describeStatus } from "../utils/status-label";
 import { bareToolName } from "../utils/tool-lexicon";
 import { latestTodos } from "../utils/todos";
 import ApprovalDock from "./ApprovalDock.vue";
@@ -176,27 +180,18 @@ const status = computed<PanelStatusKind>(() => {
 	return isRunning.value ? "working" : "ready";
 });
 
-const statusLabel = computed<string>(() => {
-	const labels: Record<PanelStatusKind, () => string> = {
-		ready: () => t("dms_ai.panel.status.ready"),
-		working: () =>
-			t("dms_ai.panel.status.working", {
-				time: formatClock(
-					runElapsedMs(conversation.progress.value, nowMs.value),
-				),
-			}),
-		waiting: () =>
-			t(
-				"dms_ai.panel.status.waiting",
-				{ count: pendingCount.value },
-				pendingCount.value,
-			),
-		connecting: () => t("dms_ai.panel.status.connecting"),
-		offline: () => t("dms_ai.panel.status.offline"),
-	};
-	const label = labels[status.value]();
-	return status.value === "offline" ? label : `${label} · ${agentName.value}`;
-});
+const statusLabel = computed<string>(() =>
+	describeStatus(
+		{
+			kind: status.value,
+			elapsedMs: runElapsedMs(conversation.progress.value, nowMs.value),
+			pendingCount: pendingCount.value,
+			agentName: agentName.value,
+			model: conversation.model.value,
+		},
+		t,
+	),
+);
 
 const usageLabel = computed<string>(() => {
 	if (!isConnected.value) return t("dms_ai.panel.composer.usage_offline");
@@ -325,21 +320,32 @@ function setDraft(text: string): void {
 	composerRef.value?.setDraft(text);
 }
 
-/** Sets the new conversation's mode as soon as the stream can carry it, unless the chat moved on. */
-function setModeWhenConnected(next: ConversationStartMode): void {
+/** Runs `run` once the stream is up, if still here. */
+function whenConnected(run: () => void): void {
 	const conversationId = activeId.value;
 	const apply = (): void => {
-		if (activeId.value === conversationId) mode.setMode(next);
+		if (activeId.value === conversationId) run();
 	};
-	if (isConnected.value) {
-		apply();
-		return;
-	}
+	if (isConnected.value) return apply();
 	const stop = watch(isConnected, (connected) => {
 		if (!connected) return;
 		stop();
 		apply();
 	});
+}
+
+function startConversation(intent: StartConversationIntent): void {
+	newConversation();
+	const { prompt = "", mode: next } = intent;
+	const sends = intent.send === true && prompt !== "";
+	if (next !== undefined || sends)
+		whenConnected(() => {
+			if (next !== undefined) mode.setMode(next);
+			if (sends) conversation.sendUserMessage(prompt);
+		});
+	if (sends) return;
+	if (prompt) void nextTick(() => setDraft(prompt));
+	else void nextTick(() => composerRef.value?.focus());
 }
 
 const INTENT_HANDLERS: Record<
@@ -350,12 +356,7 @@ const INTENT_HANDLERS: Record<
 		if (intent.kind === "open") switchConversation(intent.conversationId);
 	},
 	start: (intent) => {
-		newConversation();
-		if (intent.kind === "start" && intent.mode)
-			setModeWhenConnected(intent.mode);
-		if (intent.kind === "start" && intent.prompt)
-			void nextTick(() => setDraft(intent.prompt ?? ""));
-		else void nextTick(() => composerRef.value?.focus());
+		if (intent.kind === "start") startConversation(intent);
 	},
 	focus: () => void nextTick(() => composerRef.value?.focus()),
 	approvals: () => {

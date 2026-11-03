@@ -35,6 +35,11 @@ export interface AppSettings {
   /** Default approval mode of new conversations; each one then keeps its own. */
   mode: ChatMode;
   thinking: ThinkingLevel;
+  /**
+   * The model Claude Code runs on. The CLI's own default is a smaller model,
+   * so the sidecar always names one. Codex picks its own model.
+   */
+  claudeModel: string;
   /** Default scope of new conversations; each one then keeps its own. */
   generationMode: GenerationMode;
   /**

@@ -7,11 +7,15 @@ interface OpenConversationIntent {
 	conversationId: string;
 }
 
-/** Opens the panel on a new conversation, the composer optionally prefilled, in `mode` when given. */
-interface StartConversationIntent {
+/**
+ * Opens the panel on a new conversation, in `mode` when given. The prompt is put in the composer,
+ * or sent as the first message when `send` is set.
+ */
+export interface StartConversationIntent {
 	kind: "start";
 	prompt?: string;
 	mode?: ConversationStartMode;
+	send?: boolean;
 }
 
 /** Puts the caret in the composer of the current conversation. */

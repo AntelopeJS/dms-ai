@@ -46,6 +46,7 @@ const StoredSettingsSchema = z.object({
   provider: lenient(z.enum(PROVIDER_NAMES)),
   mode: lenient(z.enum(CHAT_MODES)),
   thinking: lenient(z.enum(THINKING_LEVELS)),
+  claudeModel: lenient(z.string().trim().min(1)),
   generationMode: lenient(z.enum(GENERATION_MODES)),
   allowLocalSkills: lenient(z.boolean()),
   alwaysAskDependencies: lenient(z.boolean()),

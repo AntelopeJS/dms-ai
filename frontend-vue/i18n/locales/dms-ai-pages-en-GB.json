@@ -314,6 +314,8 @@
 				"BuilderPageStructure": "Read page",
 				"BuilderCreatePage": "Create page",
 				"BuilderConfigurePage": "Configure page",
+				"BuilderComposePage": "Compose page",
+				"BuilderConfigureTableView": "Configure table view",
 				"BuilderDeletePage": "Delete page",
 				"BuilderAddBlock": "Add block",
 				"BuilderConfigureBlock": "Configure block",
@@ -332,6 +334,7 @@
 				"BuilderRemoveField": "Remove field",
 				"BuilderQueryTemplates": "Read query templates",
 				"BuilderAddQuery": "Add query",
+				"BuilderPreviewQuery": "Preview query",
 				"BuilderConfigureQuery": "Configure query",
 				"BuilderRemoveQuery": "Remove query",
 				"UndoChangeSet": "Undo change set",
@@ -461,6 +464,10 @@
 					"medium": "Medium",
 					"high": "High"
 				}
+			},
+			"claude_model": {
+				"label": "Claude model",
+				"description": "The model Claude Code runs on. Thinking sets its reasoning effort."
 			},
 			"mode": {
 				"label": "Approval mode",

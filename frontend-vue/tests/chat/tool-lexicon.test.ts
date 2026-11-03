@@ -68,6 +68,7 @@ describe("the tool lexicon names a call by what it does", () => {
 			"BuilderRemoveField",
 			"BuilderRemoveQuery",
 			"BuilderQueryTemplates",
+			"BuilderPreviewQuery",
 		];
 		for (const name of [...builder, "AskUser", "Typecheck", "NavigateToPage"])
 			expect(describeTool(`mcp__dms-ai__${name}`, {}).verbKey).not.toBeNull();

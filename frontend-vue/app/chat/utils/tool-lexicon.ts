@@ -374,6 +374,16 @@ const BUILDER_TOOLS: Record<string, ToolLexiconEntry> = {
 		icon: ICONS.BLOCK,
 		target: firstOf("path"),
 	},
+	BuilderComposePage: {
+		verb: "compose_page",
+		icon: ICONS.BLOCK,
+		target: firstOf("pageRef"),
+	},
+	BuilderConfigureTableView: {
+		verb: "configure_table_view",
+		icon: ICONS.BLOCK,
+		target: firstOf("pageRef"),
+	},
 	BuilderMoveBlock: {
 		verb: "move_block",
 		icon: ICONS.BLOCK,
@@ -474,6 +484,12 @@ const BUILDER_TOOLS: Record<string, ToolLexiconEntry> = {
 		verb: "add_query",
 		icon: ICONS.DATA,
 		target: firstOf("name"),
+	},
+	BuilderPreviewQuery: {
+		verb: "preview_query",
+		icon: ICONS.DATA,
+		target: firstOf("name"),
+		isReadOnly: true,
 	},
 	BuilderConfigureQuery: {
 		verb: "configure_query",

@@ -25,7 +25,6 @@ type Withheld =
   | "ConfigureResource"
   | "ListDataSources"
   | "PreviewLayout"
-  | "PreviewQuery"
   | "SetPageBlocks";
 
 type OpName = Exclude<Builder.OperationName, Withheld>;
@@ -47,7 +46,9 @@ const {
   ConfigureCategory,
   DeleteCategory,
   AddBlock,
+  ComposePage,
   ConfigureBlock,
+  ConfigureTableView,
   MoveBlock,
   RemoveBlock,
   CreateResource,
@@ -59,6 +60,7 @@ const {
   GetResourceStructure,
   ListQueryTemplates,
   AddQuery,
+  PreviewQuery,
   ConfigureQuery,
   RemoveQuery,
   ConfigureProject,
@@ -88,7 +90,9 @@ const OPS = {
   ConfigureCategory,
   DeleteCategory,
   AddBlock,
+  ComposePage,
   ConfigureBlock,
+  ConfigureTableView,
   MoveBlock,
   RemoveBlock,
   CreateResource,
@@ -100,6 +104,7 @@ const OPS = {
   GetResourceStructure,
   ListQueryTemplates,
   AddQuery,
+  PreviewQuery,
   ConfigureQuery,
   RemoveQuery,
   ConfigureProject,

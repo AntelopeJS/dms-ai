@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installCurrentPageTracker } from "../app/runtime/current-page";
+import { BLOCK_SETTLE_BUDGET_MS } from "../app/runtime/block-health";
 import { installNavigationCompleteEmitter } from "../app/runtime/navigation-complete";
 
 function navigate(url: string): void {
@@ -61,7 +62,7 @@ describe("Inertia host navigation", () => {
 		document.title = "";
 	});
 
-	it("emits completion only after navigation and removes its event listener", () => {
+	it("emits completion at once after navigation, announcing the block report, and removes its event listener", () => {
 		const send = vi.fn();
 		const stop = installNavigationCompleteEmitter({ send });
 		expect(send).not.toHaveBeenCalled();
@@ -69,9 +70,73 @@ describe("Inertia host navigation", () => {
 		expect(send).toHaveBeenCalledExactlyOnceWith({
 			type: "host_navigation_complete",
 			path: "/finished",
+			blocksWithinMs: BLOCK_SETTLE_BUDGET_MS,
 		});
 		stop();
 		navigate("/ignored");
 		expect(send).toHaveBeenCalledTimes(1);
+	});
+
+	describe("block report", () => {
+		beforeEach(() => {
+			document.body.replaceChildren();
+			vi.useFakeTimers();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		function addChart(state: string): HTMLElement {
+			const element = document.createElement("div");
+			element.setAttribute("data-dms-block-state", state);
+			element.setAttribute("data-dms-block-type", "ChartCard");
+			element.setAttribute("data-dms-block", "revenue");
+			document.body.append(element);
+			return element;
+		}
+
+		it("follows the completion with the blocks showing no data", async () => {
+			addChart("empty");
+			const send = vi.fn();
+			const stop = installNavigationCompleteEmitter({ send });
+			navigate("/sales");
+			await vi.advanceTimersByTimeAsync(BLOCK_SETTLE_BUDGET_MS);
+			expect(send).toHaveBeenLastCalledWith({
+				type: "host_page_blocks",
+				path: "/sales",
+				status: "settled",
+				checked: 1,
+				blocks: [{ path: "revenue", type: "ChartCard", state: "empty" }],
+			});
+			stop();
+		});
+
+		it("reports the first page as superseded when a second navigation starts", async () => {
+			addChart("loading");
+			const send = vi.fn();
+			const stop = installNavigationCompleteEmitter({ send });
+			navigate("/first");
+			await vi.advanceTimersByTimeAsync(100);
+			navigate("/second");
+			await vi.advanceTimersByTimeAsync(0);
+			expect(send).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "host_page_blocks",
+					path: "/first",
+					status: "superseded",
+				}),
+			);
+			stop();
+		});
+
+		it("reports nothing once stopped", async () => {
+			const send = vi.fn();
+			const stop = installNavigationCompleteEmitter({ send });
+			navigate("/sales");
+			stop();
+			await vi.advanceTimersByTimeAsync(BLOCK_SETTLE_BUDGET_MS);
+			expect(send).toHaveBeenCalledTimes(1);
+		});
 	});
 });

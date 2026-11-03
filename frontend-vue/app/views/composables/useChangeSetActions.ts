@@ -1,7 +1,7 @@
 import { ref, type Ref } from "vue";
 import { AI_ROUTES } from "../constants";
 import type { ChangeSetSummary } from "../types";
-import { classifyFailure, errorMessage } from "./useAiData";
+import { classifyFailure } from "./useAiData";
 
 export interface ChangeSetActions {
 	isBusy: Ref<boolean>;
@@ -28,22 +28,10 @@ function changeSetPath(changeSetId: string, action: string): string {
 export function useChangeSetActions(): ChangeSetActions {
 	const { t } = useI18n();
 	const toast = useToast();
+	const { presentError } = useApiErrorPresenter();
 	const { $authFetch } = useAuthFetch();
 	const { confirmFrom } = useConfirmFrom();
 	const isBusy = ref(false);
-
-	function failureToast(error: unknown): void {
-		const failure = classifyFailure(error);
-		toast.add({
-			title: t(`dms_ai.views.${failure}.title`),
-			description:
-				failure === "error"
-					? errorMessage(error)
-					: t("dms_ai.views.unavailable.description"),
-			color: "error",
-			icon: "i-ph-warning-circle",
-		});
-	}
 
 	async function redo(changeSet: ChangeSetSummary): Promise<void> {
 		isBusy.value = true;
@@ -59,7 +47,9 @@ export function useChangeSetActions(): ChangeSetActions {
 			});
 			await refreshPageBlocks();
 		} catch (error) {
-			failureToast(error);
+			presentError(error, {
+				fallbackKey: `dms_ai.views.${classifyFailure(error)}.description`,
+			});
 		} finally {
 			isBusy.value = false;
 		}

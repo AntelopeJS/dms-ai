@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Tone } from "#dms-ui/app/types/tone";
+import type { Tone } from "#dms-core/app/types/tone";
 import { computed } from "vue";
 import { renderDocument } from "../chat/utils/markdown";
 import { useAssistant } from "../views/composables/useAssistant";
