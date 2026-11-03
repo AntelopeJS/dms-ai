@@ -219,3 +219,184 @@ export async function member(ctx, name, permissions = []) {
   await ctx.verify(`${name} is a member`, [check("the signup answers a session", signup.status === 200 && userId !== "", signup.status)], { critical: true });
   return { roleId: text(invite.body, "roleId"), userId };
 }
+
+/**
+ * The sidecar's own folder of the run: its lock, its stored state and its log. It sits in the playground's
+ * `node_modules/.cache/dms-ai`, so a checkout holds one run at a time.
+ *
+ * @param {Ctx} ctx The journey
+ * @param {...string} parts A path under it
+ * @returns {string} The folder or file
+ */
+export function sidecarPath(ctx, ...parts) {
+  return join(ctx.state.runPlayground ?? ctx.state.playground, "node_modules", ".cache", "dms-ai", ...parts);
+}
+
+/**
+ * The lock the running sidecar published: where it listens, its process and its credentials.
+ *
+ * @param {Ctx} ctx The journey
+ * @returns {{ port: number, pid: number, token: string, clientToken: string } | null} The lock, or null when there is none
+ */
+export function sidecarLock(ctx) {
+  const file = sidecarPath(ctx, "sidecar.lock");
+  if (!existsSync(file)) return null;
+  const lock = parseJson(readFileSync(file, "utf8"));
+  const port = pick(lock, "port");
+  const pid = pick(lock, "pid");
+  if (typeof port !== "number" || typeof pid !== "number") return null;
+  return { port, pid, token: text(lock, "token"), clientToken: text(lock, "clientToken") };
+}
+
+/**
+ * @param {number} ms How long to wait
+ * @returns {Promise<void>}
+ */
+export function pause(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Polls until `read` answers a truthy value or the time is up.
+ *
+ * @template T
+ * @param {() => Promise<T> | T} read What to read
+ * @param {{ timeoutMs?: number, everyMs?: number }} [options] How long and how often
+ * @returns {Promise<T>} The last value read
+ */
+export async function until(read, options = {}) {
+  const deadline = Date.now() + (options.timeoutMs ?? 30_000);
+  let value = await read();
+  while (!value && Date.now() < deadline) {
+    await pause(options.everyMs ?? 500);
+    value = await read();
+  }
+  return value;
+}
+
+/**
+ * Whether a process of this machine still runs.
+ *
+ * @param {number} pid The process id
+ * @returns {boolean} True when it answers signal 0
+ */
+export function alive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The status the owner reads, polled until it satisfies `accept`.
+ *
+ * @param {Ctx} ctx The journey
+ * @param {(status: unknown) => boolean} accept What the status must be
+ * @param {number} [timeoutMs] How long to wait
+ * @returns {Promise<{ status: unknown, ok: boolean }>} The last status and whether it was accepted
+ */
+export async function statusIs(ctx, accept, timeoutMs = 30_000) {
+  let last = null;
+  const ok = await until(
+    async () => {
+      const answer = await ctx.api("read the status", { method: "GET", path: `${AI}/status` });
+      last = answer.body;
+      return accept(answer.body);
+    },
+    { timeoutMs },
+  );
+  return { status: last, ok: Boolean(ok) };
+}
+
+/**
+ * Restarts the backend with these variables in its environment, runs `body`, and restarts it again with the
+ * variables it had, so later journeys get the module's defaults back.
+ *
+ * @param {Ctx} ctx The journey
+ * @param {Record<string, string>} env The variables
+ * @param {() => Promise<void>} body What to do under that configuration
+ * @returns {Promise<void>}
+ */
+export async function withEnv(ctx, env, body) {
+  const previous = { ...ctx.state.extraEnv };
+  ctx.state.extraEnv = { ...previous, ...env };
+  try {
+    await ctx.restartBackend();
+    await body();
+  } finally {
+    ctx.state.extraEnv = previous;
+    await ctx.restartBackend();
+  }
+}
+
+/**
+ * Stops the backend and its sidecar, forgets everything the sidecar stored (settings, conversations), and starts
+ * the backend again, so a journey begins from the module's defaults whatever the earlier ones saved.
+ *
+ * @param {Ctx} ctx The journey
+ * @returns {Promise<void>}
+ */
+export async function freshSidecar(ctx) {
+  const backend = ctx.state.processes.find((entry) => entry.name === "backend");
+  const lock = sidecarLock(ctx);
+  if (backend && alive(backend.pid)) process.kill(backend.pid, "SIGTERM");
+  await until(() => !(backend && alive(backend.pid)) && !(lock && alive(lock.pid)), { timeoutMs: 30_000 });
+  rmSync(sidecarPath(ctx), { recursive: true, force: true });
+  rmSync(join(ctx.state.home, ".claude"), { recursive: true, force: true });
+  await ctx.restartBackend();
+  await statusIs(ctx, (status) => text(status, "status") === "ready", 60_000);
+}
+
+/**
+ * A check on whether a radio button or a switch is selected, read from the page.
+ *
+ * @param {Tab} tab The tab
+ * @param {{ role: string, name: string, exact?: boolean }} target The control
+ * @param {boolean} expected Whether it must be selected
+ * @returns {Promise<Check>} The check
+ */
+export async function selected(tab, target, expected) {
+  const control = tab.locator(target).first();
+  const state = await control.isChecked({ timeout: 15_000 }).catch(() => null);
+  return check(`${target.name} is ${expected ? "selected" : "not selected"}`, state === expected, `checked=${state}`);
+}
+
+/**
+ * The visible text of the page.
+ *
+ * @param {Tab} tab The tab
+ * @returns {Promise<string>} The body text
+ */
+export function bodyText(tab) {
+  return tab.page.locator("body").innerText({ timeout: 15_000 }).catch(() => "");
+}
+
+/**
+ * A check that the page, once it has settled, shows exactly this text in a region.
+ *
+ * @param {Tab} tab The tab
+ * @param {string} name What is checked
+ * @param {RegExp} pattern The text
+ * @param {boolean} [want] Whether it must show
+ * @returns {Promise<Check>} The check
+ */
+export async function pageHas(tab, name, pattern, want = true) {
+  const found = await until(async () => pattern.test(await bodyText(tab)) === want, { timeoutMs: 20_000 });
+  const body = await bodyText(tab);
+  return check(name, Boolean(found), body.replace(/\s+/g, " ").slice(0, 300));
+}
+
+/**
+ * A check on the text of one control, such as the label a menu shows.
+ *
+ * @param {Tab} tab The tab
+ * @param {{ role: string, name: string, exact?: boolean }} target The control
+ * @param {string} expected The text it must show
+ * @returns {Promise<Check>} The check
+ */
+export async function shownBy(tab, target, expected) {
+  const found = await tab.locator(target).first().innerText({ timeout: 15_000 }).catch(() => "");
+  return check(`${target.name} shows ${expected}`, found.trim() === expected, found.trim());
+}
