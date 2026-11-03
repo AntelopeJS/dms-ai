@@ -92,6 +92,24 @@ describe("the approval mode pill", () => {
 		},
 	);
 
+	it.each([
+		["codex", true],
+		["claude", false],
+	] as const)(
+		"says Accept edits works as Ask first on %s: %s",
+		async (provider, worksAsAskFirst) => {
+			const harness = createHarness();
+			const panel = await openPanel(harness);
+			await useProvider(harness, provider);
+			const acceptEdits = panel
+				.findAll(".u-dropdown-item")
+				.find((item) => item.text() === "Accept edits");
+			const description = acceptEdits?.attributes("data-description") ?? "";
+			expect(description).not.toBe("");
+			expect(description.includes("works as Ask first")).toBe(worksAsAskFirst);
+		},
+	);
+
 	it("keeps the pill on the chat's own mode when an older sidecar still sends Full auto", async () => {
 		const harness = createHarness();
 		const panel = await openPanel(harness);

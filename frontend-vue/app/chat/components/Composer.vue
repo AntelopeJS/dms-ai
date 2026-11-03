@@ -50,6 +50,8 @@ interface ModeLook {
 	icon: string;
 	labelKey: string;
 	descriptionKey: string;
+	/** Where Codex behaves differently from Claude Code in this mode. */
+	codexDescriptionKey?: string;
 }
 
 const props = defineProps<Props>();
@@ -73,6 +75,7 @@ const MODE_LOOKS: Record<ApprovalMode, ModeLook> = {
 		icon: "i-ph-pencil-simple-line",
 		labelKey: "dms_ai.common.mode.acceptEdits",
 		descriptionKey: "dms_ai.panel.composer.mode_desc.acceptEdits",
+		codexDescriptionKey: "dms_ai.panel.composer.mode_desc.acceptEdits_codex",
 	},
 	plan: {
 		icon: "i-ph-list-checks",
@@ -125,11 +128,17 @@ const scopeItems = computed(() =>
 	})),
 );
 
+function modeDescriptionKey(look: ModeLook): string {
+	return props.provider === "codex"
+		? (look.codexDescriptionKey ?? look.descriptionKey)
+		: look.descriptionKey;
+}
+
 const modeItems = computed(() => [
 	[{ type: "label" as const, label: t("dms_ai.panel.composer.mode_menu") }],
 	MODES_BY_PROVIDER[props.provider].map((mode) => ({
 		label: t(MODE_LOOKS[mode].labelKey),
-		description: t(MODE_LOOKS[mode].descriptionKey),
+		description: t(modeDescriptionKey(MODE_LOOKS[mode])),
 		icon: MODE_LOOKS[mode].icon,
 		type: "checkbox" as const,
 		checked: props.mode.mode === mode,

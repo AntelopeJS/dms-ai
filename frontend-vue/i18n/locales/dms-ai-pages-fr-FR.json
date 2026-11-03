@@ -491,7 +491,8 @@
 				},
 				"acceptEdits": {
 					"label": "Accepter les modifications",
-					"description": "Applique les modifications de fichiers, sauf les fichiers de dépendances et les hooks git. Demande pour le reste, chaque commande comprise."
+					"description": "Applique les modifications de fichiers, sauf les fichiers de dépendances et les hooks git. Demande pour le reste, chaque commande comprise.",
+					"description_codex": "Avec Codex, fonctionne comme Demander d'abord : demande avant chaque modification de fichier, fichiers de dépendances et hooks git compris, et avant toute commande qui écrit."
 				},
 				"plan": {
 					"label": "Plan seulement",

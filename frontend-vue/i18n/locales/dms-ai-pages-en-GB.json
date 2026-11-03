@@ -491,7 +491,8 @@
 				},
 				"acceptEdits": {
 					"label": "Accept edits",
-					"description": "Applies file edits, except dependency and git hook files. Asks for the rest, every command included."
+					"description": "Applies file edits, except dependency and git hook files. Asks for the rest, every command included.",
+					"description_codex": "With Codex, works as Ask first: asks before every file edit, dependency and git hook files included, and before any command that writes."
 				},
 				"plan": {
 					"label": "Plan only",

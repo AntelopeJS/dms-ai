@@ -11,6 +11,8 @@ export function settingsText(...segments: string[]): string {
 interface ChoiceDeclaration {
   value: string;
   icon?: string;
+  /** The description key under `<field>.<value>`, `description` by default. */
+  descriptionKey?: string;
   /** Shown, never picked. */
   disabled?: boolean;
 }
@@ -20,10 +22,10 @@ function choices(
   field: string,
   declarations: readonly ChoiceDeclaration[],
 ): VocabularyOption[] {
-  return declarations.map(({ value, icon, disabled }) => ({
+  return declarations.map(({ value, icon, descriptionKey, disabled }) => ({
     value,
     label: settingsText(field, value, "label"),
-    description: settingsText(field, value, "description"),
+    description: settingsText(field, value, descriptionKey ?? "description"),
     icon,
     disabled,
   }));
@@ -78,7 +80,7 @@ export const CLAUDE_MODE_OPTIONS = choices("mode", [
 
 export const CODEX_MODE_OPTIONS = choices("mode", [
   NORMAL_MODE,
-  ACCEPT_EDITS_MODE,
+  { ...ACCEPT_EDITS_MODE, descriptionKey: "description_codex" },
   PLAN_MODE,
 ]);
 
