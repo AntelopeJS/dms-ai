@@ -33,7 +33,7 @@ RUN=$($C up --prepare --base origin/campaign/integration --skill "$PWD/.agents/s
 - a `mongod` the run owns serves `verify_<run>` databases;
 - the backend runs `ajs project start -e docs`, the dashboard `ajs dms start -e docs -b <api>`.
 
-The module under verification is a `local` source at the checkout root, and `@antelopejs/dms` is the campaign's tarball, as a local source. The fixture module (`playground/src`) serves a member with a role (`POST /verify-ai/member`) and registers a home page and a plain page; its `skills/` folder holds the skills the Skills journeys read, among them a name shared by two folders and three `SKILL.md` the catalog must skip.
+The module under verification is a `local` source at the checkout root, and `@antelopejs/dms` is the campaign's tarball, as a local source. The fixture module (`playground/src`) serves a member with a role (`POST /verify-ai/member`) and registers a home page and a plain page; it writes the skills the Skills journeys read into `generated-skills/` when it is constructed (a committed `SKILL.md` would be read as a skill of this repository), among them a name shared by two folders and three `SKILL.md` the catalog must skip.
 
 ## Doctor
 

@@ -40,7 +40,7 @@
   "antelopeJs": {
     "baseUrl": "dist",
     "skills": [
-      "./skills"
+      "./generated-skills"
     ],
     "paths": {
       "@/*": [
