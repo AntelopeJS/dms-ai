@@ -59,14 +59,11 @@ function resolveScriptPath(explicit: string | undefined): string {
   return resolve(here, MOCK_DEFAULT_SCRIPT_RELATIVE);
 }
 
+const ScriptSchema = z.array(z.custom<SDKMessage>());
+
 async function loadScript(path: string): Promise<SDKMessage[]> {
   const raw = await readFile(path, "utf8");
-  const parsed: unknown = JSON.parse(raw);
-  if (!Array.isArray(parsed)) {
-    throw new Error(`mock-claude: script ${path} must be a JSON array`);
-  }
-  // SAFETY: a mock script is authored in this repo as an array of SDKMessage; the array is checked above and its entries are trusted as written.
-  return parsed as SDKMessage[];
+  return ScriptSchema.parse(JSON.parse(raw));
 }
 
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
