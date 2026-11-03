@@ -37,3 +37,4 @@
 @antelopejs/interface-core	sidecar/package.json	devDependencies	(added)
 @antelopejs/core	playground/package.json	devDependencies	>=1.17.1 <2
 @antelopejs/core	playground/package.json	pnpm.overrides	
+@antelopejs/interface-dms-builder	sidecar/package.json	pnpm.overrides	
