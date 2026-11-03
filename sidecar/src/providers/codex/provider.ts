@@ -442,6 +442,7 @@ async function createProviderSession(
     getChanges: (itemId) => adapter.getChanges(itemId),
     hostProjectRoot: ctx.hostProjectRoot,
     moduleRoots: options.moduleRoots ?? [],
+    getPendingMcpCalls: () => adapter.pendingMcpCalls(),
     onToolDecision: ctx.onToolDecision,
     beforeMutation: ctx.beforeMutation,
   });

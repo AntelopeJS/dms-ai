@@ -4,7 +4,6 @@ import {
   CODEX_ACTIVITY_BY_METHOD,
   CODEX_TURN_FAILED_MESSAGE,
 } from "../../constants/codex.js";
-import { MCP_TOOL_NAME_PREFIX } from "../../constants/mcp.js";
 import {
   BASH_COMMAND_ARG,
   EDIT_FILE_PATH_ARG,
@@ -51,6 +50,7 @@ const fileChangeItemSchema = z.object({
 const mcpToolCallItemSchema = z.object({
   type: z.literal("mcpToolCall"),
   id: z.string(),
+  server: z.string(),
   tool: z.string(),
   status: z.string(),
   arguments: JsonValueSchema.optional(),
@@ -105,6 +105,19 @@ type AgentMessageItem = z.infer<typeof agentMessageItemSchema>;
 type StartedItem = z.infer<typeof startedParamsSchema>["item"];
 type CompletedItem = z.infer<typeof completedParamsSchema>["item"];
 
+/** An MCP tool call Codex has started and not completed yet. */
+export interface CodexMcpCall {
+  id: string;
+  server: string;
+  tool: string;
+  arguments: JsonValue;
+}
+
+/** The name an MCP tool carries on both providers: `mcp__<server>__<tool>`. */
+export function mcpToolName(server: string, tool: string): string {
+  return `mcp__${server}__${tool}`;
+}
+
 /** One file of a pending Codex patch, as its approval card shows it. */
 export interface CodexFileChange {
   path: string;
@@ -125,6 +138,11 @@ export interface CodexAdapter {
   getChangedPaths(itemId: string): string[];
   /** The files of a pending patch with their diffs, for the approval card. */
   getChanges(itemId: string): CodexFileChange[];
+  /**
+   * MCP calls in flight. An elicitation names the server and the arguments
+   * but not the tool, while the item/started that precedes it names all three.
+   */
+  pendingMcpCalls(): CodexMcpCall[];
 }
 
 function toolUse(
@@ -145,6 +163,11 @@ function toolResult(
 
 function isFailure(status: string): boolean {
   return FAILED_ITEM_STATUSES.includes(status);
+}
+
+function toMcpCall(item: McpToolCallItem): CodexMcpCall {
+  const { id, server, tool } = item;
+  return { id, server, tool, arguments: item.arguments ?? null };
 }
 
 function changeCallId(itemId: string, index: number): string {
@@ -247,6 +270,7 @@ function createCallTracker() {
 export function createCodexAdapter(): CodexAdapter {
   const { openCallIds, open, close, closeMatching } = createCallTracker();
   const changesByItemId = new Map<string, CodexFileChange[]>();
+  const mcpCallsById = new Map<string, CodexMcpCall>();
 
   function startCommand(item: CommandExecutionItem): RunnerEvent[] {
     return [
@@ -278,13 +302,9 @@ export function createCodexAdapter(): CodexAdapter {
   }
 
   function startMcpToolCall(item: McpToolCallItem): RunnerEvent[] {
-    return [
-      open(
-        item.id,
-        `${MCP_TOOL_NAME_PREFIX}${item.tool}`,
-        item.arguments ?? null,
-      ),
-    ];
+    const call = toMcpCall(item);
+    mcpCallsById.set(call.id, call);
+    return [open(call.id, mcpToolName(call.server, call.tool), call.arguments)];
   }
 
   function completeCommand(item: CommandExecutionItem): RunnerEvent[] {
@@ -308,6 +328,7 @@ export function createCodexAdapter(): CodexAdapter {
   }
 
   function completeMcpToolCall(item: McpToolCallItem): RunnerEvent[] {
+    mcpCallsById.delete(item.id);
     const failed = item.error !== null || isFailure(item.status);
     return close(item.id, item.error ?? item.result, failed);
   }
@@ -352,6 +373,7 @@ export function createCodexAdapter(): CodexAdapter {
   ): RunnerEvent[] {
     const { turn } = params;
     const status = turn?.status ?? "completed";
+    mcpCallsById.clear();
     const orphans = [...openCallIds]
       .flatMap((callId) => close(callId, INTERRUPTED_RESULT, true))
       .map((event) => ({ ...event, isStopped: true }));
@@ -366,6 +388,7 @@ export function createCodexAdapter(): CodexAdapter {
     getChangedPaths: (itemId) =>
       (changesByItemId.get(itemId) ?? []).map((change) => change.path),
     getChanges: (itemId) => changesByItemId.get(itemId) ?? [],
+    pendingMcpCalls: () => [...mcpCallsById.values()],
     handle(notification) {
       switch (notification.method) {
         case "item/started": {
