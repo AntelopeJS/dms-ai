@@ -1,9 +1,9 @@
 import { computed, type ComputedRef, type Ref } from "vue";
+import { modeFor } from "../constants/modes";
 import { CLIENT_MESSAGE_TYPES } from "../constants/protocol";
 import type {
 	ApprovalMode,
 	ConversationModeState,
-	FullAutoDuration,
 	Scope,
 } from "../types/protocol";
 import type { AppSettings } from "../types/settings";
@@ -17,12 +17,10 @@ export interface UseConversationModeOptions {
 }
 
 export interface UseConversationModeResult {
-	/** The chat's mode, its scope and Full auto, defaults until the sidecar says. */
+	/** The chat's mode and its scope, defaults until the sidecar says. */
 	current: ComputedRef<ConversationModeState>;
 	setMode: (mode: ApprovalMode) => void;
 	setScope: (scope: Scope) => void;
-	startFullAuto: (duration: FullAutoDuration) => void;
-	stopFullAuto: () => void;
 }
 
 function effectiveScope(scope: Scope, builderAvailable: boolean): Scope {
@@ -30,9 +28,10 @@ function effectiveScope(scope: Scope, builderAvailable: boolean): Scope {
 }
 
 /**
- * The active chat's approval mode, scope and Full auto: what the sidecar says,
- * or the defaults for new chats from the settings until it has. Changes apply
- * at once here and are sent for the sidecar to confirm.
+ * The active chat's approval mode and scope: what the sidecar says,
+ * or the current provider's default from the settings until it has. A mode the
+ * provider does not have reads as Ask first. Changes apply at once here and
+ * are sent for the sidecar to confirm.
  */
 export function useConversationMode(
 	options: UseConversationModeOptions,
@@ -40,12 +39,12 @@ export function useConversationMode(
 	const current = computed<ConversationModeState>(() => {
 		const { settings, mode } = options;
 		const base: ConversationModeState = mode.value ?? {
-			mode: settings.value.mode,
+			mode: settings.value.defaultModes[settings.value.provider],
 			generationMode: settings.value.generationMode,
-			fullAuto: null,
 		};
 		return {
 			...base,
+			mode: modeFor(settings.value.provider, base.mode),
 			generationMode: effectiveScope(
 				base.generationMode,
 				settings.value.builderAvailable,
@@ -67,7 +66,5 @@ export function useConversationMode(
 		current,
 		setMode: (mode) => change({ mode }),
 		setScope: (generationMode) => change({ generationMode }),
-		startFullAuto: (duration) => change({ fullAuto: { duration } }),
-		stopFullAuto: () => change({ fullAuto: null }),
 	};
 }

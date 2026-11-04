@@ -27,6 +27,8 @@ export const DECISION_STYLES: Record<AllowedBy, DecisionStyle> = {
 	approved: { icon: "i-ph-check-circle", iconClass: "text-success" },
 	rule: { icon: "i-ph-key", iconClass: "text-secondary" },
 	full_auto: { icon: "i-ph-lightning", iconClass: "text-secondary" },
+	auto_approved: { icon: "i-ph-seal-check", iconClass: "text-success" },
+	auto_denied: { icon: "i-ph-prohibit", iconClass: "text-warning" },
 	blocked: { icon: "i-ph-shield-warning", iconClass: "text-warning" },
 	denied: { icon: "i-ph-prohibit", iconClass: "text-error" },
 	expired: { icon: "i-ph-hourglass-simple", iconClass: "text-warning" },

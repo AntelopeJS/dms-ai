@@ -11,6 +11,7 @@ import { buildConfigToml } from "../../src/providers/codex/config.js";
 import { REQUEST_TIMEOUT_MINUTES } from "../../src/state/settings-types.js";
 
 const INHERITED_TIMEOUT = "60000";
+const NO_PROJECT_ROOT = "/nonexistent-project-root";
 
 describe("MCP tool timeout", () => {
   it("outlasts every wait on the user", () => {
@@ -21,10 +22,13 @@ describe("MCP tool timeout", () => {
   });
 
   it("overrides an inherited Claude timeout and keeps the rest of the env", () => {
-    const env = buildClaudeEnv({
-      PATH: "/usr/bin",
-      [CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR]: INHERITED_TIMEOUT,
-    });
+    const env = buildClaudeEnv(
+      {
+        PATH: "/usr/bin",
+        [CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR]: INHERITED_TIMEOUT,
+      },
+      NO_PROJECT_ROOT,
+    );
     expect(env.PATH).toBe("/usr/bin");
     expect(env[CLAUDE_MCP_TOOL_TIMEOUT_ENV_VAR]).toBe(
       String(MCP_TOOL_TIMEOUT_MS),
@@ -35,6 +39,7 @@ describe("MCP tool timeout", () => {
     const toml = buildConfigToml({
       mcpUrl: "http://127.0.0.1:4321/mcp",
       hostProjectRoot: "/srv/app",
+      moduleRoots: [],
       nodePath: process.execPath,
     });
     const server = toml.split("[projects.")[0] ?? "";

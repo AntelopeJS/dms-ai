@@ -72,7 +72,10 @@ function checkAvailability(): ProviderAvailability {
   const installed = readInstallVerdict();
   if (!installed.available) return installed;
   if (!readAccountStatus().isSignedIn) {
-    return unavailable(PROVIDER_UNAVAILABLE_REASONS.CODEX_NOT_SIGNED_IN);
+    return unavailable(
+      PROVIDER_UNAVAILABLE_REASONS.CODEX_NOT_SIGNED_IN,
+      "codex_not_signed_in",
+    );
   }
   return AVAILABLE;
 }

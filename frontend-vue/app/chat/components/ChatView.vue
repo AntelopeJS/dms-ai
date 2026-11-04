@@ -26,6 +26,7 @@ import {
 } from "../composables/useConversationId";
 import { useConversationList } from "../composables/useConversationList";
 import { useConversationMode } from "../composables/useConversationMode";
+import { useFollowScroll } from "../composables/useFollowScroll";
 import { usePermissionQueue } from "../composables/usePermissionQueue";
 import { useQuestionQueue } from "../composables/useQuestionQueue";
 import { useQueueActions } from "../composables/useQueueActions";
@@ -55,7 +56,6 @@ import ChatEmpty from "./ChatEmpty.vue";
 import Composer from "./Composer.vue";
 import ConnectionBanner from "./ConnectionBanner.vue";
 import ConversationDrawer from "./ConversationDrawer.vue";
-import FullAutoBanner from "./FullAutoBanner.vue";
 import MessageList from "./MessageList.vue";
 import PanelHeader, { type PanelStatusKind } from "./PanelHeader.vue";
 import QuestionDock from "./QuestionDock.vue";
@@ -94,7 +94,6 @@ const { t } = useChatI18n();
 
 const HISTORY_KEY = "j";
 const ESCAPE_KEY = "Escape";
-const SCROLL_STICKY_THRESHOLD_PX = 80;
 const NAVIGATION_TARGETS: Record<string, string> = {
 	changes: CHANGES_PAGE_PATH,
 	activity: ACTIVITY_PAGE_PATH,
@@ -145,6 +144,7 @@ const nowMs = useRunClock(computed(() => true));
 const composerRef = ref<FocusableComposer | null>(null);
 const approvalDockRef = ref<FocusableDock | null>(null);
 const scrollEl = ref<HTMLElement | null>(null);
+const { follow } = useFollowScroll(scrollEl);
 
 const isConnected = channel.isConnected;
 const isRunning = conversation.isRunning;
@@ -216,19 +216,10 @@ const isEmpty = computed(
 	() => conversation.messages.value.length === 0 && !isRunning.value,
 );
 
-// Sent on the tab's stream itself: the chat's own channel is already closed
-// when the panel unmounts it.
-function leave(conversationId: string): void {
-	props.transport.send({
-		type: CLIENT_MESSAGE_TYPES.LEAVE_CONVERSATION,
-		conversationId,
-	});
-}
-
 function switchConversation(id: string): void {
+	follow();
 	isDrawerOpen.value = false;
 	if (id === activeId.value) return;
-	leave(activeId.value);
 	activeId.value = id;
 	persistConversationId(id);
 	conversation.reset();
@@ -265,12 +256,19 @@ function reviewChangeSet(changeSetId: string): void {
 	navigate(`${CHANGES_PAGE_PATH}?${query.toString()}`);
 }
 
+function sendUserMessage(
+	...args: Parameters<typeof conversation.sendUserMessage>
+): void {
+	follow();
+	conversation.sendUserMessage(...args);
+}
+
 function submit(
 	content: string,
 	attachments: PendingAttachment[],
 	includePage: boolean,
 ): void {
-	conversation.sendUserMessage(
+	sendUserMessage(
 		content,
 		attachments,
 		includePage ? {} : { includePageContext: false },
@@ -294,9 +292,7 @@ function stopAutoFix(): void {
 }
 
 function askAgain(summary: string): void {
-	conversation.sendUserMessage(
-		t("dms_ai.panel.approvals.ask_again_message", { summary }),
-	);
+	sendUserMessage(t("dms_ai.panel.approvals.ask_again_message", { summary }));
 }
 
 function askAgainExpired(request: ExpiredRequest): void {
@@ -313,7 +309,7 @@ function runPlan(): void {
 		permissions.respond(planRequest.requestId, { decision: "allow_once" });
 		return;
 	}
-	conversation.sendUserMessage(t("dms_ai.panel.plan.go_ahead"));
+	sendUserMessage(t("dms_ai.panel.plan.go_ahead"));
 }
 
 function setDraft(text: string): void {
@@ -341,7 +337,7 @@ function startConversation(intent: StartConversationIntent): void {
 	if (next !== undefined || sends)
 		whenConnected(() => {
 			if (next !== undefined) mode.setMode(next);
-			if (sends) conversation.sendUserMessage(prompt);
+			if (sends) sendUserMessage(prompt);
 		});
 	if (sends) return;
 	if (prompt) void nextTick(() => setDraft(prompt));
@@ -407,26 +403,6 @@ function refreshListAfterTurn(msg: unknown): void {
 
 channel.onMessage(refreshListAfterTurn);
 
-function isNearBottom(el: HTMLElement): boolean {
-	return (
-		el.scrollHeight - el.scrollTop - el.clientHeight <=
-		SCROLL_STICKY_THRESHOLD_PX
-	);
-}
-
-function scrollToBottom(): void {
-	const el = scrollEl.value;
-	if (el !== null) el.scrollTop = el.scrollHeight;
-}
-
-watch(
-	() => [conversation.messages.value, isRunning.value],
-	() => {
-		const el = scrollEl.value;
-		if (el === null || isNearBottom(el)) void nextTick(scrollToBottom);
-	},
-);
-
 // The DMS mounts the panel open on a reload, often before the tab's stream
 // is up: the list (and the chat's title) is asked for again once it is.
 watch(isConnected, (connected) => {
@@ -436,14 +412,10 @@ watch(isConnected, (connected) => {
 onMounted(() => {
 	document.addEventListener("keydown", onDocumentKeydown);
 	list.refresh();
-	void nextTick(scrollToBottom);
 });
 
-// The DMS unmounts the panel's content when the panel closes: the chat is
-// left then, which ends a Full auto granted until the chat closes.
 onBeforeUnmount(() => {
 	document.removeEventListener("keydown", onDocumentKeydown);
-	leave(activeId.value);
 });
 </script>
 
@@ -465,12 +437,6 @@ onBeforeUnmount(() => {
 			:status="channel.connectionStatus.value"
 			:is-reviving="isReviving"
 			@reconnect="channel.reconnect"
-		/>
-		<FullAutoBanner
-			v-if="mode.current.value.fullAuto"
-			:full-auto="mode.current.value.fullAuto"
-			:now-ms="nowMs"
-			@turn-off="mode.stopFullAuto"
 		/>
 
 		<section
@@ -511,6 +477,7 @@ onBeforeUnmount(() => {
 				v-if="providerProblem"
 				:agent-name="agentName"
 				:reason="settings.providers[settings.provider]?.reason ?? ''"
+				:code="settings.providers[settings.provider]?.code"
 				@open-settings="navigate(SETTINGS_PAGE_PATH)"
 			/>
 		</section>
@@ -553,6 +520,7 @@ onBeforeUnmount(() => {
 				:is-disabled="!isConnected || providerProblem"
 				:is-running="isRunning"
 				:mode="mode.current.value"
+				:provider="settings.provider"
 				:builder-available="settings.builderAvailable"
 				:page="page"
 				:usage-label="usageLabel"
@@ -561,7 +529,6 @@ onBeforeUnmount(() => {
 				@stop="stopTurn"
 				@set-scope="mode.setScope"
 				@set-mode="mode.setMode"
-				@start-full-auto="mode.startFullAuto"
 				@open-settings="navigate(SETTINGS_PAGE_PATH)"
 			/>
 		</div>

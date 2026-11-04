@@ -8,7 +8,7 @@ import { PROVIDER_NAMES } from "../../src/state/types.js";
 
 const STORED_CODEX = JSON.stringify({
   provider: "codex",
-  mode: "normal",
+  defaultModes: { claude: "normal", codex: "normal" },
   thinking: "medium",
   generationMode: "safe",
   allowLocalSkills: false,
@@ -20,19 +20,18 @@ describe("provider setting", () => {
   });
 
   it("falls back to the default when the stored file omits it", () => {
-    const partial = JSON.stringify({ mode: "plan", thinking: "low" });
+    const partial = JSON.stringify({ thinking: "low" });
     expect(parseSettings(partial).provider).toBe(DEFAULT_SETTINGS.provider);
   });
 
   it("rejects an unknown provider name in the stored file", () => {
-    const bogus = JSON.stringify({ provider: "gemini", mode: "normal" });
+    const bogus = JSON.stringify({ provider: "gemini", thinking: "low" });
     expect(parseSettings(bogus).provider).toBe(DEFAULT_SETTINGS.provider);
   });
 
   it("leaves the field undefined when a patch omits it", () => {
     const msg = SetSettingsMsg.parse({
       type: "set_settings",
-      mode: "normal",
       thinking: "medium",
     });
     expect(msg.provider).toBeUndefined();
@@ -42,7 +41,6 @@ describe("provider setting", () => {
     const msg = SetSettingsMsg.parse({
       type: "set_settings",
       provider: "codex",
-      mode: "normal",
       thinking: "medium",
     });
     expect(msg.provider).toBe("codex");

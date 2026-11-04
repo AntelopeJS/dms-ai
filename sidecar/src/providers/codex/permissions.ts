@@ -18,28 +18,52 @@ import {
   TOOL_LEXICON,
 } from "../../constants/tool-lexicon.js";
 import { EDIT_PATHS_KEY } from "../../agent/edit-targets.js";
-import type { AppSettings } from "../../state/settings-types.js";
-import type { CodexFileChange } from "./adapter.js";
+import { resolveReadRoots } from "../../agent/read-access.js";
+import type { TurnSettings } from "../../state/settings-types.js";
+import type { CodexFileChange, CodexMcpCall } from "./adapter.js";
 import type { CodexServerRequest } from "./client.js";
-import { resolveModePolicy } from "./config.js";
+import { declinesEscalations } from "./config.js";
+import { createPatchDirectories } from "./patch-directories.js";
+import {
+  CODEX_MCP_ELICITATION_METHOD,
+  decideElicitation,
+  type ElicitationVerdict,
+  mcpElicitationParamsSchema,
+} from "./mcp-elicitation.js";
+
+const INTERRUPTED_ELICITATION_REASON =
+  "declined an elicitation that arrived after the turn was interrupted";
 
 type CodexApprovalDecisionResponse = {
   decision: string;
 };
 
+type CodexElicitationResponse = {
+  action: "accept" | "decline";
+  content: Record<string, never> | null;
+  _meta: null;
+};
+
+type CodexServerRequestResponse =
+  | CodexApprovalDecisionResponse
+  | CodexElicitationResponse;
+
 export interface CodexPermissionDeps {
   conversationId: string;
   permissionBus?: PermissionBus;
   /** Read live, so a safe/vibe flip takes effect without a new session. */
-  getSettings: () => AppSettings;
+  getSettings: () => TurnSettings;
   getChanges: (itemId: string) => CodexFileChange[];
+  hostProjectRoot: string;
+  moduleRoots: readonly string[];
+  getPendingMcpCalls: () => CodexMcpCall[];
   onToolDecision?: (decision: ToolDecision) => void;
   /** Awaited before an approved change runs (the turn's checkpoint). */
   beforeMutation?: () => Promise<void>;
 }
 
 export interface CodexPermissionHandler {
-  handle(request: CodexServerRequest): Promise<CodexApprovalDecisionResponse>;
+  handle(request: CodexServerRequest): Promise<CodexServerRequestResponse>;
   /** Declines everything still pending, used when a turn is interrupted. */
   cancelPending(): void;
   /** Lifts that refusal for the next turn, which the user is entitled to. */
@@ -51,6 +75,7 @@ interface ApprovalSubject {
   toolName: string;
   args: Record<string, string | string[]>;
   callId?: string;
+  changes: readonly CodexFileChange[];
 }
 
 const commandApprovalParamsSchema = z.object({
@@ -75,6 +100,22 @@ function decline(): CodexApprovalDecisionResponse {
 }
 
 /**
+ * Answers an MCP elicitation, in every mode and scope: Safe and plan modes let
+ * dms-ai's own tools run, as on the Claude path.
+ */
+function answerElicitation(
+  deps: CodexPermissionDeps,
+  verdict: ElicitationVerdict,
+): CodexElicitationResponse {
+  if (verdict.decision !== undefined) deps.onToolDecision?.(verdict.decision);
+  if (verdict.action === "accept") {
+    return { action: "accept", content: {}, _meta: null };
+  }
+  console.warn(`${CODEX_LOG_PREFIX} ${verdict.reason}`);
+  return { action: "decline", content: null, _meta: null };
+}
+
+/**
  * Answers the app-server's approval requests. Any other server request that
  * expects a decision is refused rather than blindly accepted, and said out
  * loud: a decision method added by a later Codex release would otherwise turn
@@ -87,6 +128,10 @@ export function createCodexPermissionHandler(
 ): CodexPermissionHandler {
   let denials = 0;
   let cancelled = false;
+  const patchRoots = {
+    hostProjectRoot: deps.hostProjectRoot,
+    roots: resolveReadRoots(deps.hostProjectRoot, deps.moduleRoots),
+  };
 
   function describeCommand(params: CommandApprovalParams): ApprovalSubject {
     const { command, itemId } = params;
@@ -94,6 +139,7 @@ export function createCodexPermissionHandler(
       toolName: TOOL_LEXICON.BASH,
       args: { [BASH_COMMAND_ARG]: command ?? "" },
       callId: itemId,
+      changes: [],
     };
   }
 
@@ -117,6 +163,7 @@ export function createCodexPermissionHandler(
         [CODEX_CHANGE_DIFF_ARG]: first?.diff ?? "",
       },
       callId: itemId,
+      changes,
     };
   }
 
@@ -156,6 +203,7 @@ export function createCodexPermissionHandler(
     countDenial(outcome.isAllowed);
     if (!outcome.isAllowed) return decline();
     await deps.beforeMutation?.();
+    await createPatchDirectories(subject.changes, patchRoots);
     return accept();
   }
 
@@ -172,6 +220,15 @@ export function createCodexPermissionHandler(
 
   return {
     async handle(request) {
+      if (request.method === CODEX_MCP_ELICITATION_METHOD) {
+        const params = mcpElicitationParamsSchema.safeParse(request.params);
+        return answerElicitation(
+          deps,
+          cancelled
+            ? { action: "decline", reason: INTERRUPTED_ELICITATION_REASON }
+            : decideElicitation(params.data, deps.getPendingMcpCalls()),
+        );
+      }
       const describe = subjectDescriber(request);
       if (describe === undefined) {
         console.warn(
@@ -181,7 +238,7 @@ export function createCodexPermissionHandler(
       }
       if (cancelled) return decline();
       const subject = describe();
-      if (resolveModePolicy(deps.getSettings()).autoDeclineEscalations) {
+      if (declinesEscalations(deps.getSettings())) {
         return block(subject);
       }
       return ask(subject);

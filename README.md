@@ -50,7 +50,7 @@ Claude Code runs with its own credentials, either its login or `ANTHROPIC_API_KE
 
 Restart the backend, then the frontend. Sign in as an owner and press `Ctrl` `Shift` `K` (`⌘` `⇧` `K` on macOS). To start the backend without the sidecar, set `DMS_AI=0`.
 
-## Compatibility
+## Requirements
 
 <!-- antelopejs-docs-compat:start -->
 
@@ -61,7 +61,7 @@ Restart the backend, then the frontend. Sign in as an owner and press `Ctrl` `Sh
 | `@antelopejs/interface-core`             | `file:.campaign/tgz/antelopejs-interface-core-f7df541.tgz`        | `file:.campaign/tgz/antelopejs-interface-core-f7df541.tgz`        |
 | `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`                                                  | `0.0.2`                                                           |
 | `@antelopejs/interface-dms`              | `file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz`         | `file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz`         |
-| `@antelopejs/interface-dms-builder`      | `file:.campaign/tgz/antelopejs-interface-dms-builder-71b3ce9.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-builder-71b3ce9.tgz` |
+| `@antelopejs/interface-dms-builder`      | `file:.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz` |
 
 <!-- antelopejs-docs-compat:end -->
 

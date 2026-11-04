@@ -4,7 +4,7 @@ const DEFAULT_REQUEST_TIMEOUT_MINUTES = 5;
 
 export const DEFAULT_SETTINGS: AppSettings = {
 	provider: "claude",
-	mode: "normal",
+	defaultModes: { claude: "auto", codex: "normal" },
 	thinking: "medium",
 	generationMode: "safe",
 	allowLocalSkills: false,

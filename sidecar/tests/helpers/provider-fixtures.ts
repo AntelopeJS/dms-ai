@@ -79,6 +79,7 @@ const claudeFixture: ProviderFixture = {
     delete process.env.MOCK_CLAUDE_SCRIPT;
     delete process.env.MOCK_CLAUDE_TRACE;
     delete process.env.MOCK_CLAUDE_REFUSED_MODEL;
+    delete process.env.MOCK_CLAUDE_AUTO_UNSUPPORTED_MODEL;
   },
 };
 
@@ -95,6 +96,7 @@ const codexFixture: ProviderFixture = {
     delete process.env.MOCK_CODEX_ON_SIGTERM;
     delete process.env.MOCK_CODEX_FAIL_METHOD;
     delete process.env.MOCK_CODEX_GRANDCHILD_PID_FILE;
+    delete process.env.MOCK_CODEX_ENV_DUMP_FILE;
   },
 };
 
@@ -185,6 +187,10 @@ export function codexFailOn(method: string): void {
 /** Makes the fake app-server start a long-running command on every turn. */
 export function codexStartGrandchildInto(pidFile: string): void {
   process.env.MOCK_CODEX_GRANDCHILD_PID_FILE = pidFile;
+}
+
+export function codexDumpEnvInto(file: string): void {
+  process.env.MOCK_CODEX_ENV_DUMP_FILE = file;
 }
 
 const TRACE_ARMERS: Record<ProviderName, (file: string) => void> = {

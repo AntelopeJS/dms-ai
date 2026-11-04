@@ -53,11 +53,8 @@ type PermissionSettlementKind =
   | PermissionDecisionValue
   | (typeof PERMISSION_SETTLEMENTS)[keyof typeof PERMISSION_SETTLEMENTS];
 
-/** How the bus judges one conversation's requests right now. */
 export interface PermissionPolicy {
   hostProjectRoot: string;
-  /** Full auto in force (and not capped by safe mode). */
-  isFullAuto: boolean;
   timeoutMs: number;
   alwaysAskDependencies: boolean;
   alwaysAskBlockRemoval: boolean;
@@ -91,7 +88,7 @@ export interface PermissionAnswer {
 }
 
 export interface BusOptions {
-  getPolicy: (conversationId: string) => PermissionPolicy;
+  getPolicy: () => PermissionPolicy;
   onPromptChat: (event: PendingRequest) => void;
   onDecided?: (record: PermissionDecisionRecord) => void;
   onRulesChanged?: (conversationId: string, rules: ActiveRuleType[]) => void;
@@ -282,7 +279,6 @@ function decideWithoutAsking(
   if (state.rules.matches(req.conversationId, subject)) {
     return { isAllowed: true, allowedBy: "rule" };
   }
-  if (policy.isFullAuto) return { isAllowed: true, allowedBy: "full_auto" };
   return null;
 }
 
@@ -290,7 +286,7 @@ async function startRequest(
   state: BusState,
   req: PermissionRequest,
 ): Promise<PermissionOutcome> {
-  const policy = state.getPolicy(req.conversationId);
+  const policy = state.getPolicy();
   const timeoutMs = state.timeoutMs ?? policy.timeoutMs;
   const request = await buildPending(req, policy, timeoutMs);
   const automatic = decideWithoutAsking(state, req, request, policy);

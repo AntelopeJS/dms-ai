@@ -17,14 +17,14 @@ import {
   SAFE_MODE_SKILL_MISSING_WARNING,
 } from "../../src/constants/codex.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
-import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
+import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
 } from "../../src/mcp/http-binding.js";
 import { buildInertMcpDeps } from "../helpers/provider-runner.js";
 import { createCodexProvider } from "../../src/providers/codex/provider.js";
-import type { AppSettings } from "../../src/state/settings-types.js";
+import type { TurnSettings } from "../../src/state/settings-types.js";
 import {
   CODEX_FIXTURE,
   codexScript,
@@ -40,13 +40,13 @@ const EMPTY_SKILL_INDEX = "skills-index-empty.jsonl";
 const SCRIPT_SEPARATOR = ",";
 const TURN_START = "turn/start";
 
-const SAFE_SETTINGS: AppSettings = {
-  ...DEFAULT_SETTINGS,
+const SAFE_SETTINGS: TurnSettings = {
+  ...TURN_SETTINGS,
   generationMode: "safe",
 };
 
-const VIBE_SETTINGS: AppSettings = {
-  ...DEFAULT_SETTINGS,
+const VIBE_SETTINGS: TurnSettings = {
+  ...TURN_SETTINGS,
   generationMode: "vibe",
 };
 
@@ -58,7 +58,7 @@ function withoutSafeModeSkill(turns: number): string {
 /** Consumes every event of one turn: the turn is only over once its events are consumed. */
 async function drainTurn(
   session: ProviderSession,
-  settings: AppSettings,
+  settings: TurnSettings,
 ): Promise<void> {
   for await (const _event of session.runTurn(
     { text: "hello", attachments: [] },
@@ -79,7 +79,7 @@ describe("codex safe-mode skill guard", () => {
   let session: ProviderSession | undefined;
   let warn: MockInstance;
 
-  async function openSession(settings: AppSettings): Promise<ProviderSession> {
+  async function openSession(settings: TurnSettings): Promise<ProviderSession> {
     registry = createMcpHttpRegistry();
     const provider = createCodexProvider({
       settings,

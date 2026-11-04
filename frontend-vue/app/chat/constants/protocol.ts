@@ -14,7 +14,6 @@ export const CLIENT_MESSAGE_TYPES = {
 	QUEUE_CLEAR: "queue_clear",
 	REVOKE_RULE: "revoke_rule",
 	SET_CONVERSATION_MODE: "set_conversation_mode",
-	LEAVE_CONVERSATION: "leave_conversation",
 	STOP_AUTOFIX: "stop_autofix",
 	RETRY_TURN: "retry_turn",
 	CHANGE_SET_ACTION: "change_set_action",

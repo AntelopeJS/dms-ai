@@ -234,7 +234,22 @@ function buildRunnerContext(
         usedModel: used,
         timestampMs: Date.now(),
       }),
+    onAutoRefused: (model) =>
+      fallBackToAskFirst(services, conversationId, model),
   };
+}
+
+function fallBackToAskFirst(
+  services: SidecarServices,
+  conversationId: string,
+  model: string,
+): void {
+  services.conversationModes.update(conversationId, { mode: "normal" });
+  emitNotice(services, conversationId, {
+    kind: "auto_unavailable",
+    model,
+    timestampMs: Date.now(),
+  });
 }
 
 /**
@@ -367,7 +382,6 @@ async function finishTurn(
   } finally {
     recordUsage(services, conversationId);
     services.turns.end(conversationId);
-    services.conversationModes.endTurn(conversationId);
     broadcastConversationList(services);
   }
 }

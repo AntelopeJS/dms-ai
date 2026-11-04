@@ -7,9 +7,9 @@
 			},
 			"mode": {
 				"normal": "Ask first",
+				"auto": "Auto review",
 				"acceptEdits": "Accept edits",
-				"plan": "Plan only",
-				"auto": "Full auto"
+				"plan": "Plan only"
 			},
 			"scope": {
 				"safe": "Safe mode",
@@ -143,6 +143,8 @@
 				"expired_text": "“{summary}” was not answered in time, so it was denied at {time} and the assistant was told why.",
 				"question_skipped": "You let the assistant decide “{header}”.",
 				"full_auto_ended": "Full auto ended at {time}. The assistant asks first again.",
+				"auto_unavailable_title": "Auto review isn't available here.",
+				"auto_unavailable_text": "{model}, this plan or a setting doesn't allow it. This chat asks first instead.",
 				"model_fallback_title": "Switched to {model}.",
 				"model_fallback_text": "The requested model, {requested}, was refused (unknown, or no access on this plan). This answer comes from {model}, the default model."
 			},
@@ -156,6 +158,7 @@
 				"stop_not_delivered": "The assistant could not be reached to stop the run. Reconnect to see where it stands.",
 				"agent_cant_run": "{agent} can't run.",
 				"agent_no_fallback": "Your messages are not sent to any other agent.",
+				"codex_not_signed_in": "Sign in with ChatGPT in Assistant › Settings to run Codex on your ChatGPT plan.",
 				"open_settings": "Open settings"
 			},
 			"plan": {
@@ -234,7 +237,8 @@
 					"delete_table": "Delete the table {target}",
 					"remove_field": "Remove the field {target}",
 					"delete_category": "Delete the category {target}",
-					"remove_query": "Remove the query {target}"
+					"remove_query": "Remove the query {target}",
+					"map_resources": "Map the tables and remove the pages {target}"
 				},
 				"consequence_deletes_data": "Removes the code and its data",
 				"consequence_removes_code": "Removes the code · undoable"
@@ -290,12 +294,12 @@
 				},
 				"mode_menu": "Approval mode · this chat",
 				"mode_desc": {
-					"normal": "Asks before any edit, command or web request.",
-					"acceptEdits": "Applies file edits, asks for commands and web requests.",
+					"normal": "Asks before any edit, web request or command, read-only commands included.",
+					"acceptEdits": "Applies file edits, except dependency and git hook files. Asks before every command and web request.",
+					"acceptEdits_codex": "With Codex, works as Ask first: asks before every file edit, dependency and git hook files included, and before any command that writes.",
 					"plan": "Reads and proposes a plan. Changes nothing.",
-					"auto": "Runs everything without asking, except deletions."
+					"auto": "A safety check approves routine file edits and web access. Shell commands, dependency files, git hooks and deletions still ask."
 				},
-				"full_auto_item": "Full auto…",
 				"default_mode": "Default for new chats",
 				"hint_send": "send",
 				"hint_queue": "queue",
@@ -305,20 +309,6 @@
 				"usage": "{count} tokens · this chat",
 				"usage_new": "new chat",
 				"usage_offline": "offline"
-			},
-			"full_auto": {
-				"title": "Turn on Full auto?",
-				"description": "The assistant will edit files and run commands in this chat without asking. Deletions and dependency changes still ask. Every change stays in the change set and can be undone.",
-				"turn_off_after": "Turn off after",
-				"duration_turn": "This turn",
-				"duration_30m": "30 minutes",
-				"duration_chat": "Closing the chat",
-				"confirm": "Turn on Full auto",
-				"banner_turn": "this turn only",
-				"banner_30m": "for 30 minutes",
-				"banner_chat": "until the chat closes",
-				"banner_until": "ends in {time}",
-				"turn_off": "Turn off"
 			},
 			"drawer": {
 				"title": "Conversations",

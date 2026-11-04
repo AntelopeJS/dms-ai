@@ -3,10 +3,11 @@ import {
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS_PER_MESSAGE,
 } from "../constants/attachments.js";
-import { FULL_AUTO_DURATIONS, RULE_KINDS } from "../constants/audit.js";
+import { RULE_KINDS } from "../constants/audit.js";
 import {
   CHAT_MODES,
   CHECKPOINT_RETENTION_DAYS,
+  CODEX_CHAT_MODES,
   GENERATION_MODES,
   REQUEST_TIMEOUT_MINUTES,
   THINKING_LEVELS,
@@ -39,7 +40,6 @@ export const MESSAGE_TYPES = {
   ACTOR: "actor",
   REVOKE_RULE: "revoke_rule",
   SET_CONVERSATION_MODE: "set_conversation_mode",
-  LEAVE_CONVERSATION: "leave_conversation",
   STOP_AUTOFIX: "stop_autofix",
   RETRY_TURN: "retry_turn",
   CHANGE_SET_ACTION: "change_set_action",
@@ -228,29 +228,12 @@ export const ActorMsg = z.object({
   name: z.string().max(MAX_ACTOR_FIELD_CHARS),
 });
 
-export const FullAutoRequestSchema = z.object({
-  duration: z.enum(FULL_AUTO_DURATIONS),
-});
-
-/**
- * Chat -> server: the conversation's own approval mode, scope and Full auto.
- * A `null` `fullAuto` turns Full auto off.
- */
+/** Chat -> server: the conversation's own approval mode and scope. */
 export const SetConversationModeMsg = z.object({
   type: z.literal(MESSAGE_TYPES.SET_CONVERSATION_MODE),
   conversationId: z.string(),
   mode: z.enum(CHAT_MODES).optional(),
   generationMode: z.enum(GENERATION_MODES).optional(),
-  fullAuto: FullAutoRequestSchema.nullable().optional(),
-});
-
-/**
- * Chat -> server: the panel closed or another chat opened. Ends Full auto
- * scoped to "until the chat closes".
- */
-export const LeaveConversationMsg = z.object({
-  type: z.literal(MESSAGE_TYPES.LEAVE_CONVERSATION),
-  conversationId: z.string(),
 });
 
 /** Chat -> server: interrupt the running auto-fix turn and skip the rest. */
@@ -329,12 +312,17 @@ export const DeleteConversationMsg = z.object({
 
 /**
  * Every field optional: a settings change is merged over what is stored, so a
- * client that omits a field leaves it alone rather than resetting it. `auto` is
- * refused for `mode`: Full auto exists only per conversation.
+ * client that omits a field, or one provider's default mode, leaves it alone
+ * rather than resetting it.
  */
 export const SettingsPatchFields = {
   provider: z.enum(PROVIDER_NAMES).optional(),
-  mode: z.enum(CHAT_MODES).optional(),
+  defaultModes: z
+    .object({
+      claude: z.enum(CHAT_MODES).optional(),
+      codex: z.enum(CODEX_CHAT_MODES).optional(),
+    })
+    .optional(),
   thinking: z.enum(THINKING_LEVELS).optional(),
   claudeModel: z.string().trim().min(1).optional(),
   generationMode: z.enum(GENERATION_MODES).optional(),
@@ -383,7 +371,6 @@ export const AnyClientMessage = z.discriminatedUnion("type", [
   ActorMsg,
   RevokeRuleMsg,
   SetConversationModeMsg,
-  LeaveConversationMsg,
   StopAutoFixMsg,
   RetryTurnMsg,
   ChangeSetActionMsg,

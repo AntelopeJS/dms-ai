@@ -21,58 +21,24 @@ import { MCP_TOOL_TIMEOUT_SEC } from "../../constants/mcp.js";
 import { SAFE_MODE_DENIED_MESSAGE } from "../../constants/settings.js";
 import type {
   AppSettings,
-  ChatMode,
   ThinkingLevel,
+  TurnSettings,
 } from "../../state/settings-types.js";
+import {
+  buildPermissionProfileToml,
+  CODEX_READ_ONLY_PROFILE,
+  type CodexPermissionInput,
+} from "./permission-profiles.js";
 import type { v2 } from "./protocol/index.js";
 
-export interface CodexModePolicy {
-  approvalPolicy: v2.AskForApproval;
-  sandbox: v2.SandboxMode;
-  networkAccess: boolean;
-  writable: boolean;
-  /**
-   * Plan mode declines every escalation instead of prompting: Codex has no
-   * non-experimental plan mode of its own.
-   */
-  autoDeclineEscalations: boolean;
-}
-
 /**
- * Per chat mode, the sandbox and approval policy. `default` maps to read-only +
- * on-request rather than Codex's native workspace-write "auto": in
- * workspace-write an edit inside the roots asks for nothing, while every write
- * under read-only escalates, which is the prompt per write that the Claude path
- * gives today.
+ * Every mode runs read-only + on-request rather than Codex's native
+ * workspace-write "auto": in workspace-write an edit inside the roots asks for
+ * nothing, while every write under read-only escalates, which is the prompt per
+ * write that the Claude path gives. Accept edits included, so it asks before
+ * every file edit as Ask first does.
  */
-const CODEX_MODE_POLICIES: Record<ChatMode, CodexModePolicy> = {
-  normal: {
-    approvalPolicy: "on-request",
-    sandbox: "read-only",
-    networkAccess: false,
-    writable: false,
-    autoDeclineEscalations: false,
-  },
-  /**
-   * Accepting edits is about writes, not about the network: the Claude path
-   * grants no egress here, and granting it would be a difference the user never
-   * asked for when they picked the other backend.
-   */
-  acceptEdits: {
-    approvalPolicy: "on-request",
-    sandbox: "workspace-write",
-    networkAccess: false,
-    writable: true,
-    autoDeclineEscalations: false,
-  },
-  plan: {
-    approvalPolicy: "on-request",
-    sandbox: "read-only",
-    networkAccess: false,
-    writable: false,
-    autoDeclineEscalations: true,
-  },
-};
+const CODEX_APPROVAL_POLICY: v2.AskForApproval = "on-request";
 
 /**
  * Codex has no "reasoning off": the current models reject `minimal` and accept
@@ -88,71 +54,28 @@ const CODEX_EFFORT_BY_THINKING: Record<ThinkingLevel, string> = {
 
 export interface CodexTurnOverrides {
   approvalPolicy: v2.AskForApproval;
-  sandboxPolicy: v2.SandboxPolicy;
+  permissions: typeof CODEX_READ_ONLY_PROFILE;
   effort: string;
 }
 
-export interface CodexWorkspace {
-  hostProjectRoot: string;
-  moduleRoots: readonly string[];
-}
-
-function writableRoots(workspace: CodexWorkspace): string[] {
-  const roots = [workspace.hostProjectRoot, ...workspace.moduleRoots];
-  return [...new Set(roots.map((root) => path.resolve(root)))];
-}
-
-function buildSandboxPolicy(
-  policy: CodexModePolicy,
-  workspace: CodexWorkspace,
-): v2.SandboxPolicy {
-  if (policy.sandbox === "danger-full-access")
-    return { type: "dangerFullAccess" };
-  if (!policy.writable) {
-    return { type: "readOnly", networkAccess: policy.networkAccess };
-  }
-  return {
-    type: "workspaceWrite",
-    writableRoots: writableRoots(workspace),
-    networkAccess: policy.networkAccess,
-    excludeTmpdirEnvVar: false,
-    excludeSlashTmp: false,
-  };
-}
-
 /**
- * Policy in force for a conversation, read from its mode (Full auto already
- * folded in, see agent/effective-mode.ts). The generation mode goes through
- * effectiveGenerationMode, as the Claude path does: safe mode without the
- * Builder loaded has no write route at all, so it degrades to vibe rather than
- * declining everything. Safe mode pins the sandbox to read-only
- * whatever the chat mode says: the Builder MCP tools write through the host
- * over HTTP, so they are outside the sandbox and keep working.
+ * Plan mode declines every escalation instead of prompting: Codex has no
+ * non-experimental plan mode of its own. Safe mode does too, whatever the chat
+ * mode says: the Builder MCP tools write through the host over HTTP, so they
+ * are outside the sandbox and keep working.
  */
-export function resolveModePolicy(settings: AppSettings): CodexModePolicy {
-  const base = CODEX_MODE_POLICIES[settings.mode];
-  if (effectiveGenerationMode(settings.generationMode) !== "safe") return base;
-  return {
-    ...base,
-    sandbox: "read-only",
-    writable: false,
-    networkAccess: false,
-    autoDeclineEscalations: true,
-  };
+export function declinesEscalations(settings: TurnSettings): boolean {
+  return settings.mode === "plan" || isSafeMode(settings);
 }
 
 /**
  * Overrides sent with every `turn/start`. They persist for subsequent turns,
  * but resending them is what makes a live settings change take effect.
  */
-export function buildTurnOverrides(
-  settings: AppSettings,
-  workspace: CodexWorkspace,
-): CodexTurnOverrides {
-  const policy = resolveModePolicy(settings);
+export function buildTurnOverrides(settings: TurnSettings): CodexTurnOverrides {
   return {
-    approvalPolicy: policy.approvalPolicy,
-    sandboxPolicy: buildSandboxPolicy(policy, workspace),
+    approvalPolicy: CODEX_APPROVAL_POLICY,
+    permissions: CODEX_READ_ONLY_PROFILE,
     effort: CODEX_EFFORT_BY_THINKING[settings.thinking],
   };
 }
@@ -161,9 +84,8 @@ function tomlString(value: string): string {
   return JSON.stringify(value);
 }
 
-export interface CodexConfigInput {
+export interface CodexConfigInput extends CodexPermissionInput {
   mcpUrl: string;
-  hostProjectRoot: string;
   /** The Node binary the auth command runs on: the sidecar's own. */
   nodePath: string;
 }
@@ -210,6 +132,7 @@ export function buildConfigToml(input: CodexConfigInput): string {
   return [
     "project_doc_max_bytes = 0",
     `model_provider = ${tomlString(CODEX_MODEL_PROVIDER_ID)}`,
+    `default_permissions = ${tomlString(CODEX_READ_ONLY_PROFILE)}`,
     "",
     `[model_providers.${CODEX_MODEL_PROVIDER_ID}]`,
     `name = ${tomlString(CODEX_MODEL_PROVIDER_NAME)}`,
@@ -232,10 +155,15 @@ export function buildConfigToml(input: CodexConfigInput): string {
     `[projects.${tomlString(path.resolve(input.hostProjectRoot))}]`,
     'trust_level = "untrusted"',
     "",
+    ...buildPermissionProfileToml(input),
   ].join("\n");
 }
 
-/** Whether a turn runs in safe mode: requested, and the Builder is present. */
+/**
+ * Whether a turn runs in safe mode: requested, and the Builder is present.
+ * Safe mode without the Builder has no write route at all, so it degrades to
+ * vibe rather than declining everything, as on the Claude path.
+ */
 export function isSafeMode(settings: AppSettings): boolean {
   return effectiveGenerationMode(settings.generationMode) === "safe";
 }

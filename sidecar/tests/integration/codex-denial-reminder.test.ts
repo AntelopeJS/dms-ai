@@ -5,14 +5,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ProviderSession } from "../../src/agent/provider.js";
 import { setBuilderAvailable } from "../../src/builder/capability.js";
 import { UNKNOWN_PAGE_PATH } from "../../src/constants/host-state.js";
-import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
+import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 import {
   createMcpHttpRegistry,
   type McpHttpRegistry,
 } from "../../src/mcp/http-binding.js";
 import { buildInertMcpDeps } from "../helpers/provider-runner.js";
 import { createCodexProvider } from "../../src/providers/codex/provider.js";
-import type { AppSettings } from "../../src/state/settings-types.js";
+import type { TurnSettings } from "../../src/state/settings-types.js";
 import {
   CODEX_FIXTURE,
   codexTurns,
@@ -30,8 +30,8 @@ const TURN_START = "turn/start";
  */
 const TURNS = 3;
 
-const SAFE_SETTINGS: AppSettings = {
-  ...DEFAULT_SETTINGS,
+const SAFE_SETTINGS: TurnSettings = {
+  ...TURN_SETTINGS,
   generationMode: "safe",
 };
 

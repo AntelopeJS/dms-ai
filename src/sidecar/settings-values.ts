@@ -22,7 +22,39 @@ export function withNumbersAs(
   return converted;
 }
 
-/** Settings as the settings form's fields hold them: numbers as text. */
+const DEFAULT_MODE_FIELDS = {
+  claude: "defaultModeClaude",
+  codex: "defaultModeCodex",
+} as const;
+
+const DEFAULT_MODES_KEY = "defaultModes";
+
+function isRecord(value: JsonBody | undefined): value is SettingsBody {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function flattenDefaultModes(settings: SettingsBody) {
+  const { [DEFAULT_MODES_KEY]: modes, ...flat } = settings;
+  if (!isRecord(modes)) return flat;
+  for (const [provider, field] of Object.entries(DEFAULT_MODE_FIELDS)) {
+    const mode = Object.hasOwn(modes, provider) ? modes[provider] : undefined;
+    if (mode !== undefined) flat[field] = mode;
+  }
+  return flat;
+}
+
+/** Settings as the settings form's fields hold them: numbers as text, one field per provider's default mode. */
 export function asFormValues(settings: SettingsBody): SettingsBody {
-  return withNumbersAs(settings, String);
+  return withNumbersAs(flattenDefaultModes(settings), String);
+}
+
+export function nestDefaultModes(update: SettingsBody) {
+  const nested = { ...update };
+  const modes: SettingsBody = {};
+  for (const [provider, field] of Object.entries(DEFAULT_MODE_FIELDS)) {
+    if (Object.hasOwn(nested, field)) modes[provider] = nested[field];
+    delete nested[field];
+  }
+  if (Object.keys(modes).length > 0) nested[DEFAULT_MODES_KEY] = modes;
+  return nested;
 }

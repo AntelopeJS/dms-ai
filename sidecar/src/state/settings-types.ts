@@ -1,12 +1,46 @@
 import type { ProviderName } from "./types.js";
 
 /**
- * The approval modes a conversation can be in. Full auto is not one of them:
- * it is a time-boxed overlay on one conversation (see agent/conversation-modes),
- * never a stored default.
+ * The approval modes a conversation can be in, each the provider's own mode:
+ * - `normal` (Ask first): every command and every call that changes something
+ *   asks.
+ * - `auto` (Auto review): the provider's own safety check approves routine
+ *   calls and blocks risky ones; every shell command and the always-ask set
+ *   still ask.
+ * - `acceptEdits`: file edits run unasked; every command and the always-ask
+ *   set still ask.
+ * - `plan`: the agent proposes a plan and changes nothing.
  */
-export const CHAT_MODES = ["normal", "acceptEdits", "plan"] as const;
+export const CHAT_MODES = ["normal", "auto", "acceptEdits", "plan"] as const;
 export type ChatMode = (typeof CHAT_MODES)[number];
+
+export const CODEX_CHAT_MODES = [
+  "normal",
+  "acceptEdits",
+  "plan",
+] as const satisfies readonly ChatMode[];
+export type CodexChatMode = (typeof CODEX_CHAT_MODES)[number];
+
+const PROVIDER_CHAT_MODES = {
+  claude: CHAT_MODES,
+  codex: CODEX_CHAT_MODES,
+} as const satisfies Record<ProviderName, readonly ChatMode[]>;
+
+/**
+ * The mode a provider runs `mode` in: the mode itself when the provider has
+ * it, Ask first otherwise.
+ */
+export function modeForProvider(
+  provider: ProviderName,
+  mode: ChatMode,
+): ChatMode {
+  const modes: readonly ChatMode[] = PROVIDER_CHAT_MODES[provider];
+  return modes.includes(mode) ? mode : "normal";
+}
+
+export type DefaultModes = {
+  [P in ProviderName]: (typeof PROVIDER_CHAT_MODES)[P][number];
+};
 
 export const THINKING_LEVELS = ["off", "low", "medium", "high"] as const;
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
@@ -33,7 +67,7 @@ export interface AppSettings {
    */
   provider: ProviderName;
   /** Default approval mode of new conversations; each one then keeps its own. */
-  mode: ChatMode;
+  defaultModes: DefaultModes;
   thinking: ThinkingLevel;
   /**
    * The model Claude Code runs on. The CLI's own default is a smaller model,
@@ -47,12 +81,20 @@ export interface AppSettings {
    * `~/.claude/skills` dir. Off keeps the agent reproducible across machines.
    */
   allowLocalSkills: boolean;
-  /** Adding or removing a dependency asks even in Full auto. */
+  /** Adding or removing a dependency asks in every mode. */
   alwaysAskDependencies: boolean;
-  /** Removing or moving a Builder block asks even in Full auto. */
+  /** Removing or moving a Builder block asks in every mode. */
   alwaysAskBlockRemoval: boolean;
   requestTimeoutMinutes: RequestTimeoutMinutes;
   /** Raise a DMS toast when a request arrives while the panel is closed. */
   notifyRequests: boolean;
   checkpointRetentionDays: CheckpointRetentionDays;
+}
+
+/**
+ * What one conversation's turns run under: the stored settings with the
+ * conversation's own approval mode.
+ */
+export interface TurnSettings extends AppSettings {
+  mode: ChatMode;
 }

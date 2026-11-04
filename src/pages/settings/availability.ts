@@ -15,6 +15,17 @@ const SETTINGS_PATH = "/settings";
 interface ProviderAvailability {
   available: boolean;
   reason?: string;
+  code?: string;
+}
+
+const REASON_TEXTS = new Map([
+  ["codex_not_signed_in", settingsText("provider", "codex_not_signed_in")],
+]);
+
+function reasonOf(provider: ProviderAvailability): string {
+  const own =
+    provider.code === undefined ? undefined : REASON_TEXTS.get(provider.code);
+  return own ?? provider.reason ?? settingsText("provider", "unavailable");
 }
 
 /** What the sidecar's settings say this install can do, and its defaults. */
@@ -84,7 +95,7 @@ function locksFor(capabilities: SidecarCapabilities): OptionLock[] {
     locks.push({
       fieldId: "provider",
       value: CODEX_PROVIDER,
-      reason: codex.reason ?? settingsText("provider", "unavailable"),
+      reason: reasonOf(codex),
     });
   }
   if (capabilities.builderAvailable === false) {

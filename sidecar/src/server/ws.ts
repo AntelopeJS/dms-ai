@@ -61,7 +61,6 @@ import type { ProviderName } from "../state/types.js";
 import {
   broadcastConversationList,
   emitBlockPreview,
-  emitNotice,
   listAttachedImages,
   sendConversationMode,
 } from "./chat-events.js";
@@ -329,8 +328,7 @@ function buildPermissionBus(
 ): PermissionBus {
   if (options.permissionBus !== undefined) return options.permissionBus;
   return createPermissionBus({
-    getPolicy: (conversationId) =>
-      permissionPolicy(services(holder), conversationId),
+    getPolicy: () => permissionPolicy(services(holder)),
     onPromptChat: (request) => onPermissionPrompt(services(holder), request),
     onDecided: (record) => onPermissionDecided(services(holder), record),
     onRulesChanged: (conversationId) =>
@@ -358,26 +356,11 @@ function createDisabledCheckpoints(): Checkpoints {
   });
 }
 
-function onModeChanged(
-  holder: ServicesHolder,
-  conversationId: string,
-  hasFullAutoEnded: boolean,
-): void {
+function onModeChanged(holder: ServicesHolder, conversationId: string): void {
   const current = services(holder);
   current.runner.refreshSession(conversationId);
-  if (hasFullAutoEnded) {
-    emitNoticeSafely(current, conversationId);
-  }
   sendConversationMode(current, conversationId);
   broadcastConversationList(current);
-}
-
-function emitNoticeSafely(current: SidecarServices, conversationId: string) {
-  if (current.conversationStore.get(conversationId) === null) return;
-  emitNotice(current, conversationId, {
-    kind: "full_auto_ended",
-    timestampMs: Date.now(),
-  });
 }
 
 interface ServiceParts {
@@ -416,8 +399,7 @@ function buildServices(parts: ServiceParts): RoutingConfig {
     conversationModes: createConversationModes({
       conversationStore: options.conversationStore,
       settingsStore,
-      onChanged: (conversationId, hasEnded) =>
-        onModeChanged(holder, conversationId, hasEnded),
+      onChanged: (conversationId) => onModeChanged(holder, conversationId),
     }),
     checkpoints: options.checkpoints ?? createDisabledCheckpoints(),
     callAudit: createCallAudit(),

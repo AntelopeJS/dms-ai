@@ -47,16 +47,14 @@ describe("the chat as a component of the dashboard", () => {
 		]);
 	});
 
-	it("leaves its conversation when the panel closes, and picks it up again when it opens", async () => {
+	it("picks its conversation up again when the panel reopens, without announcing that it left", async () => {
 		const harness = createHarness();
 		const panel = await openPanel(harness);
 		await sendMessage(panel, "build me a page");
 		harness.session.panel.close();
 		await nextTick();
 		expect(panel.find(".chat-view").exists()).toBe(false);
-		expect(sentOfType(harness, "leave_conversation")).toEqual([
-			{ type: "leave_conversation", conversationId: CONVERSATION_ID },
-		]);
+		expect(sentOfType(harness, "leave_conversation")).toEqual([]);
 		harness.session.panel.toggle();
 		await flushPromises();
 		expect(sentOfType(harness, "hello")).toEqual([

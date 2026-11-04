@@ -77,6 +77,7 @@ export interface ActivitySources {
 
 const RESULT_BY_ALLOWED: Partial<Record<AllowedBy, ActivityResult>> = {
   denied: "denied",
+  auto_denied: "denied",
   blocked: "blocked",
   expired: "expired",
 };

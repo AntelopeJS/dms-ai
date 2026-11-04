@@ -263,13 +263,15 @@
 				"approved": "Autorisée par vous",
 				"rule": "Autorisée par une règle",
 				"full_auto": "Automatique complet",
+				"auto_approved": "Autorisé par la revue automatique",
+				"auto_denied": "Bloqué par la revue automatique",
 				"blocked": "Bloquée · mode sûr",
 				"denied": "Refusée par vous",
 				"expired": "Expirée"
 			},
 			"allowed_metric": {
 				"deletions_asked": "Suppressions demandées",
-				"deletions_note": "Les suppressions demandent toujours, même en automatique complet"
+				"deletions_note": "Les suppressions demandent toujours, dans tous les modes"
 			},
 			"result": {
 				"done": "Terminée",
@@ -421,6 +423,7 @@
 				"label": "Agent de code",
 				"description": "Tourne sur cette machine, dans le dossier du projet. Votre code ne part que chez le fournisseur choisi ; un agent en panne ne bascule jamais sur l'autre.",
 				"unavailable": "Non configuré sur cette machine",
+				"codex_not_signed_in": "Connectez-vous avec ChatGPT ci-dessous pour utiliser Codex avec votre forfait ChatGPT.",
 				"claude": {
 					"label": "Claude Code",
 					"description": "Anthropic · modèle choisi par Claude Code"
@@ -469,29 +472,36 @@
 				"label": "Modèle Claude",
 				"description": "Le modèle sur lequel tourne Claude Code. La réflexion règle son niveau d'effort."
 			},
+			"default_mode_claude": {
+				"label": "Mode par défaut avec Claude Code",
+				"description": "Ce que Claude Code peut faire sans vous demander d'abord. La revue automatique est le choix recommandé."
+			},
+			"default_mode_codex": {
+				"label": "Mode par défaut avec Codex",
+				"description": "Ce que Codex peut faire sans vous demander d'abord. Codex n'a pas de revue automatique."
+			},
 			"mode": {
-				"label": "Mode de validation",
-				"description": "Ce que l'assistant peut faire sans vous demander d'abord.",
 				"normal": {
 					"label": "Demander d'abord",
-					"description": "Demande avant toute modification en dehors du Builder."
+					"description": "Demande avant toute modification en dehors du Builder et avant chaque commande, même en lecture seule."
+				},
+				"auto": {
+					"label": "Revue automatique",
+					"description": "Un contrôle de sécurité approuve les modifications de fichiers courantes et l'accès au web. Les commandes shell, les fichiers de dépendances, les hooks git et les suppressions demandent encore votre accord. Sur un modèle ou une offre qui ne la permet pas, l'assistant demande avant d'agir."
 				},
 				"acceptEdits": {
 					"label": "Accepter les modifications",
-					"description": "Applique les modifications de fichiers, demande pour le reste."
+					"description": "Applique les modifications de fichiers, sauf les fichiers de dépendances et les hooks git. Demande pour le reste, chaque commande comprise.",
+					"description_codex": "Avec Codex, fonctionne comme Demander d'abord : demande avant chaque modification de fichier, fichiers de dépendances et hooks git compris, et avant toute commande qui écrit."
 				},
 				"plan": {
 					"label": "Plan seulement",
 					"description": "Lit et propose. Ne modifie rien."
-				},
-				"auto": {
-					"label": "Automatique complet",
-					"description": "Indisponible par défaut. Activez-le par conversation, pour une durée limitée."
 				}
 			},
 			"always_ask": {
 				"label": "Toujours demander pour",
-				"description": "Ces opérations demandent dans tous les modes, automatique complet compris."
+				"description": "Ces opérations demandent dans tous les modes."
 			},
 			"always_ask_deletions": {
 				"label": "Supprimer des pages, tables, champs ou requêtes",
@@ -617,7 +627,7 @@
 				"normal": "Demander d'abord",
 				"acceptEdits": "Accepter les modifications",
 				"plan": "Plan seulement",
-				"auto": "Automatique complet"
+				"auto": "Revue automatique"
 			},
 			"facts": {
 				"state": "État",
