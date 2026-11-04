@@ -276,10 +276,10 @@ export const journeys = guarded([
   },
   {
     id: "change-sets-older-than-the-retention-are-dropped-when-the-assistant-starts",
-    title: "the assistant keeps a change set within the checkpoint retention and drops an older one at its start: 7 days with a set 6 days old and one 8 days old, then the default 30 days with sets 29 and 31 days old",
+    title: "the assistant keeps a change set within the checkpoint retention and drops an older one at its start: 7 days with sets 6 and 7.5 days old, then the default 30 days with sets 29 and 30.5 days old, then 90 days with sets 89 and 90.5 days old",
     entryPoint: "settings.json checkpointRetentionDays, GET /ai/changes",
     async run(/** @type {Ctx} */ ctx) {
-      for (const [retention, kept, dropped] of [[7, 6, 8], [30, 29, 31], [90, 89, 91]]) {
+      for (const [retention, kept, dropped] of [[7, 6, 7.5], [30, 29, 30.5], [90, 89, 90.5]]) {
         const now = Date.now();
         await seedStore(ctx, {
           settings: retention === 30 ? undefined : { checkpointRetentionDays: retention },
