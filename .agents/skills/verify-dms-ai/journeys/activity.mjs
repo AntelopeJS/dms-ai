@@ -1,5 +1,5 @@
 import { guarded } from "../guard.mjs";
-import { AI, ai, check, freshSidecar, list, pageHas, pick, raw, recordRaw, same, selected, text, withEnv } from "../ai.mjs";
+import { AI, ai, check, clickUntil, freshSidecar, list, pageHas, pick, raw, recordRaw, same, selected, text, withEnv } from "../ai.mjs";
 import { sampleChangeSets, sampleConversations } from "../sample.mjs";
 import { MS_DAY, MS_HOUR, conversation, seedStore, toolResult, toolUse, userMessage } from "../seed.mjs";
 
@@ -28,7 +28,7 @@ async function log(ctx, query) {
 /** @param {string[]} names @returns {string[]} sorted copy */
 const sorted = (names) => [...names].sort();
 
-/** The sample, seeded: 29 records, 24 of them in the last seven days. */
+/** The sample, seeded: 44 records, 31 of them in the last seven days. */
 async function seedSample(/** @type {Ctx} */ ctx) {
   const now = Date.now();
   await seedStore(ctx, { conversations: sampleConversations(now, { one: "cs-one", two: "cs-two" }), build: () => sampleChangeSets(ctx, now) });
@@ -99,12 +99,12 @@ export const journeys = guarded([
       const day = MS_DAY;
       const all = await log(ctx, "");
       await ctx.verify("the list", [
-        same("29 records", all.total, 29),
+        same("44 records", all.total, 44),
         same("a page holds 25", all.rows.length, 25),
         same("newest first: the last call, then the one before", all.tools.slice(0, 2), ["Glob", "Grep"]),
-        same("offset 25 gives the other 4, the oldest last", (await log(ctx, "?offset=25")).rows.map((row) => text(row, "conversationTitle")), ["Explain the project", "Explain the project", "Old question", "Old question"]),
+        same("offset 25 gives the other 19, the oldest last", (await log(ctx, "?offset=25")).rows.map((row) => text(row, "conversationTitle")), ["Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Explain the project", "Explain the project", "Explain the project", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Old question", "Old question"]),
         same("limit 10", (await log(ctx, "?limit=10")).rows.length, 10),
-        same("limit 1000 is capped by the sidecar, not refused", (await log(ctx, "?limit=1000")).rows.length, 29),
+        same("limit 1000 is capped by the sidecar, not refused", (await log(ctx, "?limit=1000")).rows.length, 44),
         same("every row names its agent", [...new Set(all.rows.map((row) => text(row, "agent")))].sort(), ["claude", "codex"]),
       ]);
       const changed = await log(ctx, "?filter_category=is:changed");
@@ -119,16 +119,18 @@ export const journeys = guarded([
       ]);
       await ctx.verify("the filters", [
         same("tool Bash", (await log(ctx, "?filter_tool=is:Bash")).total, 6),
-        same("tool Skill", (await log(ctx, "?filter_tool=is:Skill")).total, 6),
+        same("tool Skill", (await log(ctx, "?filter_tool=is:Skill")).total, 11),
+        same("tool List folder", (await log(ctx, "?filter_tool=is:LS")).total, 10),
         same("agent Codex", (await log(ctx, "?filter_agent=is:codex")).total, 3),
-        same("agent Claude Code", (await log(ctx, "?filter_agent=is:claude")).total, 26),
+        same("agent Claude Code", (await log(ctx, "?filter_agent=is:claude")).total, 41),
         same("Read-only hidden", (await log(ctx, "?filter_isReadOnly=is:false")).total, 14),
         same("a tab and a tool together", (await log(ctx, "?filter_category=is:asked&filter_tool=is:Edit")).total, 3),
       ]);
       await ctx.verify("the search", [
         same("over the target, any case", (await log(ctx, "?search=PNPM")).total, 5),
-        same("over the tool", (await log(ctx, "?search=skill")).total, 6),
+        same("over the tool", (await log(ctx, "?search=skill")).total, 11),
         same("over the conversation title", (await log(ctx, "?search=explain")).total, 3),
+        same("over another title", (await log(ctx, "?search=edge reads")).total, 15),
         same("over a path", (await log(ctx, "?search=notes/b")).total, 3),
         same("a word nothing holds", (await log(ctx, "?search=zzzz")).total, 0),
       ]);
@@ -141,17 +143,17 @@ export const journeys = guarded([
       ]);
       const iso = (/** @type {number} */ ms) => new Date(ms).toISOString();
       await ctx.verify("the periods", [
-        same("24 hours", (await log(ctx, `?from=${iso(now - day)}`)).total, 24),
-        same("7 days", (await log(ctx, `?from=${iso(now - 7 * day)}`)).total, 24),
-        same("30 days", (await log(ctx, `?from=${iso(now - 30 * day)}`)).total, 27),
-        same("everything before 8 days ago", (await log(ctx, `?to=${iso(now - 8 * day)}`)).total, 5),
-        same("a window between two others", (await log(ctx, `?from=${iso(now - 30 * day)}&to=${iso(now - 8 * day)}`)).total, 3),
+        same("24 hours: the 24 calls and the 2 at 23 hours, not the 3 at 25", (await log(ctx, `?from=${iso(now - day)}`)).total, 26),
+        same("7 days: the 2 at 6.5 days, not the 3 at 7.5", (await log(ctx, `?from=${iso(now - 7 * day)}`)).total, 31),
+        same("30 days: the 2 at 29 days, not the 3 at 31", (await log(ctx, `?from=${iso(now - 30 * day)}`)).total, 39),
+        same("everything before 8 days ago", (await log(ctx, `?to=${iso(now - 8 * day)}`)).total, 10),
+        same("a window between two others", (await log(ctx, `?from=${iso(now - 30 * day)}&to=${iso(now - 8 * day)}`)).total, 5),
       ]);
     },
   },
   {
     id: "the-page-shows-the-log-its-tabs-periods-and-more-rows",
-    title: "the Activity page shows tab counts, 25 of 29 rows with Load more, Result and Allowed labels, a tab's rows, a period's rows and a search",
+    title: "the Activity page shows tab counts, 25 of 44 rows with Load more, Result and Allowed labels, a tab's rows, a period's rows and a search",
     entryPoint: "/modules/ai/activity",
     async run(/** @type {Ctx} */ ctx) {
       await seedSample(ctx);
@@ -160,8 +162,8 @@ export const journeys = guarded([
       await tab.goto("/modules/ai/activity");
       const rowCount = () => tab.page.getByRole("row").count();
       await ctx.verify("the first page", [
-        pageHas(tab, "the tab counts", /All\s*29\s*Changed files\s*6\s*Asked you\s*8\s*Denied or blocked\s*4\s*Failed\s*1/),
-        pageHas(tab, "25 of 29 and Load more", /25 of 29\s*Load more/),
+        pageHas(tab, "the tab counts", /All\s*44\s*Changed files\s*6\s*Asked you\s*8\s*Denied or blocked\s*4\s*Failed\s*1/),
+        pageHas(tab, "25 of 44 and Load more", /25 of 44\s*Load more/),
         pageHas(tab, "the columns", /TIME\s*ACTION\s*ALLOWED\s*RESULT\s*CONVERSATION\s*DURATION/),
         pageHas(tab, "the last call first, as its tool and target", /Find files =SUM\(1,2\),"q"\s*Read-only, automatic\s*Done\s*Add a revenue chart/),
         pageHas(tab, "a failed call", /Run command pnpm lint\s*Full auto\s*Failed/),
@@ -174,14 +176,14 @@ export const journeys = guarded([
         check("25 rows and the header", (await rowCount()) === 26, await rowCount()),
       ]);
       await tab.click({ role: "button", name: "Load more" });
-      await ctx.verify("Load more", [pageHas(tab, "29 of 29", /29 of 29/), pageHas(tab, "the oldest row", /Read file docs\/0\.md/), pageHas(tab, "no more button", /Load more/, false), check("29 rows and the header", (await rowCount()) === 30, await rowCount())]);
+      await ctx.verify("Load more", [pageHas(tab, "44 of 44", /44 of 44/), pageHas(tab, "the oldest row", /Read file docs\/0\.md/), pageHas(tab, "no more button", /Load more/, false), check("44 rows and the header", (await rowCount()) === 45, await rowCount())]);
       await tab.click({ role: "button", name: "Failed 1" });
       await ctx.verify("the Failed tab", [pageHas(tab, "its row", /Run command pnpm lint/), pageHas(tab, "and no other", /Search code total/, false), check("one row and the header", (await rowCount()) === 2, await rowCount())]);
       await tab.click({ role: "button", name: "Denied or blocked 4" });
       await ctx.verify("the Denied or blocked tab", [pageHas(tab, "the blocked edit", /Edit file src\/notes\/c\.txt/), pageHas(tab, "the denied command", /Run command rm -rf dist/), check("four rows and the header", (await rowCount()) === 5, await rowCount())]);
-      await tab.click({ role: "button", name: "All 29" });
+      await tab.click({ role: "button", name: "All 44" });
       await tab.click({ role: "radio", name: "Last 7 days" });
-      await ctx.verify("7 days", [pageHas(tab, "drops the old conversations", /Explain the project/, false), check("24 rows and the header", (await rowCount()) === 25, await rowCount())]);
+      await ctx.verify("7 days", [pageHas(tab, "drops the old conversations", /Explain the project/, false), pageHas(tab, "25 of 31 and Load more", /25 of 31\s*Load more/)]);
       await tab.click({ role: "radio", name: "All time" });
       await tab.click({ role: "button", name: "Open search" });
       await tab.fill({ role: "textbox", name: "Search tools, files, pages" }, "notes/c.txt");
@@ -216,10 +218,10 @@ export const journeys = guarded([
       const tab = await ctx.tab();
       await tab.signIn("admin");
       await tab.goto("/modules/ai/activity");
-      await tab.page.getByRole("cell", { name: "Search code total" }).first().click();
+      await clickUntil(tab, { role: "cell", name: "Search code total" }, /Action detail/);
       await ctx.verify("the panel", [
         pageHas(tab, "its title", /Action detail/),
-        pageHas(tab, "its position among the rows", /2 \/ 29\s*K\s*J/),
+        pageHas(tab, "its position among the rows", /2 \/ 44\s*K\s*J/),
         pageHas(tab, "its group and target", /Code · [^\n]*\s*Grep · total/i),
         pageHas(tab, "Allowed and Result", /Allowed\s*Read-only, automatic\s*Result\s*Done/i),
         pageHas(tab, "its arguments", /Arguments\s*pattern\s*total/i),
@@ -229,9 +231,9 @@ export const journeys = guarded([
         tab.enabled({ role: "button", name: "Previous" }),
       ]);
       await tab.press("j");
-      await ctx.verify("J goes to the next row", [pageHas(tab, "3 of 29", /3 \/ 29/), pageHas(tab, "the panel is still open", /Action detail/)]);
+      await ctx.verify("J goes to the next row", [pageHas(tab, "3 of 44", /3 \/ 44/), pageHas(tab, "the panel is still open", /Action detail/)]);
       await tab.press("k");
-      await ctx.verify("K goes back", [pageHas(tab, "2 of 29", /2 \/ 29/), pageHas(tab, "the first row", /Grep · total/)]);
+      await ctx.verify("K goes back", [pageHas(tab, "2 of 44", /2 \/ 44/), pageHas(tab, "the first row", /Grep · total/)]);
       await tab.goto(`/modules/ai/activity?record=${encodeURIComponent("conv-new:call-11")}`);
       await ctx.verify("a link opens a row", [
         pageHas(tab, "the write", /Write · src\/notes\/a\.txt|Edit file · src\/notes\/a\.txt|Write file · src\/notes\/a\.txt/),
@@ -261,7 +263,7 @@ export const journeys = guarded([
       const rows = every.text.split("\r\n").filter(Boolean);
       const glob = rows.find((line) => line.includes("Glob"));
       recordRaw(ctx, every, [
-        same("29 records and the header", rows.length, 30),
+        same("44 records and the header", rows.length, 45),
         check("a formula is guarded and a quote doubled inside quotes", Boolean(glob) && glob.includes('"\'=SUM(1,2),""q"""'), glob),
         check("the denied row names its agent and result", rows.some((line) => /,Bash,rm -rf dist,claude,denied,denied,use the Builder,/.test(line)), ""),
         check("a Codex row", rows.some((line) => /,Read,docs\/0\.md,codex,read_auto,done,/.test(line)), ""),

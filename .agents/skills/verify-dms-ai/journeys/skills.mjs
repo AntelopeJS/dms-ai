@@ -161,17 +161,19 @@ export const journeys = guarded([
         same("dms-ai: used 4 times", pick(used, "uses30d"), 4),
         same("dms-ai-code-mode: once", pick(named("dms-ai-code-mode"), "uses30d"), 1),
         same("dms-builder-safe: once, ten days ago", pick(named("dms-builder-safe"), "uses30d"), 1),
-        same("a skill never called", pick(named("dms-pages"), "uses30d"), 0),
+        same("dms-pages: twice 29 days ago, not the three calls 31 days ago", pick(named("dms-pages"), "uses30d"), 2),
+        same("a skill never called", pick(named("dms-auth"), "uses30d"), 0),
         same("the last use of dms-ai is the latest of its calls", Date.parse(text(used, "lastUsedAt")) > now - 3 * 3_600_000 && Date.parse(text(used, "lastUsedAt")) < now - 2 * 3_600_000, true),
         same("and its conversation", text(used, "lastConversationId"), "conv-new"),
         same("its last use is that day", Math.round((now - Date.parse(text(named("dms-builder-safe"), "lastUsedAt"))) / 86_400_000), 10),
-        same("a skill never called has no last use", pick(named("dms-pages"), "lastUsedAt"), undefined),
+        same("dms-pages: its last use is the 29 day old call, not the older ones", Math.round((now - Date.parse(text(named("dms-pages"), "lastUsedAt"))) / 86_400_000), 29),
+        same("a skill never called has no last use", pick(named("dms-auth"), "lastUsedAt"), undefined),
       ]);
       const tab = await ctx.tab();
       await tab.signIn("admin");
       await tab.goto("/modules/ai/skills");
       await ctx.verify("the page", [
-        pageHas(tab, "dms-ai first with its count, then dms-ai-code-mode", /dms-ai dms-ai Module[^\n]*4 uses[\s\S]*dms-ai-code-mode dms-ai Module[^\n]*1 use/i),
+        pageHas(tab, "the most used first, with their counts", /dms-ai dms-ai Module[^\n]*4 uses[\s\S]*dms-pages dms Module[^\n]*2 uses[\s\S]*dms-ai-code-mode dms-ai Module[^\n]*1 use/i),
         pageHas(tab, "the others never used", /never used/),
       ]);
     },

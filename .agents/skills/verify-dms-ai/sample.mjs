@@ -1,4 +1,6 @@
-import { MS_DAY, MS_HOUR, MS_MINUTE, conversation, permission, recordChangeSet, toolResult, toolUse, userMessage, writeProjectFile } from "./seed.mjs";
+import { rmSync } from "node:fs";
+import { join } from "node:path";
+import { MS_DAY, MS_HOUR, MS_MINUTE, conversation, permission, projectRoot, recordChangeSet, toolResult, toolUse, userMessage, writeProjectFile } from "./seed.mjs";
 
 /** @typedef {import("./ai.mjs").Ctx} Ctx */
 /** @typedef {Record<string, unknown>} Row */
@@ -74,7 +76,7 @@ function ended(outcome) {
 }
 
 /**
- * The sample audit log: one conversation of 24 calls in the last seven days, a Codex conversation of 3 reads ten days
+ * The sample audit log: one conversation of 24 calls in the last three hours, 15 "edge" reads on both sides of the 24 hour, 7 day and 30 day windows, a Codex conversation of 3 reads ten days
  * ago (the last of them a Skill call) and a conversation of 2 reads forty days ago.
  *
  * @param {number} now The time the sample is relative to
@@ -110,7 +112,35 @@ export function sampleConversations(now, sets) {
     }
     return conversation(rows, { provider, tokenUsage: { inputTokens: tokens, outputTokens: 0, totalTokens: tokens }, usageLog: [{ inputTokens: tokens, outputTokens: 0, totalTokens: tokens, timestampMs: at }] });
   };
+  /**
+   * Calls `ago` days back, one every minute, of one tool.
+   *
+   * @param {string} tool The tool
+   * @param {Record<string, unknown>} args Its arguments
+   * @param {number} agoMs How long ago
+   * @param {number} count How many calls
+   * @param {string} tag Tells the call ids apart
+   * @returns {Row[]} The messages
+   */
+  const calls = (tool, args, agoMs, count, tag) => {
+    const rows = [];
+    for (let i = 0; i < count; i += 1) {
+      const at = now - agoMs + i * MS_MINUTE;
+      rows.push(toolUse(`edge-${tag}-${i}`, tool, args, at, { allowedBy: "read_auto" }), toolResult(`edge-${tag}-${i}`, at + 500, { allowedBy: "read_auto" }));
+    }
+    return rows;
+  };
+  const edge = conversation([
+    userMessage("Edge reads", now - 32 * MS_DAY),
+    ...calls("LS", { path: "src" }, 23 * MS_HOUR, 2, "23h"),
+    ...calls("LS", { path: "docs" }, 25 * MS_HOUR, 3, "25h"),
+    ...calls("LS", { path: "tests" }, 6.5 * MS_DAY, 2, "6d"),
+    ...calls("LS", { path: "skills" }, 7.5 * MS_DAY, 3, "7d"),
+    ...calls("Skill", { skill: "dms-pages" }, 29 * MS_DAY, 2, "29d"),
+    ...calls("Skill", { skill: "dms-pages" }, 31 * MS_DAY, 3, "31d"),
+  ]);
   return {
+    "conv-edge": edge,
     "conv-new": conversation(messages, { tokenUsage: { inputTokens: 900, outputTokens: 100, totalTokens: 1000 }, usageLog: [{ inputTokens: 900, outputTokens: 100, totalTokens: 1000, timestampMs: start }] }),
     "conv-ten": old("Explain the project", 10, 3, "codex", 400),
     "conv-forty": withUsageEdge(old("Old question", 40, 2, "claude", 5000), now),
@@ -118,19 +148,33 @@ export function sampleConversations(now, sets) {
 }
 
 /**
- * Five real change sets over files of the project: the first adds `src/notes/a.txt`, the second adds then edits
- * `src/notes/b.txt`, the third edits `src/notes/a.txt` again, so undoing the first has a later set to offer, and the fourth and fifth add `src/notes/c.txt` and `d.txt`: five sets, one more than the four the Overview lists.
+ * Five real change sets over files of the project: the first adds `a.txt` and `f.txt`, the second edits `b.txt` and adds
+ * `e.txt` (two files), the third edits `a.txt` and `f.txt` again (so undoing the first has a later set sharing two
+ * files), the fourth deletes `g.txt`, and the fifth adds `d.txt` and edits `f.txt` (two files, one of them shared with the first set): five sets, one more than the four the Overview lists.
  *
  * @param {Ctx} ctx The journey
  * @param {number} now The time the sample is relative to
  * @returns {Row[]} The records for `change-sets.json`
  */
 export function sampleChangeSets(ctx, now) {
-  const one = recordChangeSet(ctx, { id: "cs-one", number: 1, title: "Add the notes file", conversationId: "conv-new", createdAtMs: now - 170 * MS_MINUTE, askedBy: "Verify Admin", approvalsNeeded: 1, builderOps: 2, typecheck: "skipped", pagePath: "/home" }, () => writeProjectFile(ctx, "src/notes/a.txt", "first note\n"));
+  const one = recordChangeSet(ctx, { id: "cs-one", number: 1, title: "Add the notes files", conversationId: "conv-new", createdAtMs: now - 170 * MS_MINUTE, askedBy: "Verify Admin", approvalsNeeded: 1, builderOps: 2, typecheck: "skipped", pagePath: "/home" }, () => {
+    writeProjectFile(ctx, "src/notes/a.txt", "first note\n");
+    writeProjectFile(ctx, "src/notes/f.txt", "shared note\n");
+  });
   writeProjectFile(ctx, "src/notes/b.txt", "line one\nline two\n");
-  const two = recordChangeSet(ctx, { id: "cs-two", number: 2, title: "Reword the second note", conversationId: "conv-new", createdAtMs: now - 160 * MS_MINUTE, scope: "vibe", askedBy: "Verify Admin", approvalsNeeded: 2, typecheck: "failed", overlapped: true }, () => writeProjectFile(ctx, "src/notes/b.txt", "line one\nline 2 reworded\nline three\n"));
-  const three = recordChangeSet(ctx, { id: "cs-three", number: 3, title: "Extend the first note", conversationId: "conv-new", createdAtMs: now - 150 * MS_MINUTE, askedBy: "Verify Admin", isAutoFix: true }, () => writeProjectFile(ctx, "src/notes/a.txt", "first note\nsecond line\n"));
-  const four = recordChangeSet(ctx, { id: "cs-four", number: 4, title: "Add the third note", conversationId: "conv-new", createdAtMs: now - 140 * MS_MINUTE, askedBy: "Verify Admin" }, () => writeProjectFile(ctx, "src/notes/c.txt", "third note\n"));
-  const five = recordChangeSet(ctx, { id: "cs-five", number: 5, title: "Add the fourth note", conversationId: "conv-new", createdAtMs: now - 130 * MS_MINUTE, askedBy: "Verify Admin" }, () => writeProjectFile(ctx, "src/notes/d.txt", "fourth note\n"));
+  const two = recordChangeSet(ctx, { id: "cs-two", number: 2, title: "Reword the second note", conversationId: "conv-new", createdAtMs: now - 160 * MS_MINUTE, scope: "vibe", askedBy: "Verify Admin", approvalsNeeded: 2, typecheck: "failed", overlapped: true }, () => {
+    writeProjectFile(ctx, "src/notes/b.txt", "line one\nline 2 reworded\nline three\n");
+    writeProjectFile(ctx, "src/notes/e.txt", "extra note\n");
+  });
+  const three = recordChangeSet(ctx, { id: "cs-three", number: 3, title: "Extend the notes", conversationId: "conv-new", createdAtMs: now - 150 * MS_MINUTE, askedBy: "Verify Admin", isAutoFix: true }, () => {
+    writeProjectFile(ctx, "src/notes/a.txt", "first note\nsecond line\n");
+    writeProjectFile(ctx, "src/notes/f.txt", "shared note\nsecond line\n");
+  });
+  writeProjectFile(ctx, "src/notes/g.txt", "old note\nold note again\n");
+  const four = recordChangeSet(ctx, { id: "cs-four", number: 4, title: "Remove the old note", conversationId: "conv-new", createdAtMs: now - 140 * MS_MINUTE, askedBy: "Verify Admin" }, () => rmSync(join(projectRoot(ctx), "src", "notes", "g.txt")));
+  const five = recordChangeSet(ctx, { id: "cs-five", number: 5, title: "Add the fourth note", conversationId: "conv-new", createdAtMs: now - 130 * MS_MINUTE, askedBy: "Verify Admin" }, () => {
+    writeProjectFile(ctx, "src/notes/d.txt", "fourth note\n");
+    writeProjectFile(ctx, "src/notes/f.txt", "shared note\nsecond line\nthird line\n");
+  });
   return [one, two, three, four, five];
 }
