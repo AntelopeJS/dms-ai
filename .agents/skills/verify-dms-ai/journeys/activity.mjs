@@ -186,7 +186,7 @@ export const journeys = guarded([
         same("it belongs to change set 1 and shows its diff", [pick(write.body, "changeSetNumber"), list(write.body, "diff").map((file) => text(file, "path")), pick(write.body, "added"), pick(write.body, "removed")], [1, ["src/notes/a.txt"], 1, 0]),
         same("a read-only call: the automatic decision", labels(auto), ["Requested", "Allowed automatically (read-only)", "Done"]),
       ]);
-      await ctx.verify("a denied call", [check("the trail names the refusal", labels(denied).some((label) => /^Denied/.test(label)), labels(denied).join(" > ")), same("and ends there", labels(denied).at(-1) === "Done", false)]);
+      await ctx.verify("a denied call", [check("the trail names the refusal", labels(denied).some((label) => label.startsWith("Denied")), labels(denied).join(" > ")), same("and ends there", labels(denied).at(-1) === "Done", false)]);
       const tab = await ctx.tab();
       await tab.signIn("admin");
       await tab.goto("/modules/ai/activity");

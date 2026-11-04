@@ -124,7 +124,7 @@ export const journeys = guarded([
       const reach = (/** @type {string} */ host) => new Promise((resolve) => {
         const socket = connect({ host, port: lock?.port ?? 0, timeout: 4000 });
         socket.on("connect", () => { socket.destroy(); resolve("connected"); });
-        socket.on("error", (error) => resolve(String(Reflect.get(error, "code"))));
+        socket.on("error", (/** @type {NodeJS.ErrnoException} */ error) => resolve(String(error.code)));
         socket.on("timeout", () => { socket.destroy(); resolve("timeout"); });
       });
       await ctx.verify("who can connect", [

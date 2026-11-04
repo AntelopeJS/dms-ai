@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { guarded } from "../guard.mjs";
-import { ai, check, choose, clickUntil, freshSidecar, list, pageHas, pick, same, sidecarPath, statusIs, text, until } from "../ai.mjs";
+import { ai, check, clickUntil, freshSidecar, list, pageHas, pick, same, statusIs, text, until } from "../ai.mjs";
 import { sampleChangeSets, sampleConversations } from "../sample.mjs";
 import { seedStore } from "../seed.mjs";
 

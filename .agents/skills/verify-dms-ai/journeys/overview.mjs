@@ -64,7 +64,7 @@ export const journeys = guarded([
       const series = await metric(ctx, "series", week);
       const allowed = await metric(ctx, "allowed", week);
       const top = await metric(ctx, "top-tools", `${week}&limit=5`);
-      const sum = (/** @type {unknown} */ numbers) => (Array.isArray(numbers) ? numbers.reduce((total, n) => total + Number(n), 0) : -1);
+      const sum = (/** @type {unknown} */ numbers) => (Array.isArray(numbers) ? numbers.reduce((/** @type {number} */ total, /** @type {unknown} */ n) => total + Number(n), 0) : -1);
       await ctx.verify("7 days", [
         same("actions: 24 against 3 before, +700%", [pick(actions, "value"), pick(actions, "previousValue"), pick(actions, "delta")], [24, 3, 700]),
         same("the sparkline adds up to the value", sum(pick(actions, "sparkline")), 24),

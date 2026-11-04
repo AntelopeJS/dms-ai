@@ -3,7 +3,13 @@ import { MS_DAY, MS_MINUTE, conversation, permission, recordChangeSet, toolResul
 /** @typedef {import("./ai.mjs").Ctx} Ctx */
 /** @typedef {Record<string, unknown>} Row */
 
-/** Calls of the sample conversation: `[tool, args, allowedBy, outcome, asked, changeSet]`, one every two minutes. */
+/** @typedef {[string, Record<string, unknown>, string, string, boolean, string]} Call */
+
+/**
+ * Calls of the sample conversation: `[tool, args, allowedBy, outcome, asked, changeSet]`, one every two minutes.
+ *
+ * @type {Call[]}
+ */
 const CALLS = [
   ["Read", { file_path: "src/a.ts" }, "read_auto", "done", false, ""],
   ["Read", { file_path: "src/b.ts" }, "read_auto", "done", false, ""],
@@ -43,8 +49,17 @@ export const SAMPLE_TOOLS = [["Bash", 6], ["Skill", 5], ["Edit", 4], ["Read", 3]
 export const SAMPLE_CALLS = CALLS.length;
 
 /**
+ * @param {string} outcome How the call ended
+ * @returns {Row} The fields that say so
+ */
+function ended(outcome) {
+  if (outcome === "done") return {};
+  return outcome === "failed" ? { status: "error", outcome: "failed" } : { outcome };
+}
+
+/**
  * The sample audit log: one conversation of 24 calls in the last seven days, a Codex conversation of 3 reads ten days
- * ago and a conversation of 2 reads forty days ago.
+ * ago (the last of them a Skill call) and a conversation of 2 reads forty days ago.
  *
  * @param {number} now The time the sample is relative to
  * @param {{ one?: string, two?: string }} sets The change set ids calls belong to
@@ -57,10 +72,19 @@ export function sampleConversations(now, sets) {
     const at = start + index * 2 * MS_MINUTE;
     const id = `call-${index + 1}`;
     const changeSetId = set === "one" ? sets.one : set === "two" ? sets.two : undefined;
-    messages.push(toolUse(id, tool, args, at, { allowedBy, ...(changeSetId ? { changeSetId } : {}) }));
+    const owned = changeSetId === undefined ? {} : { changeSetId };
+    messages.push(toolUse(id, tool, args, at, { allowedBy, ...owned }));
     if (asked) messages.push(permission(id, tool, at, { allowedBy, kind: tool.startsWith("Builder") ? "destructive" : "edit", summary: `${tool} ${JSON.stringify(args)}`, decidedBy: "Verify Admin", alwaysAsk: tool === "BuilderDeletePage", feedback: allowedBy === "denied" ? "use the Builder" : undefined }));
-    messages.push(toolResult(id, at + 1500, { allowedBy, content: `${tool} answered`, ...(outcome === "done" ? {} : outcome === "failed" ? { status: "error", outcome: "failed" } : { outcome }), ...(changeSetId ? { changeSetId } : {}) }));
+    messages.push(toolResult(id, at + 1500, { allowedBy, content: `${tool} answered`, ...ended(outcome), ...owned }));
   });
+  /**
+   * @param {string} title The conversation's first message
+   * @param {number} ago How many days ago
+   * @param {number} count How many calls
+   * @param {string} provider The agent
+   * @param {number} tokens Tokens it used
+   * @returns {Row} The conversation
+   */
   const old = (title, ago, count, provider, tokens) => {
     const at = now - ago * MS_DAY;
     const rows = [userMessage(title, at - MS_MINUTE)];

@@ -94,7 +94,11 @@ function git(ctx, args) {
   return execFileSync("git", ["--literal-pathspecs", "-c", "core.quotepath=false", ...args], { cwd: root, env, encoding: "utf8" });
 }
 
-/** Prepares the shadow repository the way the sidecar does, leaving out what it leaves out. */
+/**
+ * Prepares the shadow repository the way the sidecar does, leaving out what it leaves out.
+ *
+ * @param {Ctx} ctx The journey
+ */
 function initShadow(ctx) {
   const { gitDir } = shadow(ctx);
   mkdirSync(gitDir, { recursive: true });
@@ -104,7 +108,10 @@ function initShadow(ctx) {
   writeFileSync(join(gitDir, "info", "exclude"), ["node_modules/", "dist/", ".antelope/", ".git/", "generated-skills/", ""].join("\n"));
 }
 
-/** @returns {string} the tree of the project now */
+/**
+ * @param {Ctx} ctx The journey
+ * @returns {string} the tree of the project now
+ */
 function snapshot(ctx) {
   git(ctx, ["add", "--all", "--ignore-errors", "--", "."]);
   return git(ctx, ["write-tree"]).trim();
@@ -119,11 +126,12 @@ function snapshot(ctx) {
 function changedFiles(ctx, before, after) {
   const numstat = git(ctx, ["diff-tree", "--numstat", "-r", "--no-renames", "-z", before, after]).split("\0");
   const names = git(ctx, ["diff-tree", "--name-status", "-r", "--no-renames", "-z", before, after]).split("\0");
+  /** @type {Map<string, string>} */
   const status = new Map();
-  for (let i = 0; i + 1 < names.length; i += 2) status.set(names[i + 1], { A: "added", M: "modified", D: "deleted" }[names[i].charAt(0)] ?? "modified");
+  for (let i = 0; i + 1 < names.length; i += 2) status.set(names[i + 1] ?? "", { A: "added", M: "modified", D: "deleted" }[names[i]?.charAt(0) ?? "M"] ?? "modified");
   return numstat.filter(Boolean).map((record) => {
-    const [added, removed, path] = record.split("\t");
-    return { path, status: status.get(path) ?? "modified", added: Number(added), removed: Number(removed) };
+    const [added = "0", removed = "0", path = ""] = record.split("\t");
+    return { path, status: String(status.get(path) ?? "modified"), added: Number(added), removed: Number(removed) };
   });
 }
 
@@ -141,8 +149,9 @@ export function recordChangeSet(ctx, meta, apply) {
   apply();
   const afterTree = snapshot(ctx);
   const files = changedFiles(ctx, beforeTree, afterTree);
-  git(ctx, ["update-ref", `refs/dms-ai/${meta.id}/before`, beforeTree]);
-  git(ctx, ["update-ref", `refs/dms-ai/${meta.id}/after`, afterTree]);
+  const id = String(meta.id);
+  git(ctx, ["update-ref", `refs/dms-ai/${id}/before`, beforeTree]);
+  git(ctx, ["update-ref", `refs/dms-ai/${id}/after`, afterTree]);
   return {
     agent: "claude",
     scope: "safe",
