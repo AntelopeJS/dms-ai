@@ -149,7 +149,7 @@ export const journeys = guarded([
         pageHas(tab, "Undone rose", /Undone\s*2\s*\S*\s*\+100\.0% vs 1/i),
       ]);
       const colour = (/** @type {RegExp} */ pattern) => tab.page.getByText(pattern).first().evaluate((element) => getComputedStyle(element).color);
-      const [actions, sets, undone] = [await colour(/\+700\.0% vs 3/), await colour(/\+300\.0% vs 1/), await colour(/\+100\.0% vs 1/)];
+      const [actions, sets, undone] = [await colour(/\+700\.0%/), await colour(/\+300\.0%/), await colour(/\+100\.0%/)];
       await ctx.verify("the tone", [
         same("a rise of Change sets is drawn like a rise of Actions", sets, actions),
         check("a rise of Undone is drawn in another colour", undone !== actions, `Actions ${actions}, Change sets ${sets}, Undone ${undone}`),
