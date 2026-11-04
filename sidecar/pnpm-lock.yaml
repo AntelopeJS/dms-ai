@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@antelopejs/interface-dms-builder': file:../.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz
-
 importers:
 
   .:
@@ -28,8 +25,8 @@ importers:
         version: 4.6.7
     devDependencies:
       '@antelopejs/interface-dms-builder':
-        specifier: file:../.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz
-        version: file:../.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz(@antelopejs/interface-core@0.4.0)
+        specifier: '>=0.4.0 <1.0.0'
+        version: 0.4.0(@antelopejs/interface-core@0.4.0)
       '@antelopejs/tooling-configs':
         specifier: ^0.2.11
         version: 0.2.11(knip@6.41.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2004))
@@ -60,9 +57,8 @@ packages:
   '@antelopejs/interface-core@0.4.0':
     resolution: {integrity: sha512-IPX6dtt3KHknclN4mLOYeRYL2Odz1Pts+dtaZul62NghsBUX/0OFHD4Qhoaf+Beva4hjInbaF918ajr4Z5HVWQ==}
 
-  '@antelopejs/interface-dms-builder@file:../.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz':
-    resolution: {tarball: file:../.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz}
-    version: 0.3.1
+  '@antelopejs/interface-dms-builder@0.4.0':
+    resolution: {integrity: sha512-mWThtd/1ZPnNdHyVbHSOiMX64YWBCFG0zl2QW0/BzagiOH6iK8/i5TLVZhth5iH2XRgMUfyLcq6fM5cwVDbTbg==}
     peerDependencies:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
@@ -1864,7 +1860,7 @@ snapshots:
     dependencies:
       reflect-metadata: 0.2.2
 
-  '@antelopejs/interface-dms-builder@file:../.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz(@antelopejs/interface-core@0.4.0)':
+  '@antelopejs/interface-dms-builder@0.4.0(@antelopejs/interface-core@0.4.0)':
     dependencies:
       '@antelopejs/interface-core': 0.4.0
 

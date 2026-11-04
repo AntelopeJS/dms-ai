@@ -54,14 +54,14 @@ Restart the backend, then the frontend. Sign in as an owner and press `Ctrl` `Sh
 
 <!-- antelopejs-docs-compat:start -->
 
-| Package                                  | Supported                                                         | Tested with                                                       |
-| ---------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `@antelopejs/agent-skills`               | `^0.1.0`                                                          | `0.1.0`                                                           |
-| `@antelopejs/interface-api`              | `>=0.2.0 <1.0.0`                                                  | `0.2.0`                                                           |
-| `@antelopejs/interface-core`             | `>=0.4.0 <1.0.0`                                                  | `0.4.0`                                                           |
-| `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`                                                  | `0.0.2`                                                           |
-| `@antelopejs/interface-dms`              | `>=0.12.0 <1.0.0`                                                 | `0.12.0`                                                          |
-| `@antelopejs/interface-dms-builder`      | `file:.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz` |
+| Package                                  | Supported         | Tested with |
+| ---------------------------------------- | ----------------- | ----------- |
+| `@antelopejs/agent-skills`               | `^0.1.0`          | `0.1.0`     |
+| `@antelopejs/interface-api`              | `>=0.3.0 <1.0.0`  | `0.3.0`     |
+| `@antelopejs/interface-core`             | `>=0.4.0 <1.0.0`  | `0.4.0`     |
+| `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`  | `0.0.2`     |
+| `@antelopejs/interface-dms`              | `>=0.12.0 <1.0.0` | `0.12.0`    |
+| `@antelopejs/interface-dms-builder`      | `>=0.4.0 <1.0.0`  | `0.4.0`     |
 
 <!-- antelopejs-docs-compat:end -->
 
