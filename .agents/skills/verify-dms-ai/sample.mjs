@@ -1,4 +1,4 @@
-import { MS_DAY, MS_MINUTE, conversation, permission, recordChangeSet, toolResult, toolUse, userMessage, writeProjectFile } from "./seed.mjs";
+import { MS_DAY, MS_HOUR, MS_MINUTE, conversation, permission, recordChangeSet, toolResult, toolUse, userMessage, writeProjectFile } from "./seed.mjs";
 
 /** @typedef {import("./ai.mjs").Ctx} Ctx */
 /** @typedef {Record<string, unknown>} Row */
@@ -32,7 +32,7 @@ const CALLS = [
   ["Edit", { file_path: "src/notes/c.txt" }, "blocked", "blocked", false, ""],
   ["Edit", { file_path: "src/notes/b.txt" }, "approved", "done", true, "two"],
   ["Edit", { file_path: "src/notes/b.txt" }, "approved", "done", true, "two"],
-  ["BuilderDeletePage", { pageId: "orders" }, "approved", "done", true, ""],
+  ["BuilderDeletePage", { pageRef: "/orders" }, "approved", "done", true, ""],
   ["Grep", { pattern: "total" }, "read_auto", "done", false, ""],
   ["Glob", { pattern: '=SUM(1,2),"q"' }, "read_auto", "done", false, ""],
 ];
@@ -47,6 +47,22 @@ export const SAMPLE_TOOLS = [["Bash", 6], ["Skill", 5], ["Edit", 4], ["Read", 3]
 
 /** How many calls the sample holds in the last seven days. */
 export const SAMPLE_CALLS = CALLS.length;
+
+/**
+ * Adds two token entries at the edge of the 14 days the Usage section counts: one in its first day (300 tokens), one
+ * a day before it (700 tokens, left out).
+ *
+ * @param {Row} stored The conversation
+ * @param {number} now The time the sample is relative to
+ * @returns {Row} The conversation with the two entries
+ */
+function withUsageEdge(stored, now) {
+  const startOfToday = Math.floor(now / MS_DAY) * MS_DAY;
+  const entry = (/** @type {number} */ tokens, /** @type {number} */ at) => ({ inputTokens: tokens, outputTokens: 0, totalTokens: tokens, timestampMs: at });
+  /** @type {unknown[]} */
+  const log = Array.isArray(stored.usageLog) ? stored.usageLog : [];
+  return { ...stored, usageLog: [...log, entry(300, startOfToday - 13 * MS_DAY + MS_HOUR), entry(700, startOfToday - 14 * MS_DAY + 23 * MS_HOUR)] };
+}
 
 /**
  * @param {string} outcome How the call ended
@@ -97,13 +113,13 @@ export function sampleConversations(now, sets) {
   return {
     "conv-new": conversation(messages, { tokenUsage: { inputTokens: 900, outputTokens: 100, totalTokens: 1000 }, usageLog: [{ inputTokens: 900, outputTokens: 100, totalTokens: 1000, timestampMs: start }] }),
     "conv-ten": old("Explain the project", 10, 3, "codex", 400),
-    "conv-forty": old("Old question", 40, 2, "claude", 5000),
+    "conv-forty": withUsageEdge(old("Old question", 40, 2, "claude", 5000), now),
   };
 }
 
 /**
- * Three real change sets over files of the project: the first adds `src/notes/a.txt`, the second adds then edits
- * `src/notes/b.txt`, the third edits `src/notes/a.txt` again, so undoing the first has a later set to offer.
+ * Five real change sets over files of the project: the first adds `src/notes/a.txt`, the second adds then edits
+ * `src/notes/b.txt`, the third edits `src/notes/a.txt` again, so undoing the first has a later set to offer, and the fourth and fifth add `src/notes/c.txt` and `d.txt`: five sets, one more than the four the Overview lists.
  *
  * @param {Ctx} ctx The journey
  * @param {number} now The time the sample is relative to
@@ -114,5 +130,7 @@ export function sampleChangeSets(ctx, now) {
   writeProjectFile(ctx, "src/notes/b.txt", "line one\nline two\n");
   const two = recordChangeSet(ctx, { id: "cs-two", number: 2, title: "Reword the second note", conversationId: "conv-new", createdAtMs: now - 160 * MS_MINUTE, scope: "vibe", askedBy: "Verify Admin", approvalsNeeded: 2, typecheck: "failed", overlapped: true }, () => writeProjectFile(ctx, "src/notes/b.txt", "line one\nline 2 reworded\nline three\n"));
   const three = recordChangeSet(ctx, { id: "cs-three", number: 3, title: "Extend the first note", conversationId: "conv-new", createdAtMs: now - 150 * MS_MINUTE, askedBy: "Verify Admin", isAutoFix: true }, () => writeProjectFile(ctx, "src/notes/a.txt", "first note\nsecond line\n"));
-  return [one, two, three];
+  const four = recordChangeSet(ctx, { id: "cs-four", number: 4, title: "Add the third note", conversationId: "conv-new", createdAtMs: now - 140 * MS_MINUTE, askedBy: "Verify Admin" }, () => writeProjectFile(ctx, "src/notes/c.txt", "third note\n"));
+  const five = recordChangeSet(ctx, { id: "cs-five", number: 5, title: "Add the fourth note", conversationId: "conv-new", createdAtMs: now - 130 * MS_MINUTE, askedBy: "Verify Admin" }, () => writeProjectFile(ctx, "src/notes/d.txt", "fourth note\n"));
+  return [one, two, three, four, five];
 }

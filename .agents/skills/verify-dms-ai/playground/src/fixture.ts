@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Controller, JSONBody, Post } from "@antelopejs/interface-api";
-import { GetModel } from "@antelopejs/interface-database-decorators";
+import { GetModel, Model } from "@antelopejs/interface-database-decorators";
+import { UserModel } from "@antelopejs/interface-dms/auth/db";
 import { DEFAULT_TENANT_ID } from "@antelopejs/interface-dms/constants";
 import { RoleModel, UserInviteModel } from "@antelopejs/interface-dms/db";
 import { z } from "zod";
@@ -26,6 +27,8 @@ function withAncestors(permissions: string[]): string[] {
   ];
 }
 
+const userNameSchema = z.object({ email: z.string(), name: z.string() });
+
 /** Trusted backend calls a journey cannot make over HTTP: members with a role. Only the verification playground serves them. */
 export class VerifyAiFixtureController extends Controller("/verify-ai") {
   @Post("/member")
@@ -46,5 +49,14 @@ export class VerifyAiFixtureController extends Controller("/verify-ai") {
       expiresAt: new Date(Date.now() + INVITE_LIFETIME_MS),
     });
     return { email, token, roleId };
+  }
+
+  @Post("/user-name")
+  async userName(@JSONBody() body: unknown, @Model(UserModel) users: UserModel) {
+    const { email, name } = userNameSchema.parse(body);
+    const user = await users.getByEmail(email);
+    if (user === undefined) return { updated: false };
+    await users.update(user._id, { name });
+    return { updated: true };
   }
 }

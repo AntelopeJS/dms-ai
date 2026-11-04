@@ -25,7 +25,7 @@ The Settings page holds the defaults of new conversations. Each change saves as 
 - `the-menus-and-choices-offer-exactly-the-documented-options`: Deny after and Checkpoints list exactly three options; the radio groups hold the documented choices.
 - `every-label-of-the-page-is-the-documented-one`: each section, setting, option, hint and banner label, in order.
 - `usage-counts-nothing-before-a-conversation`: the Usage section counts zero before any turn ran.
-- `usage-counts-the-stored-tokens-of-the-last-14-days`: 1,400 tokens over 2 conversations, older ones left out, the biggest conversation named.
+- `usage-counts-the-stored-tokens-of-the-last-14-days`: 1,700 tokens over 3 conversations, the first of the 14 days counted and the day before left out, the biggest conversation named.
 
 ## How to get to it (user POV)
 

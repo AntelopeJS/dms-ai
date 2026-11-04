@@ -5,6 +5,17 @@ import { MS_DAY, MS_HOUR, conversation, seedStore, toolResult, toolUse, userMess
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
 
+/** Seeds one conversation of 10,005 reads, one every second. */
+async function seedMany(/** @type {Ctx} */ ctx) {
+  const now = Date.now();
+  const messages = [userMessage("Many reads", now - 2 * MS_DAY)];
+  for (let index = 0; index < 10_005; index += 1) {
+    const at = now - MS_DAY + index * 1000;
+    messages.push(toolUse(`r-${index}`, "Read", { file_path: `docs/${index}.md` }, at, { allowedBy: "read_auto" }), toolResult(`r-${index}`, at + 100, { allowedBy: "read_auto" }));
+  }
+  await seedStore(ctx, { conversations: { many: conversation(messages) } });
+}
+
 const CSV_HEADER = "time,tool,target,agent,allowed_by,result,result_detail,change_set,conversation_id,conversation,duration_ms,read_only,auto_fix\r\n";
 
 /** @param {Ctx} ctx @param {string} query @returns {Promise<{ total: number, tools: string[], rows: import("../ai.mjs").Row[] }>} */
@@ -121,6 +132,13 @@ export const journeys = guarded([
         same("over a path", (await log(ctx, "?search=notes/b")).total, 3),
         same("a word nothing holds", (await log(ctx, "?search=zzzz")).total, 0),
       ]);
+      const deletion = all.rows.find((row) => text(row, "tool") === "BuilderDeletePage");
+      const command = all.rows.find((row) => text(row, "target") === "rm -rf dist");
+      await ctx.verify("a deletion's target", [
+        same("is the page, in the error tone", [text(deletion, "target"), pick(deletion, "actionDetail", "text"), pick(deletion, "actionDetail", "tone")], ["/orders", "/orders", "error"]),
+        same("another command is not", [pick(command, "actionDetail", "text"), pick(command, "actionDetail", "tone")], ["rm -rf dist", undefined]),
+        same("nor an edit", pick(all.rows.find((row) => text(row, "tool") === "Edit"), "actionDetail", "tone"), undefined),
+      ]);
       const iso = (/** @type {number} */ ms) => new Date(ms).toISOString();
       await ctx.verify("the periods", [
         same("24 hours", (await log(ctx, `?from=${iso(now - day)}`)).total, 24),
@@ -166,6 +184,14 @@ export const journeys = guarded([
       await ctx.verify("7 days", [pageHas(tab, "drops the old conversations", /Explain the project/, false), check("24 rows and the header", (await rowCount()) === 25, await rowCount())]);
       await tab.click({ role: "radio", name: "All time" });
       await tab.click({ role: "button", name: "Open search" });
+      await tab.fill({ role: "textbox", name: "Search tools, files, pages" }, "notes/c.txt");
+      await ctx.verify("a search over a target only", [pageHas(tab, "keeps the row", /Edit file src\/notes\/c\.txt/), pageHas(tab, "and no other", /Run command pnpm lint|Search code total|Write file/, false), check("one row and the header", (await rowCount()) === 2, await rowCount())]);
+      await tab.fill({ role: "textbox", name: "Search tools, files, pages" }, "/orders");
+      const red = (/** @type {RegExp} */ pattern) => tab.page.getByText(pattern).first().evaluate((element) => getComputedStyle(element).color);
+      const target = await red(/^\/orders$/);
+      await tab.fill({ role: "textbox", name: "Search tools, files, pages" }, "rm -rf");
+      const plain = await red(/^rm -rf dist$/);
+      await ctx.verify("a deletion's target", [check("is drawn in another colour than a command's", target !== plain, `deletion ${target}, command ${plain}`)]);
       await tab.fill({ role: "textbox", name: "Search tools, files, pages" }, "Explain");
       await ctx.verify("the search", [pageHas(tab, "keeps the codex conversation", /Read file docs\/1\.md/), pageHas(tab, "drops the others", /Run command pnpm lint/, false)]);
     },
@@ -244,21 +270,32 @@ export const journeys = guarded([
   },
   {
     id: "the-export-stops-at-10000-rows",
-    title: "an audit log of 10,005 records exports 10,000 data lines, and the page lists them 25 at a time",
-    entryPoint: "GET /ai/activity/export.csv, GET /ai/activity",
+    title: "an audit log of 10,005 records exports 10,000 data lines, as the docs say",
+    entryPoint: "GET /ai/activity/export.csv",
     async run(/** @type {Ctx} */ ctx) {
-      const now = Date.now();
-      const messages = [userMessage("Many reads", now - 2 * MS_DAY)];
-      for (let index = 0; index < 10_005; index += 1) {
-        const at = now - MS_DAY + index * 1000;
-        messages.push(toolUse(`r-${index}`, "Read", { file_path: `docs/${index}.md` }, at, { allowedBy: "read_auto" }), toolResult(`r-${index}`, at + 100, { allowedBy: "read_auto" }));
-      }
-      await seedStore(ctx, { conversations: { many: conversation(messages) } });
+      await seedMany(ctx);
+      const csv = await raw(ctx, "the CSV", { path: `${AI}/activity/export.csv`, as: "admin" });
+      const lines = csv.text.split("\r\n").filter(Boolean);
+      recordRaw(ctx, csv, [same("the header and 10,000 data lines", lines.length, 10_001), same("the newest first", lines[1]?.includes("docs/10004.md"), true)]);
+    },
+  },
+  {
+    id: "the-export-holds-what-the-sidecar-lets-through",
+    title: "pinning today's behaviour next to the documented one: 10,005 records export 200 data lines, the newest first, and the page lists them 25 at a time, 50 after Load more",
+    entryPoint: "GET /ai/activity/export.csv, GET /ai/activity, /modules/ai/activity",
+    async run(/** @type {Ctx} */ ctx) {
+      await seedMany(ctx);
       const page = await ai(ctx, "the log", "GET", "/activity");
       const csv = await raw(ctx, "the CSV", { path: `${AI}/activity/export.csv`, as: "admin" });
       const lines = csv.text.split("\r\n").filter(Boolean);
-      await ctx.verify("the log", [same("10,005 records", pick(page.body, "total"), 10_005), same("25 rows a page", list(page.body, "results").length, 25)]);
-      recordRaw(ctx, csv, [same("the header and 10,000 data lines", lines.length, 10_001), same("the newest first", lines[1]?.includes("docs/10004.md"), true)]);
+      await ctx.verify("the log", [same("10,005 records", pick(page.body, "total"), 10_005), same("25 rows a page", list(page.body, "results").length, 25), same("200 at most in one list, however many are asked", (await log(ctx, "?limit=10000")).rows.length, 200)]);
+      recordRaw(ctx, csv, [same("the header and 200 data lines", lines.length, 201), same("the newest first", lines[1]?.includes("docs/10004.md"), true), same("the 200th is the 200th newest", lines[200]?.includes("docs/9805.md"), true)]);
+      const tab = await ctx.tab();
+      await tab.signIn("admin");
+      await tab.goto("/modules/ai/activity");
+      await ctx.verify("the page", [pageHas(tab, "25 of 10,005", /25 of 10,005\s*Load more/)]);
+      await tab.click({ role: "button", name: "Load more" });
+      await ctx.verify("Load more adds the next 25", [pageHas(tab, "50 of 10,005", /50 of 10,005/), check("50 rows and the header", (await tab.page.getByRole("row").count()) === 51, await tab.page.getByRole("row").count())]);
     },
   },
 ]);

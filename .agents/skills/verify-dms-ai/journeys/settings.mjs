@@ -270,7 +270,7 @@ export const journeys = guarded([
   },
   {
     id: "usage-counts-the-stored-tokens-of-the-last-14-days",
-    title: "the Usage section totals the tokens of the conversations of the last 14 days (1,400 over 2 conversations here), leaves out older ones, and names the biggest conversation",
+    title: "the Usage section totals the tokens of the conversations of the last 14 days (1,700 over 3 conversations here), leaves out older ones, and names the biggest conversation",
     entryPoint: "GET /ai/metrics/usage, /usage/summary, /modules/ai/settings",
     async run(/** @type {Ctx} */ ctx) {
       const now = Date.now();
@@ -280,14 +280,14 @@ export const journeys = guarded([
       const days = list(usage.body, "series").flatMap((series) => list(series, "data"));
       await ctx.verify("the routes", [
         same("14 days", days.length, 14),
-        same("the total", pick(usage.body, "value"), 1400),
-        same("the days add up to it", days.reduce((total, day) => total + Number(pick(day, "y")), 0), 1400),
-        same("the summary rows", list(summary.body, "items").map((row) => [text(row, "id"), pick(row, "value")]), [["tokens", 1400], ["conversations", 2], ["top", "Add a revenue chart"]]),
+        same("the total: 1000 + 400 + 300 on the first day, not the 700 a day before", pick(usage.body, "value"), 1700),
+        same("the days add up to it", days.reduce((total, day) => total + Number(pick(day, "y")), 0), 1700),
+        same("the summary rows", list(summary.body, "items").map((row) => [text(row, "id"), pick(row, "value")]), [["tokens", 1700], ["conversations", 3], ["top", "Add a revenue chart"]]),
       ]);
       const tab = await ctx.tab();
       await tab.signIn("admin");
       await tab.goto("/modules/ai/settings");
-      await ctx.verify("the section", [pageHas(tab, "tokens and conversations", /Tokens\s*1,400\s*Conversations\s*2/i), pageHas(tab, "the biggest conversation", /Add a revenue chart/)]);
+      await ctx.verify("the section", [pageHas(tab, "tokens and conversations", /Tokens\s*1,700\s*Conversations\s*3/i), pageHas(tab, "the biggest conversation", /Add a revenue chart/)]);
     },
   },
   {

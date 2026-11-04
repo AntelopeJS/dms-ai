@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { guarded } from "../guard.mjs";
-import { ai, check, clickUntil, list, pageHas, pick, same, text, until, withEnv } from "../ai.mjs";
+import { ai, check, clickUntil, fixture, list, pageHas, pick, same, text, until, withEnv } from "../ai.mjs";
 import { sampleChangeSets, sampleConversations } from "../sample.mjs";
 import { MS_DAY, conversation, projectRoot, recordChangeSet, seedStore, userMessage, writeProjectFile } from "../seed.mjs";
 
@@ -89,21 +89,26 @@ export const journeys = guarded([
       const code = await ai(ctx, "scope Code", "GET", "/changes?filter_scope=is:vibe");
       const numbers = (/** @type {import("../ai.mjs").Answer} */ answer) => list(answer.body, "results").map((row) => Number(pick(row, "number")));
       await ctx.verify("the API", [
-        same("newest first", numbers(all), [3, 2, 1]),
+        same("newest first", numbers(all), [5, 4, 3, 2, 1]),
         same("the scope Code", numbers(code), [2]),
-        same("lines per set", list(all.body, "results").map((row) => [pick(row, "added"), pick(row, "removed")]), [[1, 0], [2, 1], [1, 0]]),
+        same("lines per set", list(all.body, "results").map((row) => [pick(row, "added"), pick(row, "removed")]), [[1, 0], [1, 0], [1, 0], [2, 1], [1, 0]]),
       ]);
       const tab = await ctx.tab();
       await tab.signIn("admin");
       await tab.goto("/modules/ai/changes");
       await ctx.verify("the list", [
-        pageHas(tab, "its count", /Change sets · 3/i),
-        pageHas(tab, "set 3 first with its lines and scope", /Extend the first note #3 · [^\n]*· \+1 −0 · Safe mode/),
+        pageHas(tab, "its count", /Change sets · 5/i),
+        pageHas(tab, "set 5 first, then 4", /Add the fourth note #5 · [^\n]*· \+1 −0 · Safe mode[\s\S]*Add the third note #4/),
+        pageHas(tab, "set 3 with its lines, scope and tag", /Extend the first note #3 · [^\n]*· \+1 −0 · Safe mode · Auto-fix/),
         pageHas(tab, "set 2", /Reword the second note #2 · [^\n]*· \+2 −1 · Code mode/),
         pageHas(tab, "set 1", /Add the notes file #1 · [^\n]*· \+1 −0 · Safe mode/),
-        pageHas(tab, "the newest set is open", /Change set #3 · checkpoint before/i),
-        pageHas(tab, "Auto-fix on the set from an auto-fix turn", /Safe mode · Auto-fix/),
+        pageHas(tab, "the newest set is open", /Change set #5 · checkpoint before/i),
         pageHas(tab, "its rows", /Asked by\s*Verify Admin\s*Agent · scope\s*Claude Code · Safe mode\s*Approvals\s*0 needed · 0 Builder ops\s*Checks\s*Typecheck passed/),
+        pageHas(tab, "its diff", /src\/notes\/d\.txt new \+1\s*@@ -0,0 \+1,1 @@\s*1 \+ fourth note\s*Undo restores this file to the checkpoint and reloads the page\./),
+      ]);
+      await tab.page.getByRole("button", { name: /Extend the first note/ }).first().click();
+      await ctx.verify("set 3", [
+        pageHas(tab, "open", /Change set #3 · checkpoint before/i),
         pageHas(tab, "its diff", /src\/notes\/a\.txt \+1\s*@@ -1,1 \+1,2 @@\s*1 first note\s*2 \+ second line\s*Undo restores this file to the checkpoint and reloads the page\./),
       ]);
       await tab.page.getByRole("button", { name: /Reword the second note/ }).first().click();
@@ -124,7 +129,7 @@ export const journeys = guarded([
       await tab.click({ role: "radio", name: "All" });
       await tab.click({ role: "textbox", name: "Search files or changes" });
       await tab.fill({ role: "textbox", name: "Search files or changes" }, "a.txt");
-      await ctx.verify("a search over a path", [pageHas(tab, "keeps sets 3 and 1", /Extend the first note #3[\s\S]*Add the notes file #1/), pageHas(tab, "drops set 2", /Reword the second note #2/, false)]);
+      await ctx.verify("a search over a path", [pageHas(tab, "keeps sets 3 and 1", /Extend the first note #3[\s\S]*Add the notes file #1/), pageHas(tab, "drops set 2 and the ones that add other files", /Reword the second note #2|Add the third note #4/, false)]);
       await tab.fill({ role: "textbox", name: "Search files or changes" }, "zzzz");
       await ctx.verify("a search that matches nothing", [pageHas(tab, "says so", /No change set matches/), pageHas(tab, "and what to do", /Try another search or scope\./)]);
       await tab.goto("/modules/ai/changes?set=cs-two");
@@ -177,6 +182,29 @@ export const journeys = guarded([
       ]);
       const wrong = await ai(ctx, "redo an applied set", "POST", "/changes/cs-two/redo", { body: {} });
       await ctx.verify("a Redo of an applied set", [same("is refused with the reason", [wrong.status !== null && wrong.status >= 400 && wrong.status < 500, text(wrong.body, "message")], [true, "Change set #2 is already applied."])]);
+    },
+  },
+  {
+    id: "an-owner-without-a-name-is-recorded-by-email",
+    title: "Undo and Redo record the signed-in user's name, or their email when they have no name: the set, the card and the audit row show the email",
+    entryPoint: "POST /ai/changes/:id/undo, /modules/ai/changes, GET /ai/activity",
+    async run(/** @type {Ctx} */ ctx) {
+      await seedSample(ctx);
+      const email = ctx.state.accounts?.admin?.email ?? "";
+      const renamed = await fixture(ctx, "give the owner no name", "POST", "/user-name", { email, name: "" });
+      await ctx.verify("the owner", [same("has no name now", pick(renamed.body, "updated"), true)], { critical: true });
+      const undone = await ai(ctx, "undo set 4", "POST", "/changes/cs-four/undo", { body: {} });
+      const state = await stateOf(ctx, "cs-four");
+      const log = list((await ai(ctx, "the log", "GET", "/activity?search=third")).body, "results");
+      await ctx.verify("the record", [
+        same("the undo is accepted", undone.status, 200),
+        same("the set says who: the email", [state.state, state.by], ["undone", email]),
+        same("so does the audit row", log.map((row) => [text(row, "tool"), text(row, "resultDetail")]), [["UndoChangeSet", email]]),
+      ]);
+      const tab = await ctx.tab();
+      await tab.signIn("admin");
+      await tab.goto("/modules/ai/changes?set=cs-four");
+      await ctx.verify("the card", [pageHas(tab, "names the email", new RegExp(`Undone[\\s\\S]*${email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`))]);
     },
   },
   {

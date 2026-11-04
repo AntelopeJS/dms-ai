@@ -19,6 +19,7 @@ The first page of the module: status, four key figures, the chart, the ways acti
 
 - `an-unused-assistant-reads-zero-everywhere`: the status rows, the four zero figures, the empty chart, recent changes and top tools, and the section titles.
 - `the-figures-count-the-seeded-log-exactly`: the key figures, the chart, the ways actions were allowed, the deletions line and the top five tools, in 24 hours, 7 days and 30 days, with the trend against the period before.
+- `a-rise-in-undone-sets-reads-as-bad-news`: a rise of Undone is drawn in another colour than a rise of Actions and of Change sets.
 - `the-approved-and-undone-cards-show-their-share`: the share on the Approved by you card. Known finding: the page never shows it.
 - `the-comparison-menu-offers-three-choices-and-no-comparison-hides-the-deltas`: the comparison menu and what each choice does, remembered after a reload.
 - `the-period-and-the-comparison-are-remembered-and-shared-with-activity`: 7D by default, the period picked carries to Activity.

@@ -1,7 +1,7 @@
 import { guarded } from "../guard.mjs";
 import { ai, check, choose, freshSidecar, list, pageHas, periodQuery, pick, same, selected, text } from "../ai.mjs";
 import { sampleChangeSets, sampleConversations } from "../sample.mjs";
-import { seedStore } from "../seed.mjs";
+import { MS_DAY, seedStore } from "../seed.mjs";
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
 
@@ -68,7 +68,7 @@ export const journeys = guarded([
       await ctx.verify("7 days", [
         same("actions: 24 against 3 before, +700%", [pick(actions, "value"), pick(actions, "previousValue"), pick(actions, "delta")], [24, 3, 700]),
         same("the sparkline adds up to the value", sum(pick(actions, "sparkline")), 24),
-        same("change sets: 3, none before, no trend from zero", [pick(sets, "value"), pick(sets, "previousValue"), pick(sets, "delta")], [3, 0, undefined]),
+        same("change sets: 5, none before, no trend from zero", [pick(sets, "value"), pick(sets, "previousValue"), pick(sets, "delta")], [5, 0, undefined]),
         same("approved by you: 4 of the 8 asked, 50%", [pick(approved, "value"), text(approved, "caption")], [4, "4 / 8 · 50%"]),
         same("undone: none", pick(undone, "value"), 0),
         same("the chart totals the actions and compares with the period before", [pick(series, "value"), pick(series, "previousValue"), list(series, "comparisonSeries").length], [24, 3, 1]),
@@ -78,6 +78,8 @@ export const journeys = guarded([
         same("the five most used tools", list(top, "items").map((item) => [text(item, "id"), pick(item, "value"), text(item, "description")]), [["Bash", 6, "$dms_ai.activity.tool_source.code"], ["Skill", 5, "$dms_ai.activity.tool_source.assistant"], ["Edit", 4, "$dms_ai.activity.tool_source.code"], ["Read", 3, "$dms_ai.activity.tool_source.code"], ["BuilderAddBlock", 2, "$dms_ai.activity.tool_source.builder"]]),
         same("Read: 3 against 2 before, +50%", pick(list(top, "items")[3], "delta"), 50),
       ]);
+      const recent = await ai(ctx, "the recent sets", "GET", "/recent-changes");
+      await ctx.verify("the recent change sets", [same("the four latest of five, newest first", [list(recent.body, "results").map((row) => Number(pick(row, "number"))), pick(recent.body, "total")], [[5, 4, 3, 2], 4])]);
       const day = await metric(ctx, "kpi/actions", periodQuery(now, 1));
       const month = await metric(ctx, "kpi/actions", periodQuery(now, 30));
       await ctx.verify("24 hours and 30 days", [
@@ -90,12 +92,15 @@ export const journeys = guarded([
       await tab.goto("/modules/ai/overview");
       await ctx.verify("the page, 7 days", [
         pageHas(tab, "Actions", /Actions\s*24\s*\S*\s*\+700\.0% vs 3\s*Tool calls, Builder operations included/i),
-        pageHas(tab, "Change sets", /Change sets\s*3\s*\S*\s*vs 0\s*Turns that changed files, undone too/i),
+        pageHas(tab, "Change sets", /Change sets\s*5\s*\S*\s*vs 0\s*Turns that changed files, undone too/i),
         pageHas(tab, "Approved by you", /Approved by you\s*4\s*\S*\s*vs 0\s*Requests you allowed when asked/i),
         pageHas(tab, "Undone", /Undone\s*0\s*\S*\s*0\.0% vs 0\s*Change sets rolled back/i),
         pageHas(tab, "the ways, in order, numbered, with the trend of the first", /Read-only, automatic\s*10\s*\S*\s*\+233\.3%\s*2\s*Builder, automatic\s*2\s*—\s*3\s*Approved by you\s*4\s*—\s*4\s*Allowed by a rule\s*3\s*—\s*5\s*Full auto\s*1\s*—\s*6\s*Blocked · safe mode\s*1\s*—\s*7\s*Denied by you\s*2\s*—\s*8\s*Expired\s*1\s*—\s*9\s*Deletions asked\s*Deletions always ask, even in Full auto\s*1/i),
         pageHas(tab, "the top tools with their group and runs", /Top tools[\s\S]*Run command[\s\S]*6[\s\S]*Use skill[\s\S]*5[\s\S]*Edit file[\s\S]*4[\s\S]*Read file[\s\S]*3[\s\S]*Add block[\s\S]*2/i),
-        pageHas(tab, "the recent change sets", /Recent change sets\s*3/i),
+        pageHas(tab, "the recent change sets: the four latest, newest first", /Recent change sets\s*4[\s\S]*5 Add the fourth note[\s\S]*4 Add the third note[\s\S]*3 Extend the first note[\s\S]*2 Reword the second note/i),
+        pageHas(tab, "and not the fifth", /Add the notes file/, false),
+        pageHas(tab, "exactly five top tools: no sixth row", /Top tools[\s\S]*5 Add block\s*[^\n]*2/i),
+        pageHas(tab, "none after the fifth", /Top tools[\s\S]*\s6 (Write file|Delete page|Search code|Find files)/i, false),
       ]);
       await choose(tab, { role: "radio", name: "Last 24 hours" });
       await ctx.verify("24 hours", [pageHas(tab, "Actions", /Actions\s*24\s*\S*\s*vs 0/i), pageHas(tab, "labelled", /Last 24 hours/)]);
@@ -115,6 +120,40 @@ export const journeys = guarded([
       await tab.signIn("admin");
       await tab.goto("/modules/ai/overview");
       await ctx.verify("the page", [pageHas(tab, "shows the share on the card", /Approved by you\s*4[\s\S]*4 \/ 8 · 50%/i)]);
+    },
+  },
+  {
+    id: "a-rise-in-undone-sets-reads-as-bad-news",
+    title: "a rise of the Undone figure is drawn in another tone than a rise of Actions or of Change sets: more undone sets is bad news",
+    entryPoint: "/modules/ai/overview",
+    async run(/** @type {Ctx} */ ctx) {
+      const now = Date.now();
+      await seedStore(ctx, {
+        conversations: sampleConversations(now, { one: "cs-one", two: "cs-two" }),
+        build: () => {
+          const sets = sampleChangeSets(ctx, now);
+          const stamp = (/** @type {number} */ index, /** @type {number} */ at) => { sets[index].stateLog = [{ state: "undone", atMs: at, by: "Verify Admin" }]; };
+          stamp(0, now - 9 * MS_DAY);
+          stamp(1, now - 2 * 3_600_000);
+          stamp(2, now - 3_600_000);
+          sets[4].createdAtMs = now - 9 * MS_DAY;
+          return sets;
+        },
+      });
+      const tab = await ctx.tab();
+      await tab.signIn("admin");
+      await tab.goto("/modules/ai/overview");
+      await ctx.verify("the figures", [
+        pageHas(tab, "Actions rose", /Actions\s*24\s*\S*\s*\+700\.0% vs 3/i),
+        pageHas(tab, "Change sets rose", /Change sets\s*4\s*\S*\s*\+300\.0% vs 1/i),
+        pageHas(tab, "Undone rose", /Undone\s*2\s*\S*\s*\+100\.0% vs 1/i),
+      ]);
+      const colour = (/** @type {RegExp} */ pattern) => tab.page.getByText(pattern).first().evaluate((element) => getComputedStyle(element).color);
+      const [actions, sets, undone] = [await colour(/\+700\.0% vs 3/), await colour(/\+300\.0% vs 1/), await colour(/\+100\.0% vs 1/)];
+      await ctx.verify("the tone", [
+        same("a rise of Change sets is drawn like a rise of Actions", sets, actions),
+        check("a rise of Undone is drawn in another colour", undone !== actions, `Actions ${actions}, Change sets ${sets}, Undone ${undone}`),
+      ]);
     },
   },
   {

@@ -23,6 +23,7 @@ The audit log of every tool the assistant used, driven from seeded stored record
 - `a-row-opens-its-detail-with-the-arguments-trail-output-and-diff`: the Action detail panel, J and K, a deep link, the decision trail, the diff and Show raw JSON.
 - `the-export-holds-every-row-whatever-the-tab-and-the-period`: one CSV line per record, quoting and the formula guard.
 - `the-export-stops-at-10000-rows`: 10,005 records export 10,000 data lines. Known finding: they export 200.
+- `the-export-holds-what-the-sidecar-lets-through`: pins today's behaviour next to it: 200 data lines, 25 rows a page, 50 after Load more.
 
 ## How to get to it (user POV)
 
