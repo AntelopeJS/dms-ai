@@ -12,12 +12,17 @@ docs:
 
 # Activity
 
-The audit log of every tool the assistant used. Without a model no tool runs, so the log is empty here; its rows, filters, details and export of rows are not driven.
+The audit log of every tool the assistant used, driven from seeded stored records.
 
 ## Sub-features
 
-- `an-empty-log-says-so-and-exports-its-header`: No activity yet, the tabs, the periods, the export button, the CSV header alone, an unknown record answers 404.
+- `an-empty-log-says-so-and-exports-its-header`: No activity yet, the tabs, the periods, the CSV header alone, an unknown record answers 404.
 - `the-log-says-when-the-assistant-is-down`: Can't reach the assistant, not an empty log.
+- `the-log-lists-every-call-with-its-tabs-filters-and-pages`: 29 seeded records, newest first, 25 a page, each tab, the tool, agent and read-only filters, the search and the periods give exactly their rows.
+- `the-page-shows-the-log-its-tabs-periods-and-more-rows`: tab counts, 25 of 29 with Load more, the Allowed and Result labels of every kind of call, a tab, a period and a search.
+- `a-row-opens-its-detail-with-the-arguments-trail-output-and-diff`: the Action detail panel, J and K, a deep link, the decision trail, the diff and Show raw JSON.
+- `the-export-holds-every-row-whatever-the-tab-and-the-period`: one CSV line per record, quoting and the formula guard.
+- `the-export-stops-at-10000-rows`: 10,005 records export 10,000 data lines. Known finding: they export 200.
 
 ## How to get to it (user POV)
 
@@ -31,4 +36,5 @@ dms-control journey "$RUN" activity
 
 ## Gotchas
 
-- Rows exist only after a tool call; see the skill's Not driven list.
+- The audit log is built from the sidecar's stored conversations and change sets, so the journeys write those files (`seed.mjs`, `sample.mjs`) and start the assistant on them. No model runs.
+- Known finding: `the-export-stops-at-10000-rows` fails. The sidecar clamps every list to 200 rows, so the export holds 200 (issue draft `dms-ai-activity-export-capped-at-200`). Until it is fixed a break of the route's own constant cannot be told from the product.

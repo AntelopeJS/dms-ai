@@ -34,6 +34,9 @@ The backend starts the sidecar as a child process, reports its status, restarts 
 - `the-status-reads-ready-and-names-the-sidecar`: the status, its rows and its banner describe a ready assistant, the probe says the sidecar runs, and the health route answers without a session.
 - `a-restart-gives-a-new-sidecar-and-keeps-what-you-set`: Restart assistant stops the sidecar and starts another on a new port, and the settings stay.
 - `a-sidecar-that-keeps-dying-gives-up-and-the-banner-offers-a-restart`: a killed sidecar is restarted until the budget is spent, then the Overview says it is offline with Restart assistant.
+- `the-sidecar-listens-on-loopback-only`: the socket is bound to 127.0.0.1 and the machine's network address is refused.
+- `an-openai-api-key-is-ignored-with-one-warning-per-start`: the documented warning, once per start, absent without the variable.
+- `an-idle-sidecar-exits-after-15-minutes-and-the-next-probe-starts-it`: still running at 10 and 14 minutes, gone by 17, restarted by the next probe.
 - `dms-ai-0-starts-the-backend-without-a-sidecar`: DMS_AI=0 leaves the status offline and disabled, the banner without a button, and the routes that need the sidecar answering 503.
 - `a-backend-that-crashed-leaves-no-sidecar-for-long`: stopping the project stops the sidecar, and a sidecar left by a killed backend is stopped by the next start.
 

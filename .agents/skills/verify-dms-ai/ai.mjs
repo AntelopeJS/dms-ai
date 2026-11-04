@@ -385,7 +385,8 @@ export function bodyText(tab) {
 export async function pageHas(tab, name, pattern, want = true) {
   const found = await until(async () => pattern.test((await bodyText(tab)).replace(/\s+/g, " ")) === want, { timeoutMs: 20_000 });
   const body = await bodyText(tab);
-  return check(name, Boolean(found), body.replace(/\s+/g, " ").slice(0, 1800));
+  const flat = body.replace(/\s+/g, " ");
+  return check(name, Boolean(found), flat.length > 1800 ? `${flat.slice(0, 300)} … ${flat.slice(-1500)}` : flat);
 }
 
 /**

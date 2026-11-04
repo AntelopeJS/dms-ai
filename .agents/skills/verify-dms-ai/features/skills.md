@@ -21,6 +21,8 @@ The Skills page lists the skills loaded into the agent, where each comes from an
 - `a-module-skill-shadows-a-local-skill-of-the-same-name`: a local skill named like a module skill is marked Shadowed, the route and the page warn.
 - `two-skills-of-one-module-with-one-name-shadow-one-copy`: two skills of one module with one name: one is marked Shadowed. Known finding: both copies get one id, so neither is.
 - `machine-local-skills-need-their-switch`: skills of `~/.claude/skills` appear under Local only with the setting on.
+- `use-counts-and-last-use-come-from-the-conversations`: uses over 30 days, last use and last conversation come from the stored Skill calls; cards sorted by use.
+- `the-page-lists-24-skills-and-opens-a-panel-768-px-wide`: 30 local skills fill 24 cards and 6; the reading panel is 768 px wide.
 - `the-page-shows-cards-tabs-search-and-the-reading-panel`: cards, tabs with counts, the search and the reading panel.
 
 ## How to get to it (user POV)

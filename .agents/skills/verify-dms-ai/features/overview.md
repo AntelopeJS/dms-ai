@@ -13,12 +13,15 @@ docs:
 
 # Overview
 
-The first page of the module: the assistant's status, four key figures, the activity chart, how each action was allowed, recent change sets and top tools over a period. Figures that count tool calls stay at zero without a model; their non-zero values, trends and the allowed-by breakdown are not driven.
+The first page of the module: status, four key figures, the chart, the ways actions were allowed, recent change sets and top tools over a period, driven from seeded stored records.
 
 ## Sub-features
 
-- `an-unused-assistant-reads-zero-everywhere`: the status rows, the four zero figures, the empty chart, recent changes and top tools, and the metric routes.
-- `the-period-and-the-comparison-are-remembered-and-shared-with-activity`: 7D by default, the browser remembers the period and Activity opens on it.
+- `an-unused-assistant-reads-zero-everywhere`: the status rows, the four zero figures, the empty chart, recent changes and top tools, and the section titles.
+- `the-figures-count-the-seeded-log-exactly`: the key figures, the chart, the ways actions were allowed, the deletions line and the top five tools, in 24 hours, 7 days and 30 days, with the trend against the period before.
+- `the-approved-and-undone-cards-show-their-share`: the share on the Approved by you card. Known finding: the page never shows it.
+- `the-comparison-menu-offers-three-choices-and-no-comparison-hides-the-deltas`: the comparison menu and what each choice does, remembered after a reload.
+- `the-period-and-the-comparison-are-remembered-and-shared-with-activity`: 7D by default, the period picked carries to Activity.
 
 ## How to get to it (user POV)
 
@@ -32,4 +35,6 @@ dms-control journey "$RUN" overview
 
 ## Gotchas
 
-- The status rows are drawn by the lifecycle feature's routes; this feature covers the figures.
+- The figures come from seeded conversations and change sets; the window of each route is sent explicitly (`periodQuery`), the page's own windows are checked through the page.
+- Known finding: `the-approved-and-undone-cards-show-their-share` fails (issue draft `dms-ai-overview-kpi-share-not-shown`).
+- Text the page uppercases (card titles, section titles) is matched without regard to case.

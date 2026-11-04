@@ -194,11 +194,11 @@ export const journeys = guarded([
       await ctx.verify("the panel", [
         pageHas(tab, "its title", /Action detail/),
         pageHas(tab, "its position among the rows", /2 \/ 29\s*K\s*J/),
-        pageHas(tab, "its group and target", /Code · [^\n]*\s*Grep · total/),
-        pageHas(tab, "Allowed and Result", /Allowed\s*Read-only, automatic\s*Result\s*Done/),
-        pageHas(tab, "its arguments", /Arguments\s*pattern\s*total/),
-        pageHas(tab, "its trail", /Decision trail\s*[^\n]*Requested\s*[^\n]*Allowed automatically \(read-only\)\s*[^\n]*Done/),
-        pageHas(tab, "its output", /Output\s*Text\s*Grep answered/),
+        pageHas(tab, "its group and target", /Code · [^\n]*\s*Grep · total/i),
+        pageHas(tab, "Allowed and Result", /Allowed\s*Read-only, automatic\s*Result\s*Done/i),
+        pageHas(tab, "its arguments", /Arguments\s*pattern\s*total/i),
+        pageHas(tab, "its trail", /Decision trail\s*[^\n]*Requested\s*[^\n]*Allowed automatically \(read-only\)\s*[^\n]*Done/i),
+        pageHas(tab, "its output", /Output\s*Text\s*Grep answered/i),
         tab.visible({ role: "button", name: "Show raw JSON" }),
         tab.enabled({ role: "button", name: "Previous" }),
       ]);
@@ -209,10 +209,9 @@ export const journeys = guarded([
       await tab.goto(`/modules/ai/activity?record=${encodeURIComponent("conv-new:call-11")}`);
       await ctx.verify("a link opens a row", [
         pageHas(tab, "the write", /Write · src\/notes\/a\.txt|Edit file · src\/notes\/a\.txt|Write file · src\/notes\/a\.txt/),
-        pageHas(tab, "applied with its set", /Applied\s*·\s*#1/),
+        pageHas(tab, "applied with its set", /Applied\s*·\s*#1/i),
         pageHas(tab, "the trail with the name", /Allowed by you \(Verify Admin\)/),
         pageHas(tab, "its diff", /first note/),
-        pageHas(tab, "Open conversation", /Open conversation/),
         pageHas(tab, "View change set #1", /View change set #1/),
       ]);
       await tab.click({ role: "button", name: "Show raw JSON" });

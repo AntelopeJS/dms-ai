@@ -15,12 +15,17 @@ docs:
 
 # Changes
 
-Each turn that touched the project is a change set with a diff, Undo and Redo. A change set exists only after a model's turn edited files, so the list is empty here; diffs, Undo with its conflict preview and Redo are not driven.
+Each turn that touched the project is a change set with a diff, Undo and Redo, driven from seeded stored records and a seeded shadow repository.
 
 ## Sub-features
 
 - `no-change-set-yet-says-so`: No changes yet on the page, empty lists from the routes, 404 for a set that does not exist.
 - `the-changes-say-when-the-assistant-is-down`: Can't reach the assistant, and 503 from the routes.
+- `the-list-searches-filters-and-opens-a-set-with-its-diff`: three real change sets listed newest first, the scope filter, the search, a set's rows, the Auto-fix tag, the overlap warning and its diff.
+- `undo-and-redo-restore-the-files-and-record-who-did-it`: the Undo dialog, the files back on disk, the name of the person, Redo, a refused second Undo, the audit log and the Undone figure.
+- `undoing-a-set-lists-the-later-sets-on-the-same-files`: the later set in the dialog, Undo together and Undo this one only.
+- `without-git-the-page-says-change-sets-are-off`: with no Git on the PATH the status says checkpoints are unavailable and the page says Change sets are off.
+- `change-sets-older-than-the-retention-are-dropped-when-the-assistant-starts`: the 7, 30 and 90 day retentions at their boundaries.
 
 ## How to get to it (user POV)
 
@@ -34,4 +39,5 @@ dms-control journey "$RUN" changes
 
 ## Gotchas
 
-- A turn needs Claude Code credentials or a Codex sign-in; neither exists in a run.
+- The change sets are real: the journeys write project files between two snapshots of the sidecar's shadow repository (`seed.mjs`), so Undo and Redo move bytes on disk.
+- Not driven: the Conversation link (it exists only in the chat panel's session), the page reload after Undo and the Redo toast.

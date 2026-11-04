@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { guarded } from "../guard.mjs";
 import { ai, check, clickUntil, list, pageHas, pick, same, text, until, withEnv } from "../ai.mjs";
@@ -125,6 +125,8 @@ export const journeys = guarded([
       await tab.click({ role: "textbox", name: "Search files or changes" });
       await tab.fill({ role: "textbox", name: "Search files or changes" }, "a.txt");
       await ctx.verify("a search over a path", [pageHas(tab, "keeps sets 3 and 1", /Extend the first note #3[\s\S]*Add the notes file #1/), pageHas(tab, "drops set 2", /Reword the second note #2/, false)]);
+      await tab.fill({ role: "textbox", name: "Search files or changes" }, "zzzz");
+      await ctx.verify("a search that matches nothing", [pageHas(tab, "says so", /No change set matches/), pageHas(tab, "and what to do", /Try another search or scope\./)]);
       await tab.goto("/modules/ai/changes?set=cs-two");
       await ctx.verify("a link opens a set", [pageHas(tab, "set 2 is open", /Change set #2 · checkpoint before/i)]);
     },
@@ -217,6 +219,31 @@ export const journeys = guarded([
         same("only the first set is undone", [(await stateOf(ctx, "cs-one")).state, (await stateOf(ctx, "cs-three")).state], ["undone", "applied"]),
         same("the file is gone although the later set still reads Applied", fileText(ctx, "a.txt"), "<absent>"),
       ]);
+    },
+  },
+  {
+    id: "without-git-the-page-says-change-sets-are-off",
+    title: "on a machine without Git the sidecar reports checkpoints unavailable, the Changes page says Change sets are off and what to install, and nothing is recorded",
+    entryPoint: "GET /ai/status, /modules/ai/changes",
+    async run(/** @type {Ctx} */ ctx) {
+      await seedStore(ctx, {});
+      const bin = join(ctx.state.home, "nogit");
+      mkdirSync(bin, { recursive: true });
+      symlinkSync(process.execPath, join(bin, "node"));
+      await withEnv(ctx, { PATH: bin }, async () => {
+        const ready = await until(async () => text((await ai(ctx, "status", "GET", "/status")).body, "status") === "ready", { timeoutMs: 90_000, everyMs: 2000 });
+        const status = (await ai(ctx, "status", "GET", "/status")).body;
+        const tab = await ctx.tab();
+        await tab.signIn("admin");
+        await tab.goto("/modules/ai/changes");
+        await ctx.verify("no Git", [
+          check("the assistant still starts", ready, text(status, "status")),
+          same("checkpoints are unavailable", pick(status, "checkpointsAvailable"), false),
+          pageHas(tab, "the page says it", /Change sets are off/),
+          pageHas(tab, "and why", /Git isn't available on this machine, so the assistant can't save checkpoints to undo its changes\. Install Git and restart the assistant\./),
+          pageHas(tab, "it is not the empty state", /No changes yet/, false),
+        ]);
+      });
     },
   },
   {

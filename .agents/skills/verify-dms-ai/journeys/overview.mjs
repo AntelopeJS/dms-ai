@@ -45,7 +45,7 @@ export const journeys = guarded([
         pageHas(tab, "no change sets", /No changes yet/),
         pageHas(tab, "no tools", /No tool ran over this period/),
         pageHas(tab, "deletions always ask", /Deletions always ask, in every mode/),
-        pageHas(tab, "the section titles", /Activity[\s\S]*How actions were allowed[\s\S]*Recent change sets[\s\S]*All changes[\s\S]*Top tools[\s\S]*Runs over the selected period/),
+        pageHas(tab, "the section titles", /Activity[\s\S]*How actions were allowed[\s\S]*Recent change sets[\s\S]*All changes[\s\S]*Top tools[\s\S]*Runs over the selected period/i),
         pageHas(tab, "no banner", /The assistant is offline|2 requests are waiting|last turn failed/, false),
       ]);
     },

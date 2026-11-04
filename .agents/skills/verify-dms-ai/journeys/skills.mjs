@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { guarded } from "../guard.mjs";
-import { ai, check, choose, freshSidecar, list, pageHas, pick, same, sidecarPath, statusIs, text, until } from "../ai.mjs";
+import { ai, check, choose, clickUntil, freshSidecar, list, pageHas, pick, same, sidecarPath, statusIs, text, until } from "../ai.mjs";
 import { sampleChangeSets, sampleConversations } from "../sample.mjs";
 import { seedStore } from "../seed.mjs";
 
@@ -195,13 +195,13 @@ export const journeys = guarded([
       await tab.signIn("admin");
       await tab.page.setViewportSize({ width: 1440, height: 900 });
       await tab.goto("/modules/ai/skills");
-      await tab.click({ role: "button", name: "Local 30" });
+      await clickUntil(tab, { role: "button", name: "Local 30" }, /30 skills\s*Page size\s*24/);
       const cards = () => tab.page.locator("article").count();
       await until(async () => (await cards()) > 0, { timeoutMs: 15_000 });
-      await ctx.verify("the first page", [check("24 cards", (await cards()) === 24, await cards()), pageHas(tab, "the tab count", /Local\s*30/), pageHas(tab, "the pager", /Page 1 of 2|24 of 30|1 of 2/)]);
+      await ctx.verify("the first page", [check("24 cards", (await cards()) === 24, await cards()), pageHas(tab, "the tab count", /Local\s*30/), pageHas(tab, "30 skills and the page size", /30 skills\s*Page size\s*24/)]);
       await tab.snapshot("page one of the local skills");
       await ctx.verify("the pager text", [pageHas(tab, "names the page", /Page 1 of 2/)]);
-      await tab.click({ role: "button", name: "Next page" });
+      await clickUntil(tab, { role: "button", name: "Next page" }, /Page 2 of 2/);
       await until(async () => (await cards()) === 6, { timeoutMs: 15_000 });
       await ctx.verify("the second page", [check("6 cards", (await cards()) === 6, await cards()), pageHas(tab, "page 2 of 2", /Page 2 of 2/)]);
       await tab.page.locator("article").first().click();
