@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.9.2
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.9.1...v0.9.2)
+
+### 📖 Documentation
+
+- **changelog:** Upgrade notes of dms-ai 0.9.1 ([#165](https://github.com/AntelopeJS/dms-ai/pull/165))
+- **readme:** Show the assistant at work in a GIF ([86a5a4e](https://github.com/AntelopeJS/dms-ai/commit/86a5a4e))
+
+### 🏡 Chore
+
+- Land the cleanup campaign on main ([#182](https://github.com/AntelopeJS/dms-ai/pull/182))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v0.9.1
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.9.0...v0.9.1)
