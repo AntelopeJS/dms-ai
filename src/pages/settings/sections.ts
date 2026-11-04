@@ -2,7 +2,8 @@ import { DefaultDataTypes } from "@antelopejs/interface-dms/base/data-types";
 import type { FormSection } from "@antelopejs/interface-dms/base/form-types";
 import { SETTINGS_SKILLS_SECTION } from "../../constants/pages";
 import {
-  MODE_OPTIONS,
+  CLAUDE_MODE_OPTIONS,
+  CODEX_MODE_OPTIONS,
   PROVIDER_OPTIONS,
   REQUEST_TIMEOUT_OPTIONS,
   RETENTION_OPTIONS,
@@ -70,13 +71,24 @@ const APPROVALS: FormSection = {
   icon: "i-ph-hand-palm",
   fields: [
     {
-      id: "mode",
-      label: settingsText("mode", "label"),
-      description: settingsText("mode", "description"),
+      id: "defaultModeClaude",
+      label: settingsText("default_mode_claude", "label"),
+      description: settingsText("default_mode_claude", "description"),
       hint: NEW_CONVERSATIONS_HINT,
       type: new DefaultDataTypes.SelectType({
         display: "cards",
-        items: MODE_OPTIONS,
+        items: CLAUDE_MODE_OPTIONS,
+      }),
+      required: true,
+    },
+    {
+      id: "defaultModeCodex",
+      label: settingsText("default_mode_codex", "label"),
+      description: settingsText("default_mode_codex", "description"),
+      hint: NEW_CONVERSATIONS_HINT,
+      type: new DefaultDataTypes.SelectType({
+        display: "cards",
+        items: CODEX_MODE_OPTIONS,
       }),
       required: true,
     },

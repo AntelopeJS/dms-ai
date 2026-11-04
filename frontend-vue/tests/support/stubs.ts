@@ -64,6 +64,7 @@ const UModal = defineComponent({
 
 interface MenuItem {
 	label?: string;
+	description?: string;
 	onSelect?: () => void;
 }
 
@@ -84,6 +85,7 @@ const UDropdownMenu = defineComponent({
 							{
 								class: "u-dropdown-item",
 								type: "button",
+								"data-description": item.description,
 								onClick: item.onSelect,
 							},
 							item.label,

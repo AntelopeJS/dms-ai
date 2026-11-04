@@ -49,6 +49,8 @@
 				"approved": "Autorisé par vous",
 				"rule": "Autorisé par une règle",
 				"full_auto": "Automatique complet",
+				"auto_approved": "Autorisé par la revue automatique",
+				"auto_denied": "Bloqué par la revue automatique",
 				"blocked": "Bloqué · mode sûr",
 				"denied": "Refusé par vous",
 				"expired": "Expiré, sans réponse"

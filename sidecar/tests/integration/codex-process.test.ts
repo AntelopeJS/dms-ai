@@ -79,6 +79,7 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
         mcpUrl: MCP_URL,
         mcpToken: FAKE_TOKEN,
         hostProjectRoot: stateDir,
+        moduleRoots: [],
         accessTokenUrl: "http://127.0.0.1:1/codex/access-token",
         handlers: {
           onNotification: () => {},
@@ -123,6 +124,7 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
         mcpUrl: MCP_URL,
         mcpToken: FAKE_TOKEN,
         hostProjectRoot: stateDir,
+        moduleRoots: [],
         accessTokenUrl: "http://127.0.0.1:1/codex/access-token",
         handlers: {
           onNotification: () => {},
@@ -193,6 +195,7 @@ describe("codex app-server spawn failure", () => {
           mcpUrl: MCP_URL,
           mcpToken: FAKE_TOKEN,
           hostProjectRoot: stateDir,
+          moduleRoots: [],
           accessTokenUrl: "http://127.0.0.1:1/codex/access-token",
           handlers: {
             onNotification: () => {},
@@ -254,6 +257,7 @@ describe("codex app-server teardown", () => {
       mcpUrl: MCP_URL,
       mcpToken: FAKE_TOKEN,
       hostProjectRoot: dir,
+      moduleRoots: [],
       accessTokenUrl: "http://127.0.0.1:1/codex/access-token",
       handlers: {
         onNotification: () => {},

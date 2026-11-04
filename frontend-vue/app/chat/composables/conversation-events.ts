@@ -10,7 +10,6 @@ import type {
 	BlockPreview,
 	ChangeSetSummary,
 	ConversationModeState,
-	FullAutoState,
 	Notice,
 	QueuedItemWire,
 	SnapshotMessage,
@@ -65,7 +64,6 @@ interface RunProgressEvent {
 interface SnapshotModeWire {
 	mode?: ConversationModeState["mode"];
 	generationMode?: ConversationModeState["generationMode"];
-	fullAuto?: FullAutoState | null;
 }
 
 interface SnapshotEvent {
@@ -263,7 +261,6 @@ function toModeState(wire: SnapshotModeWire | undefined) {
 	return {
 		mode: wire.mode,
 		generationMode: wire.generationMode,
-		fullAuto: wire.fullAuto ?? null,
 	};
 }
 

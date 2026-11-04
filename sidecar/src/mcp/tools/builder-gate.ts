@@ -1,6 +1,7 @@
 import {
   isConfigBuilderTool,
   isMutatingBuilderTool,
+  isPageRemovingBuilderTool,
 } from "../../agent/tool-kinds.js";
 import type { AnyMcpToolDefinition, McpToolResult } from "../define-tool.js";
 
@@ -34,6 +35,7 @@ function withGate(
 ): AnyMcpToolDefinition {
   if (!isMutatingBuilderTool(definition.name)) return definition;
   if (isConfigBuilderTool(definition.name)) return definition;
+  if (isPageRemovingBuilderTool(definition.name)) return definition;
   return {
     ...definition,
     handler: async (args) => {

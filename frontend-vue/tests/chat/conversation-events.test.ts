@@ -134,7 +134,6 @@ describe("the conversation folds the redesign's events", () => {
 			type: "conversation_mode",
 			mode: "plan",
 			generationMode: "vibe",
-			fullAuto: { duration: "turn" },
 		});
 		expect(conversation.messages.value[0]).toMatchObject({
 			role: "notice",
@@ -144,7 +143,6 @@ describe("the conversation folds the redesign's events", () => {
 		expect(conversation.mode.value).toEqual({
 			mode: "plan",
 			generationMode: "vibe",
-			fullAuto: { duration: "turn" },
 		});
 	});
 
@@ -200,7 +198,7 @@ describe("the conversation folds the redesign's events", () => {
 				},
 			],
 			changeSets: [changeSet()],
-			mode: { mode: "acceptEdits", generationMode: "safe", fullAuto: null },
+			mode: { mode: "acceptEdits", generationMode: "safe" },
 			totalTokens: 1_200,
 		});
 		expect(conversation.messages.value.map((m) => m.role)).toEqual([

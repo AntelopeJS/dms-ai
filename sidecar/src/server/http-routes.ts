@@ -141,7 +141,7 @@ async function statusRoute(res: ServerResponse, deps: ApiDeps) {
     provider: settings.provider,
     providers: getProviderAvailability(),
     builderAvailable: getBuilderAvailable(),
-    mode: settings.mode,
+    mode: settings.defaultModes[settings.provider],
     generationMode: settings.generationMode,
     workingConversations: services?.turns.runningCount() ?? 0,
     pendingApprovals: services?.permissionBus.countPending() ?? 0,

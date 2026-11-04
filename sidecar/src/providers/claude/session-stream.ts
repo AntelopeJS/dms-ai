@@ -5,9 +5,13 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import type { ProviderSessionContext } from "../../agent/provider.js";
 import type { RunnerEvent } from "../../agent/runner-events.js";
-import type { AppSettings } from "../../state/settings-types.js";
-import type { TokenUsage } from "../../state/types.js";
+import {
+  CLAUDE_AUTO_PERMISSION_MODE,
+  CLAUDE_PERMISSION_SUBTYPES,
+} from "../../constants/claude.js";
+import type { TurnSettings } from "../../state/settings-types.js";
 import { extractTokenUsage, messageToEvents } from "./adapter.js";
+import { resolvePermissionMode } from "./config.js";
 import type { InputQueue } from "./input-queue.js";
 import {
   isModelRefusal,
@@ -20,7 +24,7 @@ import {
  * safe/vibe flip is seen by the hook without rebuilding the SDK options.
  */
 export interface LiveSettings {
-  settings: AppSettings;
+  settings: TurnSettings;
 }
 
 /** What the message stream of a session reads and drives. */
@@ -33,12 +37,15 @@ export interface StreamBackend {
   model: ModelTrack;
 }
 
-/** What a session reports about the model it runs on. */
-export interface ModelHooks {
-  onModelUsed: ProviderSessionContext["onModelUsed"];
-  onModelFallback: ProviderSessionContext["onModelFallback"];
-  onTokenUsage: ((usage: TokenUsage) => void) | undefined;
-}
+/** What a session reports as its stream runs: the model, token usage, refused Auto review and tool decisions. */
+export type StreamHooks = Pick<
+  ProviderSessionContext,
+  | "onModelUsed"
+  | "onModelFallback"
+  | "onTokenUsage"
+  | "onAutoRefused"
+  | "onToolDecision"
+>;
 
 /**
  * The API turned the configured model away. Puts the session on the CLI's
@@ -61,7 +68,7 @@ async function retryOnDefaultModel(backend: StreamBackend): Promise<boolean> {
 function observeModel(
   track: ModelTrack,
   message: SDKMessage,
-  hooks: ModelHooks,
+  hooks: StreamHooks,
 ): void {
   const used = repliedModel(message);
   if (used === undefined) return;
@@ -74,6 +81,30 @@ function observeModel(
   track.announceFrom = null;
 }
 
+function observePermissions(
+  live: LiveSettings,
+  message: SDKMessage,
+  hooks: StreamHooks,
+): void {
+  if (message.type !== "system") return;
+  const isAutoAsked =
+    resolvePermissionMode(live.settings) === CLAUDE_AUTO_PERMISSION_MODE;
+  if (message.subtype === CLAUDE_PERMISSION_SUBTYPES.INIT) {
+    if (isAutoAsked && message.permissionMode !== CLAUDE_AUTO_PERMISSION_MODE) {
+      hooks.onAutoRefused?.(message.model);
+    }
+    return;
+  }
+  if (!isAutoAsked || message.subtype !== CLAUDE_PERMISSION_SUBTYPES.DENIED) {
+    return;
+  }
+  hooks.onToolDecision?.({
+    callId: message.tool_use_id,
+    toolName: message.tool_name,
+    allowedBy: "auto_denied",
+  });
+}
+
 /**
  * Flattens the SDK's message stream into the neutral event vocabulary, so the
  * session lifecycle never sees an SDKMessage. A refusal of the configured model
@@ -82,7 +113,7 @@ function observeModel(
  */
 export async function* toRunnerEvents(
   backend: StreamBackend,
-  hooks: ModelHooks,
+  hooks: StreamHooks,
 ): AsyncGenerator<RunnerEvent, void> {
   let held: SDKMessage[] = [];
   while (true) {
@@ -91,6 +122,7 @@ export async function* toRunnerEvents(
     const message = result.value;
     const usage = extractTokenUsage(message);
     if (usage !== null) hooks.onTokenUsage?.(usage);
+    observePermissions(backend.live, message, hooks);
     if (isModelRefusal(message)) {
       if (message.type === "assistant") {
         held.push(message);

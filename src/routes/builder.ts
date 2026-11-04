@@ -27,11 +27,17 @@ type Withheld =
   | "PreviewLayout"
   | "SetPageBlocks";
 
-type OpName = Exclude<Builder.OperationName, Withheld>;
-type OpArgs = { [N in OpName]: Parameters<(typeof Builder.Operations)[N]> };
+/** The operation map of the interface and `PreviewMapResources`, which the interface exports beside it. */
+const OPERATIONS = {
+  ...Builder.Operations,
+  PreviewMapResources: Builder.PreviewMapResources,
+};
+
+type OpName = Exclude<keyof typeof OPERATIONS, Withheld>;
+type OpArgs = { [N in OpName]: Parameters<(typeof OPERATIONS)[N]> };
 
 /** What the Builder operations answer, as the union of their results. */
-type BuilderResult = Awaited<ReturnType<(typeof Builder.Operations)[OpName]>>;
+type BuilderResult = Awaited<ReturnType<(typeof OPERATIONS)[OpName]>>;
 
 const {
   ListPages,
@@ -68,10 +74,11 @@ const {
   ConfigureModule,
   CreateLocalModule,
   MapResources,
+  PreviewMapResources,
   AnalyseDatabase,
   GetAnalysis,
   GetMapping,
-} = Builder.Operations;
+} = OPERATIONS;
 
 /**
  * The operations the sidecar may call, named one by one: an operation the interface gains is
@@ -112,10 +119,11 @@ const OPS = {
   ConfigureModule,
   CreateLocalModule,
   MapResources,
+  PreviewMapResources,
   AnalyseDatabase,
   GetAnalysis,
   GetMapping,
-} satisfies { [N in OpName]: (typeof Builder.Operations)[N] };
+} satisfies { [N in OpName]: (typeof OPERATIONS)[N] };
 
 type OpTable = {
   [N in OpName]: (...args: OpArgs[N]) => Promise<BuilderResult>;

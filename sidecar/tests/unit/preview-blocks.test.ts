@@ -436,7 +436,6 @@ describe("block preview transcript", () => {
           conversationId,
           mode: "normal",
           generationMode: "safe",
-          fullAuto: null,
         }),
       },
     };

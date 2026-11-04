@@ -222,6 +222,15 @@ export const CODEX_CLIENT_VERSION = "0.0.1";
 export const CODEX_CLIENT_TITLE = "dms-ai";
 
 /**
+ * `experimentalApi` unlocks the `permissions` field of `thread/start` and
+ * `turn/start`, which names a permission profile.
+ */
+export const CODEX_CLIENT_CAPABILITIES = {
+  experimentalApi: true,
+  requestAttestation: false,
+} as const;
+
+/**
  * Live app-server processes are capped: each is a Rust process holding a model
  * connection, and one exists per conversation.
  */

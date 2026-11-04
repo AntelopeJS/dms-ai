@@ -4,16 +4,17 @@ import {
   ALLOWED_BY_VALUES,
   CHANGE_FILE_STATUSES,
   CHANGE_SET_STATES,
-  FULL_AUTO_DURATIONS,
   PERMISSION_KINDS,
   RULE_KINDS,
   TOOL_OUTCOMES,
   TYPECHECK_OUTCOMES,
 } from "../constants/audit.js";
+import { PROVIDER_UNAVAILABLE_CODES } from "../constants/providers.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import {
   CHAT_MODES,
   CHECKPOINT_RETENTION_DAYS,
+  CODEX_CHAT_MODES,
   GENERATION_MODES,
   REQUEST_TIMEOUT_MINUTES,
   THINKING_LEVELS,
@@ -147,6 +148,7 @@ export const QuestionSkippedNoticeSchema = z.object({
   timestampMs: z.number(),
 });
 
+/** Appears only in transcripts written by versions that had Full auto. */
 export const FullAutoEndedNoticeSchema = z.object({
   kind: z.literal("full_auto_ended"),
   timestampMs: z.number(),
@@ -159,12 +161,19 @@ export const ModelFallbackNoticeSchema = z.object({
   timestampMs: z.number(),
 });
 
+export const AutoUnavailableNoticeSchema = z.object({
+  kind: z.literal("auto_unavailable"),
+  model: z.string(),
+  timestampMs: z.number(),
+});
+
 export const NoticeSchema = z.discriminatedUnion("kind", [
   AutoFixNoticeSchema,
   PermissionExpiredNoticeSchema,
   QuestionSkippedNoticeSchema,
   FullAutoEndedNoticeSchema,
   ModelFallbackNoticeSchema,
+  AutoUnavailableNoticeSchema,
 ]);
 
 export const QuestionAnswerRecordSchema = z.object({
@@ -234,11 +243,6 @@ export const ChangeSetSummarySchema = z.object({
   builderOps: z.number(),
 });
 
-export const FullAutoStateSchema = z.object({
-  duration: z.enum(FULL_AUTO_DURATIONS),
-  untilMs: z.number().optional(),
-});
-
 /**
  * A conversation's modes; `generationMode` is the effective one: vibe when the
  * Builder is absent.
@@ -247,7 +251,6 @@ export const ConversationModeSchema = z.object({
   conversationId: z.string(),
   mode: z.enum(CHAT_MODES),
   generationMode: z.enum(GENERATION_MODES),
-  fullAuto: FullAutoStateSchema.nullable(),
 });
 
 export const ConversationModeEvent = ConversationModeSchema.extend({
@@ -287,7 +290,10 @@ export const ConversationListEvent = z.object({
 
 export const AppSettingsSchema = z.object({
   provider: z.enum(PROVIDER_NAMES),
-  mode: z.enum(CHAT_MODES),
+  defaultModes: z.object({
+    claude: z.enum(CHAT_MODES),
+    codex: z.enum(CODEX_CHAT_MODES),
+  }),
   thinking: z.enum(THINKING_LEVELS),
   claudeModel: z.string().default(DEFAULT_SETTINGS.claudeModel),
   generationMode: z.enum(GENERATION_MODES),
@@ -310,6 +316,7 @@ export const AppSettingsSchema = z.object({
 export const ProviderAvailabilitySchema = z.object({
   available: z.boolean(),
   reason: z.string().optional(),
+  code: z.enum(PROVIDER_UNAVAILABLE_CODES).optional(),
 });
 
 /**

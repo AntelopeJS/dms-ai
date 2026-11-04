@@ -6,26 +6,25 @@ import {
   CODEX_COMMAND_APPROVAL_METHOD,
   CODEX_FILE_CHANGE_APPROVAL_METHOD,
 } from "../../src/constants/codex.js";
-import {
-  DEFAULT_SETTINGS,
-  SAFE_MODE_DENIED_MESSAGE,
-} from "../../src/constants/settings.js";
+import { SAFE_MODE_DENIED_MESSAGE } from "../../src/constants/settings.js";
 import { buildDeveloperInstructions } from "../../src/providers/codex/config.js";
 import { createCodexPermissionHandler } from "../../src/providers/codex/permissions.js";
-import type { AppSettings } from "../../src/state/settings-types.js";
+import type { TurnSettings } from "../../src/state/settings-types.js";
 import { createTestBus } from "../helpers/permission-bus.js";
+import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 
 beforeAll(() => setBuilderAvailable(true));
 afterAll(() => setBuilderAvailable(false));
 
 const CONVERSATION = "conv-perm";
 const ITEM_ID = "call_1";
+const PROJECT_ROOT = "/srv/app";
 const CHANGED_PATH = "/srv/app/src/page.ts";
 const COMMAND = "rm -rf build";
 const UNKNOWN_METHOD = "item/unknown/requestApproval";
 
-function settings(overrides: Partial<AppSettings>): AppSettings {
-  return { ...DEFAULT_SETTINGS, generationMode: "vibe", ...overrides };
+function settings(overrides: Partial<TurnSettings>): TurnSettings {
+  return { ...TURN_SETTINGS, generationMode: "vibe", ...overrides };
 }
 
 const APPROVED: PermissionOutcome = { isAllowed: true, allowedBy: "approved" };
@@ -45,7 +44,7 @@ function changesOf(itemId: string) {
   return [{ path: CHANGED_PATH, kind: "update", diff: PATCH_DIFF }];
 }
 
-function buildHandler(current: AppSettings, outcome = APPROVED) {
+function buildHandler(current: TurnSettings, outcome = APPROVED) {
   const { bus, requestPermission } = buildBus(outcome);
   const decisions: ToolDecision[] = [];
   const handler = createCodexPermissionHandler({
@@ -53,6 +52,9 @@ function buildHandler(current: AppSettings, outcome = APPROVED) {
     permissionBus: bus,
     getSettings: () => current,
     getChanges: changesOf,
+    hostProjectRoot: PROJECT_ROOT,
+    moduleRoots: [],
+    getPendingMcpCalls: () => [],
     onToolDecision: (decision) => decisions.push(decision),
   });
   return { handler, requestPermission, decisions };
@@ -161,6 +163,9 @@ describe("auto-decline modes", () => {
       permissionBus: bus,
       getSettings: () => current,
       getChanges: changesOf,
+      hostProjectRoot: PROJECT_ROOT,
+      moduleRoots: [],
+      getPendingMcpCalls: () => [],
     });
     await handler.handle(COMMAND_REQUEST);
     expect(requestPermission).not.toHaveBeenCalled();
