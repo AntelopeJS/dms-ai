@@ -1,4 +1,0 @@
-@antelopejs/interface-dms-builder	package.json	optionalDependencies	>=0.3.1 <1.0.0
-@antelopejs/interface-dms-builder	package.json	pnpm.overrides	
-@antelopejs/interface-dms-builder	sidecar/package.json	devDependencies	>=0.3.1 <1.0.0
-@antelopejs/interface-dms-builder	sidecar/package.json	pnpm.overrides	
