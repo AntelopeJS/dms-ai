@@ -11,7 +11,7 @@ An AI development assistant inside the [AntelopeJS DMS](https://github.com/Antel
 
 </div>
 
-![A conversation in the chat panel: two applied checkpoints with their files, an auto-fix turn and the assistant's summary](./docs/images/chat-conversation.webp)
+![Screen recording from the AntelopeJS DMS film. The assistant panel opens next to a dashboard with Claude Code as the coding agent, and the request Add a card with the sites that stopped reporting is typed under the caption Or describe it. The assistant then reports Added the card Delayed sites with Typecheck passed, the changed files dashboard/page.ts and dashboard/stats.ts, and the buttons Review diff and Undo, under the caption A change set. Review it. Undo it.](./docs/images/assistant.gif)
 
 ## What it does
 
