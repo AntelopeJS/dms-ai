@@ -164,6 +164,7 @@ export const journeys = guarded([
     async run(/** @type {Ctx} */ ctx) {
       await freshSidecar(ctx);
       const first = sidecarLock(ctx);
+      await ai(ctx, "the last request before the wait", "GET", "/status");
       const startedAt = Date.now();
       const minutes = () => (Date.now() - startedAt) / 60_000;
       await pause(10 * 60_000);
