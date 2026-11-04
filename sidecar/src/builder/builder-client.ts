@@ -1,6 +1,6 @@
 import type {
+  OperationName,
   Operations,
-  PreviewMapResources,
 } from "@antelopejs/interface-dms-builder";
 import {
   BUILDER_FETCH_TIMEOUT_MS,
@@ -13,22 +13,14 @@ import { SIDECAR_AUTH_HEADER } from "../constants/daemon.js";
 import { type JsonValue, JsonValueSchema } from "../protocol/json.js";
 import { z } from "zod";
 
-/** The operation map of the interface and `PreviewMapResources`, which the interface exports beside it. */
-type BuilderOperations = typeof Operations & {
-  PreviewMapResources: typeof PreviewMapResources;
-};
-
-/** The name of a Builder operation the backend route runs. */
-export type BuilderOperationName = keyof BuilderOperations;
-
 /** The parameters of one Builder operation, as the interface declares them. */
-export type BuilderOpArgs<N extends BuilderOperationName> = Parameters<
-  BuilderOperations[N]
+export type BuilderOpArgs<N extends OperationName> = Parameters<
+  (typeof Operations)[N]
 >;
 
 export interface BuilderClient {
   /** Runs one Builder operation; the backend route runs it with these arguments. */
-  call<N extends BuilderOperationName>(
+  call<N extends OperationName>(
     op: N,
     args: BuilderOpArgs<N>,
   ): Promise<JsonValue>;

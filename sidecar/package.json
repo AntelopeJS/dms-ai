@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@antelopejs/interface-core": "file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz",
-    "@antelopejs/interface-dms-builder": "file:../.campaign/tgz/antelopejs-interface-dms-builder-e191d89.tgz",
+    "@antelopejs/interface-dms-builder": "file:../.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz",
     "@antelopejs/tooling-configs": "^0.2.11",
     "@openai/codex": "0.166.0",
     "@types/node": "^22.19.15",
@@ -40,7 +40,7 @@
   "pnpm": {
     "overrides": {
       "@antelopejs/interface-core": "file:../.campaign/tgz/antelopejs-interface-core-f7df541.tgz",
-      "@antelopejs/interface-dms-builder": "file:../.campaign/tgz/antelopejs-interface-dms-builder-e191d89.tgz"
+      "@antelopejs/interface-dms-builder": "file:../.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz"
     }
   }
 }
