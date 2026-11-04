@@ -97,11 +97,10 @@ export const journeys = guarded([
         pageHas(tab, "Approved by you", /Approved by you\s*4\s*\S*\s*vs 0\s*Requests you allowed when asked/i),
         pageHas(tab, "Undone", /Undone\s*0\s*\S*\s*0\.0% vs 0\s*Change sets rolled back/i),
         pageHas(tab, "the ways, in order, numbered, with the trend of the first", /Read-only, automatic\s*17\s*\S*\s*\+183\.3%\s*2\s*Builder, automatic\s*2\s*—\s*3\s*Approved by you\s*4\s*—\s*4\s*Allowed by a rule\s*3\s*—\s*5\s*Full auto\s*1\s*—\s*6\s*Blocked · safe mode\s*1\s*—\s*7\s*Denied by you\s*2\s*—\s*8\s*Expired\s*1\s*—\s*9\s*Deletions asked\s*Deletions always ask, even in Full auto\s*1/i),
-        pageHas(tab, "the top tools with their group and runs", /Top tools[\s\S]*Run command[\s\S]*6[\s\S]*Use skill[\s\S]*5[\s\S]*Edit file[\s\S]*4[\s\S]*Read file[\s\S]*3[\s\S]*Add block[\s\S]*2/i),
+                pageHas(tab, "the top five with their group, runs and trend", /Top tools[\s\S]*1 List folder Code mode 7\s*\S*\s*\+133\.3%\s*2 Run command Code mode 6\s*—\s*3 Use skill Assistant 5\s*\S*\s*\+400\.0%\s*4 Edit file Code mode 4\s*—\s*5 Read file Code mode 3\s*\S*\s*\+50\.0%/i),
         pageHas(tab, "the recent change sets: the four latest, newest first", /Recent change sets\s*4[\s\S]*5 Add the fourth note[\s\S]*4 Remove the old note[\s\S]*3 Extend the notes[\s\S]*2 Reword the second note/i),
         pageHas(tab, "and not the fifth", /Add the notes files/, false),
-        pageHas(tab, "exactly five top tools, the most used first", /Top tools[\s\S]*1 List folder[\s\S]*7[\s\S]*2 Run command[\s\S]*6[\s\S]*3 Use skill[\s\S]*5[\s\S]*4 Edit file[\s\S]*4[\s\S]*5 Read file[\s\S]*3/i),
-        pageHas(tab, "none after the fifth", /Top tools[\s\S]*\s6 (Add block|Write file|Delete page|Search code|Find files)/i, false),
+                pageHas(tab, "none after the fifth", /Top tools[\s\S]*\s6 (Add block|Write file|Delete page|Search code|Find files)/i, false),
       ]);
       await choose(tab, { role: "radio", name: "Last 24 hours" });
       await ctx.verify("24 hours", [pageHas(tab, "Actions", /Actions\s*26\s*\S*\s*\+766\.7%\s*vs 3/i), pageHas(tab, "labelled", /Last 24 hours/)]);
@@ -210,10 +209,10 @@ export const journeys = guarded([
       }
       await ai(ctx, "default scope Code", "PUT", "/settings", { body: { generationMode: "vibe" } });
       await tab.goto("/modules/ai/overview");
-      await ctx.verify("scope Code", [pageHas(tab, "the Default scope row", /Default scope\s*Code mode\s*Safe needs Builder/i)]);
+      await ctx.verify("scope Code", [pageHas(tab, "the Default scope row, with no hint: Code is what was chosen", /Default scope\s*Code mode\s*Approvals/i), pageHas(tab, "no Safe needs Builder", /Safe needs Builder/, false)]);
       await ai(ctx, "default scope Safe", "PUT", "/settings", { body: { generationMode: "safe" } });
       await tab.goto("/modules/ai/overview");
-      await ctx.verify("scope Safe, which needs the Builder", [pageHas(tab, "still Code mode, and says why", /Default scope\s*Code mode\s*Safe needs Builder/i)]);
+      await ctx.verify("scope Safe, which needs the Builder", [pageHas(tab, "shows Code mode and says why", /Default scope\s*Code mode\s*Safe needs Builder/i)]);
       await ai(ctx, "agent Codex", "PUT", "/settings", { body: { provider: "codex" } });
       await tab.goto("/modules/ai/overview");
       await ctx.verify("the agent Codex", [pageHas(tab, "the Agent row", /Agent\s*Codex/i)]);
