@@ -39,6 +39,7 @@ function isNumber(value: unknown): value is number {
 
 function parseContents(raw: string): ChangeSetFileContents {
   try {
+    // SAFETY: the file is this sidecar's own ChangeSetFileContents; `changeSets` and `nextNumber` are checked before use and the records are trusted as written.
     const parsed = JSON.parse(raw) as Partial<ChangeSetFileContents>;
     if (!Array.isArray(parsed.changeSets)) return emptyContents();
     return {
@@ -68,7 +69,7 @@ function persist(state: StoreState): void {
       await mkdir(dirname(state.filePath), { recursive: true });
       await writeFile(state.filePath, json, STATE_FILE_ENCODING);
     })
-    .catch((err) => {
+    .catch((err: unknown) => {
       console.warn(`${CHECKPOINTS_LOG_PREFIX} write failed: ${String(err)}`);
     });
 }

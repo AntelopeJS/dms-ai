@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   CODEX_CLIENT_NAME,
   CODEX_CONFIG_FILE_NAME,
@@ -13,13 +14,15 @@ import {
   type CodexProcess,
   spawnCodexProcess,
 } from "../../src/providers/codex/process.js";
-import type { v2 } from "../../src/providers/codex/protocol/index.js";
 import {
   type CodexInstallation,
   isCodexInstallationUsable,
   resolveCodexInstallation,
 } from "../../src/providers/codex/resolve-binary.js";
-import { selectSkillsToDisable } from "../../src/providers/codex/skills.js";
+import {
+  selectSkillsToDisable,
+  skillsListResponseSchema,
+} from "../../src/providers/codex/skills.js";
 import { isRunning, TEST_STOP_GRACES } from "../helpers/processes.js";
 import {
   CODEX_FIXTURE,
@@ -44,14 +47,10 @@ function requireInstallation(): CodexInstallation {
   return installation;
 }
 
-interface InitializeResult {
-  userAgent: string;
-  codexHome: string;
-}
-
-interface SkillsListResult {
-  data: v2.SkillsListEntry[];
-}
+const initializeResultSchema = z.object({
+  userAgent: z.string(),
+  codexHome: z.string(),
+});
 
 describe.skipIf(installation === undefined)("codex app-server process", () => {
   let stateDir: string | undefined;
@@ -88,7 +87,8 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
         },
       });
 
-      const initialized = await running.client.request<InitializeResult>(
+      const initialized = await running.client.requestDecoded(
+        initializeResultSchema,
         "initialize",
         {
           clientInfo: {
@@ -141,7 +141,8 @@ describe.skipIf(installation === undefined)("codex app-server process", () => {
       });
       running.client.notify("initialized", {});
 
-      const listed = await running.client.request<SkillsListResult>(
+      const listed = await running.client.requestDecoded(
+        skillsListResponseSchema,
         "skills/list",
         {},
       );

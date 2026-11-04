@@ -1,4 +1,6 @@
 import { z } from "zod";
+import type { OperationName } from "@antelopejs/interface-dms-builder";
+import type { BuilderOpArgs } from "../../builder/builder-client.js";
 import {
   BUILDER_ESCALATION_NOTE,
   BUILDER_EXPR_REFUSAL,
@@ -7,9 +9,9 @@ import type { McpToolResult } from "../define-tool.js";
 import { opResult } from "./builder-project.js";
 
 /** Runs one Builder operation and answers its result as a tool result. */
-export type BuilderRun = (
-  op: string,
-  args: unknown[],
+export type BuilderRun = <N extends OperationName>(
+  op: N,
+  args: BuilderOpArgs<N>,
 ) => Promise<McpToolResult>;
 
 /** A tool description with the escalation note every Builder tool carries. */
@@ -18,19 +20,18 @@ export function note(description: string): string {
 }
 
 const EXPR_SENTINEL = z.object({ $expr: z.string() });
-const EXPR_CARRIER = z.record(z.string(), z.unknown());
 
-/** Whether a value carries a `$expr` sentinel anywhere inside it. */
-export function hasExprSentinel(value: unknown): boolean {
-  if (Array.isArray(value)) {
-    return value.some(hasExprSentinel);
-  }
-  if (EXPR_SENTINEL.safeParse(value).success) {
-    return true;
-  }
-  const record = EXPR_CARRIER.safeParse(value);
-  return record.success && Object.values(record.data).some(hasExprSentinel);
-}
+/** Whether an agent-supplied value holds a `{ $expr }` sentinel at any depth of arrays and records. */
+export const containsExprSentinel: z.ZodType<boolean> = z.lazy(() =>
+  z.union([
+    EXPR_SENTINEL.transform(() => true),
+    z.array(containsExprSentinel).transform((items) => items.some(Boolean)),
+    z
+      .record(z.string(), containsExprSentinel)
+      .transform((members) => Object.values(members).some(Boolean)),
+    z.unknown().transform(() => false),
+  ]),
+);
 
 /** The refusal a tool answers when its arguments carry a `$expr` sentinel. */
 export function exprRefusal(): McpToolResult {

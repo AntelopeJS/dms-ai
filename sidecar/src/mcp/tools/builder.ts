@@ -1,11 +1,12 @@
 import { z } from "zod";
 import type { BuilderClient } from "../../builder/builder-client.js";
 import { BUILDER_REF_NOTE } from "../../prompts/builder.js";
+import { JsonValueSchema } from "../../protocol/json.js";
 import { defineTool } from "../define-tool.js";
 import {
   type BuilderRun,
+  containsExprSentinel,
   exprRefusal,
-  hasExprSentinel,
   note,
 } from "./builder-expr.js";
 import { buildComposeTools } from "./builder-compose.js";
@@ -14,6 +15,7 @@ import { buildTableViewTools } from "./builder-table-view.js";
 import { type BuilderGate, gateBuilderTools } from "./builder-gate.js";
 import {
   buildProjectTools,
+  JSON_RECORD,
   opResult,
   TARGET_MODULE,
 } from "./builder-project.js";
@@ -24,7 +26,7 @@ export interface BuilderToolsDeps {
   gate?: BuilderGate;
 }
 
-const CONFIG = z.record(z.string(), z.unknown());
+const CONFIG = JSON_RECORD;
 
 /**
  * Every block path returned by BuilderPageStructure follows this shape; the
@@ -46,7 +48,7 @@ const DATA_TYPE_VALUE = z.object({
     .string()
     .describe("A `dataTypes` id from BuilderCatalog, e.g. `string`, `select`."),
   config: z
-    .record(z.string(), z.unknown())
+    .record(z.string(), JsonValueSchema)
     .optional()
     .describe(
       `That DataType's own config, per BuilderCatalog. ${BUILDER_REF_NOTE}`,
@@ -209,8 +211,8 @@ function buildPageTools(run: BuilderRun) {
         "Updates a page's metadata: displayName, icon, order (lowest first, then by title; a dashboard takes 0, mapped table pages 100), description. Works on pages BuilderMapResources wrote too.",
       ),
       { pageRef: z.string(), patch: CONFIG },
-      async ({ pageRef, patch }: { pageRef: string; patch: unknown }) =>
-        hasExprSentinel(patch)
+      async ({ pageRef, patch }) =>
+        containsExprSentinel.parse(patch)
           ? exprRefusal()
           : run("ConfigurePage", [pageRef, patch]),
     ),
@@ -246,7 +248,7 @@ function buildBlockTools(run: BuilderRun) {
           ),
       },
       async (input) =>
-        hasExprSentinel(input.config)
+        containsExprSentinel.parse(input.config)
           ? exprRefusal()
           : run("AddBlock", [input]),
     ),
@@ -256,16 +258,8 @@ function buildBlockTools(run: BuilderRun) {
         "Merges (or replaces, with replace:true) options into a block's config. Children are managed with Add/Move/Remove, not here.",
       ),
       { path: BLOCK_PATH, patch: CONFIG, replace: z.boolean().optional() },
-      async ({
-        path,
-        patch,
-        replace,
-      }: {
-        path: string;
-        patch: unknown;
-        replace?: boolean;
-      }) =>
-        hasExprSentinel(patch)
+      async ({ path, patch, replace }) =>
+        containsExprSentinel.parse(patch)
           ? exprRefusal()
           : run("ConfigureBlock", [path, patch, { replace }]),
     ),
@@ -315,8 +309,8 @@ function buildBlockTools(run: BuilderRun) {
       "BuilderConfigureCategory",
       note("Updates a category's metadata (displayName, icon, order)."),
       { ref: z.string(), patch: CONFIG },
-      async ({ ref, patch }: { ref: string; patch: unknown }) =>
-        hasExprSentinel(patch)
+      async ({ ref, patch }) =>
+        containsExprSentinel.parse(patch)
           ? exprRefusal()
           : run("ConfigureCategory", [ref, patch]),
     ),
@@ -368,13 +362,15 @@ function buildResourceTools(run: BuilderRun) {
         displayName: z.string().optional(),
         schema: z.string().optional(),
         fields: z.array(FIELD_SPEC),
-        seeds: z.array(z.record(z.string(), z.unknown())).optional(),
+        seeds: z.array(JSON_RECORD).optional(),
         location: RESOURCE_LOCATION.optional(),
         routes: z.array(RESOURCE_ROUTE).min(1).optional(),
         module: TARGET_MODULE,
       },
       async (input) =>
-        hasExprSentinel(input) ? exprRefusal() : run("CreateResource", [input]),
+        containsExprSentinel.parse(input)
+          ? exprRefusal()
+          : run("CreateResource", [input]),
     ),
     defineTool(
       "BuilderDeleteResource",
@@ -394,8 +390,10 @@ function buildResourceTools(run: BuilderRun) {
         "Adds a field to a resource, editing the Table and DataAPI classes together in one atomic op.",
       ),
       { ref: z.string(), field: FIELD_SPEC },
-      async ({ ref, field }: { ref: string; field: unknown }) =>
-        hasExprSentinel(field) ? exprRefusal() : run("AddField", [ref, field]),
+      async ({ ref, field }) =>
+        containsExprSentinel.parse(field)
+          ? exprRefusal()
+          : run("AddField", [ref, field]),
     ),
     defineTool(
       "BuilderConfigureField",
@@ -403,8 +401,8 @@ function buildResourceTools(run: BuilderRun) {
         "Reconfigures a field by merging the patch over its current aspects and re-deriving the whole decorator stack on both classes (no drift). Field name is immutable — rename via BuilderRemoveField + BuilderAddField.",
       ),
       { path: FIELD_PATH, patch: FIELD_ASPECTS_PATCH },
-      async ({ path, patch }: { path: string; patch: unknown }) =>
-        hasExprSentinel(patch)
+      async ({ path, patch }) =>
+        containsExprSentinel.parse(patch)
           ? exprRefusal()
           : run("ConfigureField", [path, patch]),
     ),

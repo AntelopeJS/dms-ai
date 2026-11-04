@@ -50,7 +50,11 @@ function harness(): Harness {
 
 function settles<T>(promise: Promise<T>): Promise<string> {
   return Promise.race([
-    promise.then(() => "resolved").catch((err: Error) => err.message),
+    promise
+      .then(() => "resolved")
+      .catch((err: unknown) =>
+        err instanceof Error ? err.message : String(err),
+      ),
     new Promise<string>((resolve) =>
       setTimeout(() => resolve("still pending"), SETTLE_BUDGET_MS),
     ),
@@ -126,5 +130,25 @@ describe("codex client request timeout", () => {
     );
     stdout.write(`${JSON.stringify({ id: 1, result: { data: [] } })}\n`);
     await expect(settles(inFlight)).resolves.toBe("resolved");
+  });
+});
+
+describe("codex client decoded requests", () => {
+  const startSchema = z.object({ thread: z.object({ id: z.string() }) });
+
+  it("resolves with the decoded reply", async () => {
+    const { client, stdout } = harness();
+    const inFlight = client.requestDecoded(startSchema, "thread/start", {});
+    stdout.write(
+      `${JSON.stringify({ id: 1, result: { thread: { id: "t1" } } })}\n`,
+    );
+    await expect(inFlight).resolves.toEqual({ thread: { id: "t1" } });
+  });
+
+  it("rejects a reply without the expected fields", async () => {
+    const { client, stdout } = harness();
+    const inFlight = client.requestDecoded(startSchema, "thread/start", {});
+    stdout.write(`${JSON.stringify({ id: 1, result: { thread: {} } })}\n`);
+    await expect(inFlight).rejects.toBeInstanceOf(z.ZodError);
   });
 });

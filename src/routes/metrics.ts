@@ -1,11 +1,17 @@
 import { Controller, Get, Parameter } from "@antelopejs/interface-api";
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import { ROUTE_PREFIX } from "../constants/module";
+import type { z } from "zod";
 import {
+  ALLOWED_ANSWER,
   buildQuery,
+  CHART_ANSWER,
+  KPI_ANSWER,
   pathSegment,
   type QueryParams,
   readSidecar,
+  TOP_TOOLS_ANSWER,
+  USAGE_ANSWER,
 } from "../sidecar";
 import type {
   AllowedBreakdown,
@@ -48,10 +54,13 @@ interface PeriodParams extends QueryParams {
 async function readMetric<T, R>(
   path: string,
   params: QueryParams,
+  schema: z.ZodType<T>,
   fallback: T,
   toPayload: (body: T) => R,
 ): Promise<R> {
-  return toPayload(await readSidecar(`${path}${buildQuery(params)}`, fallback));
+  return toPayload(
+    await readSidecar(`${path}${buildQuery(params)}`, schema, fallback),
+  );
 }
 
 /**
@@ -70,7 +79,7 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
   ): Promise<KpiPayload> {
     const period: PeriodParams = { from, to, compareFrom, compareTo };
     const path = `/metrics/kpi/${pathSegment(metric)}`;
-    return readMetric(path, period, EMPTY_KPI, kpiPayload(metric));
+    return readMetric(path, period, KPI_ANSWER, EMPTY_KPI, kpiPayload(metric));
   }
 
   @Get("series")
@@ -81,7 +90,11 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
     @Parameter("compareTo", "query") compareTo?: string,
   ): Promise<ChartPayload> {
     const period: PeriodParams = { from, to, compareFrom, compareTo };
-    return readSidecar(`/metrics/series${buildQuery(period)}`, EMPTY_CHART);
+    return readSidecar(
+      `/metrics/series${buildQuery(period)}`,
+      CHART_ANSWER,
+      EMPTY_CHART,
+    );
   }
 
   @Get("allowed")
@@ -95,6 +108,7 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
     return readMetric(
       "/metrics/allowed",
       period,
+      ALLOWED_ANSWER,
       EMPTY_ALLOWED,
       allowedPayload,
     );
@@ -112,6 +126,7 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
     return readMetric(
       "/metrics/top-tools",
       params,
+      TOP_TOOLS_ANSWER,
       EMPTY_TOOLS,
       topToolsPayload,
     );
@@ -122,6 +137,7 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
     return readMetric(
       "/metrics/usage",
       { days },
+      USAGE_ANSWER,
       EMPTY_USAGE,
       usageChartPayload,
     );
@@ -134,6 +150,7 @@ export class AIMetricsController extends Controller(`${ROUTE_PREFIX}/metrics`) {
     return readMetric(
       "/metrics/usage",
       { days },
+      USAGE_ANSWER,
       EMPTY_USAGE,
       usageSummaryPayload,
     );

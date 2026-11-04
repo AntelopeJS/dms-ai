@@ -2,16 +2,17 @@ import { z } from "zod";
 import { defineTool } from "../define-tool.js";
 import {
   type BuilderRun,
+  containsExprSentinel,
   exprRefusal,
-  hasExprSentinel,
   note,
 } from "./builder-expr.js";
+import { JSON_RECORD } from "./builder-project.js";
 import { QUERY_ARGS, QUERY_FIELDS } from "./builder-queries.js";
 
 const DESCRIPTION =
   "Builds a whole page, or adds a group of blocks to one, in a single call: the blocks, the queries they read, the layout rows and the page itself when it does not exist yet. One rewrite, one typecheck, and nothing is written when any block is refused; the error names each refused block by JSON pointer into your input (`/blocks/3/children/0/query/params/groupBy`). A data block carries its `query` inline (the BuilderAddQuery fields, `name` defaulting to the block's name): the route it compiles to is written into the block's `fetchUrl` for you, so never pass `fetchUrl` yourself. Containers (`PageToolbar`, `Grid`, `GridRow`, `Section`…) carry their blocks in `children`, and a child sits in its row in order. Pass `preview: true` first to run every query with `args` and read each block's answer without writing: a block whose `status` is `empty` or `zero` would render nothing useful, so fix its query before the writing call. To put blocks above or below a table already on the page (a KPI row above the TableView a mapping wrote), pass `placement: { before: \"table\" }`; a later BuilderMapResources keeps them. Use BuilderAddBlock and BuilderAddQuery for a single edit.";
 
-const OPTIONS = z.record(z.string(), z.unknown());
+const OPTIONS = JSON_RECORD;
 type Options = z.infer<typeof OPTIONS>;
 
 const BLOCK_QUERY = z.object({
@@ -143,7 +144,7 @@ export function buildComposeTools(run: BuilderRun) {
           preview,
           args,
         };
-        return hasExprSentinel(input)
+        return containsExprSentinel.parse(input)
           ? exprRefusal()
           : run("ComposePage", [input]);
       },

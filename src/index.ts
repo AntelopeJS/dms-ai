@@ -12,6 +12,7 @@ import "./pages";
 import "./routes";
 import { frontendModule } from "./frontend-module";
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- core calls the published construct hook with the raw project config, so narrowing the parameter changes the published signature; ConfigSchema.safeParse parses it on the next line
 export function construct(config: unknown): void {
   setConfig(ConfigSchema.safeParse(config).data ?? {});
 }
@@ -36,7 +37,7 @@ export async function start() {
     moduleRoots,
     skillDirs,
     builderEnabled,
-  }).catch((err) => {
+  }).catch((err: unknown) => {
     Logging.Error(`${SIDECAR_LOG_PREFIX} spawn failed:`, err);
   });
 }

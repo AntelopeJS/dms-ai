@@ -30,11 +30,18 @@ export function assistantUnavailable(): HTTPResult {
 const REFUSAL_TEXT = z.string().min(1);
 const REFUSAL_BODY = z.object({ message: z.string() });
 
-function messageOf(body: unknown): string {
+function messageOf(body: JsonBody | undefined): string {
   const text = REFUSAL_TEXT.safeParse(body);
   if (text.success) return text.data;
   const refusal = REFUSAL_BODY.safeParse(body);
   return refusal.success ? refusal.data.message : ASSISTANT_REFUSED_MESSAGE;
+}
+
+/** The sidecar answered a body that is not the one the route reads: its answer is refused, not mapped. */
+function badGateway(): HTTPResult {
+  return new HTTPResult(HTTP_STATUS.BAD_GATEWAY, {
+    message: ASSISTANT_REFUSED_MESSAGE,
+  } satisfies ErrorBody);
 }
 
 function refused(response: SidecarResponse): HTTPResult {
@@ -44,12 +51,14 @@ function refused(response: SidecarResponse): HTTPResult {
 }
 
 /**
- * Forwards a request to the sidecar and turns its answer into the route's. A refusal keeps
- * its status with `{ message }`; an unreachable sidecar answers 503, so
+ * Forwards a request to the sidecar and turns its answer into the route's,
+ * after reading it with `schema`. A refusal keeps its status with
+ * `{ message }`; a body that fails `schema` answers 502; an unreachable sidecar answers 503, so
  * tables show their error state and an instant save says "Not saved".
  */
 export async function relay<T, Answer>(
   path: string,
+  schema: z.ZodType<T>,
   toAnswer: BodyToAnswer<T, Answer>,
   request: SidecarRequest = {},
 ): Promise<Answer | HTTPResult> {
@@ -60,7 +69,8 @@ export async function relay<T, Answer>(
     return assistantUnavailable();
   }
   if (!response.isOk) return refused(response);
-  return toAnswer(response.body as T);
+  const parsed = schema.safeParse(response.body);
+  return parsed.success ? toAnswer(parsed.data) : badGateway();
 }
 
 /** Forwards the sidecar's answer unchanged. */

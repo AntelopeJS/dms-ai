@@ -22,6 +22,7 @@ import {
   sidecarListParams,
 } from "./list-query";
 import { relay } from "./sidecar-results";
+import { ACTIVITY_PAGE_ANSWER, ACTIVITY_ROW_ANSWER } from "./sidecar-answers";
 import { findLoggedTool } from "../vocabulary";
 
 const ACTIVITY_PATH = "/activity";
@@ -93,7 +94,7 @@ export class AIActivityController extends Controller(ROUTE_PREFIX) {
     @Context() ctx: RequestContext,
   ): Promise<SidecarList<ActivityTableRow> | HTTPResult> {
     const query = buildQuery(activityParams(ctx.url.searchParams));
-    return relay(`${ACTIVITY_PATH}${query}`, tablePage);
+    return relay(`${ACTIVITY_PATH}${query}`, ACTIVITY_PAGE_ANSWER, tablePage);
   }
 
   @Get(`${ACTIVITY_PATH}/export.csv`)
@@ -104,13 +105,21 @@ export class AIActivityController extends Controller(ROUTE_PREFIX) {
       offset: undefined,
       limit: EXPORT_MAX_ROWS,
     });
-    return relay(`${ACTIVITY_PATH}${query}`, exportResult);
+    return relay(
+      `${ACTIVITY_PATH}${query}`,
+      ACTIVITY_PAGE_ANSWER,
+      exportResult,
+    );
   }
 
   @Get(`${ACTIVITY_PATH}/:id`)
   detail(
     @Parameter("id", "param") id: string,
   ): Promise<ActivityTableRow | HTTPResult> {
-    return relay(`${ACTIVITY_PATH}/${pathSegment(id)}`, tableRow);
+    return relay(
+      `${ACTIVITY_PATH}/${pathSegment(id)}`,
+      ACTIVITY_ROW_ANSWER,
+      tableRow,
+    );
   }
 }

@@ -3,8 +3,8 @@ import { defineTool } from "../define-tool.js";
 import { TABLE_VIEW_SETTINGS } from "./builder-table-view-schema.js";
 import {
   type BuilderRun,
+  containsExprSentinel,
   exprRefusal,
-  hasExprSentinel,
   note,
 } from "./builder-expr.js";
 
@@ -26,18 +26,17 @@ export function buildTableViewTools(run: BuilderRun) {
           ),
         ...TABLE_VIEW_SETTINGS,
       },
-      async ({ pageRef, block, ...settings }) =>
-        hasExprSentinel(settings)
-          ? exprRefusal()
-          : run("ConfigureTableView", [
-              pageRef,
-              Object.fromEntries(
-                Object.entries(settings).filter(
-                  ([, value]) => value !== undefined,
-                ),
-              ),
-              ...(block === undefined ? [] : [{ block }]),
-            ]),
+      async ({ pageRef, block, ...settings }) => {
+        if (containsExprSentinel.parse(settings)) {
+          return exprRefusal();
+        }
+        const set = Object.fromEntries(
+          Object.entries(settings).filter(([, value]) => value !== undefined),
+        );
+        return block === undefined
+          ? run("ConfigureTableView", [pageRef, set])
+          : run("ConfigureTableView", [pageRef, set, { block }]);
+      },
     ),
   ];
 }

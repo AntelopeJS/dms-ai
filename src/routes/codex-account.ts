@@ -12,6 +12,7 @@ import type {
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import { serializeConfirmDialog } from "@antelopejs/interface-dms/base/confirm-dialog";
 import { DefaultDataTypes } from "@antelopejs/interface-dms/base/data-types";
+import { z } from "zod";
 import { I18N_SECTIONS } from "../constants/i18n";
 import { ROUTE_PREFIX } from "../constants/module";
 import { PAGE_ROUTES } from "../constants/pages";
@@ -19,6 +20,7 @@ import { type JsonBody, requestSidecar } from "../sidecar";
 import { i18nKey } from "../vocabulary";
 import { bannerAnswer } from "./banner";
 import { asIs, relay } from "./sidecar-results";
+import { ANY_ANSWER } from "./sidecar-answers";
 
 const ACCOUNT_PATH = "/codex/account";
 const LOGOUT_PATH = "/codex/logout";
@@ -27,13 +29,18 @@ const CALLBACK_PATH = "/codex/callback";
 const PASTED_URL_FIELD = "url";
 const NO_STORE = { "Cache-Control": "no-store" };
 
-/** What the sidecar says about the ChatGPT account Codex runs on. */
-interface CodexAccount {
-  isSignedIn: boolean;
-  email?: string;
-  /** OpenAI's authorization URL for a new attempt, when no account is signed in. */
-  loginUrl?: string;
-}
+/**
+ * What the sidecar says about the ChatGPT account Codex runs on: whether one
+ * is signed in, its email, and OpenAI's authorization URL for a new attempt
+ * when none is.
+ */
+const CodexAccountSchema = z.object({
+  isSignedIn: z.boolean(),
+  email: z.string().optional(),
+  loginUrl: z.string().optional(),
+});
+
+type CodexAccount = z.infer<typeof CodexAccountSchema>;
 
 function text(...segments: string[]): string {
   return i18nKey(I18N_SECTIONS.SETTINGS, "chatgpt", ...segments);
@@ -145,9 +152,9 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
   async banner(): Promise<HTTPResult> {
     try {
       const response = await requestSidecar(ACCOUNT_PATH);
-      const content = response.isOk
-        ? accountBanner(response.body as CodexAccount)
-        : null;
+      const account = CodexAccountSchema.safeParse(response.body);
+      const content =
+        response.isOk && account.success ? accountBanner(account.data) : null;
       return HTTPResult.withHeaders(bannerAnswer(content), NO_STORE);
     } catch {
       return HTTPResult.withHeaders(bannerAnswer(null), NO_STORE);
@@ -158,7 +165,7 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
   finishSignIn(
     @JSONBody() body?: PastedCallbackBody,
   ): Promise<JsonBody | HTTPResult | undefined> {
-    return relay(CALLBACK_PATH, asIs, {
+    return relay(CALLBACK_PATH, ANY_ANSWER, asIs, {
       method: "POST",
       body: { url: body?.[PASTED_URL_FIELD] },
     });
@@ -166,6 +173,6 @@ export class AICodexAccountController extends Controller(ROUTE_PREFIX) {
 
   @Post(LOGOUT_PATH)
   logout(): Promise<JsonBody | HTTPResult | undefined> {
-    return relay(LOGOUT_PATH, asIs, { method: "POST" });
+    return relay(LOGOUT_PATH, ANY_ANSWER, asIs, { method: "POST" });
   }
 }

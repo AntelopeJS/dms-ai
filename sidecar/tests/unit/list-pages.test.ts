@@ -34,7 +34,7 @@ describe("buildListPagesTool", () => {
       { id: "p1", path: "/form/form-simple", moduleId: "dms" },
     ]);
     const result = await buildTool(registry).handler({ refresh: undefined });
-    const parsed = JSON.parse(result.content[0]?.text ?? "[]");
+    const parsed: unknown = JSON.parse(result.content[0]?.text ?? "[]");
     expect(parsed).toEqual([
       { id: "p1", path: "/form/form-simple", moduleId: "dms" },
     ]);

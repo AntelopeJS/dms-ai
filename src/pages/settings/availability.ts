@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ComponentInfoSerialized } from "@antelopejs/interface-dms/component";
 import type {
   FormFieldOrGroupSerialized,
@@ -6,8 +7,7 @@ import type {
 } from "@antelopejs/interface-dms/base/form-types";
 import type { DefaultValue } from "@antelopejs/interface-dms/base/types/form-values";
 import { asFormValues, type SettingsBody } from "../../sidecar/settings-values";
-import { readSidecar } from "../../sidecar";
-import type { VocabularyOption } from "../../vocabulary";
+import { isJsonBody, type JsonBody, readSidecar } from "../../sidecar";
 import { CODEX_PROVIDER, SAFE_SCOPE, settingsText } from "./options";
 
 const SETTINGS_PATH = "/settings";
@@ -36,9 +36,27 @@ interface SidecarCapabilities {
   defaults?: SettingsBody;
 }
 
-interface OptionsWithItems {
-  items?: VocabularyOption[];
-}
+const JSON_ANSWER = z.custom<JsonBody>(isJsonBody);
+
+const CAPABILITIES_ANSWER: z.ZodType<SidecarCapabilities> = z.looseObject({
+  providers: z
+    .record(
+      z.string(),
+      z
+        .looseObject({
+          available: z.boolean(),
+          reason: z.string().optional(),
+        })
+        .optional(),
+    )
+    .optional(),
+  builderAvailable: z.boolean().optional(),
+  defaults: z.record(z.string(), JSON_ANSWER).optional(),
+});
+
+const OPTIONS_WITH_ITEMS = z.looseObject({
+  items: z.array(z.looseObject({ value: z.string() })).optional(),
+});
 
 /** An option turned off for this request, with why in place of its text. */
 interface OptionLock {
@@ -51,7 +69,9 @@ function lockItems(
   component: ComponentInfoSerialized,
   lock: OptionLock,
 ): ComponentInfoSerialized {
-  const options = (component.options ?? {}) as OptionsWithItems;
+  const parsed = OPTIONS_WITH_ITEMS.safeParse(component.options ?? {});
+  if (!parsed.success) return component;
+  const options = parsed.data;
   const items = (options.items ?? []).map((item) =>
     item.value === lock.value
       ? { ...item, disabled: true, description: lock.reason }
@@ -88,13 +108,24 @@ function locksFor(capabilities: SidecarCapabilities): OptionLock[] {
   return locks;
 }
 
+const DEFAULT_VALUE: z.ZodType<DefaultValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(DEFAULT_VALUE),
+  ]),
+);
+
 function offerDefault(
   field: FormFieldSerialized,
   defaults: SettingsBody,
 ): FormFieldSerialized {
   if (!(field.id in defaults)) return field;
-  const defaultValue = defaults[field.id] as DefaultValue;
-  return { ...field, defaultValue, offersDefault: true };
+  const parsed = DEFAULT_VALUE.safeParse(defaults[field.id]);
+  if (!parsed.success) return field;
+  return { ...field, defaultValue: parsed.data, offersDefault: true };
 }
 
 /** Each field the sidecar has a default for offers it ("Use default"). */
@@ -118,8 +149,9 @@ export async function applySidecarSettings(
   _permissions: Set<string>,
   options: FormPropsSerialized,
 ): Promise<FormPropsSerialized> {
-  const capabilities = await readSidecar<SidecarCapabilities>(
+  const capabilities = await readSidecar(
     SETTINGS_PATH,
+    CAPABILITIES_ANSWER,
     {},
   );
   const defaults = asFormValues(capabilities.defaults ?? {});

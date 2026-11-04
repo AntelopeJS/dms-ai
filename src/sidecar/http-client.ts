@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import { SIDECAR_LOOPBACK_HOST } from "../constants/sidecar";
 import {
   ensureSidecarRunning,
@@ -12,7 +13,7 @@ const JSON_CONTENT_TYPE = "application/json";
 /** What the sidecar answered: its status and its JSON body, when it sent one. */
 export interface SidecarResponse {
   status: number;
-  body: unknown;
+  body: JsonBody | undefined;
   isOk: boolean;
 }
 
@@ -74,13 +75,20 @@ export async function requestSidecar(
 }
 
 /**
- * GETs a sidecar JSON endpoint, or `fallback` when the sidecar is down or
- * refuses: for the dashboard's charts, which render empty rather than fail.
+ * GETs a sidecar JSON endpoint and reads its body with `schema`, or `fallback`
+ * when the sidecar is down, refuses or answers a body of another shape: for
+ * the dashboard's charts, which render empty rather than fail.
  */
-export async function readSidecar<T>(path: string, fallback: T): Promise<T> {
+export async function readSidecar<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  fallback: T,
+): Promise<T> {
   try {
     const response = await requestSidecar(path);
-    return response.isOk ? (response.body as T) : fallback;
+    if (!response.isOk) return fallback;
+    const parsed = schema.safeParse(response.body);
+    return parsed.success ? parsed.data : fallback;
   } catch {
     return fallback;
   }

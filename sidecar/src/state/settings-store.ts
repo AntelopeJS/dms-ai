@@ -156,7 +156,7 @@ async function persistSettings(
 
 function writeSettings(state: SettingsState): void {
   state.inflight = persistSettings(state.filePath, state.current).catch(
-    (err) => {
+    (err: unknown) => {
       console.warn(`${SETTINGS_LOG_PREFIX} write failed: ${String(err)}`);
     },
   );

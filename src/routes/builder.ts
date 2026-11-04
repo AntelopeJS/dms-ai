@@ -17,72 +17,141 @@ import {
 } from "../constants/builder";
 import { ROUTE_PREFIX } from "../constants/module";
 import { SIDECAR_AUTH_HEADER } from "../constants/sidecar";
+import { isJsonBody } from "../sidecar/json-body";
 import { isSidecarRequest, sidecarForbidden } from "./sidecar-auth";
 
-const OP_NAMES = [
-  "ListPages",
-  "ListCategories",
-  "GetCatalog",
-  "GetPageStructure",
-  "RefreshSourceIndex",
-  "CreatePage",
-  "ConfigurePage",
-  "DeletePage",
-  "CreateCategory",
-  "ConfigureCategory",
-  "DeleteCategory",
-  "AddBlock",
-  "ComposePage",
-  "ConfigureBlock",
-  "ConfigureTableView",
-  "MoveBlock",
-  "RemoveBlock",
-  "CreateResource",
-  "DeleteResource",
-  "AddField",
-  "ConfigureField",
-  "RemoveField",
-  "ListResources",
-  "GetResourceStructure",
-  "ListQueryTemplates",
-  "AddQuery",
-  "PreviewQuery",
-  "ConfigureQuery",
-  "RemoveQuery",
-  "ConfigureProject",
-  "AddModule",
-  "ConfigureModule",
-  "CreateLocalModule",
-  "MapResources",
-  "PreviewMapResources",
-  "AnalyseDatabase",
-  "GetAnalysis",
-  "GetMapping",
-] as const;
+/** The operations the sidecar's tools never call; the route refuses them. */
+type Withheld =
+  | "ConfigureResource"
+  | "ListDataSources"
+  | "PreviewLayout"
+  | "SetPageBlocks";
 
-/** The operations every Builder interface version exports, whose results type the answers. */
-type ReleasedOpName = Exclude<(typeof OP_NAMES)[number], "PreviewMapResources">;
+type OpName = Exclude<Builder.OperationName, Withheld>;
+type OpArgs = { [N in OpName]: Parameters<(typeof Builder.Operations)[N]> };
 
 /** What the Builder operations answer, as the union of their results. */
-type BuilderResult = Awaited<ReturnType<(typeof Builder)[ReleasedOpName]>>;
-type BuilderOp = (...args: unknown[]) => Promise<BuilderResult>;
+type BuilderResult = Awaited<ReturnType<(typeof Builder.Operations)[OpName]>>;
 
-const BUILDER_EXPORTS = new Map<string, unknown>(Object.entries(Builder));
+const {
+  ListPages,
+  ListCategories,
+  GetCatalog,
+  GetPageStructure,
+  RefreshSourceIndex,
+  CreatePage,
+  ConfigurePage,
+  DeletePage,
+  CreateCategory,
+  ConfigureCategory,
+  DeleteCategory,
+  AddBlock,
+  ComposePage,
+  ConfigureBlock,
+  ConfigureTableView,
+  MoveBlock,
+  RemoveBlock,
+  CreateResource,
+  DeleteResource,
+  AddField,
+  ConfigureField,
+  RemoveField,
+  ListResources,
+  GetResourceStructure,
+  ListQueryTemplates,
+  AddQuery,
+  PreviewQuery,
+  ConfigureQuery,
+  RemoveQuery,
+  ConfigureProject,
+  AddModule,
+  ConfigureModule,
+  CreateLocalModule,
+  MapResources,
+  PreviewMapResources,
+  AnalyseDatabase,
+  GetAnalysis,
+  GetMapping,
+} = Builder.Operations;
 
 /**
- * The operations the installed interface exports. Read by name, so an interface older than
- * `PreviewMapResources` leaves that name out and the route answers `unknown_op` for it.
+ * The operations the sidecar may call, named one by one: an operation the interface gains is
+ * refused until it is listed here or in `Withheld`.
  */
-const OPS = new Map<string, BuilderOp>(
-  OP_NAMES.flatMap((name) => {
-    const op = BUILDER_EXPORTS.get(name);
-    return op ? [[name, op as BuilderOp] as const] : [];
-  }),
-);
+const OPS = {
+  ListPages,
+  ListCategories,
+  GetCatalog,
+  GetPageStructure,
+  RefreshSourceIndex,
+  CreatePage,
+  ConfigurePage,
+  DeletePage,
+  CreateCategory,
+  ConfigureCategory,
+  DeleteCategory,
+  AddBlock,
+  ComposePage,
+  ConfigureBlock,
+  ConfigureTableView,
+  MoveBlock,
+  RemoveBlock,
+  CreateResource,
+  DeleteResource,
+  AddField,
+  ConfigureField,
+  RemoveField,
+  ListResources,
+  GetResourceStructure,
+  ListQueryTemplates,
+  AddQuery,
+  PreviewQuery,
+  ConfigureQuery,
+  RemoveQuery,
+  ConfigureProject,
+  AddModule,
+  ConfigureModule,
+  CreateLocalModule,
+  MapResources,
+  PreviewMapResources,
+  AnalyseDatabase,
+  GetAnalysis,
+  GetMapping,
+} satisfies { [N in OpName]: (typeof Builder.Operations)[N] };
 
+type OpTable = {
+  [N in OpName]: (...args: OpArgs[N]) => Promise<BuilderResult>;
+};
+
+const TABLE: OpTable = OPS;
+
+/** A request to run one operation, with the arguments that operation takes. */
+type BuilderOpRequest = { [N in OpName]: { op: N; args: OpArgs[N] } }[OpName];
+
+/** What arrives on the wire: the body is whatever the caller sent. */
 interface BuilderOpBody {
-  op?: string;
-  args?: unknown[];
+  op?: unknown;
+  args?: unknown;
+}
+
+function isOpName(op: unknown): op is OpName {
+  return typeof op === "string" && Object.hasOwn(OPS, op);
+}
+
+/**
+ * Whether the body names an operation of the table and carries an array of arguments. The
+ * elements are not inspected: the sidecar's client types each call against the operation's
+ * parameters, and the operation checks its own input.
+ */
+function isOpRequest(body: BuilderOpBody): body is BuilderOpRequest {
+  return isOpName(body.op) && Array.isArray(body.args);
+}
+
+function runOp<N extends OpName>(
+  op: N,
+  args: OpArgs[N],
+): Promise<BuilderResult> {
+  return TABLE[op](...args);
 }
 
 export class AIBuilderController extends Controller(ROUTE_PREFIX) {
@@ -94,15 +163,21 @@ export class AIBuilderController extends Controller(ROUTE_PREFIX) {
     if (!isSidecarRequest(token)) {
       return sidecarForbidden();
     }
-    const fn = body?.op ? OPS.get(body.op) : undefined;
-    if (!fn) {
+    if (!body || !isOpName(body.op)) {
+      const op = body?.op;
       return new HTTPResult(HTTP_BAD_REQUEST, {
         error: "unknown_op",
-        op: body?.op,
+        op: isJsonBody(op) ? op : undefined,
+      });
+    }
+    if (!isOpRequest(body)) {
+      return new HTTPResult(HTTP_BAD_REQUEST, {
+        error: "invalid_args",
+        op: body.op,
       });
     }
     try {
-      const result = await fn(...(body?.args ?? []));
+      const result = await runOp(body.op, body.args);
       return result ?? { ok: true };
     } catch (err) {
       return new HTTPResult(HTTP_BUILDER_UNAVAILABLE, {

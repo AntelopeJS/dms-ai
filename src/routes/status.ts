@@ -1,4 +1,5 @@
 import { Controller, Get, HTTPResult, Post } from "@antelopejs/interface-api";
+import { z } from "zod";
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import { ROUTE_PREFIX } from "../constants/module";
 import {
@@ -8,17 +9,35 @@ import {
   restartSidecar,
 } from "../lifecycle/spawn-sidecar";
 import { requestSidecar } from "../sidecar";
-import type {
-  BannerContent,
-  KeyValueListItem,
-} from "@antelopejs/interface-dms/base";
 import type { AssistantStatus } from "../types";
+import type { JsonBody } from "../sidecar/json-body";
 import { bannerAnswer } from "./banner";
+import { contentJson } from "./content-json";
 import { assistantUnavailable } from "./sidecar-results";
 import { OFFLINE_STATUS, statusBanner, statusFacts } from "./status-shapes";
 
 const STATUS_PATH = "/status";
 const NO_STORE = { "Cache-Control": "no-store" };
+
+/**
+ * What the sidecar says of itself, its fields in the order it writes them so
+ * the answer keeps that order; the ones it adds beyond `AssistantStatus` pass.
+ */
+const SidecarStatus = z.looseObject({
+  status: z.string(),
+  provider: z.string().optional(),
+  providers: z.unknown().optional(),
+  builderAvailable: z.boolean().optional(),
+  mode: z.string().optional(),
+  generationMode: z.string().optional(),
+  workingConversations: z.number().optional(),
+  pendingApprovals: z.number().optional(),
+  pendingQuestions: z.number().optional(),
+  port: z.number().optional(),
+  version: z.string().optional(),
+  lastError: z.string().optional(),
+  checkpointsAvailable: z.boolean().optional(),
+});
 
 /** What the backend knows of the sidecar process, beside what it says itself. */
 interface ProcessState {
@@ -43,20 +62,18 @@ function processState(): ProcessState {
 async function readStatus(): Promise<AssistantStatus> {
   try {
     const response = await requestSidecar(STATUS_PATH);
-    const reported = response.isOk ? (response.body as object) : {};
-    const status = response.isOk ? {} : { status: OFFLINE_STATUS };
-    return { ...status, ...reported, ...processState() } as AssistantStatus;
+    const reported = SidecarStatus.safeParse(response.body);
+    if (!response.isOk || !reported.success) {
+      return { status: OFFLINE_STATUS, ...processState() };
+    }
+    return { ...reported.data, ...processState() };
   } catch {
     return { status: OFFLINE_STATUS, ...processState() };
   }
 }
 
 /** What the status routes answer: the status, its rows, or its banner. */
-type StatusAnswer =
-  | AssistantStatus
-  | { items: KeyValueListItem[] }
-  | BannerContent
-  | HTTPResult;
+type StatusAnswer = AssistantStatus | JsonBody | HTTPResult;
 
 function fresh(body: StatusAnswer): HTTPResult {
   return HTTPResult.withHeaders(body, NO_STORE);
@@ -75,7 +92,7 @@ export class AIStatusController extends Controller(ROUTE_PREFIX) {
 
   @Get(`${STATUS_PATH}/facts`)
   async facts(): Promise<HTTPResult> {
-    return fresh({ items: statusFacts(await readStatus()) });
+    return fresh(contentJson({ items: statusFacts(await readStatus()) }));
   }
 
   @Get(`${STATUS_PATH}/banner`)

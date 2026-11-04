@@ -4,9 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
 
-const { computeBuildId } = require(
-  path.resolve(__dirname, "../dist/lifecycle/build-id.js"),
-);
+const { computeBuildId } = require("../dist/lifecycle/build-id.js");
 
 const BUILD_FILES = {
   "index.js": "console.log('sidecar');\n",
@@ -15,6 +13,10 @@ const BUILD_FILES = {
 };
 const LATER_MTIME = new Date(Date.now() + 60_000);
 
+/**
+ * @param {string} distDir - Directory the build is written to, replaced first.
+ * @param {Record<string, string>} files - Content of each file by relative path.
+ */
 function writeBuild(distDir, files) {
   fs.rmSync(distDir, { recursive: true, force: true });
   for (const [relativePath, content] of Object.entries(files)) {
@@ -24,12 +26,18 @@ function writeBuild(distDir, files) {
   }
 }
 
+/**
+ * @param {string} distDir - Directory holding the build.
+ * @param {Record<string, string>} files - The files of the build by relative path.
+ * @param {Date} mtime - Modification time to give each file.
+ */
 function touchAll(distDir, files, mtime) {
   for (const relativePath of Object.keys(files)) {
     fs.utimesSync(path.join(distDir, relativePath), mtime, mtime);
   }
 }
 
+/** @param {(distDir: string) => void} run - The body, given a dist directory in a temporary root. */
 function withDist(run) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "dms-ai-build-id-"));
   try {

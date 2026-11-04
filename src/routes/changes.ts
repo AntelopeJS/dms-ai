@@ -27,6 +27,11 @@ import type {
 import { actorName } from "./actor";
 import { type FilterMappings, sidecarListParams } from "./list-query";
 import { asIs, relay } from "./sidecar-results";
+import {
+  ANY_ANSWER,
+  CHANGE_SET_PAGE_ANSWER,
+  UNDO_PREVIEW_ANSWER,
+} from "./sidecar-answers";
 import { INCLUDE_LATER_FIELD, undoConfirmDialog } from "./undo-confirm";
 
 const CHANGES_PATH = "/changes";
@@ -97,7 +102,7 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
     @Context() ctx: RequestContext,
   ): Promise<SidecarList<ChangeSetTableRow> | HTTPResult> {
     const query = buildQuery(changesParams(ctx.url.searchParams));
-    return relay(`${CHANGES_PATH}${query}`, tablePage);
+    return relay(`${CHANGES_PATH}${query}`, CHANGE_SET_PAGE_ANSWER, tablePage);
   }
 
   @Get("/recent-changes")
@@ -109,28 +114,36 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
       offset: undefined,
       limit: String(RECENT_CHANGE_SETS),
     };
-    return relay(`${CHANGES_PATH}${buildQuery(params)}`, recentPage);
+    return relay(
+      `${CHANGES_PATH}${buildQuery(params)}`,
+      CHANGE_SET_PAGE_ANSWER,
+      recentPage,
+    );
   }
 
   @Get(`${CHANGES_PATH}/:id`)
   detail(
     @Parameter("id", "param") id: string,
   ): Promise<JsonBody | HTTPResult | undefined> {
-    return relay(changeSetPath(id), asIs);
+    return relay(changeSetPath(id), ANY_ANSWER, asIs);
   }
 
   @Get(`${CHANGES_PATH}/:id/undo-preview`)
   undoPreview(
     @Parameter("id", "param") id: string,
   ): Promise<JsonBody | HTTPResult | undefined> {
-    return relay(changeSetPath(id, "undo-preview"), asIs);
+    return relay(changeSetPath(id, "undo-preview"), ANY_ANSWER, asIs);
   }
 
   @Get(`${CHANGES_PATH}/:id/undo-confirm`)
   undoConfirm(
     @Parameter("id", "param") id: string,
   ): Promise<ConfirmDialogSerialized | HTTPResult> {
-    return relay(changeSetPath(id, "undo-preview"), undoConfirmDialog);
+    return relay(
+      changeSetPath(id, "undo-preview"),
+      UNDO_PREVIEW_ANSWER,
+      undoConfirmDialog,
+    );
   }
 
   @Post(`${CHANGES_PATH}/:id/undo`)
@@ -139,7 +152,7 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
     @AuthRawUser() user: User,
     @JSONBody() body?: UndoBody,
   ): Promise<JsonBody | HTTPResult | undefined> {
-    return relay(changeSetPath(id, "undo"), asIs, {
+    return relay(changeSetPath(id, "undo"), ANY_ANSWER, asIs, {
       method: "POST",
       body: {
         includeLater: body?.[INCLUDE_LATER_FIELD] === true,
@@ -153,7 +166,7 @@ export class AIChangesController extends Controller(ROUTE_PREFIX) {
     @Parameter("id", "param") id: string,
     @AuthRawUser() user: User,
   ): Promise<JsonBody | HTTPResult | undefined> {
-    return relay(changeSetPath(id, "redo"), asIs, {
+    return relay(changeSetPath(id, "redo"), ANY_ANSWER, asIs, {
       method: "POST",
       body: { actor: actorName(user) },
     });

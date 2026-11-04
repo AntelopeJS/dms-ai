@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { defineTool } from "../define-tool.js";
+import { JSON_RECORD } from "./builder-project.js";
 import {
   type BuilderRun,
+  containsExprSentinel,
   exprRefusal,
-  hasExprSentinel,
   note,
 } from "./builder-expr.js";
 
@@ -19,11 +20,9 @@ const QUERY_ENDPOINT = z
     'Route path relative to the page\'s slug, e.g. `/stats/in-stock`. Must start with `/` and not collide with another route the page serves. Omit for `/stats/<kebab-name>`. A `$param` bound with `in: "param"` reads a path segment, so include a matching `:name` (e.g. `/stats/by-author/:author`).',
   );
 
-const QUERY_PARAMS = z
-  .record(z.string(), z.unknown())
-  .describe(
-    "The template's parameters, keyed exactly as the `params` schema BuilderQueryTemplates reports for it — that schema documents every key and value shape, and an unrecognised key is rejected.",
-  );
+const QUERY_PARAMS = JSON_RECORD.describe(
+  "The template's parameters, keyed exactly as the `params` schema BuilderQueryTemplates reports for it — that schema documents every key and value shape, and an unrecognised key is rejected.",
+);
 
 const QUERY_RESPONSE = z
   .enum(["series", "card", "value", "items"])
@@ -37,11 +36,9 @@ const QUERY_COMPARE = z
     "Also answer the preceding period so a card shows a delta. Only meaningful when the query binds its period with `$param` `from` and `to`.",
   );
 
-export const QUERY_ARGS = z
-  .record(z.string(), z.unknown())
-  .describe(
-    'The values the route would receive, by the name it exposes them under, e.g. `{ "from": "2026-01-01", "to": "2026-03-31" }` for a query binding `$param` `from` and `to`. With `compare`, also `compareFrom` and `compareTo`.',
-  );
+export const QUERY_ARGS = JSON_RECORD.describe(
+  'The values the route would receive, by the name it exposes them under, e.g. `{ "from": "2026-01-01", "to": "2026-03-31" }` for a query binding `$param` `from` and `to`. With `compare`, also `compareFrom` and `compareTo`.',
+);
 
 export const QUERY_FIELDS = {
   name: z
@@ -92,7 +89,9 @@ export function buildQueryTools(run: BuilderRun) {
         ...QUERY_FIELDS,
       },
       async ({ page, ...input }) =>
-        hasExprSentinel(input) ? exprRefusal() : run("AddQuery", [page, input]),
+        containsExprSentinel.parse(input)
+          ? exprRefusal()
+          : run("AddQuery", [page, input]),
     ),
     defineTool(
       "BuilderPreviewQuery",
@@ -104,7 +103,7 @@ export function buildQueryTools(run: BuilderRun) {
         args: QUERY_ARGS.optional(),
       },
       async ({ args, ...query }) =>
-        hasExprSentinel({ query, args })
+        containsExprSentinel.parse({ query, args })
           ? exprRefusal()
           : run("PreviewQuery", [
               args === undefined ? { query } : { query, args },
@@ -126,8 +125,8 @@ export function buildQueryTools(run: BuilderRun) {
           endpoint: QUERY_ENDPOINT.optional(),
         }),
       },
-      async ({ query, patch }: { query: string; patch: unknown }) =>
-        hasExprSentinel(patch)
+      async ({ query, patch }) =>
+        containsExprSentinel.parse(patch)
           ? exprRefusal()
           : run("ConfigureQuery", [query, patch]),
     ),

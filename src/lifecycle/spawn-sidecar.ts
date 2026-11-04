@@ -29,7 +29,7 @@ import {
 import { computeBuildId } from "./build-id";
 import { getSidecarOwner, type SidecarLaunch } from "./sidecar-owner";
 import type { SkillSource } from "./skill-sources";
-import { terminateProcess } from "./terminate-process";
+import { isProcessAlive, terminateProcess } from "./terminate-process";
 
 interface SpawnOptions {
   hostProjectRoot: string;
@@ -275,12 +275,20 @@ function trySpawnChild(args: string[], logPath: string): ChildProcess | null {
   }
 }
 
+/**
+ * Waits for the child to publish its port, and stops as soon as the child is
+ * gone: a sidecar that cannot start (its build is missing) never will. Counts
+ * polls instead of reading the clock, so the wait ends when `Date.now` stands
+ * still, as it does under the demo's capture clock.
+ */
 async function learnPortFromLock(
   root: string,
   childPid: number,
 ): Promise<number | null> {
-  const deadline = Date.now() + SIDECAR_SPAWN_TIMEOUT_MS;
-  while (Date.now() < deadline) {
+  const polls = Math.ceil(
+    SIDECAR_SPAWN_TIMEOUT_MS / SIDECAR_LOCK_POLL_INTERVAL_MS,
+  );
+  for (let poll = 0; poll < polls && isProcessAlive(childPid); poll += 1) {
     const lock = readLock(root);
     if (lock !== null && lock.pid === childPid) {
       Logging.Info(

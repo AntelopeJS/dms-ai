@@ -40,6 +40,7 @@ function registerDefinition(
 ): void {
   server.registerTool(
     definition.name,
+    // oxlint-disable-next-line typescript/no-unsafe-assignment -- AnyMcpToolDefinition is McpToolDefinition<any> so that one list holds tools with different input schemas, which makes definition.schema any; the MCP SDK takes it as the raw zod shape the tool declared
     { description: definition.description, inputSchema: definition.schema },
     definition.handler,
   );
@@ -58,7 +59,7 @@ async function buildServer(deps: AiMcpServerDeps): Promise<McpServer> {
 
 function readBearerToken(req: IncomingMessage): string | null {
   const header = req.headers[MCP_AUTHORIZATION_HEADER];
-  const value = Array.isArray(header) ? header[0] : header;
+  const [value] = [header].flat();
   if (value === undefined) return null;
   if (!value.toLowerCase().startsWith(MCP_BEARER_PREFIX)) return null;
   return value.slice(MCP_BEARER_PREFIX.length).trim();

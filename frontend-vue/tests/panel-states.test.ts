@@ -134,6 +134,8 @@ describe("notices and errors", () => {
 });
 
 describe("the history drawer", () => {
+	const HOUR_MS = 3_600_000;
+	const NOON_MS = new Date(2026, 5, 15, 12, 0, 0).getTime();
 	const LIST = {
 		type: "conversation_list",
 		conversations: [
@@ -141,7 +143,7 @@ describe("the history drawer", () => {
 				id: "c-run",
 				title: "Add top customers",
 				createdAtMs: 1,
-				updatedAtMs: Date.now(),
+				updatedAtMs: NOON_MS,
 				messageCount: 4,
 				isRunning: true,
 				filesChanged: 2,
@@ -151,7 +153,7 @@ describe("the history drawer", () => {
 				id: "c-old",
 				title: "Why is order pending?",
 				createdAtMs: 1,
-				updatedAtMs: Date.now() - 1_000,
+				updatedAtMs: NOON_MS - HOUR_MS,
 				messageCount: 2,
 				filesChanged: 0,
 				filesUndone: 1,
@@ -159,6 +161,11 @@ describe("the history drawer", () => {
 			},
 		],
 	};
+
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(NOON_MS);
+	});
 
 	it("opens with ⌘J, pins the running chat, and switches chats", async () => {
 		const harness = createHarness();
@@ -183,6 +190,7 @@ describe("the history drawer", () => {
 
 	it("deletes after 8 seconds unless undone, and asks first for a running chat", async () => {
 		vi.useFakeTimers();
+		vi.setSystemTime(NOON_MS);
 		const harness = createHarness();
 		const panel = await openPanel(harness);
 		document.dispatchEvent(

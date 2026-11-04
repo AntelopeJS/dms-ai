@@ -17,6 +17,10 @@ import {
  * does, so a home removed too early comes back. A write that races the removal
  * itself is swallowed: the next tick writes again.
  */
+/**
+ * @param {string} home
+ * @param {number} index
+ */
 function writeIntoHome(home, index) {
   try {
     mkdirSync(home, { recursive: true });
@@ -27,21 +31,28 @@ function writeIntoHome(home, index) {
   } catch {}
 }
 
+/**
+ * @param {string} home
+ */
 function keepWriting(home) {
   let index = 0;
   setInterval(() => writeIntoHome(home, index++), HOME_WRITE_INTERVAL_MS);
 }
 
-const ON_SIGTERM = {
-  [LINGER_ON_SIGTERM]: (home) => {
-    keepWriting(home);
-    setTimeout(() => process.exit(0), LINGER_MS);
-  },
-  [IGNORE_SIGTERM]: (home) => keepWriting(home),
-};
+/** @type {Map<string, (home: string) => void>} */
+const ON_SIGTERM = new Map([
+  [
+    LINGER_ON_SIGTERM,
+    (home) => {
+      keepWriting(home);
+      setTimeout(() => process.exit(0), LINGER_MS);
+    },
+  ],
+  [IGNORE_SIGTERM, (home) => keepWriting(home)],
+]);
 
 export function installSigtermBehaviour() {
-  const react = ON_SIGTERM[process.env[ON_SIGTERM_ENV_VAR] ?? ""];
+  const react = ON_SIGTERM.get(process.env[ON_SIGTERM_ENV_VAR] ?? "");
   const home = process.env[CODEX_HOME_ENV_VAR];
   if (react === undefined || home === undefined) return;
   let isStopping = false;

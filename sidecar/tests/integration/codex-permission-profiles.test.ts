@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   CODEX_CLIENT_CAPABILITIES,
   CODEX_CLIENT_NAME,
@@ -17,9 +18,9 @@ import { resolveCodexInstallation } from "../../src/providers/codex/resolve-bina
 const installation = resolveCodexInstallation();
 const SPAWN_TIMEOUT_MS = 60_000;
 
-interface ThreadStarted {
-  activePermissionProfile: { id: string } | null;
-}
+const ThreadStarted = z.object({
+  activePermissionProfile: z.object({ id: z.string() }).nullable(),
+});
 
 describe.skipIf(installation === undefined)(
   "permission profile on the pinned Codex",
@@ -74,8 +75,8 @@ describe.skipIf(installation === undefined)(
 
         const inProject = { cwd: project, ephemeral: true };
         const started = [
-          await client.request<ThreadStarted>("thread/start", inProject),
-          await client.request<ThreadStarted>("thread/start", {
+          await client.requestDecoded(ThreadStarted, "thread/start", inProject),
+          await client.requestDecoded(ThreadStarted, "thread/start", {
             ...inProject,
             permissions: CODEX_READ_ONLY_PROFILE,
           }),

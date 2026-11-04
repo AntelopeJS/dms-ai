@@ -7,10 +7,11 @@ import {
 } from "@antelopejs/interface-api";
 import { AuthOwnerOnly } from "@antelopejs/interface-dms/auth";
 import type { BannerContent } from "@antelopejs/interface-dms/base";
+import type { JsonBody } from "../sidecar/json-body";
 import { I18N_SECTIONS } from "../constants/i18n";
 import { ROUTE_PREFIX } from "../constants/module";
 import { PAGE_LINKS } from "../constants/pages";
-import { readSidecar } from "../sidecar";
+import { CONFLICTS_ANSWER, readSidecar } from "../sidecar";
 import type {
   SidecarList,
   SidecarSkill,
@@ -22,6 +23,7 @@ import { i18nKey } from "../vocabulary";
 import { bannerAnswer } from "./banner";
 import { filteredValue } from "./list-query";
 import { relay } from "./sidecar-results";
+import { SKILL_CATALOG_ANSWER } from "./sidecar-answers";
 
 const SKILLS_PATH = "/skills";
 const LOCAL_PROVENANCE = "local";
@@ -115,12 +117,16 @@ export class AISkillsController extends Controller(ROUTE_PREFIX) {
     @Context() ctx: RequestContext,
   ): Promise<SidecarList<SkillRow> | HTTPResult> {
     const source = filteredValue(ctx.url.searchParams, SOURCE_COLUMN);
-    return relay(SKILLS_PATH, catalogPage(source));
+    return relay(SKILLS_PATH, SKILL_CATALOG_ANSWER, catalogPage(source));
   }
 
   @Get(CONFLICTS_PATH)
-  async conflicts(): Promise<BannerContent | HTTPResult> {
-    const shared = await readSidecar(CONFLICTS_PATH, NO_CONFLICTS);
+  async conflicts(): Promise<JsonBody | HTTPResult> {
+    const shared = await readSidecar(
+      CONFLICTS_PATH,
+      CONFLICTS_ANSWER,
+      NO_CONFLICTS,
+    );
     return bannerAnswer(conflictsBanner(shared));
   }
 }
