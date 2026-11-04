@@ -60,7 +60,7 @@ Restart the backend, then the frontend. Sign in as an owner and press `Ctrl` `Sh
 | `@antelopejs/interface-api`              | `>=0.2.0 <1.0.0`                                                  | `0.2.0`                                                           |
 | `@antelopejs/interface-core`             | `>=0.4.0 <1.0.0`                                                  | `0.4.0`                                                           |
 | `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`                                                  | `0.0.2`                                                           |
-| `@antelopejs/interface-dms`              | `file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz`         | `file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz`         |
+| `@antelopejs/interface-dms`              | `>=0.12.0 <1.0.0`                                                 | `0.12.0`                                                          |
 | `@antelopejs/interface-dms-builder`      | `file:.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz` |
 
 <!-- antelopejs-docs-compat:end -->
