@@ -166,7 +166,7 @@ export const journeys = guarded([
         same("the last use of dms-ai is the latest of its calls", Date.parse(text(used, "lastUsedAt")) > now - 3 * 3_600_000 && Date.parse(text(used, "lastUsedAt")) < now - 2 * 3_600_000, true),
         same("and its conversation", text(used, "lastConversationId"), "conv-new"),
         same("its last use is that day", Math.round((now - Date.parse(text(named("dms-builder-safe"), "lastUsedAt"))) / 86_400_000), 10),
-        same("dms-pages: its last use is the 29 day old call, not the older ones", Math.floor((now - Date.parse(text(named("dms-pages"), "lastUsedAt"))) / 86_400_000), 29),
+        same("dms-pages: its last use is the 29 day old call, not the older ones", Math.round((now - Date.parse(text(named("dms-pages"), "lastUsedAt"))) / 86_400_000), 29),
         same("a skill never called has no last use", pick(named("dms-auth"), "lastUsedAt"), undefined),
       ]);
       const tab = await ctx.tab();

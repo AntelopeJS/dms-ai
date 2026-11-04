@@ -1,5 +1,5 @@
 import { guarded } from "../guard.mjs";
-import { ai, check, choose, freshSidecar, list, pageHas, periodQuery, pick, same, selected, text, until } from "../ai.mjs";
+import { ai, check, choose, clickUntil, freshSidecar, list, pageHas, periodQuery, pick, same, selected, text, until } from "../ai.mjs";
 import { sampleChangeSets, sampleConversations } from "../sample.mjs";
 import { MS_DAY, seedStore } from "../seed.mjs";
 
@@ -102,9 +102,9 @@ export const journeys = guarded([
         pageHas(tab, "and not the fifth", /Add the notes files/, false),
                 pageHas(tab, "none after the fifth", /Top tools[\s\S]*\s6 (Add block|Write file|Delete page|Search code|Find files)/i, false),
       ]);
-      await choose(tab, { role: "radio", name: "Last 24 hours" });
+      await clickUntil(tab, { role: "radio", name: "Last 24 hours" }, /^(?![\s\S]*Last 7 days)[\s\S]*Last 24 hours/);
       await ctx.verify("24 hours", [pageHas(tab, "Actions", /Actions\s*26\s*\S*\s*\+766\.7%\s*vs 3/i), pageHas(tab, "labelled", /Last 24 hours/)]);
-      await choose(tab, { role: "radio", name: "Last 30 days" });
+      await clickUntil(tab, { role: "radio", name: "Last 30 days" }, /^(?![\s\S]*Last 7 days)[\s\S]*Last 30 days/);
       await ctx.verify("30 days", [pageHas(tab, "Actions", /Actions\s*39\s*\S*\s*\+680\.0% vs 5/i)]);
     },
   },
