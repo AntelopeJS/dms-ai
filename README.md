@@ -57,8 +57,8 @@ Restart the backend, then the frontend. Sign in as an owner and press `Ctrl` `Sh
 | Package                                  | Supported                                                         | Tested with                                                       |
 | ---------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
 | `@antelopejs/agent-skills`               | `^0.1.0`                                                          | `0.1.0`                                                           |
-| `@antelopejs/interface-api`              | `file:.campaign/tgz/antelopejs-interface-api-015a93a.tgz`         | `file:.campaign/tgz/antelopejs-interface-api-015a93a.tgz`         |
-| `@antelopejs/interface-core`             | `file:.campaign/tgz/antelopejs-interface-core-f7df541.tgz`        | `file:.campaign/tgz/antelopejs-interface-core-f7df541.tgz`        |
+| `@antelopejs/interface-api`              | `>=0.2.0 <1.0.0`                                                  | `0.2.0`                                                           |
+| `@antelopejs/interface-core`             | `>=0.4.0 <1.0.0`                                                  | `0.4.0`                                                           |
 | `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`                                                  | `0.0.2`                                                           |
 | `@antelopejs/interface-dms`              | `file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz`         | `file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz`         |
 | `@antelopejs/interface-dms-builder`      | `file:.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-builder-833fbd0.tgz` |
