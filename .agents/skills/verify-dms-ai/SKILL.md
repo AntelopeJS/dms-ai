@@ -98,11 +98,13 @@ $C doors "$PWD/.agents/skills/verify-dms-ai/seeded-doors/data.patch"
 - The playground overrides `@antelopejs/interface-database-decorators` to the registry's 0.1.12: the 0.2.0 tarball this repository pins has no `testHashAsync`, and the DMS tarball's login calls it (sign-in answered 500). This is a real mismatch of the campaign pins that the override hides: draft `dms-ai-decorators-tarball-mismatch`. Remove the override once the pins agree.
 - Every dashboard page renders on the server and hydrates after `load`; `guard.mjs` waits for the sign-in form to hydrate, and `choose` and `clickUntil` click again until a radio, a switch or a dialog responds.
 - A step whose check fails because the backend or the dashboard stopped answering ends the journey with a `NOT VERIFIED` error and no failing check, so `seeded` never counts an outage as a catch.
+- The sample holds one more record than every documented limit it drives (5 change sets for the 4 listed, 9 tools for the 5 listed, 29 log records for the 25 of a page, 10,005 for the 10,000 of an export, 61 skills for the 24 of a page, a usage entry on the first day of the 14 and one the day before), so that N and N+1 look different. Add the same when you add a limit.
+- The 24 hour, 7 day and 30 day windows are driven with calls 3 hours, 10 days and 40 days old, not at the edge of each window.
 - Text the dashboard uppercases (card and section titles) is matched without regard to case.
 - Known findings, each a failing journey that fails a verdict only when the diff touches its feature:
   - `skills/two-skills-of-one-module-with-one-name-shadow-one-copy`: two skills of one module with one name are never marked Shadowed (dms-ai#168). A local skill named like a module skill is.
   - `package/the-docs-name-every-skill-the-module-ships`: the README and the Skills page list four skills, the package ships five (dms-ai#169).
-  - `activity/the-export-stops-at-10000-rows`: the export holds 200 rows (draft `dms-ai-activity-export-capped-at-200`). While it stands a break of the route's own constant cannot be told from the product.
+  - `activity/the-export-stops-at-10000-rows`: the export holds 200 rows, not the documented 10,000 (draft `dms-ai-activity-export-capped-at-200`). `activity/the-export-holds-what-the-sidecar-lets-through` passes today and pins the 200, so a change of the route's own cap fails it.
   - `overview/the-approved-and-undone-cards-show-their-share`: the cards never show the share the docs promise (draft `dms-ai-overview-kpi-share-not-shown`).
 - `an-idle-sidecar-exits-after-15-minutes-and-the-next-probe-starts-it` waits 14 minutes and takes about 17 in all: run it alone, nothing else may use the checkout while it runs.
 
