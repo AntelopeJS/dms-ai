@@ -2,6 +2,7 @@ import { guarded } from "../guard.mjs";
 import { AI, ai, check, clickUntil, freshSidecar, list, pageHas, pick, raw, recordRaw, same, selected, text, withEnv } from "../ai.mjs";
 import { sampleChangeSets, sampleConversations } from "../sample.mjs";
 import { MS_DAY, MS_HOUR, conversation, seedStore, toolResult, toolUse, userMessage } from "../seed.mjs";
+import { windowStart } from "../windows.mjs";
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
 
@@ -105,7 +106,7 @@ export const journeys = guarded([
         same("offset 25 gives the other 19, the oldest last", (await log(ctx, "?offset=25")).rows.map((row) => text(row, "conversationTitle")), ["Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Explain the project", "Explain the project", "Explain the project", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Edge reads", "Old question", "Old question"]),
         same("limit 10", (await log(ctx, "?limit=10")).rows.length, 10),
         same("limit 1000 is capped by the sidecar, not refused", (await log(ctx, "?limit=1000")).rows.length, 44),
-        same("every row names its agent", [...new Set(all.rows.map((row) => text(row, "agent")))].sort(), ["claude", "codex"]),
+        same("every row names its agent", [...new Set((await log(ctx, "?limit=200")).rows.map((row) => text(row, "agent")))].sort(), ["claude", "codex"]),
       ]);
       const changed = await log(ctx, "?filter_category=is:changed");
       const asked = await log(ctx, "?filter_category=is:asked");
@@ -144,10 +145,10 @@ export const journeys = guarded([
       const iso = (/** @type {number} */ ms) => new Date(ms).toISOString();
       await ctx.verify("the periods", [
         same("24 hours: the 24 calls and the 2 at 23 hours, not the 3 at 25", (await log(ctx, `?from=${iso(now - day)}`)).total, 26),
-        same("7 days: the 2 at 6.5 days, not the 3 at 7.5", (await log(ctx, `?from=${iso(now - 7 * day)}`)).total, 31),
-        same("30 days: the 2 at 29 days, not the 3 at 31", (await log(ctx, `?from=${iso(now - 30 * day)}`)).total, 39),
+        same("7 days, from midnight of the 6th day back: the 2 after it, not the 3 before", (await log(ctx, `?from=${iso(windowStart(now, 7))}`)).total, 31),
+        same("30 days, from midnight of the 29th day back: the 2 after it, not the 3 before", (await log(ctx, `?from=${iso(windowStart(now, 30))}`)).total, 39),
         same("everything before 8 days ago", (await log(ctx, `?to=${iso(now - 8 * day)}`)).total, 10),
-        same("a window between two others", (await log(ctx, `?from=${iso(now - 30 * day)}&to=${iso(now - 8 * day)}`)).total, 5),
+        same("a window between two others", (await log(ctx, `?from=${iso(windowStart(now, 30))}&to=${iso(now - 8 * day)}`)).total, 5),
       ]);
     },
   },

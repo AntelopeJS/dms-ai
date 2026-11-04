@@ -1,6 +1,7 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { MS_DAY, MS_HOUR, MS_MINUTE, conversation, permission, projectRoot, recordChangeSet, toolResult, toolUse, userMessage, writeProjectFile } from "./seed.mjs";
+import { windowStart } from "./windows.mjs";
 
 /** @typedef {import("./ai.mjs").Ctx} Ctx */
 /** @typedef {Record<string, unknown>} Row */
@@ -130,14 +131,16 @@ export function sampleConversations(now, sets) {
     }
     return rows;
   };
+  const sevenDays = now - windowStart(now, 7);
+  const thirtyDays = now - windowStart(now, 30);
   const edge = conversation([
     userMessage("Edge reads", now - 32 * MS_DAY),
     ...calls("LS", { path: "src" }, 23 * MS_HOUR, 2, "23h"),
     ...calls("LS", { path: "docs" }, 25 * MS_HOUR, 3, "25h"),
-    ...calls("LS", { path: "tests" }, 6.5 * MS_DAY, 2, "6d"),
-    ...calls("LS", { path: "skills" }, 7.5 * MS_DAY, 3, "7d"),
-    ...calls("Skill", { skill: "dms-pages" }, 29 * MS_DAY, 2, "29d"),
-    ...calls("Skill", { skill: "dms-pages" }, 31 * MS_DAY, 3, "31d"),
+    ...calls("LS", { path: "tests" }, sevenDays - 2 * MS_HOUR, 2, "in-7d"),
+    ...calls("LS", { path: "lib" }, sevenDays + 2 * MS_HOUR, 3, "out-7d"),
+    ...calls("Skill", { skill: "dms-pages" }, thirtyDays - 2 * MS_HOUR, 2, "in-30d"),
+    ...calls("Skill", { skill: "dms-pages" }, thirtyDays + 2 * MS_HOUR, 3, "out-30d"),
   ]);
   return {
     "conv-edge": edge,

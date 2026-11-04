@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { previousWindowStart, windowStart } from "./windows.mjs";
 
 /**
  * @typedef {import("../../../node_modules/@antelopejs/dms/bin/control/journey.mjs").JourneyContext} Ctx
@@ -432,15 +433,15 @@ export async function choose(tab, target) {
 }
 
 /**
- * The window a period option sends: from `days` ago to now, compared with the same length before.
+ * The window a period option of the pages sends: the period, compared with the one before it (see `windowStart`).
  *
  * @param {number} now The time
- * @param {number} days The length of the period
+ * @param {1 | 7 | 30} days The length of the period
  * @returns {string} The query string
  */
 export function periodQuery(now, days) {
-  const iso = (/** @type {number} */ offset) => new Date(now - offset * 86_400_000).toISOString();
-  return `from=${iso(days)}&to=${iso(0)}&compareFrom=${iso(2 * days)}&compareTo=${iso(days)}`;
+  const iso = (/** @type {number} */ ms) => new Date(ms).toISOString();
+  return `from=${iso(windowStart(now, days))}&to=${iso(now)}&compareFrom=${iso(previousWindowStart(now, days))}&compareTo=${iso(windowStart(now, days))}`;
 }
 
 /**
