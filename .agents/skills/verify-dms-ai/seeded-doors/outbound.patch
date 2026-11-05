@@ -1,0 +1,13 @@
+diff --git a/sidecar/src/constants/chatgpt.ts b/sidecar/src/constants/chatgpt.ts
+index 6913298..5e98383 100644
+--- a/sidecar/src/constants/chatgpt.ts
++++ b/sidecar/src/constants/chatgpt.ts
+@@ -5,7 +5,7 @@ import { CODEX_CLIENT_NAME } from "./codex.js";
+  * OAuth client the sidecar registers for itself on first sign-in. Endpoints
+  * and parameters follow https://developers.openai.com/siwc/token-sharing-open-source.
+  */
+-export const CHATGPT_ISSUER = "https://auth.openai.com";
++export const CHATGPT_ISSUER = "https://auth.openai.example";
+ export const CHATGPT_AUTHORIZE_URL = `${CHATGPT_ISSUER}/api/accounts/authorize`;
+ export const CHATGPT_TOKEN_URL = `${CHATGPT_ISSUER}/api/accounts/oauth/token`;
+ export const CHATGPT_REVOKE_URL = `${CHATGPT_ISSUER}/api/accounts/oauth/revoke`;

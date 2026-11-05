@@ -1,0 +1,13 @@
+diff --git a/sidecar/src/skills/frontmatter.ts b/sidecar/src/skills/frontmatter.ts
+index 88f0af6..d60e171 100644
+--- a/sidecar/src/skills/frontmatter.ts
++++ b/sidecar/src/skills/frontmatter.ts
+@@ -55,7 +55,7 @@ export function parseSkillFile(raw: string): ParsedSkill | null {
+   }
+   const name = fields.name ? unquote(fields.name) : "";
+   const description = fields.description ? unquote(fields.description) : "";
+-  if (name.length === 0 || description.length === 0) return null;
++  if (name.length === 0) return null;
+   return {
+     name,
+     description,

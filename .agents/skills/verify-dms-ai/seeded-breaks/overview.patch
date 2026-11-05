@@ -1,0 +1,13 @@
+diff --git a/src/pages/overview/page.ts b/src/pages/overview/page.ts
+index 9461a87..a8b4461 100644
+--- a/src/pages/overview/page.ts
++++ b/src/pages/overview/page.ts
+@@ -30,7 +30,7 @@ export class AIOverviewPage extends PageController(
+     period: {
+       id: OVERVIEW_PERIOD_SCOPE,
+       rememberKey: PERIOD_REMEMBER_KEY,
+-      defaultPreset: "last-7-days",
++      defaultPreset: "last-24h",
+       presets: ["last-24h", "last-7-days", "last-30-days"],
+       comparisons: ["previous-period", "previous-year", "none"],
+       meta: blockMeta("overview.period", PERIOD_ICON),
