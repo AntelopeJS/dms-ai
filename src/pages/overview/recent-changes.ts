@@ -130,6 +130,7 @@ export function recentChangeSets(rows: number): ComponentBuilder {
     labelKey: "title",
     pageSize: rows,
     density: "compact",
+    rowClick: "single",
     rowActions: { custom: ROW_ACTIONS },
     customButtons: [
       {
