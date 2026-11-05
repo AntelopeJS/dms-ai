@@ -108,6 +108,50 @@ describe("Analyst's MCP server", () => {
     expect(call?.query.get("sortKey")).toBe("total");
     expect(call?.query.get("sortDirection")).toBe("desc");
   });
+
+  it("asks for archived rows only when told to, so a table without an archive reads as before", async () => {
+    const calls: Call[] = [];
+    await readRows(buildDeps(rowsClient(1, calls)), { archived: "archived" });
+    await readRows(buildDeps(rowsClient(1, calls)), {});
+    expect(calls.map((call) => call.query.get("archived"))).toEqual([
+      "archived",
+      null,
+    ]);
+  });
+
+  it("refuses an `archived` other than active or archived without reading", async () => {
+    const calls: Call[] = [];
+    const answer = await withClient(
+      createAnalystMcpServer(buildDeps(rowsClient(1, calls))),
+      (client) =>
+        callTool(client, "AnalystReadRows", {
+          page: "/sales",
+          table: "orders",
+          archived: "all",
+        }),
+    );
+    expect(answer.isError).toBe(true);
+    expect(calls).toEqual([]);
+  });
+
+  it("hands the backend's refusal of a filter to the model as a tool error", async () => {
+    const refusal = {
+      ok: false,
+      status: 400,
+      error: { error: "unknown_filter", detail: 'The table has no column "x"' },
+    };
+    const answer = await withClient(
+      createAnalystMcpServer(buildDeps({ get: async () => refusal })),
+      (client) =>
+        callTool(client, "AnalystReadRows", {
+          page: "/sales",
+          table: "orders",
+          filters: [{ field: "x", mode: "is", value: "1" }],
+        }),
+    );
+    expect(answer.isError).toBe(true);
+    expect(answer.body).toEqual(refusal);
+  });
 });
 
 function sessionContext(decisions: string[]): ProviderSessionContext {

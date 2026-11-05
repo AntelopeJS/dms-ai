@@ -11,31 +11,18 @@ const {
   waitForLock,
   waitUntilRefused,
 } = require("./helpers/assistant.cjs");
+const { call } = require("./helpers/dms.cjs");
 const {
-  addSales,
-  call,
-  createRole,
-  inviteMember,
-  onboardOwner,
-  ownerInNewTenant,
-} = require("./helpers/dms.cjs");
+  SALES_A,
+  SALES_B,
+  SALES_PAGE_ID: PAGE_ID,
+  TENANT_B,
+  closeGrants,
+  openGrant,
+  person,
+  seedPeople,
+} = require("./helpers/people.cjs");
 
-const PAGE_ID = "dms-ai-test-sales";
-const TABLE_PERMISSION = `${PAGE_ID}.content`;
-const LIST_PERMISSION = `${TABLE_PERMISSION}.list`;
-const ASSISTANT = "ai.assistant";
-const READER_PERMISSIONS = [
-  ASSISTANT,
-  PAGE_ID,
-  TABLE_PERMISSION,
-  LIST_PERMISSION,
-];
-const TENANT_B = "tenant-b";
-const SALES_A = [
-  { label: "A-north", amount: 120, costPrice: 70 },
-  { label: "A-south", amount: 80, costPrice: 50 },
-];
-const SALES_B = [{ label: "B-east", amount: 999, costPrice: 1 }];
 const LABELS_A = SALES_A.map((sale) => sale.label).sort();
 const LABELS_B = SALES_B.map((sale) => sale.label).sort();
 const LISTED_FIELDS = ["_id", "amount", "label"];
@@ -86,34 +73,6 @@ const Computed = z.object({ result: z.json() });
 const API_BASE_URL_ENV = "DMS_AI_TEST_API_BASE_URL";
 const SIDECAR_DIST = path.join(__dirname, "..", "..", "sidecar", "dist");
 
-/** @typedef {import("./helpers/dms.cjs").Session} Session */
-
-/** @type {Map<string, Session>} */
-const people = new Map();
-/** @type {Array<() => void>} */
-const openStreams = [];
-
-/**
- * @param {string} name
- * @returns {Session}
- */
-function person(name) {
-  const found = people.get(name);
-  assert.ok(found, `nobody seeded as ${name}`);
-  return found;
-}
-
-/**
- * Opens an event stream as the named user and returns the grant it carried.
- *
- * @param {string} name
- */
-async function openGrant(name) {
-  const opened = await grantFor(person(name));
-  openStreams.push(opened.close);
-  return opened;
-}
-
 /**
  * @param {string} grant
  * @returns {Promise<{ page: string, tables: z.infer<typeof TablesAnswer>["tables"] }>}
@@ -151,52 +110,13 @@ async function readLabels(grant) {
   return rows.body.rows.map((row) => row.label).sort();
 }
 
-async function seedTenantA() {
-  const owner = await onboardOwner("owner@data-paths.test");
-  const readers = await createRole(owner, "Readers", READER_PERMISSIONS);
-  const pageOnly = await createRole(owner, "Page only", [ASSISTANT, PAGE_ID]);
-  const noAssistant = await createRole(owner, "No assistant", [
-    PAGE_ID,
-    TABLE_PERMISSION,
-    LIST_PERMISSION,
-  ]);
-  people.set("ownerA", owner);
-  people.set(
-    "readerA",
-    await inviteMember(owner, "reader-a@data-paths.test", readers),
-  );
-  people.set(
-    "pageOnlyA",
-    await inviteMember(owner, "page-only@data-paths.test", pageOnly),
-  );
-  people.set(
-    "noAssistantA",
-    await inviteMember(owner, "no-assistant@data-paths.test", noAssistant),
-  );
-  await addSales(owner, SALES_A);
-  return owner;
-}
-
-/** @param {Session} ownerA */
-async function seedTenantB(ownerA) {
-  const owner = await ownerInNewTenant(ownerA, TENANT_B);
-  const readers = await createRole(owner, "Readers", READER_PERMISSIONS);
-  people.set("ownerB", owner);
-  people.set(
-    "readerB",
-    await inviteMember(owner, "reader-b@data-paths.test", readers),
-  );
-  await addSales(owner, SALES_B);
-}
-
 before(async function () {
   this.timeout(SEED_TIMEOUT_MS);
-  await waitForLock();
-  await seedTenantB(await seedTenantA());
+  await seedPeople();
 });
 
 after(() => {
-  for (const close of openStreams) close();
+  closeGrants();
   stopSidecar();
 });
 

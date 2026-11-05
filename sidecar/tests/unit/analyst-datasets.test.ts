@@ -1,6 +1,7 @@
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import type { AnalystClient } from "../../src/analyst/analyst-client.js";
 import { ANALYST_DATASET_ROW_CAP } from "../../src/constants/analyst.js";
 import { createAnalystMcpServer } from "../../src/mcp/sdk-binding.js";
 import type { AiMcpServerDeps } from "../../src/mcp/types.js";
@@ -125,6 +126,45 @@ describe("AnalystLoad", () => {
       expect(LoadSummarySchema.parse(replaced.body).rowCount).toBe(10);
       expect(await computed(client, "return orders.length")).toBe(10);
     });
+  });
+
+  it("asks every page it reads for the archived rows it was told to load", async () => {
+    await withOrders(250, async (client, calls) => {
+      await callTool(client, "AnalystLoad", {
+        name: "orders",
+        page: "/sales",
+        table: "orders",
+        archived: "archived",
+      });
+      expect(calls).toHaveLength(3);
+      expect(
+        calls.every((call) => call.query.get("archived") === "archived"),
+      ).toBe(true);
+    });
+  });
+
+  it("keeps nothing when the backend refuses a page after the first", async () => {
+    const pages = rowsClient(250, [], orderAt);
+    const refusal = {
+      ok: false,
+      status: 403,
+      error: { error: "dms_refused:403" },
+    };
+    const refusing: AnalystClient = {
+      get: async (path, query, grant) =>
+        query.get("offset") === "0" ? pages.get(path, query, grant) : refusal,
+    };
+    await withClient(
+      createAnalystMcpServer(analystDeps(refusing)),
+      async (client) => {
+        const answer = await load(client);
+        expect(answer.isError).toBe(true);
+        expect(answer.body).toEqual(refusal);
+        expect(await computed(client, "return Object.keys(datasets)")).toEqual(
+          [],
+        );
+      },
+    );
   });
 
   it("reads and keeps nothing without a signed-in user", async () => {

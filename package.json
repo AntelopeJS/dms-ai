@@ -60,7 +60,7 @@
     "test:sidecar-lifecycle": "node --test tests/sidecar-lifecycle.test.cjs",
     "test:build-id": "node --test tests/build-id.test.cjs",
     "test:e2e": "cd sidecar && pnpm test:e2e",
-    "test:data-paths": "pnpm run build && pnpm run build:sidecar && ajs module test . --file tests/data-paths/analyst-data-paths.test.cjs",
+    "test:data-paths": "pnpm run build && pnpm run build:sidecar && ajs module test . --file tests/data-paths/analyst-data-paths.test.cjs --file tests/data-paths/analyst-table-kinds.test.cjs",
     "release": "pnpm install --frozen-lockfile && release-it",
     "format": "oxfmt . && pnpm --dir frontend-vue format",
     "knip": "knip --dependencies && pnpm --dir sidecar knip",

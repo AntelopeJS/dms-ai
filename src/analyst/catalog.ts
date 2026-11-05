@@ -1,12 +1,6 @@
 import { z } from "zod";
 import type { GrantIdentity } from "../assistant/grants";
-import {
-  FILTER_QUERY_PREFIX,
-  LIST_QUERY_KEYS,
-  ROW_ID_FIELD,
-  SITE_LAYOUT_PATH,
-  TABLE_LIST_SUFFIX,
-} from "../constants/analyst";
+import { ROW_ID_FIELD, SITE_LAYOUT_PATH } from "../constants/analyst";
 import { getAsUser } from "./as-user";
 import {
   type AnalystPage,
@@ -16,19 +10,10 @@ import {
   servedTables,
   SiteLayoutSchema,
 } from "./layouts";
+import { AnalystRefusal } from "./refusal";
+import { rowsRequest } from "./rows-request";
 
 const HTTP_NOT_FOUND = 404;
-const HTTP_BAD_REQUEST = 400;
-
-/** A DMS route refused, or Analyst found nothing under the name it was given. */
-export class AnalystRefusal extends Error {
-  constructor(
-    readonly status: number,
-    readonly reason: string,
-  ) {
-    super(reason);
-  }
-}
 
 async function readAsUser<T>(
   identity: GrantIdentity,
@@ -68,28 +53,6 @@ export async function describePage(
   return { page, tables: servedTables(layout) };
 }
 
-function listQuery(table: AnalystTable, query: URLSearchParams): string {
-  const forwarded = new URLSearchParams();
-  for (const key of LIST_QUERY_KEYS) {
-    const value = query.get(key);
-    if (value !== null) forwarded.set(key, value);
-  }
-  const sortKey = forwarded.get("sortKey");
-  if (
-    sortKey !== null &&
-    !table.columns.some((c) => c.field === sortKey && c.sortable)
-  ) {
-    throw new AnalystRefusal(HTTP_BAD_REQUEST, "not_sortable");
-  }
-  for (const column of table.columns) {
-    if (column.filterModes.length === 0) continue;
-    for (const value of query.getAll(`${FILTER_QUERY_PREFIX}${column.field}`)) {
-      forwarded.append(`${FILTER_QUERY_PREFIX}${column.field}`, value);
-    }
-  }
-  return forwarded.toString();
-}
-
 const RowSchema = z.record(z.string(), z.json());
 type Row = z.infer<typeof RowSchema>;
 
@@ -115,9 +78,10 @@ function project(row: Row, fields: Set<string>): Row {
 }
 
 /**
- * One page of a table view's rows through its own list route, as the user:
- * only filters on the columns it serves, a sort only on a sortable one, and
- * only the fields of its listed columns in each row.
+ * One page of a table view's rows through its own list route, or a source
+ * table's route, as the user: only filters on the columns it serves, a sort
+ * only on a sortable one, and only the fields of its listed columns in each
+ * row. A source route that answers every row at once is sliced here.
  */
 export async function readRows(
   identity: GrantIdentity,
@@ -128,16 +92,25 @@ export async function readRows(
   const { tables } = await describePage(identity, path);
   const table = tables.find((t) => t.id === tableId);
   if (table === undefined) throw new AnalystRefusal(HTTP_NOT_FOUND, "no_table");
+  const request = rowsRequest(table, query);
   const answer = await readAsUser(
     identity,
-    `${table.location}${TABLE_LIST_SUFFIX}?${listQuery(table, query)}`,
+    request.pathAndQuery,
     ListAnswerSchema,
   );
   const fields = new Set([ROW_ID_FIELD, ...table.columns.map((c) => c.field)]);
+  const { slice } = request;
+  const results =
+    slice === undefined
+      ? answer.results
+      : answer.results.slice(
+          slice.offset,
+          slice.limit === undefined ? undefined : slice.offset + slice.limit,
+        );
   return {
-    rows: answer.results.map((row) => project(row, fields)),
+    rows: results.map((row) => project(row, fields)),
     total: answer.total,
-    offset: answer.offset ?? 0,
-    limit: answer.limit,
+    offset: slice?.offset ?? answer.offset ?? 0,
+    limit: slice?.limit ?? answer.limit,
   };
 }

@@ -20,6 +20,12 @@ const FILTER = z.object({
   value: z.string().optional(),
 });
 
+const ARCHIVED = z
+  .enum(["active", "archived"])
+  .describe(
+    "On a table with `hasArchive`: `active` (the default) or `archived` rows, never both.",
+  );
+
 /** How a table's rows are picked, as AnalystReadRows and AnalystLoad take it. */
 export const ROWS_SELECTION = {
   page: PAGE,
@@ -28,6 +34,7 @@ export const ROWS_SELECTION = {
   search: z.string().optional(),
   sortField: z.string().optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),
+  archived: ARCHIVED.optional(),
 };
 
 const RowsPageSchema = z.object({
@@ -42,6 +49,7 @@ export interface RowsSelection {
   search?: string;
   sortField?: string;
   sortDirection?: "asc" | "desc";
+  archived?: z.infer<typeof ARCHIVED>;
 }
 
 interface ReadRowsArgs extends RowsSelection {
@@ -62,6 +70,7 @@ function rowsQuery(args: RowsSelection, offset: number, limit: number) {
     limit: String(limit),
   });
   if (args.search !== undefined) query.set("search", args.search);
+  if (args.archived !== undefined) query.set("archived", args.archived);
   if (args.sortField !== undefined) {
     query.set("sortKey", args.sortField);
     query.set("sortDirection", args.sortDirection ?? "asc");

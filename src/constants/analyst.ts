@@ -13,12 +13,17 @@ export const ANALYST_PAGES_PATH = `${ANALYST_ROUTE_PREFIX}/pages`;
 export const ANALYST_TABLES_PATH = `${ANALYST_ROUTE_PREFIX}/tables`;
 export const ANALYST_ROWS_PATH = `${ANALYST_ROUTE_PREFIX}/rows`;
 
-/** Query keys of a rows request handed on to the table's list route. */
-export const LIST_QUERY_KEYS = [
-  "offset",
-  "limit",
-  "sortKey",
-  "sortDirection",
-  "search",
-] as const;
+/** The page of rows a rows request asks for, as the list route reads it. */
+export const RANGE_QUERY_KEYS = ["offset", "limit"] as const;
+export const SORT_KEY_QUERY_KEY = "sortKey";
+export const SORT_DIRECTION_QUERY_KEY = "sortDirection";
+export const SEARCH_QUERY_KEY = "search";
 export const FILTER_QUERY_PREFIX = "filter_";
+/** The rows-request key picking a table's active or archived rows. */
+export const ARCHIVED_QUERY_KEY = "archived";
+/** The list route's own key for it, which archive mode reads. */
+export const SHOW_ARCHIVED_QUERY_KEY = "showArchived";
+/** What the list route reads a filter without a mode as. */
+export const DEFAULT_FILTER_MODE = "eq";
+/** A source `fetchUrl` naming its page's parameters or query, as `{{params.id}}`. */
+export const SOURCE_URL_TOKEN = "{{";

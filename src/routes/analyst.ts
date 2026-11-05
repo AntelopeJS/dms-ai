@@ -6,13 +6,10 @@ import {
   Parameter,
   type RequestContext,
 } from "@antelopejs/interface-api";
-import {
-  AnalystRefusal,
-  describePage,
-  listPages,
-  readRows,
-} from "../analyst/catalog";
+import { describePage, listPages, readRows } from "../analyst/catalog";
 import { GrantUserGoneError } from "../analyst/as-user";
+import type { AnalystTable } from "../analyst/layouts";
+import { AnalystRefusal } from "../analyst/refusal";
 import { type GrantIdentity, resolveGrant } from "../assistant/grants";
 import {
   ANALYST_PAGES_PATH,
@@ -42,13 +39,33 @@ async function answer<T>(
     return await read(identity);
   } catch (err) {
     if (err instanceof AnalystRefusal) {
-      return new HTTPResult(err.status, { error: err.reason });
+      return new HTTPResult(err.status, {
+        error: err.reason,
+        detail: err.detail,
+      });
     }
     if (err instanceof GrantUserGoneError) {
       return new HTTPResult(HTTP_FORBIDDEN, { error: "user_gone" });
     }
     throw err;
   }
+}
+
+function describedTable({
+  id,
+  searchable,
+  columns,
+  archive,
+  source,
+}: AnalystTable) {
+  return {
+    id,
+    searchable,
+    columns,
+    hasArchive: archive !== undefined,
+    canViewArchived: archive?.canView,
+    followsPeriod: source?.periodScope === undefined ? undefined : true,
+  };
 }
 
 /**
@@ -79,9 +96,7 @@ export class AIAnalystController extends Controller(ROUTE_PREFIX) {
       const described = await describePage(identity, page);
       return {
         page: described.page.path,
-        tables: described.tables.map(
-          ({ location: _location, ...table }) => table,
-        ),
+        tables: described.tables.map(describedTable),
       };
     });
   }
