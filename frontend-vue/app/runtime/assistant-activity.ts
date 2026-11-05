@@ -6,6 +6,7 @@ import { isTypedMessage } from "./typed-message";
 /** The backend's `/ai/status`, as far as the tab reads it. */
 export interface AssistantStatusPayload {
 	pendingApprovals?: number;
+	pendingQuestions?: number;
 	workingConversations?: number;
 	lastError?: string;
 }
@@ -13,6 +14,7 @@ export interface AssistantStatusPayload {
 interface ConversationListItem {
 	isRunning?: boolean;
 	pendingApprovals?: number;
+	pendingQuestions?: number;
 }
 
 interface ConversationListFrame {
@@ -25,6 +27,8 @@ const CONVERSATION_LIST_TYPE = "conversation_list";
 export interface AssistantActivity {
 	/** Requests waiting for an answer, across every chat. */
 	pendingApprovals: Readonly<Ref<number>>;
+	/** Questions the assistant asked and the user has not answered, across every chat. */
+	pendingQuestions: Readonly<Ref<number>>;
 	/** Chats running a turn now. */
 	workingConversations: Readonly<Ref<number>>;
 	/** A chat works or waits: the stream is worth keeping while the tab shows. */
@@ -77,6 +81,7 @@ export function createAssistantActivity(
 	options: AssistantActivityOptions,
 ): AssistantActivity {
 	const pendingApprovals = ref(0);
+	const pendingQuestions = ref(0);
 	const workingConversations = ref(0);
 	const lastError = ref<string | null>(null);
 
@@ -90,6 +95,7 @@ export function createAssistantActivity(
 		(payload) => {
 			if (!payload) return;
 			pendingApprovals.value = payload.pendingApprovals ?? 0;
+			pendingQuestions.value = payload.pendingQuestions ?? 0;
 			workingConversations.value = payload.workingConversations ?? 0;
 			lastError.value = payload.lastError ?? null;
 		},
@@ -100,6 +106,7 @@ export function createAssistantActivity(
 		if (!isListFrame(msg)) return;
 		const items = msg.conversations ?? [];
 		pendingApprovals.value = sum(items, (item) => item.pendingApprovals ?? 0);
+		pendingQuestions.value = sum(items, (item) => item.pendingQuestions ?? 0);
 		workingConversations.value = sum(items, (item) =>
 			item.isRunning === true ? 1 : 0,
 		);
@@ -107,9 +114,13 @@ export function createAssistantActivity(
 
 	return {
 		pendingApprovals,
+		pendingQuestions,
 		workingConversations,
 		isBusy: computed(
-			() => pendingApprovals.value > 0 || workingConversations.value > 0,
+			() =>
+				pendingApprovals.value > 0 ||
+				pendingQuestions.value > 0 ||
+				workingConversations.value > 0,
 		),
 		lastError,
 		refresh: () => status.refresh(),

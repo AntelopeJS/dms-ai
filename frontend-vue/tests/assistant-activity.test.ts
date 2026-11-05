@@ -66,4 +66,30 @@ describe("assistant activity", () => {
 		expect(activity.lastError.value).toBe("boom");
 		activity.stop();
 	});
+
+	it("keeps the stream open while a question waits, from the status and from a list", async () => {
+		const data = ref<AssistantStatusPayload | null>(null);
+		const { chat, emit } = fakeChat();
+		const activity = createAssistantActivity({
+			readStatus: () => ({ data, refresh: async () => undefined }),
+			chat,
+			shouldPoll: () => true,
+		});
+		data.value = { pendingQuestions: 1 };
+		await nextTick();
+		expect(activity.pendingQuestions.value).toBe(1);
+		expect(activity.pendingApprovals.value).toBe(0);
+		expect(activity.isBusy.value).toBe(true);
+		emit({ type: "conversation_list", conversations: [{}] });
+		expect(activity.pendingQuestions.value).toBe(0);
+		expect(activity.isBusy.value).toBe(false);
+		emit({
+			type: "conversation_list",
+			conversations: [{ pendingQuestions: 1 }, { pendingQuestions: 2 }],
+		});
+		expect(activity.pendingQuestions.value).toBe(3);
+		expect(activity.pendingApprovals.value).toBe(0);
+		expect(activity.isBusy.value).toBe(true);
+		activity.stop();
+	});
 });
