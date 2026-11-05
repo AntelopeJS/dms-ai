@@ -1,6 +1,14 @@
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
-const { mkdtemp, readFile, rm, stat, writeFile } = require("node:fs/promises");
+const {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} = require("node:fs/promises");
 const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
@@ -12,6 +20,7 @@ const { installRequireMocks } = require("./helpers/require-mocks.cjs");
 
 const DIST_DIR = path.resolve(__dirname, "../dist");
 const CLIENT_TOKEN = "client-secret";
+const REPLY_WAIT_MS = 5_000;
 const CACHE = ["node_modules", ".cache", "dms-ai"];
 const AddressSchema = z.object({ port: z.number() });
 const BridgeConfigSchema = z.object({ url: z.string(), token: z.string() });
@@ -19,6 +28,7 @@ const McpJsonSchema = z.looseObject({
   mcpServers: z.record(z.string(), z.unknown()),
 });
 const ReplySchema = z.looseObject({ jsonrpc: z.literal("2.0") });
+const LineSchema = z.object({ value: z.string() });
 
 /** What the stand-in sidecar received and answers. */
 const sidecar = {
@@ -28,6 +38,8 @@ const sidecar = {
   requests: [],
   /** @type {{ status: number, body: string }} */
   answer: { status: 200, body: "{}" },
+  /** Whether the sidecar is turned off, as in production. */
+  disabled: false,
 };
 
 /**
@@ -83,7 +95,7 @@ function loadModules() {
           ensureSidecarRunning: async () => undefined,
           getSidecarPort: () => sidecar.port,
           getSidecarClientToken: () => CLIENT_TOKEN,
-          isSidecarDisabled: () => false,
+          isSidecarDisabled: () => sidecar.disabled,
         },
       ],
     ]),
@@ -188,8 +200,21 @@ async function startBridge(root) {
   return {
     /** @param {object} message */
     send: (message) => child.stdin.write(`${JSON.stringify(message)}\n`),
-    next: async () =>
-      ReplySchema.parse(JSON.parse((await iterator.next()).value)),
+    next: async () => {
+      /** @type {NodeJS.Timeout | undefined} */
+      let timer;
+      const timeout = new Promise((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error("no reply")), REPLY_WAIT_MS);
+      });
+      try {
+        const line = LineSchema.parse(
+          await Promise.race([iterator.next(), timeout]),
+        );
+        return ReplySchema.parse(JSON.parse(line.value));
+      } finally {
+        clearTimeout(timer);
+      }
+    },
     stop: () => child.kill(),
   };
 }
@@ -333,5 +358,158 @@ void test("mcpJson: false leaves the project without a .mcp.json", async () => {
   const root = await tempProject();
   await publish(root, false);
   await assert.rejects(stat(path.join(root, ".mcp.json")), { code: "ENOENT" });
+  await rm(root, { recursive: true, force: true });
+});
+
+/** @param {string} root @param {(config: { url: string, token: string }) => object} edit */
+async function editBridgeConfig(root, edit) {
+  const config = await readBridgeConfig(root);
+  await writeFile(
+    path.join(root, ...CACHE, "mcp.json"),
+    JSON.stringify(edit(config)),
+  );
+  return config;
+}
+
+/** @param {number} id */
+function okReply(id) {
+  return {
+    status: 200,
+    body: JSON.stringify({ jsonrpc: "2.0", id, result: {} }),
+  };
+}
+
+async function waitForRequests(count) {
+  while (sidecar.requests.length < count) {
+    await new Promise((done) => setTimeout(done, 10));
+  }
+}
+
+void test("the bridge reads its config per message, so a restarted backend needs no reconnect", async () => {
+  const root = await tempProject();
+  sidecar.requests = [];
+  sidecar.answer = okReply(1);
+  await publish(root);
+  const bridge = await startBridge(root);
+  try {
+    const live = await editBridgeConfig(root, (config) => ({
+      ...config,
+      url: "http://127.0.0.1:1/ai/mcp",
+    }));
+    bridge.send({ jsonrpc: "2.0", id: 1, method: "ping" });
+    assert.ok("error" in (await bridge.next()));
+    await editBridgeConfig(root, () => live);
+    bridge.send({ jsonrpc: "2.0", id: 1, method: "ping" });
+    assert.deepEqual(await bridge.next(), {
+      jsonrpc: "2.0",
+      id: 1,
+      result: {},
+    });
+  } finally {
+    bridge.stop();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("the bridge writes nothing for a notification the backend acknowledges", async () => {
+  const root = await tempProject();
+  sidecar.requests = [];
+  sidecar.answer = { status: 202, body: "" };
+  await publish(root);
+  const bridge = await startBridge(root);
+  try {
+    bridge.send({ jsonrpc: "2.0", method: "notifications/initialized" });
+    await waitForRequests(1);
+    sidecar.answer = okReply(9);
+    bridge.send({ jsonrpc: "2.0", id: 9, method: "ping" });
+    assert.deepEqual(await bridge.next(), {
+      jsonrpc: "2.0",
+      id: 9,
+      result: {},
+    });
+  } finally {
+    bridge.stop();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("a request holding U+2028 reaches the sidecar whole", async () => {
+  const root = await tempProject();
+  sidecar.requests = [];
+  sidecar.answer = okReply(5);
+  await publish(root);
+  const bridge = await startBridge(root);
+  const params = {
+    name: "BuilderCreatePage",
+    arguments: { title: "a\u2028b\u2029c" },
+  };
+  try {
+    bridge.send({ jsonrpc: "2.0", id: 5, method: "tools/call", params });
+    assert.equal((await bridge.next()).id, 5);
+    assert.equal(sidecar.requests.length, 1);
+    assert.deepEqual(
+      z.object({ params: z.unknown() }).parse(sidecar.requests[0]?.body).params,
+      params,
+    );
+  } finally {
+    bridge.stop();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("a refusal reaches the session with its cause, not as a backend that is down", async () => {
+  const root = await tempProject();
+  sidecar.answer = { status: 401, body: "{}" };
+  await publish(root);
+  await editBridgeConfig(root, (config) => ({
+    ...config,
+    url: `http://127.0.0.1:${sidecar.port}/ai/mcp`,
+  }));
+  const bridge = await startBridge(root);
+  try {
+    bridge.send({ jsonrpc: "2.0", id: 2, method: "ping" });
+    const { message } = z
+      .object({ message: z.string() })
+      .parse((await bridge.next()).error);
+    assert.match(message, /credential/);
+    assert.doesNotMatch(message, /not running/);
+  } finally {
+    bridge.stop();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("the route serves nothing where the sidecar is turned off", async () => {
+  const root = await tempProject();
+  await publish(root);
+  const { token } = await readBridgeConfig(root);
+  sidecar.disabled = true;
+  try {
+    const loopback = {
+      rawRequest: { headers: {}, socket: { remoteAddress: "127.0.0.1" } },
+    };
+    const result = await relay(loopback, `Bearer ${token}`, {});
+    assert.equal(result.getStatus(), 503);
+  } finally {
+    sidecar.disabled = false;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("a credential file left readable by others is made private again", async () => {
+  const root = await tempProject();
+  await publish(root);
+  const file = path.join(root, ...CACHE, "mcp.json");
+  await chmod(file, 0o644);
+  await publish(root);
+  assert.equal((await stat(file)).mode & 0o777, 0o600);
+  await rm(root, { recursive: true, force: true });
+});
+
+void test("a .mcp.json the module cannot read is left alone", async () => {
+  const root = await tempProject();
+  await mkdir(path.join(root, ".mcp.json"));
+  await publish(root);
+  assert.ok((await stat(path.join(root, ".mcp.json"))).isDirectory());
   await rm(root, { recursive: true, force: true });
 });

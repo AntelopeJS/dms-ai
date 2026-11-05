@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
-import readline from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import { z } from "zod";
 import {
-  BACKEND_DOWN_MESSAGE,
+  BRIDGE_REFUSALS,
+  BRIDGE_UNREACHABLE,
   HTTP_ACCEPTED,
   JSON_RPC_INTERNAL_ERROR,
 } from "./constants/mcp";
@@ -72,15 +72,19 @@ function requestIdOf(line: string): string | number | undefined {
   }
 }
 
-function failure(id: string | number, reason: string): string {
+function failure(id: string | number, message: string): string {
   return JSON.stringify({
     jsonrpc: "2.0",
     id,
-    error: {
-      code: JSON_RPC_INTERNAL_ERROR,
-      message: `${BACKEND_DOWN_MESSAGE} (${reason})`,
-    },
+    error: { code: JSON_RPC_INTERNAL_ERROR, message },
   });
+}
+
+/** What a refusal of the backend means for the person running the session. */
+function refusalMessage(status: number): string {
+  return (
+    BRIDGE_REFUSALS.get(status) ?? `${BRIDGE_UNREACHABLE} (HTTP ${status})`
+  );
 }
 
 async function relay(
@@ -88,18 +92,37 @@ async function relay(
   line: string,
   write: (message: string) => void,
 ): Promise<void> {
+  const id = requestIdOf(line);
+  let answer: { status: number; text: string };
   try {
-    const answer = await post(await readConfig(configPath), line);
-    if (answer.status === HTTP_ACCEPTED) return;
-    if (answer.status < 200 || answer.status >= 300) {
-      throw new Error(`HTTP ${answer.status}`);
-    }
-    write(answer.text);
+    answer = await post(await readConfig(configPath), line);
   } catch (err) {
-    const id = requestIdOf(line);
-    if (id === undefined) return;
-    write(failure(id, err instanceof Error ? err.message : String(err)));
+    const reason = err instanceof Error ? err.message : String(err);
+    if (id !== undefined)
+      write(failure(id, `${BRIDGE_UNREACHABLE} (${reason})`));
+    return;
   }
+  if (answer.status === HTTP_ACCEPTED) return;
+  if (answer.status >= 200 && answer.status < 300) {
+    write(answer.text);
+    return;
+  }
+  if (id !== undefined) write(failure(id, refusalMessage(answer.status)));
+}
+
+/**
+ * Calls `onLine` with each `\n`-terminated line of the stream. MCP's stdio
+ * framing is `\n` alone: `readline` would also split at U+2028 and U+2029,
+ * which `JSON.stringify` leaves raw inside strings.
+ */
+function onLines(input: Readable, onLine: (line: string) => void): void {
+  let pending = "";
+  input.setEncoding("utf8");
+  input.on("data", (chunk: string) => {
+    const parts = `${pending}${chunk}`.split("\n");
+    pending = parts.pop() ?? "";
+    for (const part of parts) onLine(part);
+  });
 }
 
 /**
@@ -115,8 +138,7 @@ export function runBridge(
   output: Writable = process.stdout,
 ): void {
   const write = (message: string) => output.write(`${message}\n`);
-  const lines = readline.createInterface({ input });
-  lines.on("line", (line) => {
+  onLines(input, (line) => {
     if (line.trim().length === 0) return;
     void relay(configPath, line, write);
   });

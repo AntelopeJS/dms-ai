@@ -8,7 +8,8 @@ import type { AddressInfo } from "node:net";
 import { getBuilderAvailable } from "../builder/capability.js";
 import { CONTENT_TYPE, HTTP_STATUS } from "../constants/http.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
-import { MCP_HTTP_PATH } from "../constants/mcp.js";
+import { MCP_HTTP_PATH, MCP_PROJECT_PATH } from "../constants/mcp.js";
+import type { ProjectMcpEndpoint } from "../mcp/project-endpoint.js";
 import { LOOPBACK_HOST } from "../constants/ports.js";
 import type { McpHttpRegistry } from "../mcp/http-binding.js";
 import { z } from "zod";
@@ -33,6 +34,7 @@ import { readSidecarVersion } from "../state/sidecar-version.js";
 import { API_ROUTES, type ApiDeps, type ApiRoute } from "./http-routes.js";
 import { readBody, sendJson, sendResponse } from "./http-io.js";
 import { decodeRouteParam } from "./http-params.js";
+import { handleProjectMcp } from "./project-mcp-route.js";
 import type { SidecarServices } from "./services.js";
 
 export interface SettingsApplier {
@@ -42,6 +44,8 @@ export interface SettingsApplier {
 /** Filled by the WebSocket stack with the live services the routes read. */
 export interface SidecarBridge {
   services?: SidecarServices;
+  /** The tools served to agent sessions outside the chat. */
+  projectMcp?: ProjectMcpEndpoint;
 }
 
 /**
@@ -269,6 +273,15 @@ async function handleRequest(
   const path = buildRoutePath(req);
   if (ctx.mcpHttpRegistry && path === MCP_HTTP_PATH) {
     await ctx.mcpHttpRegistry.handleRequest(req, res);
+    return;
+  }
+  if (req.method === "POST" && path === MCP_PROJECT_PATH) {
+    if (!isClientAuthorized(req, ctx.clientToken)) {
+      res.writeHead(HTTP_STATUS.UNAUTHORIZED, { "Cache-Control": "no-store" });
+      res.end();
+      return;
+    }
+    await handleProjectMcp(req, res, ctx.bridge?.projectMcp);
     return;
   }
   if (req.method === "GET" && PUBLIC_PATHS.includes(path)) {

@@ -12,7 +12,8 @@ import {
   HTTP_ACCEPTED,
   HTTP_FORBIDDEN,
   HTTP_UNAUTHORIZED,
-  LOOPBACK_ADDRESSES,
+  LOOPBACK_IPV4_PREFIXES,
+  LOOPBACK_IPV6,
   MCP_ROUTE_PATH,
   SIDECAR_MCP_PROJECT_PATH,
 } from "../constants/mcp";
@@ -38,7 +39,11 @@ function isDirectLocalCall(ctx: RequestContext): boolean {
   if (FORWARDING_HEADERS.some((name) => headers[name] !== undefined)) {
     return false;
   }
-  return LOOPBACK_ADDRESSES.has(socket.remoteAddress ?? "");
+  const address = socket.remoteAddress ?? "";
+  return (
+    address === LOOPBACK_IPV6 ||
+    LOOPBACK_IPV4_PREFIXES.some((prefix) => address.startsWith(prefix))
+  );
 }
 
 /**

@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Logging } from "@antelopejs/interface-core/logging";
 import { z } from "zod";
@@ -44,10 +44,15 @@ function launcherSource(bridgePath: string): string {
   return `require(${JSON.stringify(bridgePath)}).runBridge(require("node:path").join(__dirname, ${JSON.stringify(MCP_BRIDGE_CONFIG_FILE_NAME)}));\n`;
 }
 
+/** Written beside the target and renamed over it, so a bridge never reads a half-written file. */
 async function writePrivate(filePath: string, content: string): Promise<void> {
-  await writeFile(filePath, content, { mode: PRIVATE_FILE_MODE });
-  await chmod(filePath, PRIVATE_FILE_MODE);
+  const temp = `${filePath}.${process.pid}.tmp`;
+  await writeFile(temp, content, { mode: PRIVATE_FILE_MODE });
+  await chmod(temp, PRIVATE_FILE_MODE);
+  await rename(temp, filePath);
 }
+
+const MissingFileSchema = z.object({ code: z.literal("ENOENT") });
 
 /** What the module reads of `.mcp.json`: its servers, and every other key kept as written. */
 const McpJsonSchema = z.looseObject({
@@ -56,13 +61,13 @@ const McpJsonSchema = z.looseObject({
 
 type McpJson = z.infer<typeof McpJsonSchema>;
 
-/** The file's content; empty when there is none, `null` when it is not a `.mcp.json` the module can extend. */
+/** The file's content; empty when there is none, `null` when it is not a `.mcp.json` the module can extend or could not be read. */
 async function readMcpJson(filePath: string): Promise<McpJson | null> {
   let raw: string;
   try {
     raw = await readFile(filePath, "utf8");
-  } catch {
-    return {};
+  } catch (err) {
+    return MissingFileSchema.safeParse(err).success ? {} : null;
   }
   try {
     const parsed = McpJsonSchema.safeParse(JSON.parse(raw));

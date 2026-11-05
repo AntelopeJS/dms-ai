@@ -93,6 +93,11 @@ export const FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES: ReadonlySet<string> = new Set(
 export const MCP_HTTP_PATH = "/mcp";
 /** The project's sessionless endpoint, reached through the DMS backend with the client credential. */
 export const MCP_PROJECT_PATH = "/mcp/project";
+/**
+ * The largest message the project endpoint reads: the backend route in front
+ * of it parses JSON bodies up to 1 MiB, so a page composed in one call fits.
+ */
+export const MCP_PROJECT_MAX_BODY_BYTES = 1024 * 1024;
 /** The conversation the project endpoint's tools are bound to: no chat carries it. */
 export const PROJECT_CONVERSATION_ID = "project-mcp";
 /**

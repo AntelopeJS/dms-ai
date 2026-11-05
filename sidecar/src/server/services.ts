@@ -34,8 +34,6 @@ export interface SidecarServices {
   permissionBus: PermissionBus;
   questionBus: QuestionBus;
   createMcpServer: (conversationId: string) => AiMcpServer;
-  /** The tools served to agent sessions outside the chat. */
-  projectMcp: ProjectMcpEndpoint;
   editTracker: EditTracker;
   logsClient: LogsClient;
   moduleRoots: string[];
@@ -57,6 +55,8 @@ export interface SidecarServices {
 
 export interface RoutingConfig extends SidecarServices {
   idleController: IdleShutdownController;
+  /** The tools served to agent sessions outside the chat. */
+  projectMcp: ProjectMcpEndpoint;
 }
 
 /** One socket's view: the shared services plus who drives it. */
