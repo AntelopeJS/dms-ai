@@ -45,6 +45,33 @@ function activityOver(chat: ChatTransport) {
 	return { data, activity };
 }
 
+function activityOverHeldRefresh(chat: ChatTransport) {
+	const data = ref<AssistantStatusPayload | null>(null);
+	const refreshes: { resolve: () => void; reject: (reason: Error) => void }[] =
+		[];
+	const activity = createAssistantActivity({
+		readStatus: () => ({
+			data,
+			refresh: () =>
+				new Promise<void>((resolve, reject) => {
+					refreshes.push({ resolve, reject });
+				}),
+		}),
+		chat,
+		shouldPoll: () => true,
+	});
+	return { data, activity, refreshes };
+}
+
+function finishTurnThenLoseStream(
+	emit: (msg: object) => void,
+	announce: (next: ChannelStatus) => void,
+): void {
+	emit({ type: "conversation_list", conversations: [{ isRunning: true }] });
+	emit({ type: "conversation_list", conversations: [{ isRunning: false }] });
+	announce("disconnected");
+}
+
 describe("assistant activity", () => {
 	it("polls the status through the read's interval while it is useful, and stops on teardown", async () => {
 		const data = ref<AssistantStatusPayload | null>(null);
@@ -154,6 +181,101 @@ describe("assistant activity", () => {
 		data.value = { workingConversations: 2 };
 		await nextTick();
 		expect(activity.workingConversations.value).toBe(2);
+		activity.stop();
+	});
+
+	it("keeps a finished turn when a status answer sent during the turn lands after the stream let go (fails if the release reopens the counts to any answer)", async () => {
+		const { chat, emit, announce } = fakeChat();
+		const { data, activity } = activityOverHeldRefresh(chat);
+		finishTurnThenLoseStream(emit, announce);
+		data.value = { workingConversations: 1 };
+		await nextTick();
+		expect(activity.workingConversations.value).toBe(0);
+		expect(activity.isBusy.value).toBe(false);
+		activity.stop();
+	});
+
+	it("reads the status again when the lists let go (fails if the release leaves the stale answer in flight)", async () => {
+		const { chat, emit, announce } = fakeChat();
+		const { activity, refreshes } = activityOverHeldRefresh(chat);
+		emit({ type: "conversation_list", conversations: [] });
+		announce("reconnecting");
+		announce("disconnected");
+		expect(refreshes).toHaveLength(1);
+		activity.stop();
+	});
+
+	it("takes the counts of the fresh read once it answers (fails if the counts stay shut after a release)", async () => {
+		const { chat, emit, announce } = fakeChat();
+		const { data, activity, refreshes } = activityOverHeldRefresh(chat);
+		finishTurnThenLoseStream(emit, announce);
+		data.value = { workingConversations: 1 };
+		await nextTick();
+		data.value = { pendingApprovals: 2, lastError: "fresh" };
+		refreshes[0]?.resolve();
+		await nextTick();
+		expect(activity.pendingApprovals.value).toBe(2);
+		expect(activity.workingConversations.value).toBe(0);
+		expect(activity.lastError.value).toBe("fresh");
+		data.value = { workingConversations: 1 };
+		await nextTick();
+		expect(activity.workingConversations.value).toBe(1);
+		activity.stop();
+	});
+
+	it("keeps the counts when the fresh read resolves with no new answer (fails if it applies the answer it replaced)", async () => {
+		const { chat, emit, announce } = fakeChat();
+		const { data, activity, refreshes } = activityOverHeldRefresh(chat);
+		data.value = { workingConversations: 1 };
+		await nextTick();
+		finishTurnThenLoseStream(emit, announce);
+		refreshes[0]?.resolve();
+		await nextTick();
+		expect(activity.workingConversations.value).toBe(0);
+		activity.stop();
+	});
+
+	it("takes the next answer after a fresh read that fails (fails if a rejected refresh freezes the counts)", async () => {
+		const { chat, emit, announce } = fakeChat();
+		const { data, activity, refreshes } = activityOverHeldRefresh(chat);
+		finishTurnThenLoseStream(emit, announce);
+		refreshes[0]?.reject(new Error("offline"));
+		await nextTick();
+		data.value = { workingConversations: 1 };
+		await nextTick();
+		expect(activity.workingConversations.value).toBe(1);
+		activity.stop();
+	});
+
+	it("keeps a list's counts when the stream is back before the fresh read lands (fails if the read is applied over a newer list)", async () => {
+		const { chat, emit, announce } = fakeChat();
+		const { data, activity, refreshes } = activityOverHeldRefresh(chat);
+		finishTurnThenLoseStream(emit, announce);
+		announce("connected");
+		emit({ type: "conversation_list", conversations: [{ isRunning: true }] });
+		data.value = { workingConversations: 0 };
+		refreshes[0]?.resolve();
+		await nextTick();
+		expect(activity.workingConversations.value).toBe(1);
+		activity.stop();
+	});
+
+	it("takes only the latest release's read (fails if an earlier read's answer lifts the later release's gate)", async () => {
+		const { chat, emit, announce } = fakeChat();
+		const { data, activity, refreshes } = activityOverHeldRefresh(chat);
+		finishTurnThenLoseStream(emit, announce);
+		announce("connected");
+		emit({ type: "conversation_list", conversations: [{ isRunning: true }] });
+		announce("disconnected");
+		expect(refreshes).toHaveLength(2);
+		refreshes[0]?.resolve();
+		await nextTick();
+		data.value = { workingConversations: 0 };
+		await nextTick();
+		expect(activity.workingConversations.value).toBe(1);
+		refreshes[1]?.resolve();
+		await nextTick();
+		expect(activity.workingConversations.value).toBe(0);
 		activity.stop();
 	});
 });
