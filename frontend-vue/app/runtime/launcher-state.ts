@@ -2,9 +2,9 @@ import { readonly, type Ref, ref, watch } from "vue";
 import { LAUNCHER_FINISHED_HOLD_MS } from "./constants";
 
 /**
- * What the header launcher shows of the assistant. `finished` is a latch: it
- * marks a turn or a question that ended while nobody looked, until the panel
- * opens.
+ * What the header launcher shows of the assistant. `finished` marks work that
+ * ended: until the panel opens when nobody saw it end, for
+ * `LAUNCHER_FINISHED_HOLD_MS` when the panel was open to see it.
  */
 export type LauncherState =
 	| "disconnected"
@@ -24,49 +24,57 @@ export interface LauncherSnapshot {
 	isPanelOpen: boolean;
 }
 
-type PressingState = Extract<
-	LauncherState,
-	"disconnected" | "question" | "working"
->;
+/**
+ * What the launcher remembers of the assistant's work, apart from what it
+ * shows: `running` while a chat works or waits, then `unseen` when that work
+ * ended with the panel closed, or `seen` when it ended in front of the owner.
+ */
+export type LauncherMemory = "idle" | "running" | "unseen" | "seen";
 
-interface AtRest {
-	whenPanelClosed: LauncherState;
-	whenPanelOpen: LauncherState;
+export type LauncherEvent =
+	| { type: "observe"; snapshot: LauncherSnapshot }
+	| { type: "holdEnd" };
+
+function isBusy(snapshot: LauncherSnapshot): boolean {
+	return snapshot.working > 0 || snapshot.waiting > 0;
+}
+
+function observe(
+	memory: LauncherMemory,
+	snapshot: LauncherSnapshot,
+): LauncherMemory {
+	if (isBusy(snapshot)) return "running";
+	if (memory === "running") return snapshot.isPanelOpen ? "seen" : "unseen";
+	if (memory === "unseen" && snapshot.isPanelOpen) return "idle";
+	return memory;
 }
 
 /**
- * Where each state goes when nothing works or waits. Work that ends latches
- * `finished`; the latch holds while the panel is closed and lets go once it
- * is open, which `createLauncherState` times for a panel that was open already.
+ * The memory after an event. Work that ends is marked whatever the
+ * connection shows, an open panel clears an `unseen` mark, and only the end
+ * of the hold clears a `seen` one.
  */
-const AT_REST: Record<LauncherState, AtRest> = {
-	disconnected: { whenPanelClosed: "connected", whenPanelOpen: "connected" },
-	connected: { whenPanelClosed: "connected", whenPanelOpen: "connected" },
-	working: { whenPanelClosed: "finished", whenPanelOpen: "finished" },
-	question: { whenPanelClosed: "finished", whenPanelOpen: "finished" },
-	finished: { whenPanelClosed: "finished", whenPanelOpen: "connected" },
-};
+export function rememberLauncher(
+	memory: LauncherMemory,
+	event: LauncherEvent,
+): LauncherMemory {
+	if (event.type === "holdEnd") return memory === "seen" ? "idle" : memory;
+	return observe(memory, event.snapshot);
+}
 
-/** The state something presses for, in priority order; `null` when all is idle. */
-function pressingState(snapshot: LauncherSnapshot): PressingState | null {
+/**
+ * The state to show: a disconnect, a question or a turn wins over everything
+ * else, in that order, then a finish the memory still marks.
+ */
+export function displayLauncher(
+	memory: LauncherMemory,
+	snapshot: LauncherSnapshot,
+): LauncherState {
 	if (!snapshot.isConnected) return "disconnected";
 	if (snapshot.waiting > 0) return "question";
 	if (snapshot.working > 0) return "working";
-	return null;
-}
-
-/**
- * The next state: a disconnect, a question or a turn wins over everything
- * else, in that order, and an idle assistant settles as `AT_REST` says.
- */
-export function nextLauncherState(
-	previous: LauncherState,
-	snapshot: LauncherSnapshot,
-): LauncherState {
-	const pressing = pressingState(snapshot);
-	if (pressing !== null) return pressing;
-	const rest = AT_REST[previous];
-	return snapshot.isPanelOpen ? rest.whenPanelOpen : rest.whenPanelClosed;
+	if (memory === "unseen" || memory === "seen") return "finished";
+	return "connected";
 }
 
 export interface LauncherSources {
@@ -82,8 +90,8 @@ export interface LauncherStateHandle {
 }
 
 /**
- * The launcher's state, kept up to date from its sources. A `finished` that
- * lands while the panel is open lets go after `LAUNCHER_FINISHED_HOLD_MS`.
+ * The launcher's state, kept up to date from its sources. A finish the owner
+ * saw lets go `LAUNCHER_FINISHED_HOLD_MS` after the work ended.
  */
 export function createLauncherState(
 	sources: LauncherSources,
@@ -94,17 +102,23 @@ export function createLauncherState(
 		waiting: sources.waiting.value,
 		isPanelOpen: sources.isPanelOpen.value,
 	});
-	const state = ref<LauncherState>(nextLauncherState("disconnected", read()));
+	let memory = rememberLauncher("idle", { type: "observe", snapshot: read() });
+	const state = ref<LauncherState>(displayLauncher(memory, read()));
 	let holdTimer: ReturnType<typeof setTimeout> | null = null;
 	const clearHold = (): void => {
 		if (holdTimer !== null) clearTimeout(holdTimer);
 		holdTimer = null;
 	};
-	const settle = (): void => {
-		clearHold();
-		state.value = nextLauncherState(state.value, read());
-		if (state.value === "finished" && sources.isPanelOpen.value)
-			holdTimer = setTimeout(settle, LAUNCHER_FINISHED_HOLD_MS);
+	const apply = (event: LauncherEvent): void => {
+		const previous = memory;
+		memory = rememberLauncher(memory, event);
+		if (memory !== "seen") clearHold();
+		else if (previous !== "seen")
+			holdTimer = setTimeout(
+				() => apply({ type: "holdEnd" }),
+				LAUNCHER_FINISHED_HOLD_MS,
+			);
+		state.value = displayLauncher(memory, read());
 	};
 	const stopWatching = watch(
 		[
@@ -113,7 +127,7 @@ export function createLauncherState(
 			sources.waiting,
 			sources.isPanelOpen,
 		],
-		settle,
+		() => apply({ type: "observe", snapshot: read() }),
 	);
 	return {
 		state: readonly(state),
