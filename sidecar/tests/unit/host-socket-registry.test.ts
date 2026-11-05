@@ -79,6 +79,32 @@ describe("createHostSocketRegistry", () => {
     expect(first.send).toHaveBeenCalledTimes(1);
   });
 
+  it("broadcasts to every host and not only the latest (fails a broadcast that reuses send)", () => {
+    const registry = createHostSocketRegistry();
+    const first = buildFakeHost();
+    const second = buildFakeHost();
+    registry.set(first.socket);
+    registry.set(second.socket);
+    registry.broadcast(buildEvent());
+    expect(first.send).toHaveBeenCalledOnce();
+    expect(second.send).toHaveBeenCalledOnce();
+  });
+
+  it("broadcasts past the sockets already served and the ones that left (fails a broadcast ignoring either)", () => {
+    const registry = createHostSocketRegistry();
+    const served = buildFakeHost();
+    const gone = buildFakeHost();
+    const other = buildFakeHost();
+    registry.set(served.socket);
+    registry.set(gone.socket);
+    registry.set(other.socket);
+    registry.clear(gone.socket);
+    registry.broadcast(buildEvent(), (socket) => socket === served.socket);
+    expect(served.send).not.toHaveBeenCalled();
+    expect(gone.send).not.toHaveBeenCalled();
+    expect(other.send).toHaveBeenCalledOnce();
+  });
+
   it("send is a no-op when no socket is set", () => {
     const registry = createHostSocketRegistry();
     expect(() => registry.send(buildEvent())).not.toThrow();

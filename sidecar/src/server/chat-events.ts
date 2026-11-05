@@ -128,9 +128,18 @@ export function buildConversationListEvent(
   };
 }
 
-/** Keeps every open drawer's "Active" group live. */
+/**
+ * Keeps every open drawer's "Active" group live, and the launcher of every tab
+ * whose panel is closed: those only said hello as a host. A socket that is both
+ * gets the list once.
+ */
 export function broadcastConversationList(services: SidecarServices): void {
-  services.chatSocketRegistry.broadcast(buildConversationListEvent(services));
+  const event = buildConversationListEvent(services);
+  services.chatSocketRegistry.broadcast(event);
+  services.hostSocketRegistry.broadcast(
+    event,
+    services.chatSocketRegistry.isChat,
+  );
 }
 
 export function sendConversationMode(

@@ -9,6 +9,11 @@ export interface HostSocketRegistry {
   set: (socket: SocketSender) => void;
   clear: (socket: SocketSender) => void;
   send: (event: AnyServerEventType, preferred?: SocketSender) => void;
+  /** Every host, each once, except the sockets `isServed` already answers for. */
+  broadcast: (
+    event: AnyServerEventType,
+    isServed?: (socket: SocketSender) => boolean,
+  ) => void;
   has: () => boolean;
 }
 
@@ -57,6 +62,17 @@ function buildSend(state: RegistryState) {
   };
 }
 
+function buildBroadcast(state: RegistryState) {
+  return (
+    event: AnyServerEventType,
+    isServed: (socket: SocketSender) => boolean = () => false,
+  ): void => {
+    for (const socket of state.sockets) {
+      if (!isServed(socket)) trySend(socket, event);
+    }
+  };
+}
+
 /**
  * Tracks every socket that said hello as a host. A command goes to the
  * preferred socket when it is still a host, else to the latest host.
@@ -67,6 +83,7 @@ export function createHostSocketRegistry(): HostSocketRegistry {
     set: buildSet(state),
     clear: (socket) => removeSocket(state, socket),
     send: buildSend(state),
+    broadcast: buildBroadcast(state),
     has: () => state.sockets.length > 0,
   };
 }
