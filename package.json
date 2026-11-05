@@ -71,9 +71,7 @@
     "sync:check": "antelopejs-sync --check",
     "format:check": "oxfmt --check .",
     "suppressions": "antelopejs-suppressions",
-    "suppressions:update": "antelopejs-suppressions --update",
-    "ratchet": "antelopejs-ratchet",
-    "ratchet:update": "antelopejs-ratchet --update"
+    "suppressions:update": "antelopejs-suppressions --update"
   },
   "dependencies": {
     "@antelopejs/agent-skills": "^0.1.0",

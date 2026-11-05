@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "emitDeclarationOnly": true,
+    "rootDir": ".",
+    "outDir": "node_modules/.cache/sidecar-config",
+    "tsBuildInfoFile": "node_modules/.cache/sidecar-config/.tsbuildinfo"
+  },
+  "include": ["./vitest.config.ts"]
+}
