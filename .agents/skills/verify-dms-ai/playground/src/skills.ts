@@ -8,7 +8,7 @@ const FIXTURE_SKILLS = {
   "no-name": "---\ndescription: A skill without a name: the catalog skips it.\n---\n\n# no-name\n",
   "twin-a": "---\nname: verify-twin\ndescription: The first copy of a skill whose name another skill of this module shares.\ntags: [twin]\n---\n\n# verify-twin (first copy)\n\nFIRST-COPY-MARKER\n",
   "twin-b": "---\nname: verify-twin\ndescription: The second copy of a skill whose name another skill of this module shares.\ntags: [twin]\n---\n\n# verify-twin (second copy)\n\nSECOND-COPY-MARKER\n",
-  "verify-note": "---\nname: verify-note\ndescription: Explains the verification playground's note page. Use when the user mentions notes or the verification playground.\nicon: i-lucide-notebook\ncategory: verification\ntags: [notes, playground, verification]\n---\n\n# verify-note\n\nThe note page of the verification playground holds one text field. Use it to check that a skill reaches the assistant.\n"
+  "verify-note": "---\nname: verify-note\ndescription: Explains the verification playground's note page. Use when the user mentions notes or the verification playground.\nicon: i-lucide-notebook\ncategory: verification\ntags: [notes, playground, verification, inkwell]\n---\n\n# verify-note\n\nThe note page of the verification playground holds one text field. Use it to check that a skill reaches the assistant.\n"
 } as const;
 
 /** Where the playground declares its skills (`antelopeJs.skills`). */

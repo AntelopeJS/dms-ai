@@ -22,6 +22,20 @@ function localSkill(ctx, name, body) {
 
 const SHIPPED = ["dms-ai", "dms-ai-code-mode", "dms-builder-safe", "dms-external-database"];
 
+/**
+ * A check on the names of the cards the page shows once it has settled, the conflicts banner aside.
+ *
+ * @param {import("../ai.mjs").Tab} tab The tab
+ * @param {string} name What is checked
+ * @param {string[]} expected The card names, sorted
+ * @returns {Promise<import("../ai.mjs").Check>} The check
+ */
+async function cards(tab, name, expected) {
+  const names = async () => (await tab.page.locator("article").allInnerTexts()).map((card) => card.trim().split(/\s+/)[0]).sort();
+  await until(async () => JSON.stringify(await names()) === JSON.stringify(expected), { timeoutMs: 20_000 });
+  return same(name, await names(), expected);
+}
+
 export const journeys = guarded([
   {
     id: "the-catalog-lists-what-modules-ship",
@@ -37,7 +51,7 @@ export const journeys = guarded([
         check("the four skills dms-ai ships are there", SHIPPED.every((name) => byName.has(name)), names.join(",")),
         same("a shipped skill's origin and source", [text(byName.get("dms-ai"), "origin"), text(byName.get("dms-ai"), "source")], ["dms-ai", "module"]),
         check("the DMS core skills are there", ["dms", "dms-pages", "dms-auth", "dms-best-practices", "dms-module", "dms-project"].every((name) => byName.has(name)), names.join(",")),
-        same("a project skill's frontmatter", [text(note, "description"), text(note, "category"), pick(note, "tags")], ["Explains the verification playground's note page. Use when the user mentions notes or the verification playground.", "verification", ["notes", "playground", "verification"]]),
+        same("a project skill's frontmatter", [text(note, "description"), text(note, "category"), pick(note, "tags")], ["Explains the verification playground's note page. Use when the user mentions notes or the verification playground.", "verification", ["notes", "playground", "verification", "inkwell"]]),
         same("its icon", text(note, "icon"), "i-lucide-notebook"),
         same("its name is qualified by its module", text(note, "qualifiedName").endsWith(":verify-note"), true),
         same("its origin is the module that ships it", text(note, "origin"), "verify-dms-ai-app"),
@@ -230,14 +244,37 @@ export const journeys = guarded([
       ]);
       await tab.click({ role: "button", name: "Open search" });
       await tab.click({ role: "textbox", name: "Search name, module or tag" });
-      await tab.fill({ role: "textbox", name: "Search name, module or tag" }, "playground");
-      await ctx.verify("a search by tag", [pageHas(tab, "keeps verify-note", /verify-note/), pageHas(tab, "drops dms-pages", /dms-pages/, false)]);
+      await tab.fill({ role: "textbox", name: "Search name, module or tag" }, "verify-note");
+      await ctx.verify("a search by name", [pageHas(tab, "keeps verify-note", /verify-note/), pageHas(tab, "drops dms-pages", /dms-pages/, false)]);
       await tab.page.locator("article", { hasText: "verify-note" }).first().click();
       await ctx.verify("the reading panel", [
         pageHas(tab, "its header", /Skill \d+ of \d+/),
         pageHas(tab, "the rows", /Source\s*Module[\s\S]*Full name\s*\S+:verify-note[\s\S]*Origin\s*verify-dms-ai-app[\s\S]*Used\s*0[\s\S]*Last used/),
         pageHas(tab, "the SKILL.md", /The note page of the verification playground holds one text field\./),
       ]);
+    },
+  },
+  {
+    id: "a-search-finds-a-skill-by-its-tag-or-its-module",
+    title: "the search box, labelled Search name, module or tag, finds verify-note by its tag inkwell and the playground's skills by their module verify-dms-ai-app, words found nowhere in their name or description",
+    entryPoint: "/modules/ai/skills",
+    async run(/** @type {Ctx} */ ctx) {
+      await freshSidecar(ctx);
+      const rows = await catalog(ctx, "");
+      const note = rows.find((row) => text(row, "name") === "verify-note");
+      await ctx.verify("the words are only a tag and only a module", [
+        same("inkwell is a tag of verify-note", pick(note, "tags"), ["notes", "playground", "verification", "inkwell"]),
+        same("no name or description holds inkwell or dms-ai-app", rows.filter((row) => /inkwell|dms-ai-app/.test(`${text(row, "name")} ${text(row, "description")}`)).map((row) => text(row, "name")), []),
+      ]);
+      const tab = await ctx.tab();
+      await tab.signIn("admin");
+      await tab.goto("/modules/ai/skills");
+      await tab.click({ role: "button", name: "Open search" });
+      await tab.click({ role: "textbox", name: "Search name, module or tag" });
+      await tab.fill({ role: "textbox", name: "Search name, module or tag" }, "inkwell");
+      await ctx.verify("a search by tag", [await cards(tab, "only verify-note", ["verify-note"])]);
+      await tab.fill({ role: "textbox", name: "Search name, module or tag" }, "dms-ai-app");
+      await ctx.verify("a search by module", [await cards(tab, "the skills of verify-dms-ai-app, as the catalog lists them", rows.filter((row) => text(row, "origin") === "verify-dms-ai-app").map((row) => text(row, "name")).sort())]);
     },
   },
 ]);

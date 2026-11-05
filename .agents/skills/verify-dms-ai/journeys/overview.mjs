@@ -109,6 +109,29 @@ export const journeys = guarded([
     },
   },
   {
+    id: "a-click-on-a-recent-set-opens-it-on-the-changes-page",
+    title: "a click on a row of Recent change sets opens the Changes page on that set, named in the URL (?set=), with its diff",
+    entryPoint: "/modules/ai/overview, /modules/ai/changes?set=",
+    async run(/** @type {Ctx} */ ctx) {
+      await seedSample(ctx);
+      const tab = await ctx.tab();
+      await tab.signIn("admin");
+      await tab.goto("/modules/ai/overview");
+      await ctx.verify("the row is listed", [pageHas(tab, "set 2 in Recent change sets", /Recent change sets[\s\S]*2 Reword the second note/i)]);
+      const row = tab.page.getByRole("row", { name: /Reword the second note/ }).first();
+      await until(async () => {
+        await row.click({ timeout: 5000 }).catch(() => undefined);
+        return until(async () => new URL(tab.page.url()).pathname === "/modules/ai/changes", { timeoutMs: 4000, everyMs: 500 });
+      }, { timeoutMs: 30_000, everyMs: 0 });
+      const url = new URL(tab.page.url());
+      await ctx.verify("the Changes page", [
+        same("the URL names the set", [url.pathname, url.searchParams.get("set")], ["/modules/ai/changes", "cs-two"]),
+        pageHas(tab, "set 2 is open", /Change set #2 · checkpoint before/i),
+        pageHas(tab, "with its diff", /src\/notes\/b\.txt/),
+      ]);
+    },
+  },
+  {
     id: "the-approved-and-undone-cards-show-their-share",
     title: "the Approved by you card shows the share of the requests you allowed, such as 4 / 8 · 50%, and the Undone card the share of the change sets rolled back",
     entryPoint: "GET /ai/metrics/kpi/approved, /modules/ai/overview",
