@@ -24,6 +24,13 @@ The flow is **connect → analyse → settle → validate → apply → check**.
 read only, so they run in plan mode. Nothing is written before the integrator presses **Run** on
 your plan.
 
+In a Claude Code session started outside the dashboard chat, the tools are named
+`mcp__dms-ai__DatabaseConnections`, `mcp__dms-ai__BuilderAnalyseDatabase` and so on. There is no
+**Run** button and no sidecar guarding `.env`: present the plan, and write nothing until the
+integrator approves it in the session. The rules above on `.env` still hold. A mapping that removes
+pages, a deletion or a project configuration change is refused once with what it would do: show
+that to the integrator, and repeat the identical call only after they confirm it.
+
 ## 1. Connect
 
 Call `DatabaseConnections`.

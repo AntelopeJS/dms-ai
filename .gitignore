@@ -8,3 +8,5 @@ dist/
 sidecar/.state/
 .nuxt/
 .idea/
+# Written by the module when the playground runs
+playground/.mcp.json

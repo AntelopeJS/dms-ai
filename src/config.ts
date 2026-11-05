@@ -4,19 +4,28 @@ import { z } from "zod";
 export interface AIConfig {
   /** Origin the sidecar reaches the DMS backend on, flags and all. */
   backendUrl?: string;
+  /** `false` keeps the module from adding its MCP server to the project's `.mcp.json`. */
+  mcpJson?: boolean;
 }
 
 const OriginSchema = z.string().trim().min(1);
 
 /**
- * Keeps only the keys this module understands, and only when they carry a
- * non-empty origin: anything else leaves the sidecar on its own defaults.
+ * Keeps only the keys this module understands: `backendUrl` when it carries a
+ * non-empty origin, `mcpJson` only as `false`. Anything else leaves the module
+ * on its defaults.
  */
 export const ConfigSchema = z
-  .object({ backendUrl: z.unknown() })
-  .transform(({ backendUrl }): AIConfig => {
+  .object({
+    backendUrl: z.unknown().optional(),
+    mcpJson: z.unknown().optional(),
+  })
+  .transform(({ backendUrl, mcpJson }): AIConfig => {
+    const config: AIConfig = {};
     const origin = OriginSchema.safeParse(backendUrl);
-    return origin.success ? { backendUrl: origin.data } : {};
+    if (origin.success) config.backendUrl = origin.data;
+    if (mcpJson === false) config.mcpJson = false;
+    return config;
   });
 
 let current: AIConfig = {};

@@ -46,12 +46,15 @@ function registerDefinition(
   );
 }
 
-async function buildServer(deps: AiMcpServerDeps): Promise<McpServer> {
+/** An MCP server registering the given tool definitions, not yet connected. */
+export function buildMcpServer(
+  definitions: readonly AnyMcpToolDefinition[],
+): McpServer {
   const server = new McpServer({
     name: MCP_SERVER_NAME,
     version: MCP_SERVER_VERSION,
   });
-  for (const definition of buildToolDefinitions(deps)) {
+  for (const definition of definitions) {
     registerDefinition(server, definition);
   }
   return server;
@@ -121,7 +124,7 @@ export function createMcpHttpRegistry(): McpHttpRegistry {
   return {
     async register(deps) {
       await this.release(deps.conversationId);
-      const server = await buildServer(deps);
+      const server = buildMcpServer(buildToolDefinitions(deps));
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         enableJsonResponse: true,

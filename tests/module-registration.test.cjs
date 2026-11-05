@@ -8,8 +8,9 @@ const BACKEND_URL = "http://127.0.0.1:41234";
 /**
  * @param {unknown[]} registrations - Receives each frontend module registered.
  * @param {unknown[]} sidecars - Receives the options of each sidecar spawned.
+ * @param {unknown[]} [publications] - Receives the options the MCP tools are published with.
  */
-function loadModule(registrations, sidecars) {
+function loadModule(registrations, sidecars, publications = []) {
   const filename = require.resolve("../dist/index.js");
   /** @type {Record<string, unknown>} */
   const mocks = {
@@ -32,7 +33,15 @@ function loadModule(registrations, sidecars) {
       spawnSidecar: async (options) => {
         sidecars.push(options);
       },
+      isSidecarDisabled: () => false,
     },
+    "./lifecycle/project-mcp": {
+      /** @param {unknown} options - The options the MCP tools are published with. */
+      publishProjectMcp: async (options) => {
+        publications.push(options);
+      },
+    },
+    "./constants/mcp": require("../dist/constants/mcp.js"),
     "./logging/log-buffer": { startLogCapture() {} },
     "./frontend-module": require("../dist/frontend-module.js"),
     "node:path": path,
@@ -99,6 +108,54 @@ void test("ignores config entries that are not usable origins", async () => {
   const loaded = loadModule([], sidecars);
   loaded.construct({ backendUrl: "   ", unknown: 5010 });
   await loaded.start();
+  assert.deepEqual(sidecars, [
+    {
+      hostProjectRoot: process.cwd(),
+      moduleRoots: ["fixture-module"],
+      skillDirs: ["fixture-skills"],
+      builderEnabled: true,
+    },
+  ]);
+});
+
+void test("publishes the MCP tools on the configured origin, or the default one", async () => {
+  /** @type {unknown[]} */
+  const publications = [];
+  const configured = loadModule([], [], publications);
+  configured.construct({ backendUrl: BACKEND_URL });
+  await configured.start();
+  const unconfigured = loadModule([], [], publications);
+  unconfigured.construct(undefined);
+  await unconfigured.start();
+  assert.deepEqual(publications, [
+    {
+      hostProjectRoot: process.cwd(),
+      backendUrl: BACKEND_URL,
+      writeMcpJson: true,
+    },
+    {
+      hostProjectRoot: process.cwd(),
+      backendUrl: "http://localhost:5010",
+      writeMcpJson: true,
+    },
+  ]);
+});
+
+void test("mcpJson: false keeps .mcp.json out of the publication, and stays out of the sidecar's options", async () => {
+  /** @type {unknown[]} */
+  const publications = [];
+  /** @type {unknown[]} */
+  const sidecars = [];
+  const loaded = loadModule([], sidecars, publications);
+  loaded.construct({ mcpJson: false });
+  await loaded.start();
+  assert.deepEqual(publications, [
+    {
+      hostProjectRoot: process.cwd(),
+      backendUrl: "http://localhost:5010",
+      writeMcpJson: false,
+    },
+  ]);
   assert.deepEqual(sidecars, [
     {
       hostProjectRoot: process.cwd(),

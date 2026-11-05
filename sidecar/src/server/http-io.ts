@@ -25,13 +25,17 @@ export function sendJson<Payload extends object>(
   sendResponse(res, status, CONTENT_TYPE.JSON, JSON.stringify(payload));
 }
 
-export function readBody(req: IncomingMessage): Promise<string> {
+/** Reads the whole body, refusing one over `maxBytes`. */
+export function readBody(
+  req: IncomingMessage,
+  maxBytes: number = MAX_REQUEST_BODY_BYTES,
+): Promise<string> {
   return new Promise((resolveBody, rejectBody) => {
     let size = 0;
     const chunks: Buffer[] = [];
     req.on("data", (chunk: Buffer) => {
       size += chunk.length;
-      if (size > MAX_REQUEST_BODY_BYTES) {
+      if (size > maxBytes) {
         rejectBody(new Error("Request body too large"));
         req.destroy();
         return;
