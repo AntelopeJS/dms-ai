@@ -119,7 +119,7 @@ export class AISkillsPage extends PageController(
 
   static catalog = TableView.fromSource({
     fetchUrl: PAGE_ROUTES.SKILLS_CATALOG,
-    capabilities: { filter: true },
+    capabilities: { filter: true, search: true },
     columns: COLUMNS,
     labelKey: "name",
     searchPlaceholder: text("search"),

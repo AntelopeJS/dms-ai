@@ -33,6 +33,7 @@ const SOURCES_BY_PROVENANCE = new Map<string, string>([
 ]);
 const MODULE_SOURCE = "module";
 const SOURCE_COLUMN = "source";
+const SEARCH_PARAM = "search";
 const CONFLICTS_PATH = `${SKILLS_PATH}/conflicts`;
 const NO_CONFLICTS: SidecarSkillConflicts = { conflicts: [] };
 const NAME_SEPARATOR = ", ";
@@ -70,11 +71,20 @@ function skillRow(skill: SidecarSkill): SkillRow {
   };
 }
 
-function catalogPage(source: string | undefined) {
+/** The search box finds a skill by its name, description, module or a tag, case aside. */
+function matchesSearch(row: SkillRow, search: string): boolean {
+  const needle = search.trim().toLowerCase();
+  if (needle === "") return true;
+  const haystack = [row.name, row.description, row.origin, ...row.tags];
+  return haystack.some((text) => text.toLowerCase().includes(needle));
+}
+
+function catalogPage(source: string | undefined, search: string) {
   return (catalog: SidecarSkillCatalog): SidecarList<SkillRow> => {
     const rows = catalog.items
       .map(skillRow)
-      .filter((row) => source === undefined || row.source === source);
+      .filter((row) => source === undefined || row.source === source)
+      .filter((row) => matchesSearch(row, search));
     return { results: rows, total: rows.length };
   };
 }
@@ -107,8 +117,9 @@ function conflictsBanner({
 
 /**
  * The skills loaded into the agent: the Skills table's source (every row at
- * once, filtered by source for the tabs; the browser searches, sorts and
- * pages) and the banner warning about the names several skills share.
+ * once, filtered by source for the tabs and by the search box over name,
+ * description, module and tags; the browser sorts and pages) and the banner
+ * warning about the names several skills share.
  */
 @AuthOwnerOnly()
 export class AISkillsController extends Controller(ROUTE_PREFIX) {
@@ -116,8 +127,14 @@ export class AISkillsController extends Controller(ROUTE_PREFIX) {
   catalog(
     @Context() ctx: RequestContext,
   ): Promise<SidecarList<SkillRow> | HTTPResult> {
-    const source = filteredValue(ctx.url.searchParams, SOURCE_COLUMN);
-    return relay(SKILLS_PATH, SKILL_CATALOG_ANSWER, catalogPage(source));
+    const query = ctx.url.searchParams;
+    const source = filteredValue(query, SOURCE_COLUMN);
+    const search = query.get(SEARCH_PARAM) ?? "";
+    return relay(
+      SKILLS_PATH,
+      SKILL_CATALOG_ANSWER,
+      catalogPage(source, search),
+    );
   }
 
   @Get(CONFLICTS_PATH)

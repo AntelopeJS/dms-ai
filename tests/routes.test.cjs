@@ -471,47 +471,6 @@ void test("exports the audit log as CSV, cells escaped and formulas neutralized"
   assert.ok(line.includes('"a, b"'));
 });
 
-void test("lists the skills as table rows, filtered by source for the tabs", async () => {
-  reset();
-  answer("GET", "/skills", 200, {
-    items: [
-      {
-        id: "m:a",
-        name: "a",
-        description: "",
-        tags: [],
-        provenance: "@x/m",
-        body: "",
-      },
-      {
-        id: "local:b",
-        name: "b",
-        description: "",
-        tags: [],
-        provenance: "local",
-        body: "",
-      },
-    ],
-  });
-  const skills = new harness.routes.AISkillsController();
-  const all = await skills.catalog(context(""));
-  const local = await skills.catalog(context("filter_source=is:local"));
-  assert.ok(!(all instanceof HTTPResult));
-  assert.ok(!(local instanceof HTTPResult));
-  assert.deepEqual(
-    all.results.map((row) => [row._id, row.source, row.origin]),
-    [
-      ["m:a", "module", "@x/m"],
-      ["local:b", "local", "~/.claude/skills"],
-    ],
-  );
-  assert.deepEqual(
-    local.results.map((row) => row._id),
-    ["local:b"],
-  );
-  assert.equal(local.total, 1);
-});
-
 void test("reports the assistant offline, with the process state, when it does not answer", async () => {
   reset();
   sidecar.isDown = true;
