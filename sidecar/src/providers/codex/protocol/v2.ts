@@ -28,7 +28,7 @@ export type ByteRange = { start: number, end: number, };
  * When an upstream HTTP status is available (for example, from the Responses API or a provider),
  * it is forwarded in `httpStatusCode` on the relevant `codexErrorInfo` variant.
  */
-export type CodexErrorInfo = "contextWindowExceeded" | "sessionBudgetExceeded" | "usageLimitExceeded" | "rateLimitExceeded" | "serverOverloaded" | "cyberPolicy" | "misalignmentPolicyViolation" | { "httpConnectionFailed": { httpStatusCode: number | null, } } | { "responseStreamConnectionFailed": { httpStatusCode: number | null, } } | "internalServerError" | "unauthorized" | "badRequest" | "threadRollbackFailed" | "sandboxError" | { "responseStreamDisconnected": { httpStatusCode: number | null, } } | { "responseTooManyFailedAttempts": { httpStatusCode: number | null, } } | { "activeTurnNotSteerable": { turnKind: NonSteerableTurnKind, } } | "other";
+export type CodexErrorInfo = "contextWindowExceeded" | "sessionBudgetExceeded" | "usageLimitExceeded" | "rateLimitExceeded" | "flexUnavailable" | "serverOverloaded" | "modelNotFound" | "policyCapacityUnavailable" | "cyberPolicy" | "misalignmentPolicyViolation" | "tooManyDenials" | { "httpConnectionFailed": { httpStatusCode: number | null, } } | { "responseStreamConnectionFailed": { httpStatusCode: number | null, } } | "internalServerError" | "unauthorized" | "badRequest" | "threadRollbackFailed" | "sandboxError" | { "responseStreamDisconnected": { httpStatusCode: number | null, } } | { "responseTooManyFailedAttempts": { httpStatusCode: number | null, } } | { "activeTurnNotSteerable": { turnKind: NonSteerableTurnKind, } } | "other" | string | { [key: string]: unknown };
 
 export type CollabAgentState = { status: CollabAgentStatus, message: string | null, };
 
@@ -54,6 +54,13 @@ export type GitInfo = { sha: string | null, branch: string | null, originUrl: st
 
 export type HookPromptFragment = { text: string, hookRunId: string, };
 
+export type McpAppDisplayMode = "inline" | "fullscreen";
+
+/**
+ * UI resource and display preference for model invocations, captured from the tool descriptor.
+ */
+export type McpAppUi = { resourceUri: string, preferredModelDisplayMode: McpAppDisplayMode, };
+
 export type McpToolCallAppContext = { connectorId: string, linkId: string | null, resourceUri: string | null, appName: string | null, actionName: string | null, };
 
 export type McpToolCallError = { message: string, };
@@ -78,7 +85,11 @@ detailedExplanation: string | null,
 /**
  * Instruction to submit as the next turn's user input if continuation is confirmed.
  */
-steer: MisalignmentSteer | null, };
+steer: MisalignmentSteer | null,
+/**
+ * Opaque server-issued block target. Presence alone does not enable target-based continuation.
+ */
+reviewTarget?: string | null, };
 
 export type MisalignmentSteer = { message: string, };
 
@@ -89,8 +100,6 @@ export type NonSteerableTurnKind = "review" | "compact";
 export type PatchApplyStatus = "inProgress" | "completed" | "failed" | "declined";
 
 export type PatchChangeKind = { "type": "add" } | { "type": "delete" } | { "type": "update", move_path: string | null, };
-
-export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
 
 export type SandboxPolicy = { "type": "dangerFullAccess" } | { "type": "readOnly", networkAccess: boolean, } | { "type": "externalSandbox", networkAccess: NetworkAccess, } | { "type": "workspaceWrite", writableRoots: Array<AbsolutePathBuf>, networkAccess: boolean, excludeTmpdirEnvVar: boolean, excludeSlashTmp: boolean, };
 
@@ -114,7 +123,7 @@ export type SkillMetadata = { name: string, description: string,
 /**
  * Legacy short_description from SKILL.md. Prefer SKILL.json interface.short_description.
  */
-shortDescription?: string, interface?: SkillInterface, dependencies?: SkillDependencies, path: AbsolutePathBuf, scope: SkillScope, enabled: boolean,
+shortDescription?: string, interface?: SkillInterface, dependencies?: SkillDependencies, path: LegacyAppPathString, scope: SkillScope, enabled: boolean,
 /**
  * Owning plugin ID, matching `PluginSummary.id`, when known.
  */
@@ -235,7 +244,7 @@ gitInfo: GitInfo | null, /**
  * Optional user-facing thread title.
  */
 name: string | null, /**
- * Only populated on `thread/resume`, `thread/rollback`, `thread/fork`, and `thread/read`
+ * Only populated on `thread/resume`, `thread/fork`, and `thread/read`
  * (when `includeTurns` is true) responses.
  * For all other responses and notifications returning a Thread,
  * the turns field will be an empty list.
@@ -246,7 +255,18 @@ export type ThreadActiveFlag = "waitingOnApproval" | "waitingOnUserInput";
 
 export type ThreadHistoryMode = "legacy" | "paginated";
 
-export type ThreadItem = { "type": "userMessage", id: string, clientId: string | null, content: Array<UserInput>, } | { "type": "hookPrompt", id: string, fragments: Array<HookPromptFragment>, } | { "type": "agentMessage", id: string, text: string, phase: MessagePhase | null, memoryCitation: MemoryCitation | null, delivery: AgentMessageDelivery | null, questions: Array<AsyncUserInputQuestion> | null, } | { "type": "functionCallOutput", id: string, name: string, namespace: string | null, output: FunctionCallOutputBody, } | { "type": "plan", id: string, text: string, } | { "type": "reasoning", id: string, summary: Array<string>, content: Array<string>, } | { "type": "commandExecution", id: string,
+/**
+ * A thread item and its recorded lifecycle times. The payload stays flat on the wire.
+ */
+export type ThreadItem = {
+/**
+ * Unix timestamp in milliseconds when the item started, if recorded.
+ */
+startedAtMs?: number | null,
+/**
+ * Unix timestamp in milliseconds when the item completed, if recorded.
+ */
+completedAtMs?: number | null, } & ({ "type": "userMessage", id: string, clientId: string | null, content: Array<UserInput>, } | { "type": "hookPrompt", id: string, fragments: Array<HookPromptFragment>, } | { "type": "agentMessage", id: string, text: string, phase: MessagePhase | null, memoryCitation: MemoryCitation | null, delivery: AgentMessageDelivery | null, questions: Array<AsyncUserInputQuestion> | null, } | { "type": "functionCallOutput", id: string, name: string, namespace: string | null, output: FunctionCallOutputBody, } | { "type": "plan", id: string, text: string, } | { "type": "reasoning", id: string, summary: Array<string>, content: Array<string>, } | { "type": "commandExecution", id: string,
 /**
  * Trusted first-party plugin id when this command resolves to one plugin script.
  */
@@ -286,9 +306,13 @@ exitCode: number | null,
  */
 durationMs: number | null, } | { "type": "fileChange", id: string, changes: Array<FileUpdateChange>, status: PatchApplyStatus, } | { "type": "mcpToolCall", id: string, server: string, tool: string, status: McpToolCallStatus, arguments: JsonValue, appContext: McpToolCallAppContext | null,
 /**
- * Deprecated: use `appContext.resourceUri` instead.
+ * Legacy compatibility field; prefer `mcpAppUi.resourceUri` when available.
  */
-mcpAppResourceUri?: string, pluginId: string | null, readOnlyHint: boolean | null, result: McpToolCallResult | null, error: McpToolCallError | null,
+mcpAppResourceUri?: string,
+/**
+ * Presentation captured from the invoked descriptor; absent in older history.
+ */
+mcpAppUi: McpAppUi | null, pluginId: string | null, readOnlyHint: boolean | null, result: McpToolCallResult | null, error: McpToolCallError | null,
 /**
  * The duration of the MCP tool call in milliseconds.
  */
@@ -333,7 +357,15 @@ reasoningEffort: ReasoningEffort | null,
 /**
  * Last known status of the target agents, when available.
  */
-agentsStates: { [key in string]?: CollabAgentState }, } | { "type": "subAgentActivity", id: string, kind: SubAgentActivityKind, agentThreadId: string, agentPath: string, } | { "type": "webSearch" } & WebSearchItem | { "type": "imageView", id: string, path: LegacyAppPathString, } | { "type": "sleep" } & SleepItem | { "type": "imageGeneration" } & ImageGenerationItem | { "type": "enteredReviewMode", id: string, review: string, } | { "type": "exitedReviewMode", id: string, review: string, } | { "type": "contextCompaction", id: string, };
+agentsStates: { [key in string]?: CollabAgentState }, } | { "type": "subAgentActivity",
+/**
+ * Resolved model at sub-agent creation; absent from older records and other activities.
+ */
+model: string | null,
+/**
+ * Resolved reasoning effort at sub-agent creation, when known.
+ */
+reasoningEffort: ReasoningEffort | null, id: string, kind: SubAgentActivityKind, agentThreadId: string, agentPath: string, } | { "type": "webSearch" } & WebSearchItem | { "type": "imageView", id: string, path: LegacyAppPathString, } | { "type": "sleep" } & SleepItem | { "type": "imageGeneration" } & ImageGenerationItem | { "type": "enteredReviewMode", id: string, review: string, } | { "type": "exitedReviewMode", id: string, review: string, } | { "type": "contextCompaction", id: string, });
 
 /**
  * An independently persisted, user-visible thread section.
@@ -359,7 +391,10 @@ export type ThreadSectionAppearance = { icon: string | null, color: string | nul
 
 export type ThreadSource = string;
 
-export type ThreadStartResponse = {thread: Thread, model: string, modelProvider: string, serviceTier: string | null, cwd: AbsolutePathBuf, /**
+export type ThreadStartResponse = {thread: Thread, model: string, modelProvider: string, serviceTier: string | null, /**
+ * Saved list of disabled plugin IDs. Does not yet filter plugin capabilities.
+ */
+disabledPluginIds: Array<string>, cwd: AbsolutePathBuf, /**
  * Environment-native paths to instruction source files currently loaded for this thread.
  */
 instructionSources: Array<LegacyAppPathString>, approvalPolicy: AskForApproval, /**
@@ -373,17 +408,17 @@ sandbox: SandboxPolicy, reasoningEffort: ReasoningEffort | null};
 
 export type ThreadStatus = { "type": "notLoaded" } | { "type": "idle" } | { "type": "systemError" } | { "type": "active", activeFlags: Array<ThreadActiveFlag>, };
 
-export type ThreadTokenUsage = { total: TokenUsageBreakdown, last: TokenUsageBreakdown, modelContextWindow: number | null, };
-
-export type ThreadTokenUsageUpdatedNotification = { threadId: string, turnId: string, tokenUsage: ThreadTokenUsage, };
-
-export type TokenUsageBreakdown = { totalTokens: number, inputTokens: number, cachedInputTokens: number, cacheWriteInputTokens: number, outputTokens: number, reasoningOutputTokens: number, };
-
 export type Turn = {
 /**
  * Identifier for this turn. Codex-generated turn IDs are UUIDv7.
  */
 id: string,
+/**
+ * ID of the first turn in the chain of work that led to this turn.
+ * Pass this as `rootTurnId` when starting work on behalf of this turn.
+ * May be null in older history or a `review/start` response.
+ */
+rootTurnId: string | null,
 /**
  * Thread items currently included in this turn payload.
  */
@@ -393,7 +428,7 @@ items: Array<ThreadItem>,
  */
 itemsView: TurnItemsView, status: TurnStatus,
 /**
- * Only populated when the Turn's status is failed.
+ * Error associated with a failed or interrupted turn.
  */
 error: TurnError | null,
 /**
@@ -417,18 +452,12 @@ misalignment: MisalignmentErrorDetails | null, };
 
 export type TurnItemsView = "notLoaded" | "summary" | "full";
 
-export type TurnPlanStep = { step: string, status: TurnPlanStepStatus, };
-
-export type TurnPlanStepStatus = "pending" | "inProgress" | "completed";
-
-export type TurnStartedNotification = { threadId: string, turn: Turn, };
-
 export type TurnStatus = "completed" | "interrupted" | "failed" | "inProgress";
 
 export type UserInput = { "type": "text", text: string,
 /**
  * UI-defined spans within `text` used to render or persist special elements.
  */
-text_elements: Array<TextElement>, } | { "type": "image", detail?: ImageDetail, url: string, } | { "type": "localImage", detail?: ImageDetail, path: string, } | { "type": "audio", url: string, } | { "type": "localAudio", path: string, } | { "type": "skill", name: string, path: string, } | { "type": "mention", name: string, path: string, };
+text_elements: Array<TextElement>, } | { "type": "image", detail?: ImageDetail, } & ({ url: string, } | { fileId: string, }) | { "type": "localImage", detail?: ImageDetail, path: string, } | { "type": "audio", url: string, } | { "type": "localAudio", path: string, } | { "type": "skill", name: string, path: string, } | { "type": "mention", name: string, path: string, };
 
 export type WebSearchAction = { "type": "search", query: string | null, queries: Array<string> | null, } | { "type": "openPage", url: string | null, } | { "type": "findInPage", url: string | null, pattern: string | null, } | { "type": "other" };

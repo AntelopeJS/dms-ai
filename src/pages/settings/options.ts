@@ -11,6 +11,8 @@ export function settingsText(...segments: string[]): string {
 interface ChoiceDeclaration {
   value: string;
   icon?: string;
+  /** The description key under `<field>.<value>`, `description` by default. */
+  descriptionKey?: string;
   /** Shown, never picked. */
   disabled?: boolean;
 }
@@ -20,10 +22,10 @@ function choices(
   field: string,
   declarations: readonly ChoiceDeclaration[],
 ): VocabularyOption[] {
-  return declarations.map(({ value, icon, disabled }) => ({
+  return declarations.map(({ value, icon, descriptionKey, disabled }) => ({
     value,
     label: settingsText(field, value, "label"),
-    description: settingsText(field, value, "description"),
+    description: settingsText(field, value, descriptionKey ?? "description"),
     icon,
     disabled,
   }));
@@ -52,11 +54,34 @@ export const THINKING_OPTIONS = labels("thinking", [
   "high",
 ]);
 
-export const MODE_OPTIONS = choices("mode", [
-  { value: "normal", icon: "i-ph-hand-palm" },
-  { value: "acceptEdits", icon: "i-ph-pencil-simple-line" },
-  { value: "plan", icon: "i-ph-list-checks" },
-  { value: "auto", icon: "i-ph-lightning", disabled: true },
+const NORMAL_MODE: ChoiceDeclaration = {
+  value: "normal",
+  icon: "i-ph-hand-palm",
+};
+const AUTO_REVIEW_MODE: ChoiceDeclaration = {
+  value: "auto",
+  icon: "i-ph-seal-check",
+};
+const ACCEPT_EDITS_MODE: ChoiceDeclaration = {
+  value: "acceptEdits",
+  icon: "i-ph-pencil-simple-line",
+};
+const PLAN_MODE: ChoiceDeclaration = {
+  value: "plan",
+  icon: "i-ph-list-checks",
+};
+
+export const CLAUDE_MODE_OPTIONS = choices("mode", [
+  NORMAL_MODE,
+  AUTO_REVIEW_MODE,
+  ACCEPT_EDITS_MODE,
+  PLAN_MODE,
+]);
+
+export const CODEX_MODE_OPTIONS = choices("mode", [
+  NORMAL_MODE,
+  { ...ACCEPT_EDITS_MODE, descriptionKey: "description_codex" },
+  PLAN_MODE,
 ]);
 
 export const SCOPE_OPTIONS = choices("generation_mode", [

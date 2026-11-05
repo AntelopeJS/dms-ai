@@ -53,6 +53,7 @@ const ErrorBannerSchema = ActionBannerSchema.extend({
 });
 const AccountBannerSchema = ActionBannerSchema.extend({ title: LabelSchema });
 const harness = useRouteHarness();
+const { SETTINGS_SECTIONS } = require("../dist/pages/settings/sections.js");
 
 const PAGE_LOCALES = PAGE_LOCALE_FILES.map(readLocale);
 const I18N_KEY = /\$dms_ai\.[A-Za-z0-9_.-]+/g;
@@ -88,7 +89,7 @@ const ONLINE_STATUS = {
   status: "ready",
   provider: "claude",
   builderAvailable: true,
-  mode: "normal",
+  mode: "auto",
   generationMode: "safe",
   workingConversations: 0,
   pendingApprovals: 0,
@@ -280,4 +281,64 @@ void test("hands a pasted return address to the sidecar, and its refusal back", 
     message: "Not the sign-in address",
   });
   assert.deepEqual(sidecar.requests.at(-1).body, { url: pasted });
+});
+
+const OptionValuesSchema = z.array(z.string());
+
+void test("offers Auto review as a default on Claude Code only, and no mode that approves for the person", () => {
+  assert.deepEqual(
+    SETTINGS_SECTIONS.flatMap((section) => section.fields)
+      .filter((field) => field.id.startsWith("defaultMode"))
+      .map((field) =>
+        OptionValuesSchema.parse(
+          field.type.options.items.map((item) => String(item.value)),
+        ),
+      ),
+    [
+      ["normal", "auto", "acceptEdits", "plan"],
+      ["normal", "acceptEdits", "plan"],
+    ],
+  );
+});
+
+const LockedProviderSchema = z.object({
+  fields: z.array(
+    z.object({
+      component: z.object({
+        options: z.object({ items: z.array(z.unknown()) }),
+      }),
+    }),
+  ),
+});
+
+void test("words the Codex sign-in reason in the settings page's own text, in every page locale", async () => {
+  reset();
+  answer("GET", "/settings", 200, {
+    providers: {
+      codex: {
+        available: false,
+        reason: "Sign in with ChatGPT in Assistant › Settings.",
+        code: "codex_not_signed_in",
+      },
+    },
+  });
+  const form = LockedProviderSchema.parse(
+    await harness.routes.applySidecarSettings(new Set(), {
+      fields: [
+        {
+          id: "provider",
+          type: "select",
+          component: { type: "x", options: { items: [{ value: "codex" }] } },
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(form.fields[0]?.component.options.items, [
+    {
+      value: "codex",
+      disabled: true,
+      description: "$dms_ai.settings.provider.codex_not_signed_in",
+    },
+  ]);
+  assert.deepEqual(untranslated(form), []);
 });

@@ -90,6 +90,7 @@ const DESTRUCTIVE_TITLE_KEYS: Record<string, string> = {
 	BuilderRemoveField: "dms_ai.panel.approvals.destructive.remove_field",
 	BuilderDeleteCategory: "dms_ai.panel.approvals.destructive.delete_category",
 	BuilderRemoveQuery: "dms_ai.panel.approvals.destructive.remove_query",
+	BuilderMapResources: "dms_ai.panel.approvals.destructive.map_resources",
 };
 
 function destructiveTitle(

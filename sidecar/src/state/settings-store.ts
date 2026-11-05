@@ -9,7 +9,10 @@ import { STATE_FILE_ENCODING, STATE_JSON_INDENT } from "../constants/state.js";
 import {
   type AppSettings,
   CHAT_MODES,
+  type ChatMode,
   CHECKPOINT_RETENTION_DAYS,
+  CODEX_CHAT_MODES,
+  type CodexChatMode,
   GENERATION_MODES,
   REQUEST_TIMEOUT_MINUTES,
   THINKING_LEVELS,
@@ -42,9 +45,8 @@ function lenient<T extends z.ZodType>(schema: T) {
   return z.unknown().pipe(schema).optional().catch(undefined);
 }
 
-const StoredSettingsSchema = z.object({
+const FlatSettingsSchema = z.object({
   provider: lenient(z.enum(PROVIDER_NAMES)),
-  mode: lenient(z.enum(CHAT_MODES)),
   thinking: lenient(z.enum(THINKING_LEVELS)),
   claudeModel: lenient(z.string().trim().min(1)),
   generationMode: lenient(z.enum(GENERATION_MODES)),
@@ -56,32 +58,75 @@ const StoredSettingsSchema = z.object({
   checkpointRetentionDays: lenient(z.literal(CHECKPOINT_RETENTION_DAYS)),
 });
 
+const StoredSettingsSchema = FlatSettingsSchema.extend({
+  defaultModes: lenient(
+    z.object({
+      claude: lenient(z.enum(CHAT_MODES)),
+      codex: lenient(z.enum(CODEX_CHAT_MODES)),
+    }),
+  ),
+});
+
 type SettingsPatchInput = z.input<typeof StoredSettingsSchema>;
 
-const SETTINGS_KEYS = StoredSettingsSchema.keyof().options;
+const FLAT_SETTINGS_KEYS = FlatSettingsSchema.keyof().options;
+
+const LegacySettingsSchema = z.object({ mode: lenient(z.enum(CHAT_MODES)) });
+
+interface ModeSeed {
+  claude: ChatMode;
+  codex: CodexChatMode;
+}
 
 /**
- * Merges a partial update over `current`, keeping a field from `current`
- * whenever the update leaves it out or carries a value it does not accept.
+ * Where each mode saved before the default was per provider seeds the two
+ * providers. A saved `normal` was the only default then, written back by every
+ * settings save, so it is no choice over Auto review and seeds Claude Code with
+ * the default. The per-provider file never carries `mode`, so this runs once.
+ */
+const LEGACY_MODE_SEEDS: Record<ChatMode, ModeSeed> = {
+  normal: { claude: DEFAULT_SETTINGS.defaultModes.claude, codex: "normal" },
+  auto: { claude: "normal", codex: "normal" },
+  acceptEdits: { claude: "acceptEdits", codex: "acceptEdits" },
+  plan: { claude: "plan", codex: "plan" },
+};
+
+/**
+ * Merges a partial update over `current`, keeping a field, or one provider's
+ * default mode, from `current` whenever the update leaves it out or carries a
+ * value it does not accept.
  */
 export function mergeSettings(
   current: AppSettings,
   patch: SettingsPatchInput,
 ): AppSettings {
   const accepted = StoredSettingsSchema.parse(patch);
-  const merged: AppSettings = { ...current };
-  for (const key of SETTINGS_KEYS) {
+  const merged: AppSettings = {
+    ...current,
+    defaultModes: {
+      claude: accepted.defaultModes?.claude ?? current.defaultModes.claude,
+      codex: accepted.defaultModes?.codex ?? current.defaultModes.codex,
+    },
+  };
+  for (const key of FLAT_SETTINGS_KEYS) {
     const value = accepted[key];
     if (value !== undefined) Object.assign(merged, { [key]: value });
   }
   return merged;
 }
 
+function storedDefaults(legacy: ChatMode | undefined): AppSettings {
+  if (legacy === undefined) return DEFAULT_SETTINGS;
+  return { ...DEFAULT_SETTINGS, defaultModes: LEGACY_MODE_SEEDS[legacy] };
+}
+
 export function parseSettings(raw: string): AppSettings {
   try {
-    const parsed = StoredSettingsSchema.safeParse(JSON.parse(raw));
+    const stored: unknown = JSON.parse(raw);
+    const parsed = StoredSettingsSchema.safeParse(stored);
     if (!parsed.success) return DEFAULT_SETTINGS;
-    return mergeSettings(DEFAULT_SETTINGS, parsed.data);
+    const legacy = LegacySettingsSchema.safeParse(stored).data?.mode;
+    return mergeSettings(storedDefaults(legacy), parsed.data);
   } catch {
     return DEFAULT_SETTINGS;
   }

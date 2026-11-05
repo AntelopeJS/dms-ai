@@ -1,15 +1,20 @@
 /**
  * How a tool call came to run (or not). Recorded on every call, it drives the
  * audit log, the Overview's "How actions were allowed" and the approval KPIs.
+ * `auto_approved` and `auto_denied` are Claude Code's Auto review deciding
+ * without the user; `approved` and `denied` are the user's own answers.
+ * `full_auto` appears only in records written by versions that had Full auto.
  */
 export const ALLOWED_BY_VALUES = [
   "read_auto",
   "builder_auto",
   "approved",
   "rule",
+  "auto_approved",
   "full_auto",
   "blocked",
   "denied",
+  "auto_denied",
   "expired",
 ] as const;
 export type AllowedBy = (typeof ALLOWED_BY_VALUES)[number];
@@ -36,9 +41,6 @@ export type PermissionKind = (typeof PERMISSION_KINDS)[number];
 
 export const RULE_KINDS = ["file", "directory", "command", "domain"] as const;
 export type RuleKind = (typeof RULE_KINDS)[number];
-
-export const FULL_AUTO_DURATIONS = ["turn", "30m", "chat"] as const;
-export type FullAutoDuration = (typeof FULL_AUTO_DURATIONS)[number];
 
 export const CHANGE_SET_STATES = ["applied", "undone"] as const;
 export type ChangeSetState = (typeof CHANGE_SET_STATES)[number];

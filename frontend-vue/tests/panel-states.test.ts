@@ -60,16 +60,6 @@ describe("the panel's header and empty chat", () => {
 		);
 	});
 
-	it("sends leave_conversation when the panel closes", async () => {
-		const harness = createHarness();
-		await openPanel(harness);
-		harness.session.panel.close();
-		await nextTick();
-		expect(sentOfType(harness, "leave_conversation")).toEqual([
-			{ type: "leave_conversation", conversationId: CONVERSATION_ID },
-		]);
-	});
-
 	it("stamps a message with the page unless its chip was removed", async () => {
 		const harness = createHarness();
 		const panel = await openPanel(harness);
@@ -116,7 +106,7 @@ describe("notices and errors", () => {
 			type: "settings_update",
 			settings: {
 				provider: "codex",
-				mode: "normal",
+				defaultModes: { claude: "auto", codex: "normal" },
 				thinking: "medium",
 				generationMode: "safe",
 				allowLocalSkills: false,
@@ -192,9 +182,7 @@ describe("the history drawer", () => {
 		expect(drawer.text()).toContain("9.6k tok");
 		expect(drawer.text()).toContain("1 file undone");
 		await buttonWithText(drawer, "Why is order pending?").trigger("click");
-		expect(sentOfType(harness, "leave_conversation")[0]).toMatchObject({
-			conversationId: CONVERSATION_ID,
-		});
+		expect(sentOfType(harness, "leave_conversation")).toEqual([]);
 		expect(sentOfType(harness, "hello").at(-1)).toMatchObject({
 			conversationId: "c-old",
 		});

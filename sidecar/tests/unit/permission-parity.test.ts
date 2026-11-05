@@ -9,12 +9,16 @@ import {
   SDK_PERMISSION_BEHAVIOR,
 } from "../../src/constants/permissions.js";
 import type { PermissionDecisionValue } from "../../src/protocol/messages.js";
-import { DEFAULT_SETTINGS } from "../../src/constants/settings.js";
 import { BASH_COMMAND_ARG } from "../../src/constants/tool-lexicon.js";
 import { bridgeCanUseTool } from "../../src/providers/claude/provider.js";
 import { createCodexPermissionHandler } from "../../src/providers/codex/permissions.js";
 import { PROVIDER_NAMES, type ProviderName } from "../../src/state/types.js";
-import { createTestBus, type TestBus } from "../helpers/permission-bus.js";
+import {
+  createTestBus,
+  TEST_PROJECT_ROOT,
+  type TestBus,
+} from "../helpers/permission-bus.js";
+import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 
 const CONVERSATION = "conv-parity";
 const TOOL_NAME = "Bash";
@@ -35,15 +39,21 @@ const BINDINGS: Record<ProviderName, AskThroughBinding> = {
     const handler = createCodexPermissionHandler({
       conversationId: CONVERSATION,
       permissionBus: bus,
-      getSettings: () => ({ ...DEFAULT_SETTINGS, generationMode: "vibe" }),
+      getSettings: () => ({ ...TURN_SETTINGS, generationMode: "vibe" }),
       getChanges: () => [],
+      hostProjectRoot: TEST_PROJECT_ROOT,
+      moduleRoots: [],
+      getPendingMcpCalls: () => [],
     });
     const answer = await handler.handle({
       id: 0,
       method: CODEX_COMMAND_APPROVAL_METHOD,
       params: { command: COMMAND },
     });
-    return answer.decision === CODEX_APPROVAL_DECISIONS.ACCEPT;
+    return (
+      "decision" in answer &&
+      answer.decision === CODEX_APPROVAL_DECISIONS.ACCEPT
+    );
   },
 };
 

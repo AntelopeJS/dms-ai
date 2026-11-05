@@ -26,6 +26,7 @@ import {
   PROCESS_QUERY_BY_PLATFORM,
 } from "../../constants/codex.js";
 import { PLATFORM_LINUX } from "../../constants/native-binary.js";
+import { agentEnvironment } from "../../agent/project-secrets.js";
 import { safeDirSegment } from "../../state/safe-segment.js";
 import type { CodexClient, CodexClientHandlers } from "./client.js";
 import { createCodexClient } from "./client.js";
@@ -51,6 +52,7 @@ export interface CodexProcessOptions {
   mcpUrl: string;
   mcpToken: string;
   hostProjectRoot: string;
+  moduleRoots: readonly string[];
   /** The sidecar route the app-server's auth command reads its token from. */
   accessTokenUrl: string;
   handlers: CodexClientHandlers;
@@ -336,6 +338,7 @@ async function prepareCodexHome(options: CodexProcessOptions): Promise<string> {
     buildConfigToml({
       mcpUrl: options.mcpUrl,
       hostProjectRoot: options.hostProjectRoot,
+      moduleRoots: options.moduleRoots,
       nodePath: process.execPath,
     }),
   );
@@ -357,7 +360,7 @@ function spawnChild(
       stdio: ["pipe", "pipe", "pipe"],
       detached: !isWindowsHost(),
       env: {
-        ...process.env,
+        ...agentEnvironment(process.env, options.hostProjectRoot),
         [CODEX_HOME_ENV_VAR]: codexHome,
         [CODEX_MCP_TOKEN_ENV_VAR]: options.mcpToken,
         [CHATGPT_TOKEN_URL_ENV]: options.accessTokenUrl,

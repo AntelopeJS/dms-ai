@@ -11,7 +11,7 @@
 
 </div>
 
-![The chat panel open beside the Helio dashboard, with its starter prompts, Safe mode and Ask first](./docs/images/captures/ai-chat-empty.webp)
+<img data-illustration alt="Screen recording from the AntelopeJS DMS film. The assistant panel opens next to a dashboard with Claude Code as the coding agent, and the request Add a card with the sites that stopped reporting is typed under the caption Or describe it. The assistant then reports Added the card Delayed sites with Typecheck passed, the changed files dashboard/page.ts and dashboard/stats.ts, and the buttons Review diff and Undo, under the caption A change set. Review it. Undo it." src="./docs/images/assistant.gif">
 
 ## What it does
 
@@ -50,18 +50,18 @@ Claude Code runs with its own credentials, either its login or `ANTHROPIC_API_KE
 
 Restart the backend, then the frontend. Sign in as an owner and press `Ctrl` `Shift` `K` (`⌘` `⇧` `K` on macOS). To start the backend without the sidecar, set `DMS_AI=0`.
 
-## Compatibility
+## Requirements
 
 <!-- antelopejs-docs-compat:start -->
 
-| Package                                  | Supported                                                         | Tested with                                                       |
-| ---------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `@antelopejs/agent-skills`               | `^0.1.0`                                                          | `0.1.0`                                                           |
-| `@antelopejs/interface-api`              | `file:.campaign/tgz/antelopejs-interface-api-015a93a.tgz`         | `file:.campaign/tgz/antelopejs-interface-api-015a93a.tgz`         |
-| `@antelopejs/interface-core`             | `file:.campaign/tgz/antelopejs-interface-core-f7df541.tgz`        | `file:.campaign/tgz/antelopejs-interface-core-f7df541.tgz`        |
-| `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`                                                  | `0.0.2`                                                           |
-| `@antelopejs/interface-dms`              | `file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz`         | `file:.campaign/tgz/antelopejs-interface-dms-14e671d.tgz`         |
-| `@antelopejs/interface-dms-builder`      | `file:.campaign/tgz/antelopejs-interface-dms-builder-71b3ce9.tgz` | `file:.campaign/tgz/antelopejs-interface-dms-builder-71b3ce9.tgz` |
+| Package                                  | Supported         | Tested with |
+| ---------------------------------------- | ----------------- | ----------- |
+| `@antelopejs/agent-skills`               | `^0.1.0`          | `0.1.0`     |
+| `@antelopejs/interface-api`              | `>=0.3.0 <1.0.0`  | `0.3.0`     |
+| `@antelopejs/interface-core`             | `>=0.4.0 <1.0.0`  | `0.4.0`     |
+| `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`  | `0.0.2`     |
+| `@antelopejs/interface-dms`              | `>=0.12.0 <1.0.0` | `0.12.0`    |
+| `@antelopejs/interface-dms-builder`      | `>=0.4.0 <1.0.0`  | `0.4.0`     |
 
 <!-- antelopejs-docs-compat:end -->
 

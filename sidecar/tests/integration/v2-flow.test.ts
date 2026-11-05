@@ -201,7 +201,7 @@ describe("v2 assistant flow over the socket", () => {
   );
 
   it(
-    "Full auto for one turn answers for the user, then ends with a notice",
+    "still asks the person when an older chat asks for Full auto",
     async () => {
       useScript("permission-required.json");
       session = await open(false);
@@ -211,33 +211,30 @@ describe("v2 assistant flow over the socket", () => {
         conversationId: CONVERSATION_ID,
         fullAuto: { duration: "turn" },
       });
-      await collector.next(
-        (e) => e.type === "conversation_mode" && e.fullAuto !== null,
-      );
+      const mode = await collector.next((e) => e.type === "conversation_mode");
+      expect(mode).toStrictEqual({
+        type: "conversation_mode",
+        conversationId: CONVERSATION_ID,
+        mode: "normal",
+        generationMode: "vibe",
+      });
       sendUserMessage(client, CONVERSATION_ID, "run it");
+      const prompt = await collector.next(
+        (e) => e.type === "permission_request",
+      );
+      answerPermission(client, prompt, PERMISSION_DECISIONS.ALLOW_ONCE);
       const end = await collector.next((e) => e.type === "tool_call_end");
-      expect(end).toMatchObject({ outcome: "done", allowedBy: "full_auto" });
-      await waitTurns(session, 1);
-      const notice = await collector.next((e) => e.type === "notice");
-      expect(notice.notice).toMatchObject({ kind: "full_auto_ended" });
-      expect(
-        collector.events.some((e) => e.type === "permission_request"),
-      ).toBe(false);
+      expect(end).toMatchObject({ outcome: "done", allowedBy: "approved" });
     },
     TEST_TIMEOUT_MS,
   );
 
   it(
-    "still asks for a dependency in Full auto, and deny_all stops the turn",
+    "asks for a dependency with no rule to keep, and deny_all stops the turn",
     async () => {
       useScript("add-dependency.json");
       session = await open(false);
       const { client, collector } = session;
-      sendWire(client, {
-        type: "set_conversation_mode",
-        conversationId: CONVERSATION_ID,
-        fullAuto: { duration: "chat" },
-      });
       sendUserMessage(client, CONVERSATION_ID, "add jsvat");
       const prompt = await collector.next(
         (e) => e.type === "permission_request",
@@ -255,13 +252,6 @@ describe("v2 assistant flow over the socket", () => {
         tool: "Bash",
         allowedBy: "denied",
       });
-      sendWire(client, {
-        type: "leave_conversation",
-        conversationId: CONVERSATION_ID,
-      });
-      await collector.next(
-        (e) => e.type === "conversation_mode" && e.fullAuto === null,
-      );
     },
     TEST_TIMEOUT_MS,
   );
@@ -439,10 +429,10 @@ describe("v2 assistant flow over the socket", () => {
       const snapshot = await snapshots.next(
         (e) => e.type === "conversation_snapshot",
       );
-      expect(snapshot.mode).toMatchObject({
+      expect(snapshot.mode).toStrictEqual({
+        conversationId: CONVERSATION_ID,
         mode: "normal",
         generationMode: "vibe",
-        fullAuto: null,
       });
       const roles = (snapshot.messages ?? []).map((m) => m.role);
       expect(roles).not.toContain("permission");

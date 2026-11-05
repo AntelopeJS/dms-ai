@@ -4,7 +4,7 @@ import {
   TURN_STREAM_ENDED_MESSAGE,
 } from "../constants/agent.js";
 import { TOOL_EXECUTION_CAP_MS } from "../constants/timing.js";
-import type { AppSettings } from "../state/settings-types.js";
+import type { TurnSettings } from "../state/settings-types.js";
 import type { TurnInput } from "./provider.js";
 import type { RunnerError, RunnerEvent } from "./runner-events.js";
 import { idleTimeoutReason, toolCapReason } from "./turn-end-reasons.js";
@@ -22,12 +22,12 @@ export interface SessionControls {
    * released. Never rejects.
    */
   close(): Promise<void>;
-  applySettings?(settings: AppSettings): void;
+  applySettings?(settings: TurnSettings): void;
 }
 
 export interface AgentSession {
   sendTurn(input: TurnInput, timeoutMs: number): AsyncIterable<RunnerEvent>;
-  applySettings(settings: AppSettings): void;
+  applySettings(settings: TurnSettings): void;
   interrupt(): void;
   /**
    * Ends a running turn with `reason`, or with the session-closed one, and
@@ -117,7 +117,7 @@ function disposeSession(
   return disposal;
 }
 
-function applySettings(state: SessionState, settings: AppSettings): void {
+function applySettings(state: SessionState, settings: TurnSettings): void {
   if (isDisposed(state)) return;
   state.controls.applySettings?.(settings);
 }

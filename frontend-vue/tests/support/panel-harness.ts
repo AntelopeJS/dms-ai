@@ -1,6 +1,14 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { vi } from "vitest";
-import { defineComponent, h, nextTick, readonly, ref, shallowRef } from "vue";
+import { type Mock, vi } from "vitest";
+import {
+	defineComponent,
+	h,
+	nextTick,
+	readonly,
+	ref,
+	type Ref,
+	shallowRef,
+} from "vue";
 import ChatPanel from "../../app/components/ChatPanel.vue";
 import {
 	ASSISTANT_SESSION_KEY,
@@ -26,11 +34,11 @@ export interface Harness {
 	hub: ChatTransportHub;
 	sent: Array<Record<string, unknown>>;
 	reconnects: number;
-	sidecarStatus: ReturnType<typeof ref<SidecarStatus>>;
+	sidecarStatus: Ref<SidecarStatus>;
 	setChannelStatus: (status: ChannelStatus) => void;
-	navigate: ReturnType<typeof vi.fn>;
-	restart: ReturnType<typeof vi.fn>;
-	lastError: ReturnType<typeof ref<string | null>>;
+	navigate: Mock<(path: string) => void>;
+	restart: Mock<() => Promise<void>>;
+	lastError: Ref<string | null>;
 	api: AssistantSession["api"];
 	/** How many holds keep the tab's stream open. */
 	streamHolds: number;

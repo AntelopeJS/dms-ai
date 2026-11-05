@@ -233,6 +233,7 @@ void test("serves the settings flat, numbers as text, deletions locked on", asyn
   reset();
   answer("GET", "/settings", 200, {
     provider: "claude",
+    defaultModes: { claude: "auto", codex: "normal" },
     requestTimeoutMinutes: 5,
     checkpointRetentionDays: 30,
     providers: { codex: { available: false, reason: "No key" } },
@@ -243,6 +244,9 @@ void test("serves the settings flat, numbers as text, deletions locked on", asyn
   assert.equal(settings.checkpointRetentionDays, "30");
   assert.equal(settings.alwaysAskDeletions, true);
   assert.equal(settings.providers.codex.available, false);
+  assert.equal(settings.defaultModeClaude, "auto");
+  assert.equal(settings.defaultModeCodex, "normal");
+  assert.equal(settings.defaultModes, undefined);
 });
 
 void test("offers the sidecar's defaults on the settings form, numbers as text", async () => {
@@ -251,7 +255,7 @@ void test("offers the sidecar's defaults on the settings form, numbers as text",
     providers: { codex: { available: false, reason: "No key" } },
     defaults: {
       provider: "claude",
-      mode: "normal",
+      defaultModes: { claude: "auto", codex: "normal" },
       requestTimeoutMinutes: 5,
       notifyRequests: true,
     },
@@ -261,7 +265,8 @@ void test("offers the sidecar's defaults on the settings form, numbers as text",
   const options = await harness.routes.applySidecarSettings(new Set(), {
     fields: [
       field("provider"),
-      field("mode"),
+      field("defaultModeClaude"),
+      field("defaultModeCodex"),
       {
         id: "unanswered",
         fields: [field("requestTimeoutMinutes"), field("notifyRequests")],
@@ -269,11 +274,14 @@ void test("offers the sidecar's defaults on the settings form, numbers as text",
       field("alwaysAskDeletions"),
     ],
   });
-  const [provider, mode, unanswered, deletions] = options.fields;
+  const [provider, claudeMode, codexMode, unanswered, deletions] =
+    options.fields;
   assert.ok("fields" in unanswered);
   assert.equal(provider.defaultValue, "claude");
   assert.equal(provider.offersDefault, true);
-  assert.equal(mode.defaultValue, "normal");
+  assert.equal(claudeMode.defaultValue, "auto");
+  assert.equal(codexMode.defaultValue, "normal");
+  assert.equal(codexMode.offersDefault, true);
   assert.equal(unanswered.offersDefault, undefined);
   assert.deepEqual(
     unanswered.fields.map((f) => [f.defaultValue, f.offersDefault]),
@@ -289,15 +297,18 @@ void test("forwards no default back to the sidecar", async () => {
   reset();
   answer("PUT", "/settings", 200, {});
   await new harness.routes.AISettingsController().updateSettings({
-    mode: "plan",
-    defaults: { mode: "normal" },
+    defaultModeClaude: "plan",
+    defaultModeCodex: "acceptEdits",
+    defaults: { defaultModes: { claude: "auto", codex: "normal" } },
   });
-  assert.deepEqual(sidecar.requests[0].body, { mode: "plan" });
+  assert.deepEqual(sidecar.requests[0].body, {
+    defaultModes: { claude: "plan", codex: "acceptEdits" },
+  });
 });
 
 void test("forwards one instant-saved field, and the sidecar's refusal with its message", async () => {
   reset();
-  answer("PUT", "/settings", 400, { message: "mode auto is not a default" });
+  answer("PUT", "/settings", 400, { message: "codex has no auto mode" });
   const result = await new harness.routes.AISettingsController().updateSettings(
     {
       requestTimeoutMinutes: "15",
@@ -308,7 +319,7 @@ void test("forwards one instant-saved field, and the sidecar's refusal with its 
   assert.deepEqual(sidecar.requests[0].body, { requestTimeoutMinutes: 15 });
   assert.equal(result.getStatus(), 400);
   assert.deepEqual(bodyOf(z.json(), result), {
-    message: "mode auto is not a default",
+    message: "codex has no auto mode",
   });
 });
 

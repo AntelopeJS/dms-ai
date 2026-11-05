@@ -1,6 +1,7 @@
 import type { AgentProvider, AgentProviderOptions } from "../agent/provider.js";
 import type { McpHttpRegistry } from "../mcp/http-binding.js";
 import type { AiMcpServerDeps } from "../mcp/types.js";
+import type { ProviderUnavailableCode } from "../constants/providers.js";
 import type { ProviderName } from "../state/types.js";
 
 /**
@@ -28,8 +29,10 @@ export interface ProviderRuntime extends ProviderHostRuntime {
 
 export interface ProviderAvailability {
   available: boolean;
-  /** Why the provider is greyed out; absent when it is available. */
+  /** Why the provider is greyed out, in English; absent when it is available. */
   reason?: string;
+  /** Names the reason when the dashboard has its own wording for it. */
+  code?: ProviderUnavailableCode;
 }
 
 export type ProviderAvailabilityMap = Record<
@@ -39,8 +42,11 @@ export type ProviderAvailabilityMap = Record<
 
 export const AVAILABLE: ProviderAvailability = { available: true };
 
-export function unavailable(reason: string): ProviderAvailability {
-  return { available: false, reason };
+export function unavailable(
+  reason: string,
+  code?: ProviderUnavailableCode,
+): ProviderAvailability {
+  return { available: false, reason, code };
 }
 
 /**

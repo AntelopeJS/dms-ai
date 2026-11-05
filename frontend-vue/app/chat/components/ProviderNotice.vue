@@ -1,19 +1,30 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { useChatI18n } from "../composables/useChatI18n";
+import type { ProviderUnavailableCode } from "../types/settings";
 
 interface Props {
 	agentName: string;
-	/** Why the provider cannot run, as the sidecar reported it. */
+	/** Why the provider cannot run, as the sidecar reported it, in English. */
 	reason: string;
+	/** Set when the panel words the reason itself. */
+	code?: ProviderUnavailableCode;
 }
+
+const REASON_KEYS: Record<ProviderUnavailableCode, string> = {
+	codex_not_signed_in: "dms_ai.panel.errors.codex_not_signed_in",
+};
 
 interface Emits {
 	openSettings: [];
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 const { t } = useChatI18n();
+const reasonText = computed(() =>
+	props.code === undefined ? props.reason : t(REASON_KEYS[props.code]),
+);
 </script>
 
 <template>
@@ -24,7 +35,7 @@ const { t } = useChatI18n();
 				<b>
 					{{ t("dms_ai.panel.errors.agent_cant_run", { agent: agentName }) }}
 				</b>
-				{{ reason }}
+				{{ reasonText }}
 				{{ t("dms_ai.panel.errors.agent_no_fallback") }}
 				<div class="cb-provider__row">
 					<UButton

@@ -94,6 +94,31 @@ describe("permission previews and rules", () => {
     expect(description.preview).toMatchObject({ added: 1, removed: 1 });
   });
 
+  it("always asks before an edit of a dependency or git hook file, with no rule to keep", async () => {
+    const edits = [
+      join(root, "package.json"),
+      join(root, ".git", "hooks", "pre-commit"),
+      join(root, ".git", "modules", "sub", "hooks", "pre-commit"),
+      join(root, ".git", "modules", "sub", "config"),
+      join(root, ".git", "worktrees", "w", "config.worktree"),
+      join(root, "vendor", "x", ".git", "hooks", "h"),
+      join(root, "src", "..", ".git", "modules", "sub", "hooks", "pre-commit"),
+      join(root, ".husky", "pre-commit"),
+      join(root, "lefthook.yml"),
+    ];
+    const descriptions = await Promise.all(
+      edits.map((file_path) =>
+        describeCall("Write", { file_path, content: "" }),
+      ),
+    );
+    expect(
+      descriptions.map((d) => ({
+        alwaysAsk: d.alwaysAsk,
+        rules: d.ruleOptions,
+      })),
+    ).toEqual(edits.map(() => ({ alwaysAsk: true, rules: [] })));
+  });
+
   it("offers a domain rule for a fetch and none for a search", async () => {
     expect(
       (await describeCall("WebFetch", { url: "https://docs.example.com/a" }))

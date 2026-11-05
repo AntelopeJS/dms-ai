@@ -32,6 +32,21 @@ export const SDK_INCLUDE_PARTIAL_MESSAGES = true;
 /** The hook event the CLI raises before any permission check of a tool call. */
 export const PRE_TOOL_USE_HOOK_EVENT = "PreToolUse" as const;
 
+/** The permission mode in which Claude Code's Auto review decides each call. */
+export const CLAUDE_AUTO_PERMISSION_MODE = "auto" as const;
+
+/**
+ * The hook decision that sends a call to `canUseTool` in every permission
+ * mode, Auto review included.
+ */
+export const HOOK_ASK_DECISION = "ask" as const;
+
+export const CLAUDE_PERMISSION_SUBTYPES = {
+  /** Opens every turn, with the permission mode the CLI really runs in. */
+  INIT: "init",
+  DENIED: "permission_denied",
+} as const;
+
 /**
  * Generated skill plugin wrappers live under the sidecar state dir, never the
  * repo. The loader passes these as `plugins:[{type:'local'}]` alongside an

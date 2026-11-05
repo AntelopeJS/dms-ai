@@ -70,3 +70,30 @@ export const MOCK_PRE_TOOL_USE_EVENT = "PreToolUse";
 export const MOCK_HOOK_DENY = "deny";
 export const MOCK_BYPASS_UNAVAILABLE_ERROR =
   "Cannot set permission mode to bypassPermissions because the session was not launched with --dangerously-skip-permissions";
+
+/**
+ * Auto review, as CLI 2.1.316 runs it against the real SDK: its classifier
+ * approves or refuses a call without asking `canUseTool`, a hook `ask` hands
+ * the call to `canUseTool` instead, and these file tools run unreviewed
+ * wherever they point (`Read /etc/hostname` ran without a prompt).
+ */
+export const MOCK_AUTO_MODE = "auto";
+export const MOCK_HOOK_ASK = "ask";
+export const MOCK_AUTO_READ_TOOLS: readonly string[] = [
+  "Read",
+  "LS",
+  "Glob",
+  "Grep",
+  "NotebookRead",
+];
+/**
+ * The model the mock CLI will not run Auto review on: it starts such a session
+ * in `default`, refuses `setPermissionMode("auto")` and leaves `auto` when a
+ * session moves onto it, as CLI 2.1.316 does for `claude-haiku-4-5-20251001`.
+ */
+export const MOCK_AUTO_UNSUPPORTED_MODEL_ENV_VAR =
+  "MOCK_CLAUDE_AUTO_UNSUPPORTED_MODEL";
+export const MOCK_AUTO_UNAVAILABLE_ERROR =
+  "Cannot set permission mode to auto: auto mode unavailable for this model";
+export const MOCK_INIT_SUBTYPE = "init";
+export const MOCK_PERMISSION_DENIED_SUBTYPE = "permission_denied";

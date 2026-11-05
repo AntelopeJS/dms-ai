@@ -1,5 +1,62 @@
 # Changelog
 
+## v0.9.2
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.9.1...v0.9.2)
+
+### 📖 Documentation
+
+- **changelog:** Upgrade notes of dms-ai 0.9.1 ([#165](https://github.com/AntelopeJS/dms-ai/pull/165))
+- **readme:** Show the assistant at work in a GIF ([86a5a4e](https://github.com/AntelopeJS/dms-ai/commit/86a5a4e))
+
+### 🏡 Chore
+
+- Land the cleanup campaign on main ([#182](https://github.com/AntelopeJS/dms-ai/pull/182))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
+## v0.9.1
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.9.0...v0.9.1)
+
+### Upgrade notes
+
+- **Codex users:** the sidecar now pins `@openai/codex` `0.166.0` (was `0.154.0`) and refuses any other version. Run `pnpm add @openai/codex@0.166.0` ([#156](https://github.com/AntelopeJS/dms-ai/pull/156)).
+- **Full auto is gone.** The approval modes are now the agents' own: Ask first, Auto review (Claude Code only), Accept edits and Plan only. Ask first and Accept edits now ask before every command, read-only ones included ([#155](https://github.com/AntelopeJS/dms-ai/pull/155)).
+- **Claude Code starts on Auto review,** including existing installs whose saved mode is the old Ask first default. Pick Ask first again in Settings to keep it ([#151](https://github.com/AntelopeJS/dms-ai/pull/151), [#152](https://github.com/AntelopeJS/dms-ai/pull/152)).
+- **With Codex, Accept edits works as Ask first:** every file edit and every command that writes asks ([#156](https://github.com/AntelopeJS/dms-ai/pull/156)).
+- **Secret files:** the assistant can no longer read `.env` files, and the variables they set are removed from its environment, including harmless ones such as `LOG_LEVEL` ([#153](https://github.com/AntelopeJS/dms-ai/pull/153), [#156](https://github.com/AntelopeJS/dms-ai/pull/156)).
+- **Mapping a database again** asks before it removes a page, and needs `@antelopejs/dms-builder` `0.9.1` with `@antelopejs/interface-dms-builder` `>=0.3.1`. An older Builder makes the tool refuse with an update message ([#154](https://github.com/AntelopeJS/dms-ai/pull/154), [#164](https://github.com/AntelopeJS/dms-ai/pull/164)).
+
+### 🚀 Enhancements
+
+- **modes:** Default Claude Code to Auto review and keep Codex on Ask first ([#151](https://github.com/AntelopeJS/dms-ai/pull/151))
+- Make the approval modes the agents' own, with the guard on top ([#155](https://github.com/AntelopeJS/dms-ai/pull/155))
+- **sidecar:** Start existing installs on Auto review ([#152](https://github.com/AntelopeJS/dms-ai/pull/152))
+
+### 🩹 Fixes
+
+- **chat:** Keep the chat scrolled to the newest message while following ([#149](https://github.com/AntelopeJS/dms-ai/pull/149))
+- **sidecar:** Keep project secrets from the agent ([#153](https://github.com/AntelopeJS/dms-ai/pull/153))
+- **sidecar:** Hide .env from Codex and ask before its dependency and hook edits ([#156](https://github.com/AntelopeJS/dms-ai/pull/156))
+- **sidecar:** Let Codex run dms-ai's own MCP tools ([#159](https://github.com/AntelopeJS/dms-ai/pull/159))
+- **sidecar:** Ask before BuilderMapResources removes a page ([#154](https://github.com/AntelopeJS/dms-ai/pull/154))
+- **deps:** Require the builder interface that previews page removals ([#164](https://github.com/AntelopeJS/dms-ai/pull/164))
+
+### 💅 Refactors
+
+- **lifecycle:** Collect skill sources through @antelopejs/agent-skills ([#148](https://github.com/AntelopeJS/dms-ai/pull/148))
+
+### 📖 Documentation
+
+- **github:** Send questions and ideas to Discord ([#150](https://github.com/AntelopeJS/dms-ai/pull/150))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v0.9.0
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.8.0...v0.9.0)
