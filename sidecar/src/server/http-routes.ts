@@ -1,4 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import {
+  type JSONRPCMessage,
+  JSONRPCMessageSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import {
   type ActivityRecord,
@@ -16,7 +20,8 @@ import {
   type ChangeSetErrorCode,
   toSummary,
 } from "../checkpoints/checkpoints.js";
-import { HTTP_STATUS } from "../constants/http.js";
+import { CONTENT_TYPE, HTTP_STATUS } from "../constants/http.js";
+import { MCP_PROJECT_PATH } from "../constants/mcp.js";
 import {
   buildAllowed,
   buildKpi,
@@ -36,7 +41,7 @@ import { readSidecarVersion } from "../state/sidecar-version.js";
 import type { ChangeSetRecord } from "../state/types.js";
 import { handleChangeSetAction } from "./change-set-actions.js";
 import type { SettingsApplier } from "./http.js";
-import { readBody, sendJson } from "./http-io.js";
+import { readBody, sendJson, sendResponse } from "./http-io.js";
 import {
   optionalParam,
   parseActivityQuery,
@@ -342,7 +347,51 @@ async function conflictsRoute(res: ServerResponse, match: RouteMatch) {
   sendJson(res, HTTP_STATUS.OK, { conflicts: skillConflicts(catalog) });
 }
 
+const INVALID_REQUEST = {
+  jsonrpc: "2.0",
+  error: { code: -32600, message: "Invalid Request" },
+} as const;
+
+function parseMessage(body: string): JSONRPCMessage | null {
+  try {
+    const parsed = JSONRPCMessageSchema.safeParse(JSON.parse(body));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** POST /mcp/project: one JSON-RPC message in, its response out, 202 for a notification. */
+async function projectMcpRoute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  deps: ApiDeps,
+): Promise<void> {
+  const endpoint = deps.services()?.projectMcp;
+  if (endpoint === undefined) {
+    sendJson(res, HTTP_STATUS.UNAVAILABLE, { error: "starting" });
+    return;
+  }
+  const message = parseMessage(await readBody(req));
+  if (message === null) {
+    sendJson(res, HTTP_STATUS.BAD_REQUEST, INVALID_REQUEST);
+    return;
+  }
+  const reply = await endpoint.handle(message);
+  if (reply === undefined) {
+    res.writeHead(HTTP_STATUS.ACCEPTED);
+    res.end();
+    return;
+  }
+  sendResponse(res, HTTP_STATUS.OK, CONTENT_TYPE.JSON, JSON.stringify(reply));
+}
+
 export const API_ROUTES: readonly ApiRoute[] = [
+  {
+    method: "POST",
+    pattern: new RegExp(`^${MCP_PROJECT_PATH}$`),
+    handle: projectMcpRoute,
+  },
   {
     method: "GET",
     pattern: /^\/status$/,

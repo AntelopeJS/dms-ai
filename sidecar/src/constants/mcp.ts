@@ -91,6 +91,10 @@ export const FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES: ReadonlySet<string> = new Set(
 );
 
 export const MCP_HTTP_PATH = "/mcp";
+/** The project's sessionless endpoint, reached through the DMS backend with the client credential. */
+export const MCP_PROJECT_PATH = "/mcp/project";
+/** The conversation the project endpoint's tools are bound to: no chat carries it. */
+export const PROJECT_CONVERSATION_ID = "project-mcp";
 /**
  * Where an out-of-process provider reaches the endpoint above.
  */

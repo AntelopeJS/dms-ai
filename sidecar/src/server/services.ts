@@ -7,6 +7,7 @@ import type { QuestionBus } from "../agent/question-bus.js";
 import type { AgentRunner } from "../agent/runner.js";
 import type { Checkpoints } from "../checkpoints/checkpoints.js";
 import type { LogsClient } from "../logs/logs-client.js";
+import type { ProjectMcpEndpoint } from "../mcp/project-endpoint.js";
 import type { AiMcpServer } from "../mcp/types.js";
 import type { ConversationStore } from "../state/conversations.js";
 import type { HostState } from "../state/host-state.js";
@@ -33,6 +34,8 @@ export interface SidecarServices {
   permissionBus: PermissionBus;
   questionBus: QuestionBus;
   createMcpServer: (conversationId: string) => AiMcpServer;
+  /** The tools served to agent sessions outside the chat. */
+  projectMcp: ProjectMcpEndpoint;
   editTracker: EditTracker;
   logsClient: LogsClient;
   moduleRoots: string[];

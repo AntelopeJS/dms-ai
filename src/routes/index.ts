@@ -6,6 +6,7 @@ export * from "./codex-account";
 export * from "./database";
 export * from "./health";
 export * from "./logs";
+export * from "./mcp";
 export * from "./metrics";
 export * from "./pages-registry";
 export * from "./settings";

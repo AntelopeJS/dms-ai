@@ -1,3 +1,4 @@
+import http from "node:http";
 import type { z } from "zod";
 import { SIDECAR_LOOPBACK_HOST } from "../constants/sidecar";
 import {
@@ -91,5 +92,68 @@ export async function readSidecar<T>(
     return parsed.success ? parsed.data : fallback;
   } catch {
     return fallback;
+  }
+}
+
+/** The sidecar's raw answer to a relayed request. */
+export interface SidecarRelayAnswer {
+  status: number;
+  text: string;
+}
+
+function postRaw(
+  port: number,
+  token: string,
+  path: string,
+  body: string,
+): Promise<SidecarRelayAnswer> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        host: SIDECAR_LOOPBACK_HOST,
+        port,
+        path,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": JSON_CONTENT_TYPE,
+          "Content-Length": Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () =>
+          resolve({
+            status: res.statusCode ?? 0,
+            text: Buffer.concat(chunks).toString("utf8"),
+          }),
+        );
+        res.on("error", reject);
+      },
+    );
+    req.on("error", reject);
+    req.end(body);
+  });
+}
+
+/**
+ * POSTs a body to the sidecar as is and returns its answer unread, reviving
+ * the sidecar first. Unlike `requestSidecar` it sets no timeout, for the MCP
+ * tool calls that run for minutes. Throws `SidecarUnavailableError` when no
+ * sidecar answers.
+ */
+export async function relaySidecar(
+  path: string,
+  body: string,
+): Promise<SidecarRelayAnswer> {
+  await ensureSidecarRunning();
+  const port = getSidecarPort();
+  const token = getSidecarClientToken();
+  if (port === null || !token) throw new SidecarUnavailableError();
+  try {
+    return await postRaw(port, token, path, body);
+  } catch {
+    throw new SidecarUnavailableError();
   }
 }

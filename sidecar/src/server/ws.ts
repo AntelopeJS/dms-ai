@@ -32,7 +32,10 @@ import {
 } from "../checkpoints/checkpoints.js";
 import { createShadowGit } from "../checkpoints/shadow-git.js";
 import { WS_MAX_PAYLOAD_BYTES } from "../constants/attachments.js";
-import { ASK_USER_TOOL_NAME } from "../constants/mcp.js";
+import {
+  ASK_USER_TOOL_NAME,
+  PROJECT_CONVERSATION_ID,
+} from "../constants/mcp.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import {
   WS_CLIENT_CLOSE_GRACE_MS,
@@ -40,6 +43,7 @@ import {
   WS_LOG_PREFIX,
   WS_PATH,
 } from "../constants/ws.js";
+import { createProjectMcpEndpoint } from "../mcp/project-endpoint.js";
 import { createAiMcpServer } from "../mcp/sdk-binding.js";
 import type {
   AiMcpServer,
@@ -373,11 +377,16 @@ interface ServiceParts {
 
 function buildServices(parts: ServiceParts): RoutingConfig {
   const { options, holder, chatSocketRegistry, settingsStore } = parts;
+  const hostCommandsOf = createHostCommandRouter(
+    options.hostSocketRegistry,
+    chatSocketRegistry,
+  );
   const createMcpDeps = buildMcpDepsFactory(
     options.mcpDeps,
     holder,
-    createHostCommandRouter(options.hostSocketRegistry, chatSocketRegistry),
+    hostCommandsOf,
   );
+  const idleController = options.idleController ?? NOOP_IDLE_CONTROLLER;
   return {
     hostProjectRoot: options.hostProjectRoot,
     conversationStore: options.conversationStore,
@@ -392,7 +401,12 @@ function buildServices(parts: ServiceParts): RoutingConfig {
     chatSocketRegistry,
     permissionBus: buildPermissionBus(options, holder),
     navigationCompleter: options.navigationCompleter,
-    idleController: options.idleController ?? NOOP_IDLE_CONTROLLER,
+    idleController,
+    projectMcp: createProjectMcpEndpoint({
+      mcpDeps: options.mcpDeps,
+      sendToHost: hostCommandsOf(PROJECT_CONVERSATION_ID),
+      idleController,
+    }),
     runner: buildRunner(options, settingsStore.get(), createMcpDeps, holder),
     liveTurns: createLiveTurnStore(),
     pendingQueue: createPendingQueueStore(),

@@ -71,7 +71,7 @@ The module needs a DMS backend in a release that implements the `@antelopejs/int
 
 - [Introduction](https://dms.antelopejs.com/docs/modules/ai/introduction)
 - [Installation](https://dms.antelopejs.com/docs/modules/ai/installation)
-- [Configuration](https://dms.antelopejs.com/docs/modules/ai/configuration), with the agent providers, Codex, Safe mode and remote access
+- [Configuration](https://dms.antelopejs.com/docs/modules/ai/configuration), with the agent providers, Codex, Safe mode, your own Claude Code session and remote access
 - [Usage](https://dms.antelopejs.com/docs/modules/ai/usage/chat)
 - [Extending](https://dms.antelopejs.com/docs/modules/ai/extending)
 - [FAQ](https://dms.antelopejs.com/docs/modules/ai/faq)
