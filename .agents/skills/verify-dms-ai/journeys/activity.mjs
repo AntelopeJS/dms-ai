@@ -1,40 +1,11 @@
 import { guarded } from "../guard.mjs";
 import { AI, ai, check, clickUntil, freshSidecar, list, pageHas, pick, raw, recordRaw, same, selected, text, withEnv } from "../ai.mjs";
-import { sampleChangeSets, sampleConversations } from "../sample.mjs";
-import { MS_DAY, MS_HOUR, conversation, seedStore, toolResult, toolUse, userMessage } from "../seed.mjs";
+import { MS_DAY } from "../seed.mjs";
 import { windowStart } from "../windows.mjs";
+import { CSV_HEADER, log, sorted, seedSample } from "./activity/helpers.mjs";
+import { exportJourneys } from "./activity/export.mjs";
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
-
-/** Seeds one conversation of 10,005 reads, one every second. */
-async function seedMany(/** @type {Ctx} */ ctx) {
-  const now = Date.now();
-  const messages = [userMessage("Many reads", now - 2 * MS_DAY)];
-  for (let index = 0; index < 10_005; index += 1) {
-    const at = now - MS_DAY + index * 1000;
-    messages.push(toolUse(`r-${index}`, "Read", { file_path: `docs/${index}.md` }, at, { allowedBy: "read_auto" }), toolResult(`r-${index}`, at + 100, { allowedBy: "read_auto" }));
-  }
-  await seedStore(ctx, { conversations: { many: conversation(messages) } });
-}
-
-const CSV_HEADER = "time,tool,target,agent,allowed_by,result,result_detail,change_set,conversation_id,conversation,duration_ms,read_only,auto_fix\r\n";
-
-/** @param {Ctx} ctx @param {string} query @returns {Promise<{ total: number, tools: string[], rows: import("../ai.mjs").Row[] }>} */
-async function log(ctx, query) {
-  const answer = await ai(ctx, `the log ${query}`, "GET", `/activity${query}`);
-  const rows = list(answer.body, "results");
-  return { total: Number(pick(answer.body, "total")), tools: rows.map((row) => text(row, "tool")), rows };
-}
-
-/** @param {string[]} names @returns {string[]} sorted copy */
-const sorted = (names) => [...names].sort();
-
-/** The sample, seeded: 44 records, 31 of them in the last seven days. */
-async function seedSample(/** @type {Ctx} */ ctx) {
-  const now = Date.now();
-  await seedStore(ctx, { conversations: sampleConversations(now, { one: "cs-one", two: "cs-two" }), build: () => sampleChangeSets(ctx, now) });
-  return now;
-}
 
 export const journeys = guarded([
   {
@@ -247,58 +218,5 @@ export const journeys = guarded([
       await ctx.verify("the raw record", [pageHas(tab, "holds the id", /"id": "conv-new:call-11"/)]);
     },
   },
-  {
-    id: "the-export-holds-every-row-whatever-the-tab-and-the-period",
-    title: "the CSV export writes one line per record in the documented columns, quoting commas and quotes and guarding a formula, whatever the page shows",
-    entryPoint: "GET /ai/activity/export.csv",
-    async run(/** @type {Ctx} */ ctx) {
-      await seedSample(ctx);
-      const csv = await raw(ctx, "the CSV on a filtered request", { path: `${AI}/activity/export.csv?filter_category=is:failed&from=${new Date(Date.now() - 4 * MS_HOUR).toISOString()}`, as: "admin" });
-      const lines = csv.text.split("\r\n");
-      recordRaw(ctx, csv, [
-        same("the header", lines[0] + "\r\n", CSV_HEADER),
-        check("the filter and the period apply to the export", lines.length === 3 && /pnpm lint/.test(lines[1] ?? ""), lines.length),
-        same("a final line break", csv.text.endsWith("\r\n"), true),
-      ]);
-      const every = await raw(ctx, "the whole CSV", { path: `${AI}/activity/export.csv`, as: "admin" });
-      const rows = every.text.split("\r\n").filter(Boolean);
-      const glob = rows.find((line) => line.includes("Glob"));
-      recordRaw(ctx, every, [
-        same("44 records and the header", rows.length, 45),
-        check("a formula is guarded and a quote doubled inside quotes", Boolean(glob) && glob.includes('"\'=SUM(1,2),""q"""'), glob),
-        check("the denied row names its agent and result", rows.some((line) => /,Bash,rm -rf dist,claude,denied,denied,use the Builder,/.test(line)), ""),
-        check("a Codex row", rows.some((line) => /,Read,docs\/0\.md,codex,read_auto,done,/.test(line)), ""),
-      ]);
-    },
-  },
-  {
-    id: "the-export-stops-at-10000-rows",
-    title: "an audit log of 10,005 records exports 10,000 data lines, as the docs say",
-    entryPoint: "GET /ai/activity/export.csv",
-    async run(/** @type {Ctx} */ ctx) {
-      await seedMany(ctx);
-      const csv = await raw(ctx, "the CSV", { path: `${AI}/activity/export.csv`, as: "admin" });
-      const lines = csv.text.split("\r\n").filter(Boolean);
-      recordRaw(ctx, csv, [same("the header and 10,000 data lines", lines.length, 10_001), same("the newest first", lines[1]?.includes("docs/10004.md"), true)]);
-    },
-  },
-  {
-    id: "the-export-holds-what-the-sidecar-lets-through",
-    title: "pinning today's behaviour next to the documented one: 10,005 records export 200 data lines, the newest first, and the page lists them 25 at a time, 50 after Load more",
-    entryPoint: "GET /ai/activity/export.csv, GET /ai/activity, /modules/ai/activity",
-    async run(/** @type {Ctx} */ ctx) {
-      await seedMany(ctx);
-      const page = await ai(ctx, "the log", "GET", "/activity");
-      const csv = await raw(ctx, "the CSV", { path: `${AI}/activity/export.csv`, as: "admin" });
-      const lines = csv.text.split("\r\n").filter(Boolean);
-      await ctx.verify("the log", [same("10,005 records", pick(page.body, "total"), 10_005), same("25 rows a page", list(page.body, "results").length, 25), same("200 at most in one list, however many are asked", (await log(ctx, "?limit=10000")).rows.length, 200)]);
-      recordRaw(ctx, csv, [same("the header and 200 data lines", lines.length, 201), same("the newest first", lines[1]?.includes("docs/10004.md"), true), same("the 200th is the 200th newest", lines[200]?.includes("docs/9805.md"), true)]);
-      const tab = await ctx.tab();
-      await tab.signIn("admin");
-      await tab.goto("/modules/ai/activity");
-      await ctx.verify("the page", [pageHas(tab, "25 of 10,005", /25 of 10,005\s*Load more/)]);
-      await tab.click({ role: "button", name: "Load more" });
-      await ctx.verify("Load more adds the next 25", [pageHas(tab, "50 of 10,005", /50 of 10,005/), check("50 rows and the header", (await tab.page.getByRole("row").count()) === 51, await tab.page.getByRole("row").count())]);
-    },
-  },
+  ...exportJourneys,
 ]);

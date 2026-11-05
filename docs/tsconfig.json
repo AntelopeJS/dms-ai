@@ -7,5 +7,6 @@
       "@antelopejs/dms-ai/*": ["../src/*"],
       "vue": ["../frontend-vue/node_modules/vue"]
     }
-  }
+  },
+  "references": [{ "path": "./tsconfig.config.json" }]
 }

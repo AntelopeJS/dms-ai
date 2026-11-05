@@ -1,6 +1,6 @@
 ---
 name: verify-dms-ai
-description: "Drive the AntelopeJS dms-ai module (the AI assistant: its sidecar, Overview, Changes, Activity, Skills and Settings pages, the Codex sign-in banner and the owner-only routes) the way the platform owner does, inside a DMS with free ports and its own MongoDB database, and post a verdict with evidence. Use to prove a change to AntelopeJS/dms-ai works before merge, to verify a PR, or to check that a seeded break or a seeded one-way door is caught. A turn with Claude Code or Codex needs credentials a run never holds: that part is NOT VERIFIED, so a verdict is never a plain PASS."
+description: "Drive the AntelopeJS dms-ai module (the AI assistant: its sidecar, Overview, Changes, Activity, Skills and Settings pages, the Codex sign-in banner and the owner-only routes) the way the platform owner does, inside a DMS with free ports and its own MongoDB database, and post a verdict with evidence. Use to prove a change to AntelopeJS/dms-ai works before merge, or to verify a PR. A turn with Claude Code or Codex needs credentials a run never holds: that part is NOT VERIFIED, so a verdict is never a plain PASS."
 ---
 
 # Verify dms-ai
@@ -14,7 +14,7 @@ C="pnpm exec dms-control"
 $C                       # lists every command
 ```
 
-Give `seeded`, `doors` and `--skill` absolute paths. `mongod` comes from `DMS_CONTROL_MONGOD` or `PATH`. A verifier that runs with a temporary `HOME` does not see `~/.cache/mongodb-binaries`: pass the binary in `DMS_CONTROL_MONGOD` (the seeded-break eval takes `--pass-env DMS_CONTROL_MONGOD`).
+Give `doors` and `--skill` absolute paths. `mongod` comes from `DMS_CONTROL_MONGOD` or `PATH`. A verifier that runs with a temporary `HOME` does not see `~/.cache/mongodb-binaries`: pass the binary in `DMS_CONTROL_MONGOD`.
 
 ## What this skill cannot verify
 
@@ -75,29 +75,20 @@ $C down "$RUN"
 3. **Every registered journey of a feature in `run` must have run and passed.** Known findings stay as failing journeys (see Gotchas): they fail a verdict only when the diff touches their feature.
 4. **Docs.** Judge every `docs:` page of each touched feature against what the journeys showed.
 5. **Formal checks.** None.
-6. **One-way doors.** The section comes right after the result line and is mandatory. `$C doors` prints the `One-way-door:` line for the diff. A Data or Format door is contained only by its journey passing in this run (`settings/every-setting-saves-alone-and-survives-a-restart`, `settings/a-stored-settings-file-is-read-back-by-the-next-start`).
+6. **One-way doors.** The section comes right after the result line and is mandatory. `$C doors` prints the `One-way-door:` line for the diff.
 7. **Result.** FAIL if any of rules 1 to 6 fail. Otherwise PASS+NOTES, with the Not driven list under `notVerified`: the verdict is never a plain PASS here.
 
 Write `$RUN/evidence/judgement.json` (`doors`, `docs`, `notVerified`, `attention`, `verifier`), then `$C verdict "$RUN" --pr <n>` and, from a thread that did not write the change, `$C publish "$RUN" --pr <n>`.
 
 ## Trust
 
-The skill is not Trusted yet. It becomes Trusted when it catches every seeded break and flags every seeded door, passes a shadow run of 10 consecutive agent PRs, and its last maintain pass is newer than the last change to the repository or its `@antelopejs` dependencies and at most 30 days old.
-
-## Seeded breaks and doors
-
-```bash
-$C seeded smoke settings skills
-$C doors "$PWD/.agents/skills/verify-dms-ai/seeded-doors/data.patch"
-```
-
-`seeded-breaks/<feature>.patch` is one minimal product bug per feature; `seeded` builds a control and a patched worktree, runs the feature's journeys in each, and prints `CAUGHT` with the journeys that caught it, or `MISSED`. `seeded-doors/<kind>.patch` holds one change per door kind.
+The skill is not Trusted yet. It becomes Trusted when it passes a shadow run of 10 consecutive agent PRs, and its last maintain pass is newer than the last change to the repository or its `@antelopejs` dependencies and at most 30 days old.
 
 ## Gotchas
 
 - The playground overrides `@antelopejs/interface-database-decorators` to the registry's 0.1.12: the 0.2.0 tarball this repository pins has no `testHashAsync`, and the DMS tarball's login calls it (sign-in answered 500). This is a real mismatch of the campaign pins that the override hides: draft `dms-ai-decorators-tarball-mismatch`. Remove the override once the pins agree.
 - Every dashboard page renders on the server and hydrates after `load`; `guard.mjs` waits for the sign-in form to hydrate, and `choose` and `clickUntil` click again until a radio, a switch or a dialog responds.
-- A step whose check fails because the backend or the dashboard stopped answering ends the journey with a `NOT VERIFIED` error and no failing check, so `seeded` never counts an outage as a catch.
+- A step whose check fails because the backend or the dashboard stopped answering ends the journey with a `NOT VERIFIED` error and no failing check.
 - The sample holds one more record than every documented limit it drives (5 change sets for the 4 listed, 9 tools for the 5 listed, 29 log records for the 25 of a page, 10,005 for the 10,000 of an export, 61 skills for the 24 of a page, a usage entry on the first day of the 14 and one the day before), so that N and N+1 look different. Add the same when you add a limit.
 - The 24 hour, 7 day and 30 day windows are driven with calls 3 hours, 10 days and 40 days old, not at the edge of each window.
 - Text the dashboard uppercases (card and section titles) is matched without regard to case.
