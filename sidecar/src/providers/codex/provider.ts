@@ -9,7 +9,7 @@ import type {
 } from "../../agent/provider.js";
 import { ToolArgsSchema } from "../../agent/edit-targets.js";
 import type { RunnerEvent } from "../../agent/runner-events.js";
-import { createAgentSession } from "../../agent/session.js";
+import { type AgentSession, createAgentSession } from "../../agent/session.js";
 import { TURN_IDLE_TIMEOUT_MS } from "../../constants/agent.js";
 import {
   CODEX_CLIENT_CAPABILITIES,
@@ -41,10 +41,13 @@ import {
 } from "../../constants/chatgpt.js";
 import { MCP_TOOL_NAME_PREFIX } from "../../constants/mcp.js";
 import type { McpHttpRegistry } from "../../mcp/http-binding.js";
+import { buildAnalystToolDefinitions } from "../../mcp/tool-definitions.js";
 import type { AiMcpServerDeps } from "../../mcp/types.js";
 import { resolveSkillSources } from "../../skills/resolve-sources.js";
+import type { AssistantMode } from "../../state/assistant-mode.js";
 import type { AppSettings, TurnSettings } from "../../state/settings-types.js";
 import { createCodexAdapter } from "./adapter.js";
+import { createAnalystItemGuard, ensureAnalystCatalog } from "./analyst.js";
 import { readAccountStatus } from "./chatgpt/credentials.js";
 import { buildCodexTurnInput } from "./attachments.js";
 import type {
@@ -54,7 +57,7 @@ import type {
 } from "./client.js";
 import {
   buildDenialReminder,
-  buildDeveloperInstructions,
+  buildThreadInstructions,
   buildTurnOverrides,
   isSafeMode,
 } from "./config.js";
@@ -115,8 +118,14 @@ interface CodexBackend {
   conversationId: string;
   hostProjectRoot: string;
   isSafeModeSkillIndexed: boolean;
+  profile: AssistantMode | undefined;
   denials: () => number;
   resumeApprovals: () => void;
+}
+
+/** The session a guard ends, set once the session exists. */
+interface SessionRef {
+  current: AgentSession | null;
 }
 
 interface BackendRef {
@@ -164,17 +173,21 @@ function warnIfSafeModeSkillMissing(isIndexed: boolean): void {
  * Two passes, as the protocol requires: extra roots go in, the resulting index
  * is read back, and everything that is not ours is switched off before the
  * first turn. Resolves with whether the safe-mode skill made the index.
+ * Analyst gets no skill at all: none of ours, and every listed one disabled.
  */
 async function configureSkills(
   process: CodexProcess,
   options: CodexProviderOptions,
   settings: AppSettings,
 ): Promise<boolean> {
-  const sources = resolveSkillSources(
-    options.skillDirs ?? [],
-    settings.allowLocalSkills,
-    os.homedir(),
-  );
+  const isAnalyst = options.profile === "analyst";
+  const sources = isAnalyst
+    ? []
+    : resolveSkillSources(
+        options.skillDirs ?? [],
+        settings.allowLocalSkills,
+        os.homedir(),
+      );
   const extraRoots = buildSkillExtraRoots(sources);
   if (extraRoots.length > 0) {
     await process.client.request(
@@ -191,10 +204,10 @@ async function configureSkills(
   );
   await disableForeignSkills(process, listed.data, {
     extraRoots,
-    allowLocalSkills: settings.allowLocalSkills,
+    allowLocalSkills: !isAnalyst && settings.allowLocalSkills,
   });
   const isIndexed = isSafeModeSkillIndexed(listed.data);
-  warnIfSafeModeSkillMissing(isIndexed);
+  if (!isAnalyst) warnIfSafeModeSkillMissing(isIndexed);
   return isIndexed;
 }
 
@@ -205,6 +218,7 @@ async function configureSkills(
 async function startThread(
   process: CodexProcess,
   ctx: ProviderSessionContext,
+  profile: AssistantMode | undefined,
 ): Promise<string> {
   const { permissions, approvalPolicy } = buildTurnOverrides(ctx.settings);
   const started = await process.client.requestDecoded(
@@ -214,7 +228,7 @@ async function startThread(
       cwd: ctx.hostProjectRoot,
       permissions,
       approvalPolicy,
-      developerInstructions: buildDeveloperInstructions(ctx.settings),
+      ...buildThreadInstructions(ctx.settings, profile),
       ephemeral: true,
     },
     HANDSHAKE,
@@ -227,6 +241,7 @@ async function startThread(
  * the reminder is about what the agent just tried, so it reads last.
  */
 function withDenialReminder(backend: CodexBackend, text: string): string {
+  if (backend.profile === "analyst") return text;
   const reminder = buildDenialReminder(
     backend.live.settings,
     backend.denials(),
@@ -235,6 +250,7 @@ function withDenialReminder(backend: CodexBackend, text: string): string {
 }
 
 function assertSafeModeSkillAvailable(backend: CodexBackend): void {
+  if (backend.profile === "analyst") return;
   if (backend.isSafeModeSkillIndexed) return;
   if (!isSafeMode(backend.live.settings)) return;
   throw new Error(SAFE_MODE_SKILL_MISSING_MESSAGE);
@@ -374,7 +390,7 @@ async function handshake(
     options,
     ctx.settings,
   );
-  const threadId = await startThread(codexProcess, ctx);
+  const threadId = await startThread(codexProcess, ctx, options.profile);
   return { threadId, isSafeModeSkillIndexed };
 }
 
@@ -393,8 +409,13 @@ async function openCodexProcess(
   if (!readAccountStatus().isSignedIn) {
     throw new Error(CHATGPT_NOT_SIGNED_IN_MESSAGE);
   }
+  const isAnalyst = options.profile === "analyst";
+  const analystCatalogPath = isAnalyst
+    ? await ensureAnalystCatalog(options.stateDir, installation)
+    : undefined;
   const mcpToken = await options.mcpHttpRegistry.register(
     options.createMcpDeps(ctx.conversationId),
+    isAnalyst ? buildAnalystToolDefinitions : undefined,
   );
   let codexProcess: CodexProcess | undefined;
   try {
@@ -412,6 +433,7 @@ async function openCodexProcess(
       ).toString(),
       handlers,
       stopGraces: options.stopGraces,
+      analystCatalogPath,
     });
     const outcome = await handshake(codexProcess, options, ctx);
     return { codexProcess, ...outcome };
@@ -449,13 +471,23 @@ async function createProviderSession(
     getPendingMcpCalls: () => adapter.pendingMcpCalls(),
     onToolDecision: ctx.onToolDecision,
     beforeMutation: ctx.beforeMutation,
+    profile: options.profile,
   });
+  const sessionRef: SessionRef = { current: null };
+  const guard =
+    options.profile === "analyst"
+      ? createAnalystItemGuard((reason) => {
+          permissions.cancelPending();
+          void sessionRef.current?.dispose(reason);
+        })
+      : undefined;
 
   const { codexProcess, threadId, isSafeModeSkillIndexed } =
     await openCodexProcess(options, ctx, {
       onNotification: (notification) => {
         trackTurnId(backendRef, notification);
         reportTokenUsage(ctx, notification);
+        if (guard?.intercepts(notification) === true) return;
         for (const event of adapter.handle(notification)) {
           announceToolCall(ctx, event);
           stream.push(event);
@@ -473,6 +505,7 @@ async function createProviderSession(
     conversationId: ctx.conversationId,
     hostProjectRoot: ctx.hostProjectRoot,
     isSafeModeSkillIndexed,
+    profile: options.profile,
     denials: () => permissions.consecutiveDenials(),
     resumeApprovals: () => permissions.resume(),
   };
@@ -502,6 +535,8 @@ async function createProviderSession(
       ctx.onDisposed(disposal);
     },
   });
+
+  sessionRef.current = session;
 
   const providerSession: ProviderSession = {
     runTurn: (input, settings) => {

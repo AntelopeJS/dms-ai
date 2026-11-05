@@ -19,6 +19,8 @@ import {
 } from "../../constants/tool-lexicon.js";
 import { EDIT_PATHS_KEY } from "../../agent/edit-targets.js";
 import { resolveReadRoots } from "../../agent/read-access.js";
+import { ANALYST_ALLOWED_TOOL_NAMES } from "../../constants/mcp.js";
+import type { AssistantMode } from "../../state/assistant-mode.js";
 import type { TurnSettings } from "../../state/settings-types.js";
 import type { CodexFileChange, CodexMcpCall } from "./adapter.js";
 import type { CodexServerRequest } from "./client.js";
@@ -60,6 +62,8 @@ export interface CodexPermissionDeps {
   onToolDecision?: (decision: ToolDecision) => void;
   /** Awaited before an approved change runs (the turn's checkpoint). */
   beforeMutation?: () => Promise<void>;
+  /** Analyst refuses every request; absent, the session is Builder's. */
+  profile?: AssistantMode;
 }
 
 export interface CodexPermissionHandler {
@@ -113,6 +117,26 @@ function answerElicitation(
   }
   console.warn(`${CODEX_LOG_PREFIX} ${verdict.reason}`);
   return { action: "decline", content: null, _meta: null };
+}
+
+/**
+ * The verdict on one elicitation: an Analyst session runs only its own tools,
+ * a Builder session every dms-ai tool.
+ */
+function judgeElicitation(
+  deps: CodexPermissionDeps,
+  request: CodexServerRequest,
+  isCancelled: boolean,
+): ElicitationVerdict {
+  if (isCancelled) {
+    return { action: "decline", reason: INTERRUPTED_ELICITATION_REASON };
+  }
+  const params = mcpElicitationParamsSchema.safeParse(request.params);
+  return decideElicitation(
+    params.data,
+    deps.getPendingMcpCalls(),
+    deps.profile === "analyst" ? ANALYST_ALLOWED_TOOL_NAMES : undefined,
+  );
 }
 
 /**
@@ -221,12 +245,9 @@ export function createCodexPermissionHandler(
   return {
     async handle(request) {
       if (request.method === CODEX_MCP_ELICITATION_METHOD) {
-        const params = mcpElicitationParamsSchema.safeParse(request.params);
         return answerElicitation(
           deps,
-          cancelled
-            ? { action: "decline", reason: INTERRUPTED_ELICITATION_REASON }
-            : decideElicitation(params.data, deps.getPendingMcpCalls()),
+          judgeElicitation(deps, request, cancelled),
         );
       }
       const describe = subjectDescriber(request);
@@ -238,7 +259,7 @@ export function createCodexPermissionHandler(
       }
       if (cancelled) return decline();
       const subject = describe();
-      if (declinesEscalations(deps.getSettings())) {
+      if (declinesEscalations(deps.getSettings(), deps.profile)) {
         return block(subject);
       }
       return ask(subject);

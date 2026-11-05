@@ -63,6 +63,7 @@ function buildContext(directory: string) {
     },
     builderEnabled: false,
     databaseClient: { get: async () => [], post: async () => ({}) },
+    analystClient: { get: async () => ({}) },
     navigationCompleter,
   };
   return {
@@ -91,7 +92,7 @@ async function startServer() {
     port: 0,
     getSkillSources: () => [],
   });
-  const sockets = attachWsServer(server, context);
+  const sockets = attachWsServer(server, { ...context, isDevelopment: true });
   return {
     port,
     settingsStore: context.settingsStore,

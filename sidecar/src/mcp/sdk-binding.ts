@@ -1,7 +1,10 @@
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { MCP_SERVER_NAME, MCP_SERVER_VERSION } from "../constants/mcp.js";
 import type { AnyMcpToolDefinition } from "./define-tool.js";
-import { buildToolDefinitions } from "./tool-definitions.js";
+import {
+  buildAnalystToolDefinitions,
+  buildToolDefinitions,
+} from "./tool-definitions.js";
 import type { AiMcpServer, AiMcpServerDeps } from "./types.js";
 
 function toSdkTool(definition: AnyMcpToolDefinition) {
@@ -23,5 +26,14 @@ export function createAiMcpServer(deps: AiMcpServerDeps): AiMcpServer {
     name: MCP_SERVER_NAME,
     version: MCP_SERVER_VERSION,
     tools: buildToolDefinitions(deps).map(toSdkTool),
+  });
+}
+
+/** Analyst's in-process server: its data tools and AskUser, nothing else. */
+export function createAnalystMcpServer(deps: AiMcpServerDeps): AiMcpServer {
+  return createSdkMcpServer({
+    name: MCP_SERVER_NAME,
+    version: MCP_SERVER_VERSION,
+    tools: buildAnalystToolDefinitions(deps).map(toSdkTool),
   });
 }

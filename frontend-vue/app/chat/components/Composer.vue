@@ -10,6 +10,7 @@ import { useComposerAttachments } from "../composables/useComposerAttachments";
 import type { CurrentPage } from "../types/conversation";
 import type {
 	ApprovalMode,
+	AssistantMode,
 	ConversationModeState,
 	ProviderName,
 	Scope,
@@ -28,6 +29,8 @@ interface Props {
 	mode: ConversationModeState;
 	provider: ProviderName;
 	builderAvailable: boolean;
+	/** The assistant modes the user may pick between; the switch shows for more than one. */
+	assistantModes: readonly AssistantMode[];
 	page: CurrentPage | null;
 	/** "9.6k tokens · this chat", "new chat", "offline". */
 	usageLabel: string;
@@ -41,6 +44,7 @@ interface Emits {
 		includePage: boolean,
 	];
 	stop: [];
+	setAssistant: [assistant: AssistantMode];
 	setScope: [scope: Scope];
 	setMode: [mode: ApprovalMode];
 	openSettings: [];
@@ -83,6 +87,18 @@ const MODE_LOOKS: Record<ApprovalMode, ModeLook> = {
 		descriptionKey: "dms_ai.panel.composer.mode_desc.plan",
 	},
 };
+const ASSISTANT_LOOKS: Record<AssistantMode, ModeLook> = {
+	builder: {
+		icon: "i-ph-hammer",
+		labelKey: "dms_ai.panel.composer.assistant.builder",
+		descriptionKey: "dms_ai.panel.composer.assistant.builder_desc",
+	},
+	analyst: {
+		icon: "i-ph-chart-bar",
+		labelKey: "dms_ai.panel.composer.assistant.analyst",
+		descriptionKey: "dms_ai.panel.composer.assistant.analyst_desc",
+	},
+};
 const SCOPE_ICONS: Record<Scope, string> = {
 	safe: "i-ph-shield-check",
 	vibe: "i-ph-code",
@@ -106,11 +122,31 @@ const isSendDisabled = computed(
 const modeLook = computed(
 	() => MODE_LOOKS[props.mode.mode] ?? MODE_LOOKS.normal,
 );
+const isBuilder = computed(() => props.mode.assistant === "builder");
+const assistantLook = computed(() => ASSISTANT_LOOKS[props.mode.assistant]);
 
 watch(
 	() => props.page?.path,
 	() => (isPageIncluded.value = true),
 );
+
+const assistantItems = computed(() => [
+	[
+		{
+			type: "label" as const,
+			label: t("dms_ai.panel.composer.assistant.menu"),
+		},
+	],
+	props.assistantModes.map((assistant) => ({
+		label: t(ASSISTANT_LOOKS[assistant].labelKey),
+		description: t(ASSISTANT_LOOKS[assistant].descriptionKey),
+		icon: ASSISTANT_LOOKS[assistant].icon,
+		type: "checkbox" as const,
+		checked: props.mode.assistant === assistant,
+		disabled: props.isRunning,
+		onSelect: (): void => emit("setAssistant", assistant),
+	})),
+]);
 
 const scopeItems = computed(() =>
 	SCOPES.map((scope) => ({
@@ -290,6 +326,22 @@ defineExpose({
 					@click="fileInputRef?.click()"
 				/>
 				<UDropdownMenu
+					v-if="assistantModes.length > 1"
+					:items="assistantItems"
+					:content="{ side: 'top', align: 'start' }"
+				>
+					<button
+						type="button"
+						class="cb-mode-btn composer-assistant"
+						:title="t(assistantLook.descriptionKey)"
+					>
+						<UIcon :name="assistantLook.icon" />
+						{{ t(assistantLook.labelKey) }}
+						<UIcon name="i-ph-caret-down" />
+					</button>
+				</UDropdownMenu>
+				<UDropdownMenu
+					v-if="isBuilder"
 					:items="scopeItems"
 					:content="{ side: 'top', align: 'start' }"
 				>
@@ -307,6 +359,7 @@ defineExpose({
 					</button>
 				</UDropdownMenu>
 				<UDropdownMenu
+					v-if="isBuilder"
 					:items="modeItems"
 					:content="{ side: 'top', align: 'start' }"
 				>

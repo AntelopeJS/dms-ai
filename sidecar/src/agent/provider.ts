@@ -2,6 +2,7 @@ import type { AllowedBy } from "../constants/audit.js";
 import type { AiMcpServer } from "../mcp/types.js";
 import type { AttachmentType } from "../protocol/messages.js";
 import type { SkillSource } from "../skills/types.js";
+import type { AssistantMode } from "../state/assistant-mode.js";
 import type { CurrentPage } from "../state/host-state.js";
 import type { AppSettings, TurnSettings } from "../state/settings-types.js";
 import type { TokenUsage } from "../state/types.js";
@@ -111,4 +112,9 @@ export interface AgentProviderOptions {
    * agent and added to the readable roots.
    */
   skillDirs?: SkillSource[];
+  /**
+   * Which assistant the sessions serve; each provider maps it to its own
+   * session setup. Absent, sessions open as Builder sessions.
+   */
+  profile?: AssistantMode;
 }

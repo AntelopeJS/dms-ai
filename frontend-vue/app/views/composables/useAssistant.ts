@@ -14,7 +14,8 @@ export interface AssistantActions {
 
 /**
  * The tab's assistant session as the workspace views use it. Until it runs
- * (its first probe pending) and without one (production, sidecar disabled) the
+ * (its first probe pending) and without one (a user the backend refuses, the
+ * sidecar disabled) the
  * actions do nothing and `isAvailable` hides the buttons that need them.
  *
  * A view only offers them once mounted: the server never has a session, and a

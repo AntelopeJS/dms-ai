@@ -7,7 +7,10 @@ import { fileURLToPath } from "node:url";
 import { createDatabaseClient } from "./database/database-client.js";
 import { createBuilderClient } from "./builder/builder-client.js";
 import { setBuilderAvailable } from "./builder/capability.js";
-import { SIDECAR_BUILDER_FLAG } from "./constants/builder.js";
+import {
+  SIDECAR_BUILDER_FLAG,
+  SIDECAR_DEVELOPMENT_FLAG,
+} from "./constants/builder.js";
 import { STANDALONE_BACKEND_BASE_URL } from "./constants/cli.js";
 import {
   GRACEFUL_EXIT_CODE,
@@ -15,11 +18,6 @@ import {
   SIDECAR_BUILD_ID_FLAG,
   SIDECAR_TOKEN_BYTES,
 } from "./constants/daemon.js";
-import {
-  PRODUCTION_GUARD_EXIT_CODE,
-  PRODUCTION_GUARD_MESSAGE,
-  PRODUCTION_NODE_ENV,
-} from "./constants/env.js";
 import { MCP_HTTP_PORT_TOKEN, MCP_HTTP_URL_TEMPLATE } from "./constants/mcp.js";
 import { STATE_DIR_SEGMENTS } from "./constants/paths.js";
 import { RANDOM_PORT } from "./constants/ports.js";
@@ -57,6 +55,7 @@ import {
 import { createNavigationCompleter } from "./server/navigation-completer.js";
 import { attachWsServer } from "./server/ws.js";
 import { buildSkillCatalog } from "./skills/build-catalog.js";
+import { createAnalystClient } from "./analyst/analyst-client.js";
 import { resolveSkillSources } from "./skills/resolve-sources.js";
 import type { SkillSource } from "./skills/types.js";
 import {
@@ -72,14 +71,6 @@ import {
 import { readSidecarVersion } from "./state/sidecar-version.js";
 import { createStore } from "./state/store.js";
 
-function enforceProductionGuard(): void {
-  if (process.env.NODE_ENV !== PRODUCTION_NODE_ENV) return;
-  console.error(PRODUCTION_GUARD_MESSAGE);
-  process.exit(PRODUCTION_GUARD_EXIT_CODE);
-}
-
-enforceProductionGuard();
-
 export interface ParsedArgs {
   port: number;
   root: string;
@@ -88,6 +79,8 @@ export interface ParsedArgs {
   moduleRoots: string[];
   skillDirs: SkillSource[];
   builderEnabled: boolean;
+  /** Core's development flag, passed by the dms-ai module: Builder runs only then. */
+  isDevelopment: boolean;
 }
 
 type ArgParser = (value: string, acc: ParsedArgs) => void;
@@ -177,6 +170,12 @@ const ARG_PARSERS = new Map<string, ArgParser>([
       a.builderEnabled = v === "1";
     },
   ],
+  [
+    SIDECAR_DEVELOPMENT_FLAG,
+    (v, a) => {
+      a.isDevelopment = v === "1";
+    },
+  ],
 ]);
 
 function buildDefaults(): ParsedArgs {
@@ -188,6 +187,7 @@ function buildDefaults(): ParsedArgs {
     moduleRoots: [],
     skillDirs: [],
     builderEnabled: false,
+    isDevelopment: false,
   };
 }
 
@@ -378,6 +378,10 @@ function buildWsStack({
     backendBaseUrl: args.backendUrl,
     token: backendToken,
   });
+  const analystClient = createAnalystClient({
+    backendBaseUrl: args.backendUrl,
+    token: backendToken,
+  });
   const scanner = createImportsScanner();
   const hostSocketRegistry = createHostSocketRegistry();
   const navigationCompleter = createNavigationCompleter();
@@ -398,8 +402,10 @@ function buildWsStack({
       builderClient,
       builderEnabled: args.builderEnabled,
       databaseClient,
+      analystClient,
       navigationCompleter,
     },
+    isDevelopment: args.isDevelopment,
     hostState,
     hostSocketRegistry,
     navigationCompleter,

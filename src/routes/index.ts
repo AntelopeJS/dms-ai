@@ -1,4 +1,5 @@
 export * from "./activity";
+export * from "./analyst";
 export * from "./builder";
 export * from "./changes";
 export * from "./channels";

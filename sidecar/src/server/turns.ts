@@ -26,6 +26,7 @@ import {
   type ToolCallServices,
 } from "./tool-calls.js";
 import { startTurnProgress } from "./turn-progress.js";
+import { admitTurn, isAnalystTurn } from "./turn-access.js";
 
 const AUTO_FIX_TITLE_PREFIX = "Auto-fix: ";
 
@@ -211,7 +212,10 @@ function buildRunnerContext(
     attachments: request.attachments,
     includePageContext: request.includePageContext,
     permissionBus: services.permissionBus,
-    createMcpServer: () => services.createMcpServer(conversationId),
+    createMcpServer: () =>
+      isAnalystTurn(services, conversationId)
+        ? services.createAnalystMcpServer(conversationId)
+        : services.createMcpServer(conversationId),
     onToolDecision: (decision) => {
       if (decision.callId === undefined || decision.callId === "") return;
       services.callAudit.record(conversationId, decision.callId, {
@@ -259,6 +263,7 @@ function fallBackToAskFirst(
  */
 function beginTurn(services: SidecarServices, request: TurnRequest): void {
   const { conversationId } = request;
+  admitTurn(services, conversationId);
   services.liveTurns.begin(conversationId);
   services.conversationStore.markProvider(
     conversationId,

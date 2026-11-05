@@ -20,6 +20,9 @@ interface TraceEntry {
   plugins?: Options["plugins"];
   skills?: Options["skills"];
   mcpServers?: string[];
+  tools?: Options["tools"];
+  strictMcpConfig?: boolean;
+  systemPrompt?: Options["systemPrompt"];
 }
 
 /**
@@ -43,5 +46,8 @@ export function traceOptions(options: Options | undefined): void {
     plugins: options.plugins,
     skills: options.skills,
     mcpServers: Object.keys(options.mcpServers ?? {}),
+    tools: options.tools,
+    strictMcpConfig: options.strictMcpConfig,
+    systemPrompt: options.systemPrompt,
   });
 }

@@ -19,6 +19,7 @@ import {
   REQUEST_TIMEOUT_MINUTES,
   THINKING_LEVELS,
 } from "../state/settings-types.js";
+import { ASSISTANT_MODES } from "../state/assistant-mode.js";
 import { PROVIDER_NAMES } from "../state/types.js";
 import { BlockPreviewSchema } from "./preview.js";
 import {
@@ -251,6 +252,7 @@ export const ConversationModeSchema = z.object({
   conversationId: z.string(),
   mode: z.enum(CHAT_MODES),
   generationMode: z.enum(GENERATION_MODES),
+  assistant: z.enum(ASSISTANT_MODES),
 });
 
 export const ConversationModeEvent = ConversationModeSchema.extend({
@@ -281,6 +283,7 @@ export const ConversationSummarySchema = z.object({
   pendingApprovals: z.number(),
   pendingQuestions: z.number(),
   generationMode: z.enum(GENERATION_MODES),
+  assistant: z.enum(ASSISTANT_MODES),
 });
 
 export const ConversationListEvent = z.object({

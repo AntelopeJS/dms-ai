@@ -64,7 +64,12 @@ export function createSidePanel(): ChatPanelState {
 	};
 }
 
-export function createHarness(): Harness {
+/** The modes an owner in development may run. */
+const OWNER_MODES: AssistantSession["modes"] = ["builder", "analyst"];
+
+export function createHarness(
+	modes: AssistantSession["modes"] = OWNER_MODES,
+): Harness {
 	let channelStatus: ChannelStatus = "connected";
 	const harness = {
 		sent: [] as Array<Record<string, unknown>>,
@@ -95,6 +100,7 @@ export function createHarness(): Harness {
 	const intents = createPanelIntents();
 	harness.session = {
 		status: harness.sidecarStatus,
+		modes,
 		chat: harness.hub.transport,
 		panel,
 		navigate: harness.navigate,

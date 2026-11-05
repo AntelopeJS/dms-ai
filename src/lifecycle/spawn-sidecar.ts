@@ -4,15 +4,16 @@ import http from "node:http";
 import path from "node:path";
 import { z } from "zod";
 import { Logging } from "@antelopejs/interface-core/logging";
-import { PRODUCTION_NODE_ENV } from "../constants/module";
 import {
   SIDECAR_BACKEND_URL_FLAG,
   SIDECAR_BIN_NAME,
   SIDECAR_BUILD_ID_FLAG,
   SIDECAR_BUILDER_FLAG,
   SIDECAR_CACHE_DIR_SEGMENTS,
+  SIDECAR_DEVELOPMENT_FLAG,
   SIDECAR_DISABLED_FLAG,
   SIDECAR_DIST_REL,
+  SIDECAR_ENTRY_ENV,
   SIDECAR_ENV_DISABLE_KEY,
   SIDECAR_HEALTH_PATH,
   SIDECAR_HEALTH_TIMEOUT_MS,
@@ -55,6 +56,11 @@ interface SpawnOptions {
    * mode.
    */
   builderEnabled?: boolean;
+  /**
+   * Core's development flag: Builder runs only in development, so a sidecar
+   * started without it refuses every Builder turn.
+   */
+  isDevelopment?: boolean;
 }
 
 /**
@@ -109,12 +115,11 @@ export function hasSidecarGivenUp(): boolean {
 }
 
 /**
- * True when spawning is turned off for this process (production or the disable
- * env flag); the client uses it to skip injecting the assistant entirely rather
- * than show a perpetually-reconnecting icon.
+ * True when spawning is turned off for this process (the disable env flag);
+ * the client uses it to skip injecting the assistant entirely rather than show
+ * a perpetually-reconnecting icon.
  */
 export function isSidecarDisabled(): boolean {
-  if (process.env.NODE_ENV === PRODUCTION_NODE_ENV) return true;
   return process.env[SIDECAR_ENV_DISABLE_KEY] === SIDECAR_DISABLED_FLAG;
 }
 
@@ -151,7 +156,16 @@ export async function restartSidecar(): Promise<void> {
   await getSidecarOwner().restart();
 }
 
+/**
+ * The sidecar's entry point: the one `SIDECAR_ENTRY_ENV` names when set (a
+ * stand-in sidecar in the module's own integration tests), else the built
+ * sidecar package.
+ */
 function resolveSidecarBin(): string {
+  const override = process.env[SIDECAR_ENTRY_ENV];
+  if (override !== undefined && override.length > 0) {
+    return path.resolve(override);
+  }
   try {
     return require.resolve(`@antelopejs/${SIDECAR_BIN_NAME}/dist/index.js`);
   } catch {
@@ -251,6 +265,9 @@ function buildSpawnArgs(
   }
   if (opts.builderEnabled) {
     args.push(SIDECAR_BUILDER_FLAG, "1");
+  }
+  if (opts.isDevelopment) {
+    args.push(SIDECAR_DEVELOPMENT_FLAG, "1");
   }
   if (opts.backendUrl !== undefined) {
     args.push(SIDECAR_BACKEND_URL_FLAG, opts.backendUrl);

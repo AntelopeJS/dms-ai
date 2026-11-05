@@ -1,4 +1,5 @@
 import type { AnyMcpToolDefinition } from "./define-tool.js";
+import { buildAnalystTools } from "./tools/analyst.js";
 import { buildAskUserTool } from "./tools/ask-user.js";
 import { buildBuilderTools } from "./tools/builder.js";
 import { buildDatabaseTools } from "./tools/database.js";
@@ -51,5 +52,28 @@ export function buildToolDefinitions(
     }),
     buildQueryLogsTool({ logsClient: deps.logsClient }),
     ...buildDatabaseTools({ databaseClient: deps.databaseClient }),
+  ];
+}
+
+function noGrant(): undefined {
+  return undefined;
+}
+
+/**
+ * Analyst's whole tool list: reading the data the user sees, and asking them.
+ * No file, shell, web, Builder or database-catalog tool is ever among them.
+ */
+export function buildAnalystToolDefinitions(
+  deps: AiMcpServerDeps,
+): AnyMcpToolDefinition[] {
+  return [
+    ...buildAnalystTools({
+      analystClient: deps.analystClient,
+      currentGrant: deps.currentGrant ?? noGrant,
+    }),
+    buildAskUserTool({
+      conversationId: deps.conversationId,
+      requestQuestion: deps.requestQuestion,
+    }),
   ];
 }

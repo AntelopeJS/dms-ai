@@ -220,6 +220,12 @@ const TRACED_CLAUDE_ENTRY = z.object({
   plugins: z.array(z.looseObject({ path: z.string() })).optional(),
   skills: z.array(z.string()).optional(),
   permissionMode: z.string().optional(),
+  mcpServers: z.array(z.string()).optional(),
+  tools: z.array(z.string()).optional(),
+  strictMcpConfig: z.boolean().optional(),
+  systemPrompt: z
+    .union([z.string(), z.looseObject({ type: z.string() })])
+    .optional(),
   name: z.string().optional(),
   decidedBy: z.string().optional(),
   isAllowed: z.boolean().optional(),

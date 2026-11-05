@@ -42,6 +42,7 @@ export function buildInertStaticMcpDeps(
     logsClient: { getLogs: async () => [] },
     builderClient: { call: async () => null },
     databaseClient: { get: async () => [], post: async () => ({}) },
+    analystClient: { get: async () => ({}) },
     builderEnabled: false,
     navigationCompleter,
   };

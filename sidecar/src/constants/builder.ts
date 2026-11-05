@@ -77,3 +77,4 @@ export type BuilderCatalogSection = (typeof BUILDER_CATALOG_SECTIONS)[number];
 
 export const BUILDER_CATALOG_DETAIL_HINT =
   'This is the index. Call BuilderCatalog again with `blocks: ["<type>", …]` and/or `dataTypes: ["<id>", …]` for the full config schema of the entries you will use.';
+export const SIDECAR_DEVELOPMENT_FLAG = "--development";

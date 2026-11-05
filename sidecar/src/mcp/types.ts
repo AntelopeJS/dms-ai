@@ -3,6 +3,7 @@ import type {
   QuestionAnswers,
   QuestionRequest,
 } from "../agent/question-bus.js";
+import type { AnalystClient } from "../analyst/analyst-client.js";
 import type { BuilderClient } from "../builder/builder-client.js";
 import type { DatabaseClient } from "../database/database-client.js";
 import type { BuilderGate } from "./tools/builder-gate.js";
@@ -26,6 +27,7 @@ export interface AiMcpServerStaticDeps {
   builderClient: BuilderClient;
   builderEnabled: boolean;
   databaseClient: DatabaseClient;
+  analystClient: AnalystClient;
   navigationCompleter: NavigationCompleter;
 }
 
@@ -43,6 +45,8 @@ export interface AiMcpServerDeps extends AiMcpServerStaticDeps {
   listAttachedImages: () => string[];
   /** Absent in tests and tools-only boots: every Builder op then runs as is. */
   gateBuilderOp?: BuilderGate;
+  /** The grant of whoever asked for the conversation's running turn; absent, Analyst reads nothing. */
+  currentGrant?: () => string | undefined;
 }
 
 /**

@@ -1,4 +1,5 @@
 import type { Store } from "./store.js";
+import type { AssistantMode, ConversationOwner } from "./assistant-mode.js";
 import type { ChatMode, GenerationMode } from "./settings-types.js";
 import {
   EMPTY_TOKEN_USAGE,
@@ -24,6 +25,7 @@ export interface ConversationEntry {
 export interface ConversationModesPatch {
   mode?: ChatMode;
   generationMode?: GenerationMode;
+  assistant?: AssistantMode;
 }
 
 type StoredMessagePatch = Partial<StoredMessage>;
@@ -54,6 +56,8 @@ export interface ConversationStore {
     timestampMs: number,
   ): void;
   setModes(conversationId: string, patch: ConversationModesPatch): void;
+  /** Records who started it; an owner once recorded is kept. */
+  claim(conversationId: string, owner: ConversationOwner): void;
   list(): StoredConversationSummary[];
   entries(): ConversationEntry[];
   delete(conversationId: string): void;
@@ -198,6 +202,18 @@ function setModes(
   if (patch.generationMode !== undefined) {
     conversation.generationMode = patch.generationMode;
   }
+  if (patch.assistant !== undefined) conversation.assistant = patch.assistant;
+  persistCache(state);
+}
+
+function claim(
+  state: CacheState,
+  conversationId: string,
+  owner: ConversationOwner,
+): void {
+  const conversation = ensureConversation(state, conversationId);
+  if (conversation.owner !== undefined) return;
+  conversation.owner = { userId: owner.userId, tenantId: owner.tenantId };
   persistCache(state);
 }
 
@@ -227,6 +243,8 @@ function summarize(
     messageCount: conversation.messages.length,
     provider: conversation.provider,
     totalTokens: conversation.tokenUsage?.totalTokens ?? 0,
+    assistant: conversation.assistant,
+    owner: conversation.owner,
   };
 }
 
@@ -278,6 +296,7 @@ export function createConversationStore(
     recordTurnUsage: (id, usage, timestampMs) =>
       recordTurnUsage(state, id, usage, timestampMs),
     setModes: (id, patch) => setModes(state, id, patch),
+    claim: (id, owner) => claim(state, id, owner),
     list: () => listConversations(state),
     entries: () => listEntries(state),
     delete: (id) => deleteConversation(state, id),

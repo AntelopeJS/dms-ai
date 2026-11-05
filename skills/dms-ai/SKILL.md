@@ -1,6 +1,6 @@
 ---
 name: dms-ai
-description: Sets up and troubleshoots @antelopejs/dms-ai, the AI development assistant of the AntelopeJS DMS (chat panel, sidecar running Claude Code or Codex, change sets with undo, audit log and skills pages under /modules/ai). Use when installing or configuring dms-ai (backendUrl, DMS_AI, providers, Codex), when the assistant is offline, or when a module must ship skills to it through antelopeJs.skills.
+description: Sets up and troubleshoots @antelopejs/dms-ai, the AI assistant of the AntelopeJS DMS (Builder and Analyst modes, chat panel, sidecar running Claude Code or Codex, change sets with undo, audit log and skills pages under /modules/ai). Use when installing or configuring dms-ai (backendUrl, DMS_AI, providers, Codex), when the assistant is offline, or when a module must ship skills to it through antelopeJs.skills.
 icon: i-lucide-sparkles
 category: ai
 tags: [ai, assistant, sidecar, claude-code, codex, skills]
@@ -8,7 +8,7 @@ tags: [ai, assistant, sidecar, claude-code, codex, skills]
 
 # dms-ai
 
-An owner-only development assistant. The backend starts a sidecar (child process, `127.0.0.1` only) that runs the agent in the project folder; the browser reaches it only through the DMS frontend server. User docs: https://dms.antelopejs.com/docs/modules/ai (source: `docs/` of this package).
+An AI assistant with two modes per conversation: Builder (owners, development only) edits the project; Analyst (any user holding the `ai.assistant` permission, development and production) answers questions about the data, reading it only through the DMS's own table routes as that user. The backend starts a sidecar (child process, `127.0.0.1` only) that runs the agent in the project folder; the browser reaches it only through the DMS frontend server. User docs: https://dms.antelopejs.com/docs/modules/ai (source: `docs/` of this package).
 
 ## Setup
 
@@ -23,7 +23,7 @@ The sidecar loads every directory a loaded module declares in `package.json` `an
 
 ## Gotchas
 
-- Refuses to run with `NODE_ENV=production`; `DMS_AI=0` starts the backend without the sidecar.
+- In production (a built project) only Analyst runs and the sidecar refuses Builder; `DMS_AI=0` starts the backend without the sidecar.
 - Overview and Activity open with the DMS `PageToolbar` (period only, no live: "updated" + refresh); their selectors share `rememberKey: "ai"`. The Overview offers previous period / previous year / none in a menu (`comparisonControl: "menu"`); its KPI, series, allowed and top-tools routes forward `compareFrom` / `compareTo` (absent under none); the top lists carry a per-row `delta`. `/ai/activity` filters on the `from` / `to` the table sends; the CSV export ignores them.
 - Offline assistant: Restart on the Overview; lists and settings answer `503` while the sidecar is down.
 - Remote over plain HTTP: start the frontend with `DMS_COOKIE_SECURE=false`.

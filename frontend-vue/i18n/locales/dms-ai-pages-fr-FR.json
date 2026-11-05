@@ -2,7 +2,11 @@
 	"dms_ai": {
 		"module": {
 			"title": "Assistant",
-			"description": "L'assistant IA : ce qu'il a fait, ce que vous pouvez annuler, ses skills et ses réglages"
+			"description": "L'assistant IA : ce qu'il a fait, ce que vous pouvez annuler, ses skills et ses réglages",
+			"permission": {
+				"title": "Utiliser l'assistant IA",
+				"description": "Discuter avec l'assistant en mode Analyste, qui ne lit les données qu'à travers les tableaux que ce rôle peut lister"
+			}
 		},
 		"pages": {
 			"overview": {

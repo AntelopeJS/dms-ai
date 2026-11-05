@@ -45,6 +45,27 @@ export const DEFAULT_VERSION = "9999.0.0";
 export const VERSION_ARGUMENT = "--version";
 export const VERSION_PREFIX = "codex-cli ";
 export const APP_SERVER_COMMAND = "app-server";
+export const DEBUG_COMMAND = "debug";
+export const DEBUG_MODELS_COMMAND = "models";
+
+/**
+ * What `codex debug models` prints: one model with every key that forces a
+ * built-in tool on, as the real catalog's default model has them.
+ */
+export const MODEL_CATALOG = {
+  models: [
+    {
+      slug: "mock-model",
+      display_name: "Mock model",
+      tool_mode: "code_mode_only",
+      apply_patch_tool_type: "freeform",
+      web_search_tool_type: "text_and_image",
+      multi_agent_version: "v2",
+      experimental_supported_tools: ["clock"],
+      supports_search_tool: true,
+    },
+  ],
+};
 export const DEFAULT_DELAY_MS = 5;
 
 export const DIRECTION_IN = "in";

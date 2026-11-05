@@ -13,6 +13,8 @@ interface Props {
 	conversations: ConversationSummary[];
 	activeId: string;
 	nowMs: number;
+	/** Each conversation names its assistant mode: the user may run more than one. */
+	showsAssistant: boolean;
 }
 
 interface Emits {
@@ -70,7 +72,17 @@ function changesLabel(files: number, undone: number): string {
 
 function meta(item: ConversationSummary): string[] {
 	const parts: string[] = [];
-	parts.push(changesLabel(item.filesChanged ?? 0, item.filesUndone ?? 0));
+	const isAnalyst = item.assistant === "analyst";
+	if (props.showsAssistant)
+		parts.push(
+			t(
+				isAnalyst
+					? "dms_ai.panel.composer.assistant.analyst"
+					: "dms_ai.panel.composer.assistant.builder",
+			),
+		);
+	if (!isAnalyst)
+		parts.push(changesLabel(item.filesChanged ?? 0, item.filesUndone ?? 0));
 	if (item.provider === "codex") parts.push(t("dms_ai.common.agent.codex"));
 	if ((item.totalTokens ?? 0) > 0)
 		parts.push(

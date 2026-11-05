@@ -9,6 +9,7 @@ import {
   modeForProvider,
   type TurnSettings,
 } from "../state/settings-types.js";
+import type { AssistantMode } from "../state/assistant-mode.js";
 import {
   type ConversationModeState,
   conversationSettings,
@@ -17,11 +18,14 @@ import {
 export interface ConversationModesPatch {
   mode?: ChatMode;
   generationMode?: GenerationMode;
+  assistant?: AssistantMode;
 }
 
 export interface ConversationModesDeps {
   conversationStore: ConversationStore;
   settingsStore: SettingsStore;
+  /** The assistant mode a conversation starts in when nobody picked one. */
+  defaultAssistant: AssistantMode;
   onChanged: (conversationId: string) => void;
 }
 
@@ -51,6 +55,7 @@ interface ModesState extends ConversationModesDeps {
 interface ChosenModes {
   mode: ChatMode;
   generationMode: GenerationMode;
+  assistant: AssistantMode;
 }
 
 function readChosen(state: ModesState, conversationId: string): ChosenModes {
@@ -64,6 +69,7 @@ function readChosen(state: ModesState, conversationId: string): ChosenModes {
       stored?.generationMode ??
       draft?.generationMode ??
       defaults.generationMode,
+    assistant: stored?.assistant ?? draft?.assistant ?? state.defaultAssistant,
   };
 }
 
@@ -76,6 +82,7 @@ function readState(
   return {
     mode: modeForProvider(provider, chosen.mode),
     generationMode: chosen.generationMode,
+    assistant: chosen.assistant,
   };
 }
 
@@ -89,6 +96,7 @@ function storeModes(
     state.drafts.set(conversationId, {
       mode: patch.mode ?? draft.mode,
       generationMode: patch.generationMode ?? draft.generationMode,
+      assistant: patch.assistant ?? draft.assistant,
     });
     return;
   }
@@ -113,7 +121,13 @@ function update(
 function pinDefaults(state: ModesState, conversationId: string): void {
   const stored = state.conversationStore.get(conversationId);
   if (stored === null) return;
-  if (stored.mode !== undefined && stored.generationMode !== undefined) return;
+  if (
+    stored.mode !== undefined &&
+    stored.generationMode !== undefined &&
+    stored.assistant !== undefined
+  ) {
+    return;
+  }
   const chosen = readChosen(state, conversationId);
   state.drafts.delete(conversationId);
   state.conversationStore.setModes(conversationId, chosen);
@@ -131,6 +145,7 @@ export function createConversationModes(
         conversationId,
         mode: current.mode,
         generationMode: effectiveGenerationMode(current.generationMode),
+        assistant: current.assistant,
       };
     },
     update: (conversationId, patch) => update(state, conversationId, patch),

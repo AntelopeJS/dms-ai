@@ -89,6 +89,7 @@ describe("resolvePermissionMode", () => {
         const settings = conversationSettings(DEFAULT_SETTINGS, {
           mode,
           generationMode,
+          assistant: "builder",
         });
         expect(settings.mode).toBe(mode);
         expect(resolvePermissionMode(settings)).not.toBe(BYPASS_MODE);

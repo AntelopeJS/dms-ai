@@ -1,0 +1,15 @@
+{
+  "name": "@antelopejs/dms-ai-sales-test-host",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "dependencies": {
+    "@antelopejs/interface-api": ">=0.0.15 <1.0.0",
+    "@antelopejs/interface-data-api": ">=0.5.0 <1.0.0",
+    "@antelopejs/interface-database-decorators": ">=0.1.10 <1.0.0",
+    "@antelopejs/interface-dms": ">=0.9.0 <1.0.0"
+  },
+  "antelopeJs": {
+    "baseUrl": "dist"
+  }
+}

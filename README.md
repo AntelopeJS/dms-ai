@@ -21,7 +21,7 @@
 - Saves every turn that touches the project as a change set you can review, undo and redo.
 - Adds an **Assistant** module for owners, with the **Overview**, **Changes**, **Activity**, **Skills** and **Settings** pages.
 
-The assistant is a development tool. With `NODE_ENV=production`, the backend starts no sidecar and the dashboard shows no assistant. The sidecar exits if you start it yourself in production.
+Each conversation runs in one of two modes. **Builder** edits the project, for owners, in development only. **Analyst** answers questions about the data, reading it only as the signed-in user sees it through the DMS's own tables, and runs in development and in production for every user holding the `ai.assistant` permission. `DMS_AI=0` turns the assistant off.
 
 ## Install
 
@@ -54,14 +54,15 @@ Restart the backend, then the frontend. Sign in as an owner and press `Ctrl` `Sh
 
 <!-- antelopejs-docs-compat:start -->
 
-| Package                                  | Supported         | Tested with |
-| ---------------------------------------- | ----------------- | ----------- |
-| `@antelopejs/agent-skills`               | `^0.1.0`          | `0.1.0`     |
-| `@antelopejs/interface-api`              | `>=0.3.0 <1.0.0`  | `0.3.0`     |
-| `@antelopejs/interface-core`             | `>=0.4.0 <1.0.0`  | `0.4.0`     |
-| `@antelopejs/interface-database-catalog` | `>=0.0.1 <1.0.0`  | `0.0.2`     |
-| `@antelopejs/interface-dms`              | `>=0.12.0 <1.0.0` | `0.12.0`    |
-| `@antelopejs/interface-dms-builder`      | `>=0.4.0 <1.0.0`  | `0.4.0`     |
+| Package                                     | Supported         | Tested with |
+| ------------------------------------------- | ----------------- | ----------- |
+| `@antelopejs/agent-skills`                  | `^0.1.0`          | `0.1.0`     |
+| `@antelopejs/interface-api`                 | `>=0.3.0 <1.0.0`  | `0.3.0`     |
+| `@antelopejs/interface-core`                | `>=0.4.0 <1.0.0`  | `0.4.0`     |
+| `@antelopejs/interface-database-catalog`    | `>=0.0.1 <1.0.0`  | `0.0.2`     |
+| `@antelopejs/interface-database-decorators` | `>=0.2.0 <1.0.0`  | `0.2.0`     |
+| `@antelopejs/interface-dms`                 | `>=0.12.0 <1.0.0` | `0.12.0`    |
+| `@antelopejs/interface-dms-builder`         | `>=0.4.0 <1.0.0`  | `0.4.0`     |
 
 <!-- antelopejs-docs-compat:end -->
 

@@ -87,7 +87,10 @@
 					"explain_project": "Expliquer l'organisation de ce projet",
 					"add_block": "Ajouter un bloc à {page}",
 					"rename": "Renommer des libellés sur {page}"
-				}
+				},
+				"title_analyst": "Que voulez-vous savoir ?",
+				"title_page_analyst": "Que voulez-vous savoir sur {page} ?",
+				"text_analyst": "Je réponds aux questions sur vos données, telles que vous les voyez. Je ne lis que ce que vous pouvez lire, et je ne modifie rien."
 			},
 			"tool": {
 				"using": "Outils en cours",
@@ -308,7 +311,15 @@
 				"hint_history": "historique",
 				"usage": "{count} jetons · cette conversation",
 				"usage_new": "nouvelle conversation",
-				"usage_offline": "hors ligne"
+				"usage_offline": "hors ligne",
+				"placeholder_idle_analyst": "Posez une question sur vos données…",
+				"assistant": {
+					"menu": "Assistant · cette conversation",
+					"builder": "Builder",
+					"builder_desc": "Modifie le projet : pages, modèles de données et code",
+					"analyst": "Analyste",
+					"analyst_desc": "Répond aux questions sur vos données, telles que vous les voyez"
+				}
 			},
 			"drawer": {
 				"title": "Conversations",

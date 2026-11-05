@@ -8,3 +8,5 @@ dist/
 sidecar/.state/
 .nuxt/
 .idea/
+
+antelope-lock/

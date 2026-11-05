@@ -3,6 +3,7 @@ import path from "node:path";
 import type {
   CanUseTool,
   McpServerConfig,
+  Options,
   PermissionMode,
   PermissionResult,
   SDKUserMessage,
@@ -55,7 +56,9 @@ import { buildSkillCatalog } from "../../skills/build-catalog.js";
 import { ensurePluginWrapper } from "../../skills/plugin-wrapper.js";
 import { resolveSkillSources } from "../../skills/resolve-sources.js";
 import type { SkillSource } from "../../skills/types.js";
+import type { AssistantMode } from "../../state/assistant-mode.js";
 import type { TurnSettings } from "../../state/settings-types.js";
+import { buildAnalystSessionOptions } from "./analyst-options.js";
 import { buildTurnContent, type TurnContent } from "./attachments.js";
 import { isFirstPartyMcpTool } from "./tool-guard.js";
 import {
@@ -76,6 +79,9 @@ import {
   toRunnerEvents,
 } from "./session-stream.js";
 import { type LoadedSdk, loadSdk } from "./sdk-loader.js";
+
+/** The options a session hands the SDK's `query()`. */
+export type SessionOptions = Options;
 
 interface PromptOptions {
   systemPrompt: {
@@ -316,11 +322,20 @@ function resolveCanUseTool(
   return buildCanUseTool({ bus: ctx.permissionBus, ctx, readRoots });
 }
 
-interface ProviderConfig {
+/** The SDK options one kind of session opens with. */
+export type SessionOptionsBuilder = (
+  config: ProviderConfig,
+  ctx: ProviderSessionContext,
+  live: LiveSettings,
+  abortController: AbortController,
+) => Promise<SessionOptions>;
+
+export interface ProviderConfig {
   sdk?: LoadedSdk;
   timeoutMs: number;
   moduleRoots: string[];
   skillDirs: SkillSource[];
+  buildOptions: SessionOptionsBuilder;
 }
 
 /**
@@ -432,7 +447,7 @@ async function buildSessionOptions(
   ctx: ProviderSessionContext,
   live: LiveSettings,
   abortController: AbortController,
-): Promise<PromptOptions> {
+): Promise<SessionOptions> {
   const skillSources = resolveSkillSources(
     config.skillDirs,
     ctx.settings.allowLocalSkills,
@@ -468,7 +483,7 @@ async function createProviderSession(
   const queue = createInputQueue();
   const abortController = new AbortController();
   const live: LiveSettings = { settings: ctx.settings };
-  const options = await buildSessionOptions(config, ctx, live, abortController);
+  const options = await config.buildOptions(config, ctx, live, abortController);
   const backend: ClaudeBackend = {
     output: sdk.query({ prompt: queue.stream, options }),
     queue,
@@ -502,6 +517,12 @@ function resolveTimeoutMs(options: AgentProviderOptions | undefined): number {
   return options.timeoutMs;
 }
 
+const SESSION_OPTIONS_BY_PROFILE: Record<AssistantMode, SessionOptionsBuilder> =
+  {
+    builder: buildSessionOptions,
+    analyst: buildAnalystSessionOptions,
+  };
+
 export function createClaudeProvider(
   options?: AgentProviderOptions,
 ): AgentProvider {
@@ -509,6 +530,7 @@ export function createClaudeProvider(
     timeoutMs: resolveTimeoutMs(options),
     moduleRoots: options?.moduleRoots ?? [],
     skillDirs: options?.skillDirs ?? [],
+    buildOptions: SESSION_OPTIONS_BY_PROFILE[options?.profile ?? "builder"],
   };
   return { createSession: (ctx) => createProviderSession(config, ctx) };
 }

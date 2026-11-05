@@ -62,6 +62,7 @@ interface RunProgressEvent {
 }
 
 interface SnapshotModeWire {
+	assistant?: ConversationModeState["assistant"];
 	mode?: ConversationModeState["mode"];
 	generationMode?: ConversationModeState["generationMode"];
 }
@@ -259,6 +260,7 @@ function toModeState(wire: SnapshotModeWire | undefined) {
 	if (wire?.mode === undefined || wire.generationMode === undefined)
 		return null;
 	return {
+		assistant: wire.assistant ?? "builder",
 		mode: wire.mode,
 		generationMode: wire.generationMode,
 	};

@@ -42,9 +42,11 @@ import {
 	SETTINGS_PAGE_PATH,
 } from "../constants/protocol";
 import type { ConversationSummary, CurrentPage } from "../types/conversation";
+import type { AssistantMode } from "../types/protocol";
 import type { ExpiredRequest } from "../types/permission";
 import type { QuestionReply } from "../types/question";
 import type { PendingAttachment } from "../utils/attachments";
+import { composerPlaceholderKey } from "../utils/composer-placeholder";
 import { formatTokens } from "../utils/format";
 import { newUuid } from "../utils/ids";
 import { isRunStalled, runElapsedMs } from "../utils/run-status";
@@ -72,6 +74,8 @@ interface Props {
 	/** The sidecar is coming back up: the transcript stays, under a banner. */
 	isReviving: boolean;
 	api: ChatApi | null;
+	/** The assistant modes the signed-in user may run. */
+	modes: readonly AssistantMode[];
 }
 
 interface Emits {
@@ -125,6 +129,7 @@ const mode = useConversationMode({
 	activeId,
 	mode: conversation.mode,
 	settings,
+	modes: () => props.modes,
 	send: channel.send,
 });
 const queueActions = useQueueActions({
@@ -204,13 +209,16 @@ const usageLabel = computed<string>(() => {
 	return t("dms_ai.panel.composer.usage", { count: formatTokens(tokens) });
 });
 
-const placeholder = computed<string>(() => {
-	if (!isConnected.value) return t("dms_ai.panel.composer.placeholder_offline");
-	if (questions.queue.value.length > 0)
-		return t("dms_ai.panel.composer.placeholder_question");
-	if (isRunning.value) return t("dms_ai.panel.composer.placeholder_running");
-	return t("dms_ai.panel.composer.placeholder_idle");
-});
+const placeholder = computed<string>(() =>
+	t(
+		composerPlaceholderKey({
+			isConnected: isConnected.value,
+			hasQuestion: questions.queue.value.length > 0,
+			isRunning: isRunning.value,
+			isBuilder: mode.isBuilder.value,
+		}),
+	),
+);
 
 const isEmpty = computed(
 	() => conversation.messages.value.length === 0 && !isRunning.value,
@@ -426,6 +434,7 @@ onBeforeUnmount(() => {
 			:status="status"
 			:status-label="statusLabel"
 			:rules="permissions.rules.value"
+			:has-builder="modes.includes('builder')"
 			@history="openDrawer"
 			@new-chat="newConversation"
 			@close="emit('close')"
@@ -448,6 +457,7 @@ onBeforeUnmount(() => {
 				v-if="isEmpty"
 				:page="page"
 				:scope="mode.current.value.generationMode"
+				:assistant="mode.current.value.assistant"
 				@suggest="setDraft"
 			/>
 			<MessageList
@@ -522,11 +532,13 @@ onBeforeUnmount(() => {
 				:mode="mode.current.value"
 				:provider="settings.provider"
 				:builder-available="settings.builderAvailable"
+				:assistant-modes="modes"
 				:page="page"
 				:usage-label="usageLabel"
 				:placeholder="placeholder"
 				@submit="submit"
 				@stop="stopTurn"
+				@set-assistant="mode.setAssistant"
 				@set-scope="mode.setScope"
 				@set-mode="mode.setMode"
 				@open-settings="navigate(SETTINGS_PAGE_PATH)"
@@ -537,6 +549,7 @@ onBeforeUnmount(() => {
 			:open="isDrawerOpen"
 			:conversations="list.conversations.value"
 			:active-id="activeId"
+			:shows-assistant="modes.length > 1"
 			:now-ms="nowMs"
 			@select="switchConversation"
 			@delete="deleteConversation"

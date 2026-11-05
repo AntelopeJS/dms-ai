@@ -4,6 +4,7 @@ import {
   CHANNEL_MAX_SOCKETS_PER_USER,
   CHANNEL_STATUS,
 } from "../constants/channels";
+import { revokeGrant } from "../assistant/grants";
 import { SIDECAR_UNAVAILABLE_BODY } from "../constants/sidecar";
 import { connectSidecarSocket } from "../lifecycle/sidecar-socket";
 import { type ChannelActor, openBridge } from "./bridge";
@@ -45,10 +46,12 @@ export async function openChannel(
 ): Promise<HTTPResult | undefined> {
   const { userId } = actor;
   if (!reserveSocket(userId, CHANNEL_MAX_SOCKETS_PER_USER)) {
+    revokeGrant(actor.grant);
     return new HTTPResult(CHANNEL_STATUS.TOO_MANY_REQUESTS, TOO_MANY_STREAMS);
   }
   const socket = await tryConnect(connect).finally(() => releaseSocket(userId));
   if (socket === null) {
+    revokeGrant(actor.grant);
     return new HTTPResult(
       CHANNEL_STATUS.SERVICE_UNAVAILABLE,
       SIDECAR_UNAVAILABLE_BODY,

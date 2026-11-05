@@ -58,6 +58,8 @@ export interface CodexProcessOptions {
   handlers: CodexClientHandlers;
   /** How long each stop step waits for the app-server to exit. */
   stopGraces?: StopGraces;
+  /** Present for an Analyst conversation: the catalog its home reads models from. */
+  analystCatalogPath?: string;
 }
 
 export interface CodexProcess {
@@ -340,6 +342,7 @@ async function prepareCodexHome(options: CodexProcessOptions): Promise<string> {
       hostProjectRoot: options.hostProjectRoot,
       moduleRoots: options.moduleRoots,
       nodePath: process.execPath,
+      analystCatalogPath: options.analystCatalogPath,
     }),
   );
   return codexHome;
