@@ -1,6 +1,6 @@
 import { computed, type ComputedRef, type Ref, ref, watch } from "vue";
 import type { ChatTransport } from "./chat-transport";
-import { STATUS_POLL_MS } from "./constants";
+import { CHANNEL_STATUS_CONNECTED, STATUS_POLL_MS } from "./constants";
 import { isTypedMessage } from "./typed-message";
 
 /** The backend's `/ai/status`, as far as the tab reads it. */
@@ -15,6 +15,12 @@ interface ConversationListItem {
 	isRunning?: boolean;
 	pendingApprovals?: number;
 	pendingQuestions?: number;
+}
+
+interface ActivityCounts {
+	pendingApprovals: number;
+	pendingQuestions: number;
+	workingConversations: number;
 }
 
 interface ConversationListFrame {
@@ -75,7 +81,10 @@ function sum(
  * What the tab knows of the assistant's work across chats, from the backend's
  * status (polled while the panel is closed or its stream down: the polling
  * follows `shouldPoll`) and from the conversation lists the sidecar
- * broadcasts while the stream is open.
+ * broadcasts while the stream is open. Once a list arrives on a connection,
+ * the lists own the counts until that connection ends: the sidecar sends one
+ * on every change, and a status answer may predate the last one. The status
+ * still gives `lastError`.
  */
 export function createAssistantActivity(
 	options: AssistantActivityOptions,
@@ -84,6 +93,12 @@ export function createAssistantActivity(
 	const pendingQuestions = ref(0);
 	const workingConversations = ref(0);
 	const lastError = ref<string | null>(null);
+	const setCounts = (counts: ActivityCounts): void => {
+		pendingApprovals.value = counts.pendingApprovals;
+		pendingQuestions.value = counts.pendingQuestions;
+		workingConversations.value = counts.workingConversations;
+	};
+	let doListsOwnCounts = false;
 
 	const isStopped = ref(false);
 	const status = options.readStatus(() =>
@@ -94,10 +109,13 @@ export function createAssistantActivity(
 		status.data,
 		(payload) => {
 			if (!payload) return;
-			pendingApprovals.value = payload.pendingApprovals ?? 0;
-			pendingQuestions.value = payload.pendingQuestions ?? 0;
-			workingConversations.value = payload.workingConversations ?? 0;
 			lastError.value = payload.lastError ?? null;
+			if (doListsOwnCounts) return;
+			setCounts({
+				pendingApprovals: payload.pendingApprovals ?? 0,
+				pendingQuestions: payload.pendingQuestions ?? 0,
+				workingConversations: payload.workingConversations ?? 0,
+			});
 		},
 		{ immediate: true },
 	);
@@ -105,11 +123,17 @@ export function createAssistantActivity(
 	const stopListening = options.chat.onMessage((msg) => {
 		if (!isListFrame(msg)) return;
 		const items = msg.conversations ?? [];
-		pendingApprovals.value = sum(items, (item) => item.pendingApprovals ?? 0);
-		pendingQuestions.value = sum(items, (item) => item.pendingQuestions ?? 0);
-		workingConversations.value = sum(items, (item) =>
-			item.isRunning === true ? 1 : 0,
-		);
+		doListsOwnCounts = true;
+		setCounts({
+			pendingApprovals: sum(items, (item) => item.pendingApprovals ?? 0),
+			pendingQuestions: sum(items, (item) => item.pendingQuestions ?? 0),
+			workingConversations: sum(items, (item) =>
+				item.isRunning === true ? 1 : 0,
+			),
+		});
+	});
+	const stopWatchingStream = options.chat.onStatus((next) => {
+		if (next !== CHANNEL_STATUS_CONNECTED) doListsOwnCounts = false;
 	});
 
 	return {
@@ -128,6 +152,7 @@ export function createAssistantActivity(
 			isStopped.value = true;
 			stopFollowing();
 			stopListening();
+			stopWatchingStream();
 		},
 	};
 }
