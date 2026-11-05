@@ -1,11 +1,10 @@
 /** A kind of one-way door. */
 export type DoorKind = "data" | "format" | "contract" | "outbound" | "exposure" | "publish";
 
-/** Path rules for one door kind: globs, declared funnel modules, and the journeys, as `feature/journey`, that contain it. */
+/** Path rules for one door kind: globs and declared funnel modules. */
 export interface DoorRule {
   globs: string[];
   funnels: string[];
-  containments: string[];
   why: string;
 }
 
@@ -49,37 +48,31 @@ const config: VerifyConfig = {
     data: {
       globs: ["sidecar/src/state/**", "sidecar/src/checkpoints/**", "sidecar/src/server/change-set-actions.ts"],
       funnels: [],
-      containments: ["settings/every-setting-saves-alone-and-survives-a-restart"],
       why: "the sidecar's stored settings, transcripts and change-set checkpoints are the only record of what the owner chose and of what Undo restores; a change that drops or rewrites them is not undone by reverting the code",
     },
     format: {
       globs: ["sidecar/src/state/settings-store.ts", "sidecar/src/state/settings-types.ts", "sidecar/src/state/types.ts"],
       funnels: [],
-      containments: ["settings/a-stored-settings-file-is-read-back-by-the-next-start"],
       why: "the settings file and the transcripts on disk are read back by the next version of the module",
     },
     contract: {
       globs: ["package.json", "src/routes/**", "src/constants/module.ts", "src/constants/pages.ts", "frontend-vue/package.json"],
       funnels: [],
-      containments: [],
       why: "the dashboard, the sidecar and other modules call these HTTP routes and page paths, and projects set the module option and the renderer range",
     },
     outbound: {
       globs: ["sidecar/src/providers/**", "sidecar/src/constants/chatgpt.ts", "sidecar/src/constants/claude.ts", "sidecar/src/server/client-auth.ts"],
       funnels: [],
-      containments: [],
       why: "the providers send the project's code and the owner's ChatGPT credentials to OpenAI and Anthropic",
     },
     exposure: {
       globs: ["src/routes/**", "src/channels/**", "sidecar/src/server/client-auth.ts", "sidecar/src/server/http.ts", "sidecar/src/server/http-routes.ts", "sidecar/src/agent/read-access.ts", "sidecar/src/agent/permission-rules.ts"],
       funnels: [],
-      containments: [],
       why: "these decide who may reach the owner's routes, the sidecar and the agent's access to files and commands",
     },
     publish: {
       globs: ["package.json", "sidecar/package.json", ".release-it.json", "changelogen.config.json", ".github/workflows/release.yml"],
       funnels: [],
-      containments: [],
       why: "the package name, its files and the release workflow claim @antelopejs/dms-ai in the npm registry",
     },
   },

@@ -17,5 +17,6 @@
     "no-undef for frontend-vue/**/*.{ts,vue}": 1,
     "no-unused-vars for frontend-vue/**/*.{ts,vue}": 1,
     "vue/multi-word-component-names for frontend-vue/**/*.{ts,vue}": 1
-  }
+  },
+  "agentFiles": true
 }

@@ -1,0 +1,12 @@
+{
+  "pack": "0.3.0",
+  "rules": {
+    "antelopejs/require-tsconfig-include": 161
+  },
+  "oversizeFiles": {
+    ".agents/skills/verify-dms-ai/journeys/activity.mjs": 22663,
+    ".agents/skills/verify-dms-ai/journeys/changes.mjs": 25899,
+    ".agents/skills/verify-dms-ai/journeys/overview.mjs": 21434,
+    ".agents/skills/verify-dms-ai/journeys/settings.mjs": 20737
+  }
+}
