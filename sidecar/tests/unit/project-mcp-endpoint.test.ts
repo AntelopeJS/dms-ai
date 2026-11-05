@@ -135,6 +135,26 @@ describe("createProjectMcpEndpoint", () => {
     expect(calls).toEqual(["ListPages"]);
   });
 
+  it("runs a deletion only when the session repeats it, outside the chat's confirmation card", async () => {
+    const calls: string[] = [];
+    const builder: BuilderClient = {
+      call: async (op) => {
+        calls.push(op);
+        return { ok: true };
+      },
+    };
+    const endpoint = buildEndpoint(builder);
+    const deletion = {
+      name: "BuilderDeleteResource",
+      arguments: { ref: "orders" },
+    };
+    const first = await endpoint.handle(request(1, "tools/call", deletion));
+    expect(resultOf(first)).toHaveProperty("isError", true);
+    expect(calls).toEqual([]);
+    await endpoint.handle(request(2, "tools/call", deletion));
+    expect(calls).toEqual(["DeleteResource"]);
+  });
+
   it("keeps two sessions' calls apart when they reuse a request id", async () => {
     const endpoint = buildEndpoint(idleBuilder);
     const [list, ping] = await Promise.all([

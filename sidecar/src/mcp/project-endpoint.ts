@@ -14,6 +14,7 @@ import type { IdleShutdownController } from "../server/idle-shutdown.js";
 import type { AnyMcpToolDefinition } from "./define-tool.js";
 import { buildMcpServer } from "./http-binding.js";
 import { buildToolDefinitions } from "./tool-definitions.js";
+import { createRepeatConfirmationGate } from "./tools/repeat-confirmation-gate.js";
 import type { AiMcpServerStaticDeps } from "./types.js";
 
 /** Tools that only render inside the dashboard chat, which an outside session has not got. */
@@ -77,6 +78,7 @@ function buildDefinitions(
     getLastEditedFile: () => undefined,
     showPreview: unavailable,
     listAttachedImages: () => [],
+    gateBuilderOp: createRepeatConfirmationGate(),
   }).filter((definition) => !CHAT_ONLY_TOOL_NAMES.has(definition.name));
 }
 
