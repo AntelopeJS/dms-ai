@@ -279,3 +279,58 @@ export const CODEX_ACTIVITY_BY_METHOD = new Map<string, ActivityKind>([
   ["item/fileChange/outputDelta", "tool"],
   ["error", "retrying"],
 ]);
+
+/**
+ * Analyst on Codex. A catalog model forces code mode, apply_patch, sub-agents
+ * and web search on whatever the feature flags say, so an Analyst home reads
+ * its models from a copy of the binary's own catalog with these keys removed
+ * (Codex rejects them as null), and every feature that adds a tool off.
+ */
+export const CODEX_DEBUG_COMMAND = "debug";
+export const CODEX_DEBUG_MODELS_COMMAND = "models";
+export const CODEX_BUNDLED_CATALOG_FLAG = "--bundled";
+export const CODEX_ANALYST_CATALOG_DIR = "codex-analyst-catalog";
+export const CODEX_ANALYST_CATALOG_HOME_PREFIX = "dms-ai-codex-catalog-";
+export const CODEX_CATALOG_MAX_BYTES = 64 * 1024 * 1024;
+export const CODEX_CATALOG_FORCED_TOOL_KEYS: ReadonlySet<string> = new Set([
+  "apply_patch_tool_type",
+  "web_search_tool_type",
+  "multi_agent_version",
+  "tool_mode",
+]);
+export const CODEX_ANALYST_DISABLED_FEATURES = [
+  "shell_tool",
+  "unified_exec",
+  "view_image",
+  "goals",
+  "multi_agent",
+  "multi_agent_v2",
+  "image_generation",
+  "apps",
+  "plugins",
+  "browser_use",
+  "computer_use",
+  "in_app_browser",
+  "skill_search",
+  "tool_suggest",
+  "sleep_tool",
+  "code_mode_host",
+  "hooks",
+  "memories",
+] as const;
+
+/**
+ * Thread items only a built-in tool produces. Analyst is offered none, so one
+ * of these in an Analyst turn means the configuration did not hold.
+ */
+export const CODEX_ANALYST_FORBIDDEN_ITEM_TYPES: ReadonlySet<string> = new Set([
+  "commandExecution",
+  "fileChange",
+  "webSearch",
+  "imageView",
+  "imageGeneration",
+  "collabAgentToolCall",
+  "subAgentActivity",
+]);
+export const CODEX_ANALYST_FORBIDDEN_ITEM_MESSAGE =
+  "[dms-ai] Analyst stopped: Codex started a built-in tool Analyst may not use:";

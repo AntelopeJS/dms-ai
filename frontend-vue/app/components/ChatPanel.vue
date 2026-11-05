@@ -31,6 +31,9 @@ const isFirstConnect = computed(
 	() => status.value === SIDECAR_STATUS_CONNECTING,
 );
 const lastError = computed(() => session.value?.lastError.value ?? null);
+const hasBuilder = computed(
+	() => session.value?.modes.includes("builder") ?? false,
+);
 
 function close(): void {
 	session.value?.panel.close();
@@ -66,6 +69,7 @@ onMounted(() => {
 				:page="session.currentPage.value"
 				:is-reviving="status === SIDECAR_STATUS_REVIVING"
 				:api="session.api"
+				:modes="session.modes"
 				@close="close"
 				@navigate="navigate"
 			/>
@@ -100,7 +104,7 @@ onMounted(() => {
 					<code v-if="lastError" class="dms-ai-panel-error">
 						{{ lastError }}
 					</code>
-					<div class="dms-ai-panel-actions">
+					<div v-if="hasBuilder" class="dms-ai-panel-actions">
 						<UButton
 							size="sm"
 							color="secondary"

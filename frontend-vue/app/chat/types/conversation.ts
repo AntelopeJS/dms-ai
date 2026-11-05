@@ -2,6 +2,7 @@ import type { ACTIVITY_KINDS } from "../constants/run-status";
 import type { PendingAttachment } from "../utils/attachments";
 import type {
 	AllowedBy,
+	AssistantMode,
 	BlockPreview,
 	Notice,
 	ProviderName,
@@ -158,6 +159,7 @@ export interface ConversationSummary {
 	pendingApprovals?: number;
 	pendingQuestions?: number;
 	generationMode?: Scope;
+	assistant?: AssistantMode;
 }
 
 /** The page the dashboard shows, which the composer's chip names. */

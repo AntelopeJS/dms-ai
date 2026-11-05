@@ -49,6 +49,7 @@ function startServer(gate?: BuilderGate) {
       },
     },
     databaseClient: { get: async () => [], post: async () => ({}) },
+    analystClient: { get: async () => ({}) },
     builderEnabled: true,
     sendToHost: () => {},
     navigationCompleter: createNavigationCompleter(),

@@ -5,6 +5,7 @@ import { createCodexAdapter } from "../../src/providers/codex/adapter.js";
 import { createCodexPermissionHandler } from "../../src/providers/codex/permissions.js";
 import type { ChatMode, TurnSettings } from "../../src/state/settings-types.js";
 import type { JsonValue } from "../../src/protocol/json.js";
+import type { AssistantMode } from "../../src/state/assistant-mode.js";
 import { createTestBus } from "../helpers/permission-bus.js";
 import { TURN_SETTINGS } from "../helpers/turn-settings.js";
 
@@ -24,7 +25,11 @@ interface StartedCall {
   arguments: Record<string, string>;
 }
 
-function setup(settings: TurnSettings, calls: StartedCall[]) {
+function setup(
+  settings: TurnSettings,
+  calls: StartedCall[],
+  profile?: AssistantMode,
+) {
   const adapter = createCodexAdapter();
   for (const call of calls) {
     adapter.handle({
@@ -46,6 +51,7 @@ function setup(settings: TurnSettings, calls: StartedCall[]) {
     moduleRoots: [],
     getPendingMcpCalls: () => adapter.pendingMcpCalls(),
     onToolDecision: (decision) => decisions.push(decision),
+    profile,
   });
   return { handler, decisions, requestPermission };
 }
@@ -106,6 +112,13 @@ const OTHER_CALL = {
   server: OTHER_SERVER,
   tool: "BuilderDeletePage",
   arguments: { pageRef: "/about" },
+};
+
+const ANALYST_CALL = {
+  id: "call_rows",
+  server: DMS_AI_SERVER,
+  tool: "AnalystReadRows",
+  arguments: { tableId: "orders" },
 };
 
 const MODES: ChatMode[] = ["normal", "acceptEdits", "plan"];
@@ -273,5 +286,63 @@ describe("an elicitation the sidecar declines", () => {
       ),
     ).toEqual(DECLINED);
     expect(decisions).toEqual([]);
+  });
+});
+
+describe("an Analyst session's call consent", () => {
+  it.each(CELLS)(
+    "accepts its own data tool in $mode, $generationMode",
+    async (cell) => {
+      const settings = { ...TURN_SETTINGS, ...cell };
+      const { handler, decisions } = setup(settings, [ANALYST_CALL], "analyst");
+      expect(
+        await handler.handle(
+          toolConsent(DMS_AI_SERVER, "AnalystReadRows", ANALYST_CALL.arguments),
+        ),
+      ).toEqual(ACCEPTED);
+      expect(decisions).toEqual([
+        {
+          callId: "call_rows",
+          toolName: "mcp__dms-ai__AnalystReadRows",
+          allowedBy: "read_auto",
+        },
+      ]);
+    },
+  );
+
+  it("declines a dms-ai tool that is not Analyst's, which Builder would run", async () => {
+    const { handler, decisions } = setup(
+      TURN_SETTINGS,
+      [PAGE_CALL, CREATE_CALL],
+      "analyst",
+    );
+    expect(
+      await handler.handle(toolConsent(DMS_AI_SERVER, "GetCurrentPage", {})),
+    ).toEqual(DECLINED);
+    expect(
+      await handler.handle(
+        toolConsent(DMS_AI_SERVER, "BuilderCreatePage", CREATE_CALL.arguments),
+      ),
+    ).toEqual(DECLINED);
+    expect(decisions.map((decision) => decision.allowedBy)).toEqual([
+      "blocked",
+      "blocked",
+    ]);
+  });
+
+  it("declines a command approval without asking, even in Ask first", async () => {
+    const { handler, requestPermission } = setup(
+      { ...TURN_SETTINGS, mode: "normal", generationMode: "vibe" },
+      [],
+      "analyst",
+    );
+    expect(
+      await handler.handle({
+        id: 9,
+        method: "item/commandExecution/requestApproval",
+        params: { command: "cat .env", itemId: "item-1" },
+      }),
+    ).toEqual({ decision: "decline" });
+    expect(requestPermission).not.toHaveBeenCalled();
   });
 });

@@ -64,6 +64,8 @@ export interface HarnessOptions {
   chatSocketRegistry?: ChatSocketRegistry;
   moduleRoots?: string[];
   skillDirs?: SkillSource[];
+  /** Core's development flag; on unless a test runs as production. */
+  isDevelopment?: boolean;
 }
 
 export interface WsHarness {
@@ -187,6 +189,7 @@ export async function startWsHarness(
   const hostSocketRegistry = createHostSocketRegistry();
   const navigationCompleter = createNavigationCompleter();
   const ws = attachWsServer(server, {
+    isDevelopment: options.isDevelopment ?? true,
     clientToken: CLIENT_TOKEN,
     hostProjectRoot: projectRoot,
     checkpoints,
@@ -276,6 +279,8 @@ const wireMessageSchema = z.looseObject({
   messages: z.array(wireNodeSchema).optional(),
   conversations: z.array(wireNodeSchema).optional(),
   changeSet: wireNodeSchema.optional(),
+  conversationId: z.string().optional(),
+  assistant: z.string().optional(),
 });
 
 export type WireNode = z.infer<typeof wireNodeSchema>;

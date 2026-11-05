@@ -4,10 +4,12 @@ import type {
   GenerationMode,
   TurnSettings,
 } from "../state/settings-types.js";
+import type { AssistantMode } from "../state/assistant-mode.js";
 
 export interface ConversationModeState {
   mode: ChatMode;
   generationMode: GenerationMode;
+  assistant: AssistantMode;
 }
 
 /**
@@ -20,5 +22,9 @@ export function conversationSettings(
   settings: AppSettings,
   state: ConversationModeState,
 ): TurnSettings {
-  return { ...settings, ...state };
+  return {
+    ...settings,
+    mode: state.mode,
+    generationMode: state.generationMode,
+  };
 }

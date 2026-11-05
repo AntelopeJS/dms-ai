@@ -1,4 +1,5 @@
 import { type Ref, readonly, ref, watch } from "vue";
+import type { AssistantMode } from "../chat/types/protocol";
 import { createBackoff, nextDelay, resetBackoff } from "./backoff";
 import {
 	SIDECAR_POLL_DELAYS_MS,
@@ -18,7 +19,11 @@ interface SidecarInfo {
 	isRunning: boolean;
 	hasGivenUp: boolean;
 	disabled: boolean;
+	modes: AssistantMode[];
 }
+
+const ASSISTANT_MODES: readonly AssistantMode[] = ["builder", "analyst"];
+const FALLBACK_MODES: readonly AssistantMode[] = ["analyst"];
 
 export interface SidecarStatusController {
 	// Runs the first probe. Returns false when the assistant should not be shown
@@ -26,6 +31,11 @@ export interface SidecarStatusController {
 	// is disabled for this process — so the caller skips injection entirely.
 	init: () => Promise<boolean>;
 	getStatus: () => SidecarStatus;
+	/**
+	 * The assistant modes the signed-in user may run, as the first probe said;
+	 * Analyst alone when it named none.
+	 */
+	getModes: () => readonly AssistantMode[];
 	// Subscribe to status changes; fires immediately with the current status so a
 	// late subscriber (the panel or launcher registered after init) reflects it right away.
 	subscribe: (cb: (status: SidecarStatus) => void) => () => void;
@@ -65,7 +75,15 @@ export type OpenSidecarInfoRead = (
 	interval: Readonly<Ref<number>>,
 ) => SidecarInfoRead;
 
-/** The info of the read's last answer, or null when it failed. */
+function readModes(modes: unknown): AssistantMode[] {
+	if (!Array.isArray(modes)) return [];
+	return ASSISTANT_MODES.filter((mode) => modes.includes(mode));
+}
+
+/**
+ * The info of the read's last answer, or null when it failed: a user the
+ * backend refuses (403) reads as no assistant at all.
+ */
 function readInfo(read: SidecarInfoRead): SidecarInfo | null {
 	const body = read.data.value;
 	if (read.error.value || !body) return null;
@@ -73,6 +91,7 @@ function readInfo(read: SidecarInfoRead): SidecarInfo | null {
 		isRunning: body.isRunning === true,
 		hasGivenUp: body.hasGivenUp === true,
 		disabled: body.disabled === true,
+		modes: readModes(body.modes),
 	};
 }
 
@@ -83,6 +102,7 @@ export function createSidecarStatusController(
 	const subscribers = new Set<(status: SidecarStatus) => void>();
 	const pollInterval = ref(0);
 	let status: SidecarStatus = SIDECAR_STATUS_CONNECTING;
+	let modes: readonly AssistantMode[] = FALLBACK_MODES;
 	let disposed = false;
 	const read = openRead(readonly(pollInterval));
 
@@ -152,11 +172,15 @@ export function createSidecarStatusController(
 		init: async (): Promise<boolean> => {
 			await read.execute();
 			const info = readInfo(read);
-			if (info !== null && !info.disabled) return true;
+			if (info !== null && !info.disabled) {
+				if (info.modes.length > 0) modes = info.modes;
+				return true;
+			}
 			dispose();
 			return false;
 		},
 		getStatus: () => status,
+		getModes: () => modes,
 		subscribe: (cb) => {
 			subscribers.add(cb);
 			cb(status);

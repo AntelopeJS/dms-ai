@@ -23,6 +23,15 @@ import {
   sendRulesState,
 } from "./chat-events.js";
 import type { ChatSocketRegistry } from "./chat-socket-registry.js";
+import {
+  type AccessScope,
+  type Actor,
+  conversationOf,
+  mayChangeAssistant,
+  mayHandle,
+  mayRunBuilder,
+  maySeeConversation,
+} from "./access.js";
 import { handleChangeSetAction } from "./change-set-actions.js";
 import { interruptConversation } from "./permission-events.js";
 import type {
@@ -172,13 +181,55 @@ const handleEcho = on(MESSAGE_TYPES.ECHO, (socket, msg) => {
   socket.send(JSON.stringify(reply));
 });
 
-const handleActor = on(MESSAGE_TYPES.ACTOR, (_socket, msg, ctx) => {
-  ctx.actor = { userId: msg.userId, name: msg.name };
+function isSameUser(a: Actor, b: Actor): boolean {
+  return a.userId === b.userId && a.tenantId === b.tenantId;
+}
+
+/**
+ * Hands every conversation whose asker's socket is gone to another open socket
+ * of the same user in the same tenant: a reload or a closed tab revokes that
+ * socket's grant, and the running turn or the queue goes on reading with a
+ * live one.
+ */
+function reassignTurnActors(ctx: ConnectionContext): void {
+  for (const [conversationId, asker] of ctx.turnActors) {
+    if (ctx.liveActors.has(asker)) continue;
+    const live = [...ctx.liveActors].find((actor) => isSameUser(actor, asker));
+    if (live !== undefined) ctx.turnActors.set(conversationId, live);
+  }
+}
+
+const handleActor = on(MESSAGE_TYPES.ACTOR, (socket, msg, ctx) => {
+  const { type: _type, ...actor } = msg;
+  ctx.actor = actor;
+  ctx.socketActors.set(socket, actor);
+  ctx.liveActors.add(actor);
+  socket.once("close", () => {
+    ctx.liveActors.delete(actor);
+    reassignTurnActors(ctx);
+  });
+  reassignTurnActors(ctx);
 });
 
+function accessScope(ctx: ConnectionContext): AccessScope {
+  return { actor: ctx.actor, isDevelopment: ctx.isDevelopment };
+}
+
+/**
+ * Notes who asks, whose grant the turn reads with. A conversation not started
+ * yet, about to start in Builder for an actor who may not run it, starts in
+ * Analyst instead.
+ */
 function noteAsker(ctx: ConnectionContext, conversationId: string): void {
   if (ctx.actor === null) return;
   ctx.askers.set(conversationId, ctx.actor.name);
+  ctx.turnActors.set(conversationId, ctx.actor);
+  if (ctx.conversationStore.get(conversationId) !== null) return;
+  if (mayRunBuilder(accessScope(ctx))) return;
+  if (ctx.conversationModes.state(conversationId).assistant === "analyst") {
+    return;
+  }
+  ctx.conversationModes.update(conversationId, { assistant: "analyst" });
 }
 
 /**
@@ -289,9 +340,16 @@ const handleStopAutoFix = on(MESSAGE_TYPES.STOP_AUTOFIX, (_s, msg, ctx) => {
 const handleSetConversationMode = on(
   MESSAGE_TYPES.SET_CONVERSATION_MODE,
   (_s, msg, ctx) => {
+    const assistant = mayChangeAssistant(
+      accessScope(ctx),
+      ctx.conversationStore.get(msg.conversationId),
+    )
+      ? msg.assistant
+      : undefined;
     ctx.conversationModes.update(msg.conversationId, {
       mode: msg.mode,
       generationMode: msg.generationMode,
+      assistant,
     });
   },
 );
@@ -329,7 +387,7 @@ const handleHostPageBlocks = on(
 const handleListConversations = on(
   MESSAGE_TYPES.LIST_CONVERSATIONS,
   (socket, _msg, ctx) => {
-    send(socket, buildConversationListEvent(ctx));
+    send(socket, buildConversationListEvent(ctx, ctx.actor));
   },
 );
 
@@ -342,7 +400,9 @@ function forgetConversation(ctx: SidecarServices, conversationId: string) {
   ctx.callAudit.forget(conversationId);
   ctx.callLedger.forget(conversationId);
   ctx.askers.delete(conversationId);
+  ctx.turnActors.delete(conversationId);
   void ctx.runner.disposeSession(conversationId);
+  ctx.forgetMcpServers(conversationId);
   ctx.liveTurns.end(conversationId);
   ctx.pendingQueue.clear(conversationId);
 }
@@ -351,7 +411,7 @@ const handleDeleteConversation = on(
   MESSAGE_TYPES.DELETE_CONVERSATION,
   (socket, msg, ctx) => {
     forgetConversation(ctx, msg.conversationId);
-    send(socket, buildConversationListEvent(ctx));
+    send(socket, buildConversationListEvent(ctx, ctx.actor));
     broadcastConversationList(ctx);
   },
 );
@@ -457,9 +517,22 @@ export function dispatchMessage(
     console.warn(`${WS_LOG_PREFIX} invalid message`);
     return;
   }
+  if (!isAllowed(msg, ctx)) {
+    console.warn(`${WS_LOG_PREFIX} refused ${msg.type}`);
+    return;
+  }
   const handler = MESSAGE_HANDLERS[msg.type];
   if (handler === undefined) return;
   void handler(socket, msg, ctx);
+}
+
+/** The actor may send this, and the conversation it names, if any, is theirs to see. */
+function isAllowed(msg: AnyClientMessageType, ctx: ConnectionContext): boolean {
+  const scope = accessScope(ctx);
+  if (!mayHandle(scope, msg)) return false;
+  const conversationId = conversationOf(msg);
+  if (conversationId === undefined) return true;
+  return maySeeConversation(scope, ctx.conversationStore.get(conversationId));
 }
 
 /** A connection's context: the shared services, and no actor until told. */

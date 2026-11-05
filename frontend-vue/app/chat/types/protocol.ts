@@ -7,6 +7,11 @@
 export type ProviderName = "claude" | "codex";
 export type ApprovalMode = "normal" | "auto" | "acceptEdits" | "plan";
 export type Scope = "safe" | "vibe";
+/**
+ * Who the assistant is in a conversation: Builder edits the project, Analyst
+ * answers questions about the data the signed-in user may see.
+ */
+export type AssistantMode = "builder" | "analyst";
 
 export type ToolOutcome = "done" | "failed" | "denied" | "blocked" | "stopped";
 
@@ -188,6 +193,7 @@ export type Notice =
 	| AutoUnavailableNotice;
 
 export interface ConversationModeState {
+	assistant: AssistantMode;
 	mode: ApprovalMode;
 	generationMode: Scope;
 }

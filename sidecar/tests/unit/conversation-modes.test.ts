@@ -37,6 +37,7 @@ function build(defaults: Partial<AppSettings> = {}) {
   const modes = createConversationModes({
     conversationStore,
     settingsStore: settings,
+    defaultAssistant: "builder",
     onChanged: () => {},
   });
   return { modes, conversationStore, settings };
@@ -64,6 +65,7 @@ describe("conversation modes", () => {
       conversationId: CONVERSATION_ID,
       mode: "plan",
       generationMode: "vibe",
+      assistant: "builder",
     });
     startChat(conversationStore, CONVERSATION_ID);
     modes.pinDefaults(CONVERSATION_ID);

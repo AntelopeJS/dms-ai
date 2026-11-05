@@ -59,10 +59,13 @@ function findCall(
  * them in every mode and scope: deletions and the other always-ask Builder
  * operations still wait for the person at the gate inside the tool. Declines
  * any other server's tool, and any elicitation that asks for user input.
+ * `allowed` narrows dms-ai's tools to the ones the session may run: Analyst
+ * passes its own.
  */
 export function decideElicitation(
   params: McpElicitationParams | undefined,
   pending: readonly CodexMcpCall[],
+  allowed: ReadonlySet<string> = FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES,
 ): ElicitationVerdict {
   if (params === undefined) {
     return { action: "decline", reason: "declined a malformed elicitation" };
@@ -82,7 +85,7 @@ export function decideElicitation(
     };
   }
   const toolName = mcpToolName(call.server, call.tool);
-  if (!FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES.has(toolName)) {
+  if (!allowed.has(toolName)) {
     return {
       action: "decline",
       reason: `declined ${toolName}: not a dms-ai tool`,

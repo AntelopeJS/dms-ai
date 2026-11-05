@@ -91,9 +91,18 @@ export type ConversationSettingsResolver = (
   settings: AppSettings,
 ) => TurnSettings;
 
+/** The text a turn hands the provider: the user's message, grounded. */
+export type TurnGrounding = (
+  message: string,
+  page: CurrentPage,
+  settings: AppSettings,
+) => string;
+
 export interface AgentRunnerOptions {
   settings?: AppSettings;
   resolveSettings?: ConversationSettingsResolver;
+  /** Absent, the host-context block (page and scope) is prepended. */
+  ground?: TurnGrounding;
 }
 
 interface SessionManager {
@@ -101,8 +110,21 @@ interface SessionManager {
   sessions: Map<string, ProviderSession>;
   settings: AppSettings;
   resolveSettings: ConversationSettingsResolver;
+  ground: TurnGrounding;
   disposals: DisposalTracker;
   isClosed: boolean;
+}
+
+function groundWithHostContext(
+  message: string,
+  page: CurrentPage,
+  settings: AppSettings,
+): string {
+  return prependHostContext(
+    message,
+    page,
+    effectiveGenerationMode(settings.generationMode),
+  );
 }
 
 function settingsOf(manager: SessionManager, conversationId: string) {
@@ -179,10 +201,10 @@ async function* startTurn(
 ): AsyncIterable<RunnerEvent> {
   const session = await getOrCreateSession(manager, ctx);
   const settings = settingsOf(manager, ctx.conversationId);
-  const grounded = prependHostContext(
+  const grounded = manager.ground(
     message,
     ctx.includePageContext === false ? WITHOUT_PAGE : ctx.getCurrentPage(),
-    effectiveGenerationMode(settings.generationMode),
+    settings,
   );
   yield* session.runTurn(
     { text: grounded, attachments: ctx.attachments ?? [] },
@@ -246,6 +268,7 @@ export function createAgentRunner(
     sessions: new Map(),
     settings: options?.settings ?? DEFAULT_SETTINGS,
     resolveSettings: options?.resolveSettings ?? onProviderDefaultMode,
+    ground: options?.ground ?? groundWithHostContext,
     disposals: createDisposalTracker(),
     isClosed: false,
   };

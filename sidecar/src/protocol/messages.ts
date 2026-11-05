@@ -12,6 +12,7 @@ import {
   REQUEST_TIMEOUT_MINUTES,
   THINKING_LEVELS,
 } from "../state/settings-types.js";
+import { ASSISTANT_MODES } from "../state/assistant-mode.js";
 import { PROVIDER_NAMES } from "../state/types.js";
 
 export const ROLES = ["chat", "host"] as const;
@@ -222,10 +223,19 @@ export const QuestionResponseMsg = z.object({
  * Who is driving this connection. Sent only by the backend bridge, right after
  * the socket opens; the bridge drops any browser frame of this type.
  */
+/**
+ * Backend -> server, first on every socket: the signed-in user the backend
+ * bridged, the assistant modes they may run, and the grant Analyst reads data
+ * as them with. A browser frame can never pass for it.
+ */
 export const ActorMsg = z.object({
   type: z.literal(MESSAGE_TYPES.ACTOR),
   userId: z.string().max(MAX_ACTOR_FIELD_CHARS),
   name: z.string().max(MAX_ACTOR_FIELD_CHARS),
+  tenantId: z.string().max(MAX_ACTOR_FIELD_CHARS),
+  isOwner: z.boolean(),
+  modes: z.array(z.enum(ASSISTANT_MODES)),
+  grant: z.string().max(MAX_ACTOR_FIELD_CHARS),
 });
 
 /** Chat -> server: the conversation's own approval mode and scope. */
@@ -234,6 +244,7 @@ export const SetConversationModeMsg = z.object({
   conversationId: z.string(),
   mode: z.enum(CHAT_MODES).optional(),
   generationMode: z.enum(GENERATION_MODES).optional(),
+  assistant: z.enum(ASSISTANT_MODES).optional(),
 });
 
 /** Chat -> server: interrupt the running auto-fix turn and skip the rest. */

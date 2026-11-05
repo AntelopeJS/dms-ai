@@ -1,3 +1,4 @@
+import type { AssistantMode, ConversationOwner } from "./assistant-mode.js";
 import type {
   AllowedBy,
   ChangeFileStatus,
@@ -205,6 +206,13 @@ export interface StoredConversation {
    */
   mode?: ChatMode;
   generationMode?: GenerationMode;
+  /** Builder or Analyst, pinned like the approval mode. */
+  assistant?: AssistantMode;
+  /**
+   * The user who started it. Absent on a conversation from before owners
+   * were recorded, which only an owner in Builder sees.
+   */
+  owner?: ConversationOwner;
 }
 
 export interface StoredState {
@@ -220,6 +228,8 @@ export interface StoredConversationSummary {
   messageCount: number;
   provider?: ProviderName;
   totalTokens: number;
+  assistant?: AssistantMode;
+  owner?: ConversationOwner;
 }
 
 /** A conversation as the history drawer lists it: stored plus live state. */

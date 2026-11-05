@@ -224,6 +224,10 @@ void test("writes multi-line data as one data line per line", () => {
 function loadRoutes(file, load) {
   /** @type {Set<ControllerClass>} */
   const owned = new Set();
+  /** @type {Set<string>} */
+  const authenticated = new Set();
+  /** @type {unknown[]} */
+  const checked = [];
   /** @type {Array<{ method: string; location: string; owner: ControllerClass; key: string | symbol }>} */
   const routes = [];
   /**
@@ -267,6 +271,25 @@ function loadRoutes(file, load) {
   const auth = {
     AuthOwnerOnly: () => markOwned,
     AuthRawUser: decorator,
+    AuthUser:
+      () =>
+      /**
+       * @param {{ constructor: ControllerClass }} target
+       * @param {string | symbol} key
+       */
+      (target, key) => {
+        authenticated.add(`${target.constructor.name}.${String(key)}`);
+      },
+  };
+  const permission = {
+    /**
+     * @param {unknown} _ctx
+     * @param {{ _id: unknown }} user
+     */
+    authorizeAssistantUser: async (_ctx, user) => {
+      checked.push(user._id);
+      return { user, tenantId: "default", modes: ["analyst"] };
+    },
   };
   const spawn = {
     ensureSidecarRunning: async () => undefined,
@@ -281,6 +304,7 @@ function loadRoutes(file, load) {
     "@antelopejs/interface-api": api,
     "@antelopejs/interface-dms/auth": auth,
     "../lifecycle/spawn-sidecar": spawn,
+    "../assistant/permission": permission,
   };
   const originalRequire = moduleMethods.require;
   /**
@@ -294,22 +318,26 @@ function loadRoutes(file, load) {
   Module.prototype.require = requireWithMocks;
   try {
     delete require.cache[dist(file)];
-    return { owned, routes, exports: load() };
+    return { owned, authenticated, checked, routes, exports: load() };
   } finally {
     Module.prototype.require = originalRequire;
     delete require.cache[dist(file)];
   }
 }
 
-void test("serves the channel routes to owners only", () => {
-  const { owned, routes } = loadRoutes("routes/channels.js", () =>
-    require("../dist/routes/channels.js"),
+void test("serves the channel routes to signed-in users, not to owners only", () => {
+  const { owned, authenticated, routes } = loadRoutes(
+    "routes/channels.js",
+    () => require("../dist/routes/channels.js"),
   );
   assert.deepEqual(
     routes.map((route) => `${route.method} ${route.location}`).sort(byText),
     ["GET /ai/channel/events", "POST /ai/channel/:connectionId/messages"],
   );
-  for (const route of routes) assert.ok(owned.has(route.owner));
+  for (const route of routes) {
+    assert.ok(!owned.has(route.owner));
+    assert.ok(authenticated.has(`${route.owner.name}.${String(route.key)}`));
+  }
 });
 
 void test("serves no chat document: the chat is a dashboard component", () => {
@@ -329,7 +357,7 @@ void test("keeps the sidecar port and client credential out of /ai/sidecar-info"
     require("../dist/routes/sidecar-info.js"),
   );
   const controller = new exports.AISidecarInfoController();
-  const result = await controller.sidecarInfo();
+  const result = await controller.sidecarInfo({}, { _id: "user-1" });
   const body = JsonObjectSchema.parse(
     JSON.parse(z.string().parse(result.getBody())),
   );
@@ -337,5 +365,6 @@ void test("keeps the sidecar port and client credential out of /ai/sidecar-info"
     "disabled",
     "hasGivenUp",
     "isRunning",
+    "modes",
   ]);
 });

@@ -84,12 +84,15 @@ export interface PaletteAssistant {
 	answerComponent: string;
 }
 
-/** What the palette's entries do. */
+/**
+ * What the palette's entries do. The approvals and the Changes page are the
+ * Builder's: their entries show only when given.
+ */
 export interface AssistantCommandActions {
 	ask: () => void;
 	startConversation: () => void;
-	reviewApprovals: () => void;
-	openChanges: () => void;
+	reviewApprovals?: () => void;
+	openChanges?: () => void;
 }
 
 /** The panel docked on the right of the dashboard; the DMS owns its state. */
@@ -152,6 +155,27 @@ export function paletteAssistant(
 	};
 }
 
+function approvalsItem(
+	t: Translate,
+	pendingApprovals: Readonly<Ref<number>>,
+	onSelect: () => void,
+): PaletteItem {
+	return {
+		id: "dms-ai-approvals",
+		label: t("dms_ai.panel.palette.approvals"),
+		icon: "i-ph-hand-palm",
+		suffix:
+			pendingApprovals.value > 0
+				? t(
+						"dms_ai.panel.palette.waiting",
+						{ count: pendingApprovals.value },
+						pendingApprovals.value,
+					)
+				: undefined,
+		onSelect,
+	};
+}
+
 /**
  * The assistant's commands among the palette's search results: ways into the
  * panel and its pages. Asking a question inline is the palette's assistant
@@ -162,6 +186,33 @@ export function paletteSource(
 	pendingApprovals: Readonly<Ref<number>>,
 	actions: AssistantCommandActions,
 ): PaletteSource {
+	const items = (): PaletteItem[] => {
+		const list: PaletteItem[] = [
+			{
+				id: "dms-ai-ask",
+				label: t("dms_ai.panel.palette.ask"),
+				icon: "i-ph-sparkle",
+				suffix: shortcutLabel(TOGGLE_SHORTCUT_KEY, true),
+				onSelect: actions.ask,
+			},
+			{
+				id: "dms-ai-new",
+				label: t("dms_ai.panel.palette.new"),
+				icon: "i-ph-note-pencil",
+				onSelect: actions.startConversation,
+			},
+		];
+		if (actions.reviewApprovals !== undefined)
+			list.push(approvalsItem(t, pendingApprovals, actions.reviewApprovals));
+		if (actions.openChanges !== undefined)
+			list.push({
+				id: "dms-ai-changes",
+				label: t("dms_ai.panel.palette.changes"),
+				icon: "i-ph-git-diff",
+				onSelect: actions.openChanges,
+			});
+		return list;
+	};
 	return {
 		id: COMMAND_PALETTE_SOURCE_ID,
 		order: COMMAND_PALETTE_ORDER,
@@ -169,41 +220,7 @@ export function paletteSource(
 			{
 				id: `${COMMAND_PALETTE_SOURCE_ID}-assistant`,
 				label: t("dms_ai.panel.palette.group"),
-				items: [
-					{
-						id: "dms-ai-ask",
-						label: t("dms_ai.panel.palette.ask"),
-						icon: "i-ph-sparkle",
-						suffix: shortcutLabel(TOGGLE_SHORTCUT_KEY, true),
-						onSelect: actions.ask,
-					},
-					{
-						id: "dms-ai-new",
-						label: t("dms_ai.panel.palette.new"),
-						icon: "i-ph-note-pencil",
-						onSelect: actions.startConversation,
-					},
-					{
-						id: "dms-ai-approvals",
-						label: t("dms_ai.panel.palette.approvals"),
-						icon: "i-ph-hand-palm",
-						suffix:
-							pendingApprovals.value > 0
-								? t(
-										"dms_ai.panel.palette.waiting",
-										{ count: pendingApprovals.value },
-										pendingApprovals.value,
-									)
-								: undefined,
-						onSelect: actions.reviewApprovals,
-					},
-					{
-						id: "dms-ai-changes",
-						label: t("dms_ai.panel.palette.changes"),
-						icon: "i-ph-git-diff",
-						onSelect: actions.openChanges,
-					},
-				],
+				items: items(),
 			},
 		],
 	};

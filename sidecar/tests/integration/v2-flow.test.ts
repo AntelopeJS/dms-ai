@@ -48,7 +48,15 @@ async function open(withProject = true): Promise<Session> {
   });
   const client = await openChat(harness.port);
   const collector = createCollector(client, WAIT_TIMEOUT_MS);
-  sendWire(client, { type: "actor", userId: "u1", name: "Camille" });
+  sendWire(client, {
+    type: "actor",
+    userId: "u1",
+    name: "Camille",
+    tenantId: "default",
+    isOwner: true,
+    modes: ["builder", "analyst"],
+    grant: "grant-u1",
+  });
   sendHello(client, CONVERSATION_ID);
   return { harness, client, collector };
 }
@@ -217,6 +225,7 @@ describe("v2 assistant flow over the socket", () => {
         conversationId: CONVERSATION_ID,
         mode: "normal",
         generationMode: "vibe",
+        assistant: "builder",
       });
       sendUserMessage(client, CONVERSATION_ID, "run it");
       const prompt = await collector.next(
@@ -433,6 +442,7 @@ describe("v2 assistant flow over the socket", () => {
         conversationId: CONVERSATION_ID,
         mode: "normal",
         generationMode: "vibe",
+        assistant: "builder",
       });
       const roles = (snapshot.messages ?? []).map((m) => m.role);
       expect(roles).not.toContain("permission");

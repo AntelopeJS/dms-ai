@@ -87,7 +87,10 @@
 					"explain_project": "Explain how this project is organised",
 					"add_block": "Add a block to {page}",
 					"rename": "Rename labels on {page}"
-				}
+				},
+				"title_analyst": "What would you like to know?",
+				"title_page_analyst": "What would you like to know about {page}?",
+				"text_analyst": "I answer questions about your data, as you see it. I read only what you may read, and change nothing."
 			},
 			"tool": {
 				"using": "Using tools",
@@ -308,7 +311,15 @@
 				"hint_history": "history",
 				"usage": "{count} tokens · this chat",
 				"usage_new": "new chat",
-				"usage_offline": "offline"
+				"usage_offline": "offline",
+				"placeholder_idle_analyst": "Ask a question about your data…",
+				"assistant": {
+					"menu": "Assistant · this chat",
+					"builder": "Builder",
+					"builder_desc": "Edits the project: pages, data models and code",
+					"analyst": "Analyst",
+					"analyst_desc": "Answers questions about your data, as you see it"
+				}
 			},
 			"drawer": {
 				"title": "Conversations",

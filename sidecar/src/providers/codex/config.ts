@@ -7,6 +7,7 @@ import {
   CODEX_AUTH_REFRESH_INTERVAL_MS,
 } from "../../constants/chatgpt.js";
 import {
+  CODEX_ANALYST_DISABLED_FEATURES,
   CODEX_DENIAL_REMINDER_COUNT_TOKEN,
   CODEX_DENIAL_REMINDER_TEMPLATE,
   CODEX_DENIAL_REMINDER_THRESHOLD,
@@ -19,6 +20,8 @@ import {
 } from "../../constants/codex.js";
 import { MCP_TOOL_TIMEOUT_SEC } from "../../constants/mcp.js";
 import { SAFE_MODE_DENIED_MESSAGE } from "../../constants/settings.js";
+import { ANALYST_SYSTEM_PROMPT } from "../../prompts/analyst.js";
+import type { AssistantMode } from "../../state/assistant-mode.js";
 import type {
   AppSettings,
   ThinkingLevel,
@@ -36,7 +39,9 @@ import type { v2 } from "./protocol/index.js";
  * workspace-write "auto": in workspace-write an edit inside the roots asks for
  * nothing, while every write under read-only escalates, which is the prompt per
  * write that the Claude path gives. Accept edits included, so it asks before
- * every file edit as Ask first does.
+ * every file edit as Ask first does. Analyst too: under `never` Codex fails
+ * every MCP tool call, its own included, instead of asking for consent; its
+ * permission handler declines every other request.
  */
 const CODEX_APPROVAL_POLICY: v2.AskForApproval = "on-request";
 
@@ -62,9 +67,14 @@ export interface CodexTurnOverrides {
  * Plan mode declines every escalation instead of prompting: Codex has no
  * non-experimental plan mode of its own. Safe mode does too, whatever the chat
  * mode says: the Builder MCP tools write through the host over HTTP, so they
- * are outside the sandbox and keep working.
+ * are outside the sandbox and keep working. Analyst declines every one,
+ * whatever either mode says.
  */
-export function declinesEscalations(settings: TurnSettings): boolean {
+export function declinesEscalations(
+  settings: TurnSettings,
+  profile: AssistantMode = "builder",
+): boolean {
+  if (profile === "analyst") return true;
   return settings.mode === "plan" || isSafeMode(settings);
 }
 
@@ -88,6 +98,25 @@ export interface CodexConfigInput extends CodexPermissionInput {
   mcpUrl: string;
   /** The Node binary the auth command runs on: the sidecar's own. */
   nodePath: string;
+  /** An Analyst home's model catalog (see analyst.ts); absent for Builder. */
+  analystCatalogPath?: string;
+}
+
+function analystTopLevelKeys(catalogPath: string | undefined): string[] {
+  if (catalogPath === undefined) return [];
+  return [
+    'web_search = "disabled"',
+    `model_catalog_json = ${tomlString(catalogPath)}`,
+  ];
+}
+
+function analystFeatures(catalogPath: string | undefined): string[] {
+  if (catalogPath === undefined) return [];
+  return [
+    "[features]",
+    ...CODEX_ANALYST_DISABLED_FEATURES.map((feature) => `${feature} = false`),
+    "",
+  ];
 }
 
 /**
@@ -127,13 +156,19 @@ function tomlArray(values: readonly string[]): string {
  * default, while AskUser and the Builder deletion gate wait on the user for much
  * longer. The `untrusted` project entry keeps the host project's own .codex
  * layers out of the session, mirroring `settingSources: []` on the Claude path.
+ *
+ * An Analyst home also switches off web search and every feature that adds a
+ * built-in tool, and reads its models from the Analyst catalog, so the model
+ * is offered no tool but the MCP server's and its question tool.
  */
 export function buildConfigToml(input: CodexConfigInput): string {
   return [
     "project_doc_max_bytes = 0",
     `model_provider = ${tomlString(CODEX_MODEL_PROVIDER_ID)}`,
     `default_permissions = ${tomlString(CODEX_READ_ONLY_PROFILE)}`,
+    ...analystTopLevelKeys(input.analystCatalogPath),
     "",
+    ...analystFeatures(input.analystCatalogPath),
     `[model_providers.${CODEX_MODEL_PROVIDER_ID}]`,
     `name = ${tomlString(CODEX_MODEL_PROVIDER_NAME)}`,
     `base_url = ${tomlString(CODEX_MODEL_PROVIDER_BASE_URL)}`,
@@ -179,6 +214,20 @@ export function buildDeveloperInstructions(
   settings: AppSettings,
 ): string | undefined {
   return isSafeMode(settings) ? SAFE_MODE_DENIED_MESSAGE : undefined;
+}
+
+/**
+ * The instructions `thread/start` carries. Analyst replaces Codex's own coding
+ * instructions with its prompt; Builder keeps them and adds its developer
+ * instructions.
+ */
+export function buildThreadInstructions(
+  settings: AppSettings,
+  profile: AssistantMode = "builder",
+): { baseInstructions: string } | { developerInstructions?: string } {
+  if (profile === "analyst") return { baseInstructions: ANALYST_SYSTEM_PROMPT };
+  const developerInstructions = buildDeveloperInstructions(settings);
+  return developerInstructions === undefined ? {} : { developerInstructions };
 }
 
 /**

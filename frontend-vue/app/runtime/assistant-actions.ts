@@ -5,15 +5,16 @@ import type {
 
 /**
  * The assistant as another module's layer may use it, without depending on dms-ai: injected under
- * {@link ASSISTANT_ACTIONS_KEY} with a `null` default, which is what a project without dms-ai, or
- * outside development, answers.
+ * {@link ASSISTANT_ACTIONS_KEY} with a `null` default, which is what a project without dms-ai
+ * answers.
  */
 export interface PublicAssistantActions {
 	/** The assistant runs in this tab, so a button that starts a conversation can be offered. Reactive. */
 	readonly isAvailable: boolean;
 	/**
 	 * Opens the assistant panel on a new conversation with `prompt` in the composer, unsent. With
-	 * `mode`, the conversation is set to it first: `plan` makes the agent end with a plan to approve.
+	 * `mode`, the conversation is set to it first: `plan` makes the agent end with a plan to approve;
+	 * a conversation in Analyst, which has no approval modes, ignores it.
 	 * With `send`, the prompt is sent as the first message once the stream is up, and the composer
 	 * stays empty.
 	 */

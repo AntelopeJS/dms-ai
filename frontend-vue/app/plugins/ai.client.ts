@@ -16,12 +16,15 @@ import {
 import { CHAT_I18N_KEY, type ChatI18n } from "../chat/composables/useChatI18n";
 import type { ChatApi } from "../chat/composables/useChangeSetActions";
 import type { CurrentPage } from "../chat/types/conversation";
+import type { AssistantMode } from "../chat/types/protocol";
 import {
 	type AssistantActivity,
 	type AssistantStatusPayload,
 	createAssistantActivity,
+	type OpenAssistantStatusRead,
 } from "../runtime/assistant-activity";
 import {
+	type AssistantCommandActions,
 	launcherAction,
 	paletteAssistant,
 	paletteSource,
@@ -87,6 +90,8 @@ interface ChannelDeps {
 	$authFetch: AuthFetch;
 	controller: SidecarStatusController;
 	dispatchHostCommand: HostCommandDispatcher;
+	/** The tab drives the Builder's browser: it says hello as the host. */
+	isHost: boolean;
 }
 
 interface AssistantChannel {
@@ -123,8 +128,10 @@ function createAssistantChannel(deps: ChannelDeps): AssistantChannel {
 	const client = createChannelClient({
 		post: (path, body) => postJson(deps.$authFetch, path, body),
 		onReady: () => {
-			client.send({ type: HELLO_MESSAGE_TYPE, role: HOST_ROLE });
-			client.send(buildCurrentPageUpdate(window.location.href));
+			if (deps.isHost) {
+				client.send({ type: HELLO_MESSAGE_TYPE, role: HOST_ROLE });
+				client.send(buildCurrentPageUpdate(window.location.href));
+			}
 			chat.announceReady();
 		},
 		onFrame: createFrameRouter({
@@ -204,12 +211,17 @@ function followSidecarStatus(
 	return { status: readonly(status), stop };
 }
 
+/**
+ * Follows the page the dashboard shows, for the composer's chip, and tells
+ * the sidecar of it and of each navigation when the tab is the Builder's host.
+ */
 function installHostState(
 	client: ChannelClient,
 	currentPage: Ref<CurrentPage | null>,
+	isHost: boolean,
 ): () => void {
 	const sendWhenConnected = (msg: unknown): void => {
-		if (!client.isConnected()) return;
+		if (!isHost || !client.isConnected()) return;
 		client.send(msg);
 	};
 	const stopTracking = installCurrentPageTracker({
@@ -218,9 +230,9 @@ function installHostState(
 			sendWhenConnected(msg);
 		},
 	});
-	const stopNavigation = installNavigationCompleteEmitter({
-		send: sendWhenConnected,
-	});
+	const stopNavigation = isHost
+		? installNavigationCompleteEmitter({ send: sendWhenConnected })
+		: () => undefined;
 	return () => {
 		stopTracking();
 		stopNavigation();
@@ -247,6 +259,7 @@ function createApi($authFetch: AuthFetch): ChatApi {
 
 interface SessionParts {
 	deps: DashboardDeps;
+	modes: readonly AssistantMode[];
 	controller: SidecarStatusController;
 	chat: ChatTransportHub;
 	panel: ChatPanelState;
@@ -261,6 +274,7 @@ function createSession(parts: SessionParts): AssistantSession {
 	const intents = createPanelIntents();
 	return {
 		status: parts.status,
+		modes: parts.modes,
 		chat: parts.chat.transport,
 		panel,
 		navigate: (path) => void deps.router.push(path),
@@ -289,6 +303,28 @@ function createSession(parts: SessionParts): AssistantSession {
 	};
 }
 
+function hasBuilder(session: AssistantSession): boolean {
+	return session.modes.includes("builder");
+}
+
+function builderCommandActions(
+	session: AssistantSession,
+): Pick<AssistantCommandActions, "reviewApprovals" | "openChanges"> {
+	if (!hasBuilder(session)) return {};
+	return {
+		reviewApprovals: () => {
+			session.intents.push({ kind: "approvals" });
+			session.panel.open();
+		},
+		openChanges: () => session.navigate(CHANGES_PATH),
+	};
+}
+
+/**
+ * The launcher and the palette's entries. The approvals, the Changes page and
+ * the palette's assistant mode (a read-only Builder turn) join only for a
+ * user who may run the Builder.
+ */
 function registerDashboardEntries(
 	session: AssistantSession,
 	i18n: ChatI18n,
@@ -303,16 +339,13 @@ function registerDashboardEntries(
 				session.panel.open();
 			},
 			startConversation: () => session.startConversation(),
-			reviewApprovals: () => {
-				session.intents.push({ kind: "approvals" });
-				session.panel.open();
-			},
-			openChanges: () => session.navigate(CHANGES_PATH),
+			...builderCommandActions(session),
 		}),
 	);
-	registerCommandPaletteAssistant(
-		paletteAssistant(i18n.t, session.currentPage),
-	);
+	if (hasBuilder(session))
+		registerCommandPaletteAssistant(
+			paletteAssistant(i18n.t, session.currentPage),
+		);
 	return stopWatchingLocale;
 }
 
@@ -378,6 +411,16 @@ interface ProvidedAssistant {
 	i18n: ChatI18n;
 }
 
+/**
+ * The backend's status for a user without the Builder: the route is the
+ * owner's, and what it counts (approvals, working chats) the conversation
+ * lists the stream carries tell already.
+ */
+const unreadStatus: OpenAssistantStatusRead = () => ({
+	data: ref<AssistantStatusPayload | null>(null),
+	refresh: async () => undefined,
+});
+
 interface AssistantRuntime {
 	session: AssistantSession;
 	stops: Array<() => void>;
@@ -387,6 +430,8 @@ function createRuntime(
 	deps: DashboardDeps,
 	controller: SidecarStatusController,
 ): AssistantRuntime {
+	const modes = controller.getModes();
+	const isHost = modes.includes("builder");
 	const dispatchHostCommand = createHostCommandDispatcher({
 		router: deps.router,
 		devReload: deps.devReload,
@@ -395,6 +440,7 @@ function createRuntime(
 		$authFetch: deps.$authFetch,
 		controller,
 		dispatchHostCommand,
+		isHost,
 	});
 	const panel: ChatPanelState = useSidePanel(SIDE_PANEL_ID);
 	const holds = createStreamHolds();
@@ -402,11 +448,13 @@ function createRuntime(
 	const activity = createAssistantActivity({
 		// The application's read: polled for as long as the app runs, while
 		// the interval says so.
-		readStatus: (interval) =>
-			useApiData<AssistantStatusPayload>(STATUS_PATH, {
-				refreshInterval: interval,
-				refreshOnPageRefresh: false,
-			}),
+		readStatus: isHost
+			? (interval) =>
+					useApiData<AssistantStatusPayload>(STATUS_PATH, {
+						refreshInterval: interval,
+						refreshOnPageRefresh: false,
+					})
+			: unreadStatus,
 		chat: chat.transport,
 		shouldPoll: () =>
 			!panel.isOpen.value ||
@@ -415,6 +463,7 @@ function createRuntime(
 	const currentPage = ref<CurrentPage | null>(null);
 	const session = createSession({
 		deps,
+		modes,
 		controller,
 		chat,
 		panel,
@@ -426,7 +475,7 @@ function createRuntime(
 	const stops = [
 		installToggleShortcut({ onToggle: panel.toggle }),
 		followPanel({ panel, activity, holds }, client),
-		installHostState(client, currentPage),
+		installHostState(client, currentPage, isHost),
 		sidecarStatus.stop,
 		activity.stop,
 		controller.dispose,
@@ -451,7 +500,9 @@ function wireAssistant(
 	provided.session.value = session;
 	const stops = [
 		registerOnceMounted(context, appMounted, session, provided.i18n),
-		installToasts(session, provided.i18n, options.toaster),
+		hasBuilder(session)
+			? installToasts(session, provided.i18n, options.toaster)
+			: () => undefined,
 		...runtime.stops,
 	];
 	return () => {
@@ -494,13 +545,14 @@ async function startAssistant(
 }
 
 /**
- * The assistant appears for a signed-in owner in development only: a first
- * probe that finds no dms-ai backend, or a disabled sidecar, leaves no trace.
+ * The assistant appears for a signed-in user the backend lets chat: a first
+ * probe that finds no dms-ai backend, refuses the user, or finds the sidecar
+ * disabled leaves no trace. The modes it answers decide what the tab offers:
+ * an owner in development runs the Builder too, everyone else the Analyst.
  * The session is provided at once, empty until that probe answers, so the
  * panel the server rendered open and the workspace pages follow it.
  */
 export default defineDmsPlugin((context) => {
-	if (!import.meta.env.DEV) return;
 	const provided: ProvidedAssistant = {
 		session: shallowRef<AssistantSession | null>(null),
 		i18n: createChatI18n(context.$i18n),

@@ -2,12 +2,13 @@
 import { computed } from "vue";
 import { useChatI18n } from "../composables/useChatI18n";
 import type { CurrentPage } from "../types/conversation";
-import type { Scope } from "../types/protocol";
+import type { AssistantMode, Scope } from "../types/protocol";
 import { pageName, pageSuggestions } from "../utils/suggestions";
 
 interface Props {
 	page: CurrentPage | null;
 	scope: Scope;
+	assistant: AssistantMode;
 }
 
 interface Emits {
@@ -19,11 +20,23 @@ const emit = defineEmits<Emits>();
 const { t } = useChatI18n();
 
 const name = computed(() => pageName(props.page));
+const isAnalyst = computed(() => props.assistant === "analyst");
+const title = computed(() => {
+	if (isAnalyst.value)
+		return name.value
+			? t("dms_ai.panel.empty.title_page_analyst", { page: name.value })
+			: t("dms_ai.panel.empty.title_analyst");
+	return name.value
+		? t("dms_ai.panel.empty.title_page", { page: name.value })
+		: t("dms_ai.panel.empty.title");
+});
 const suggestions = computed(() =>
-	pageSuggestions(props.page).map((suggestion) => ({
-		...suggestion,
-		text: t(suggestion.textKey, { page: name.value }),
-	})),
+	pageSuggestions(props.page)
+		.filter((suggestion) => !isAnalyst.value || suggestion.isReadOnly)
+		.map((suggestion) => ({
+			...suggestion,
+			text: t(suggestion.textKey, { page: name.value }),
+		})),
 );
 </script>
 
@@ -33,13 +46,15 @@ const suggestions = computed(() =>
 			<UIcon name="i-ph-sparkle" />
 		</span>
 		<h3>
-			{{
-				name
-					? t("dms_ai.panel.empty.title_page", { page: name })
-					: t("dms_ai.panel.empty.title")
-			}}
+			{{ title }}
 		</h3>
-		<p>{{ t(`dms_ai.panel.empty.text_${scope}`) }}</p>
+		<p>
+			{{
+				isAnalyst
+					? t("dms_ai.panel.empty.text_analyst")
+					: t(`dms_ai.panel.empty.text_${scope}`)
+			}}
+		</p>
 		<div class="cb-suggest">
 			<button
 				v-for="suggestion in suggestions"
@@ -50,7 +65,7 @@ const suggestions = computed(() =>
 				<UIcon :name="suggestion.icon" class="cb-suggest__icon" />
 				<span class="cb-suggest__text">{{ suggestion.text }}</span>
 				<UBadge
-					v-if="suggestion.isReadOnly"
+					v-if="suggestion.isReadOnly && !isAnalyst"
 					size="sm"
 					color="neutral"
 					variant="subtle"

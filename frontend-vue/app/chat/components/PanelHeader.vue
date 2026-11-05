@@ -14,6 +14,11 @@ interface Props {
 	/** "Working · 0:14 · Claude Code". */
 	statusLabel: string;
 	rules: ActiveRule[];
+	/**
+	 * The user may run the Builder: its rules and the owner's pages (changes,
+	 * activity, settings) are offered.
+	 */
+	hasBuilder: boolean;
 }
 
 interface Emits {
@@ -117,7 +122,11 @@ const moreItems = computed(() => [
 				:title="t('dms_ai.panel.header.new_chat')"
 				@click="emit('newChat')"
 			/>
-			<UDropdownMenu :items="moreItems" :content="{ align: 'end' }">
+			<UDropdownMenu
+				v-if="hasBuilder"
+				:items="moreItems"
+				:content="{ align: 'end' }"
+			>
 				<UButton
 					size="sm"
 					color="neutral"

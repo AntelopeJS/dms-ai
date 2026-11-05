@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 import {
   APP_SERVER_COMMAND,
+  DEBUG_COMMAND,
+  DEBUG_MODELS_COMMAND,
   DEFAULT_VERSION,
+  MODEL_CATALOG,
   SCRIPT_ENV_VAR,
   VERSION_ARGUMENT,
   VERSION_ENV_VAR,
@@ -31,8 +34,17 @@ function startAppServer() {
   runAppServer(loadDump(spec), process.stdin, process.stdout);
 }
 
+function printModels() {
+  if (process.argv[3] !== DEBUG_MODELS_COMMAND) {
+    process.stderr.write(`mock-codex: unsupported debug ${process.argv[3]}\n`);
+    process.exit(UNKNOWN_COMMAND_EXIT);
+  }
+  process.stdout.write(`${JSON.stringify(MODEL_CATALOG)}\n`);
+}
+
 const COMMANDS = new Map([
   [VERSION_ARGUMENT, printVersion],
+  [DEBUG_COMMAND, printModels],
   [APP_SERVER_COMMAND, startAppServer],
 ]);
 

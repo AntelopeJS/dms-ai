@@ -1,3 +1,4 @@
+import { ANALYST_TOOL_NAMES } from "./analyst.js";
 import { DATABASE_TOOL_NAMES } from "./database.js";
 import { BUILDER_TOOL_NAMES } from "./builder.js";
 import { QUERY_LOGS_TOOL_NAME } from "./logs.js";
@@ -88,6 +89,13 @@ export const FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES: ReadonlySet<string> = new Set(
     ...DATABASE_TOOL_NAMES,
     ...BUILDER_TOOL_NAMES,
   ].map((name) => `${MCP_TOOL_NAME_PREFIX}${name}`),
+);
+
+/** The only tools an Analyst session may call: its data tools and AskUser. */
+export const ANALYST_ALLOWED_TOOL_NAMES: ReadonlySet<string> = new Set(
+  [...ANALYST_TOOL_NAMES, ASK_USER_TOOL_NAME].map(
+    (name) => `${MCP_TOOL_NAME_PREFIX}${name}`,
+  ),
 );
 
 export const MCP_HTTP_PATH = "/mcp";

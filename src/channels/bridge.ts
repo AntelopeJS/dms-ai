@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import WebSocket, { type RawData } from "ws";
 import { z } from "zod";
 import { BRIDGE_CLOSE_CODE, CHANNEL_EVENTS } from "../constants/channels";
+import { revokeGrant } from "../assistant/grants";
+import type { AssistantMode } from "../constants/assistant";
 import type { SseStream } from "./sse-stream";
 
 const EMPTY_PAYLOAD = "{}";
@@ -18,6 +20,12 @@ export interface ChannelActor {
   userId: string;
   /** Display name stamped on what the user asks for and undoes. */
   name: string;
+  tenantId: string;
+  isOwner: boolean;
+  /** The assistant modes this user may run. */
+  modes: AssistantMode[];
+  /** The data grant Analyst reads as this user with, revoked with the bridge. */
+  grant: string;
 }
 
 const TypedFrameSchema = z.object({ type: z.unknown() });
@@ -72,6 +80,10 @@ function actorFrame(actor: ChannelActor): string {
     type: ACTOR_FRAME_TYPE,
     userId: actor.userId,
     name: actor.name,
+    tenantId: actor.tenantId,
+    isOwner: actor.isOwner,
+    modes: actor.modes,
+    grant: actor.grant,
   });
 }
 
@@ -111,6 +123,7 @@ export function openBridge(options: BridgeOptions): ChannelBridge {
   function teardown(): void {
     if (!isOpen) return;
     isOpen = false;
+    revokeGrant(options.actor.grant);
     stream.close();
     socket.close(BRIDGE_CLOSE_CODE);
     options.onClosed(bridge);

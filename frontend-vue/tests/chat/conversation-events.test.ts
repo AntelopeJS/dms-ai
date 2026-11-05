@@ -132,6 +132,7 @@ describe("the conversation folds the redesign's events", () => {
 		b.receive({ type: "usage", totalTokens: 9_600 });
 		b.receive({
 			type: "conversation_mode",
+			assistant: "analyst",
 			mode: "plan",
 			generationMode: "vibe",
 		});
@@ -141,6 +142,7 @@ describe("the conversation folds the redesign's events", () => {
 		});
 		expect(conversation.totalTokens.value).toBe(9_600);
 		expect(conversation.mode.value).toEqual({
+			assistant: "analyst",
 			mode: "plan",
 			generationMode: "vibe",
 		});

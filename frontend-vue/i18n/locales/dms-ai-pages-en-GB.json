@@ -2,7 +2,11 @@
 	"dms_ai": {
 		"module": {
 			"title": "Assistant",
-			"description": "The AI assistant: what it did, what you can undo, its skills and its settings"
+			"description": "The AI assistant: what it did, what you can undo, its skills and its settings",
+			"permission": {
+				"title": "Use the AI assistant",
+				"description": "Chat with the assistant in Analyst mode, which reads data only through the tables this role can list"
+			}
 		},
 		"pages": {
 			"overview": {

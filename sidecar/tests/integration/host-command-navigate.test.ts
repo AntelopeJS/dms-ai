@@ -67,10 +67,12 @@ async function startTestServer(): Promise<ServerHandle> {
     logsClient: { getLogs: async () => [] },
     builderClient: { call: async () => null },
     databaseClient: { get: async () => [], post: async () => ({}) },
+    analystClient: { get: async () => ({}) },
     builderEnabled: false,
     navigationCompleter,
   };
   const ws = attachWsServer(server, {
+    isDevelopment: true,
     providerRuntime: {
       stateDir: join(tmpdir(), "dms-ai-ws-stub"),
       mcpHttpRegistry: createMcpHttpRegistry(),

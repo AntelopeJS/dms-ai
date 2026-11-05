@@ -16,6 +16,8 @@ export interface ChatSocketRegistry {
   send: (conversationId: string, event: AnyServerEventType) => void;
   /** Every chat socket, attached to a conversation or not. */
   broadcast: (event: AnyServerEventType) => void;
+  /** Runs `act` for every chat socket; a socket that throws is skipped. */
+  forEachChat: (act: (socket: SocketSender) => void) => void;
   has: (conversationId: string) => boolean;
   /** The socket that most recently opened the conversation, else one following it. */
   socketOf: (conversationId: string) => SocketSender | undefined;
@@ -111,6 +113,16 @@ export function createChatSocketRegistry(): ChatSocketRegistry {
     },
     broadcast: (event) => {
       for (const socket of state.chats) trySend(socket, event);
+    },
+    forEachChat: (act) => {
+      for (const socket of state.chats) {
+        try {
+          act(socket);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.warn(`${WS_LOG_PREFIX} sendToChat failed: ${message}`);
+        }
+      }
     },
     has: (conversationId) => state.byConversation.has(conversationId),
     socketOf: (conversationId) =>
