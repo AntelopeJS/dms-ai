@@ -62,10 +62,30 @@ describe("the assistant's registrations in the dashboard", () => {
 		});
 		expect(panel.minWidth).toBeLessThan(panel.defaultWidth);
 		expect(panel.defaultWidth).toBeLessThan(panel.maxWidth);
-		const launcher = launcherAction(t);
+		const launcher = launcherAction(t, "connected");
 		expect(launcher.sidePanelId).toBe(panel.id);
 		expect(launcher).not.toHaveProperty("onSelect");
 		expect(launcher).not.toHaveProperty("isActive");
+	});
+
+	it("draws the launcher with its icon component, keeping the sparkle for a DMS without one, and names the state in its label", () => {
+		const { t } = createTestI18n();
+		const connected = launcherAction(t, "connected");
+		expect(connected).toMatchObject({
+			icon: "i-ph-sparkle",
+			iconComponent: "DmsAiLauncherIcon",
+		});
+		expect(connected.label).toMatch(/^Assistant \(.+K\)$/);
+		const labels = (
+			["disconnected", "working", "finished", "question"] as const
+		).map((state) => launcherAction(t, state).label);
+		expect(labels).toEqual([
+			expect.stringMatching(/^Assistant · Disconnected \(.+K\)$/),
+			expect.stringMatching(/^Assistant · Working \(.+K\)$/),
+			expect.stringMatching(/^Assistant · Finished \(.+K\)$/),
+			expect.stringMatching(/^Assistant · Waiting for you \(.+K\)$/),
+		]);
+		expect(new Set(labels).size).toBe(labels.length);
 	});
 
 	it("offers the palette prompts that fit the page on screen", () => {

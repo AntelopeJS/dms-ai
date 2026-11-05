@@ -27,6 +27,12 @@
 		},
 		"panel": {
 			"launcher": "Assistant",
+			"launcher_state": {
+				"disconnected": "Déconnecté",
+				"working": "Au travail",
+				"finished": "Terminé",
+				"question": "Vous attend"
+			},
 			"assistant": "Assistant",
 			"new_conversation": "Nouvelle conversation",
 			"copy_answer": "Copier la réponse",

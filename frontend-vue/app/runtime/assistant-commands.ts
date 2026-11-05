@@ -14,6 +14,7 @@ import {
 	COMMAND_PALETTE_SOURCE_ID,
 	LAUNCHER_ACTION_ID,
 	LAUNCHER_ICON,
+	LAUNCHER_ICON_COMPONENT_NAME,
 	LAUNCHER_LABEL_KEY,
 	LAUNCHER_ORDER,
 	PALETTE_ANSWER_COMPONENT_NAME,
@@ -26,6 +27,7 @@ import {
 	SIDE_PANEL_ID,
 	TOGGLE_SHORTCUT_KEY,
 } from "./constants";
+import type { LauncherState } from "./launcher-state";
 
 /** The panel, in the shape `registerSidePanel` takes. */
 export interface AssistantSidePanel {
@@ -41,6 +43,8 @@ export interface AssistantSidePanel {
 export interface LauncherAction {
 	id: string;
 	icon: string;
+	/** Drawn in place of `icon` by a DMS that knows the field. */
+	iconComponent: string;
 	label: string;
 	order: number;
 	sidePanelId: string;
@@ -104,15 +108,35 @@ export function assistantSidePanel(): AssistantSidePanel {
 	};
 }
 
+/** What each state adds to the launcher's label; a connected assistant adds nothing. */
+const LAUNCHER_STATE_LABEL_KEYS: Record<LauncherState, string | null> = {
+	disconnected: "dms_ai.panel.launcher_state.disconnected",
+	connected: null,
+	working: "dms_ai.panel.launcher_state.working",
+	finished: "dms_ai.panel.launcher_state.finished",
+	question: "dms_ai.panel.launcher_state.question",
+};
+
 /**
- * "Assistant (⌘⇧K)": the launcher's label with its shortcut. The DMS toggles
- * the panel from it and draws it engaged while the panel is open.
+ * "Assistant · Working (⌘⇧K)": the launcher's label with the assistant's state
+ * and its shortcut. The label names the button, so it carries the state the
+ * icon only draws. The DMS toggles the panel from it and draws it engaged
+ * while the panel is open.
  */
-export function launcherAction(t: Translate): LauncherAction {
+export function launcherAction(
+	t: Translate,
+	state: LauncherState,
+): LauncherAction {
+	const stateKey = LAUNCHER_STATE_LABEL_KEYS[state];
+	const name =
+		stateKey === null
+			? t(LAUNCHER_LABEL_KEY)
+			: `${t(LAUNCHER_LABEL_KEY)} · ${t(stateKey)}`;
 	return {
 		id: LAUNCHER_ACTION_ID,
 		icon: LAUNCHER_ICON,
-		label: `${t(LAUNCHER_LABEL_KEY)} (${shortcutLabel(TOGGLE_SHORTCUT_KEY, true)})`,
+		iconComponent: LAUNCHER_ICON_COMPONENT_NAME,
+		label: `${name} (${shortcutLabel(TOGGLE_SHORTCUT_KEY, true)})`,
 		order: LAUNCHER_ORDER,
 		sidePanelId: SIDE_PANEL_ID,
 	};

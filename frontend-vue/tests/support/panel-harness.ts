@@ -20,6 +20,7 @@ import {
 	type ChatTransportHub,
 	createChatTransport,
 } from "../../app/runtime/chat-transport";
+import type { LauncherState } from "../../app/runtime/launcher-state";
 import { createPanelIntents } from "../../app/runtime/panel-intents";
 import { CHAT_I18N_KEY } from "../../app/chat/composables/useChatI18n";
 import { createTestI18n } from "./i18n";
@@ -39,6 +40,8 @@ export interface Harness {
 	navigate: Mock<(path: string) => void>;
 	restart: Mock<() => Promise<void>>;
 	lastError: Ref<string | null>;
+	/** The state the session reports for the header launcher. */
+	launcherState: Ref<LauncherState>;
 	api: AssistantSession["api"];
 	/** How many holds keep the tab's stream open. */
 	streamHolds: number;
@@ -73,6 +76,7 @@ export function createHarness(): Harness {
 		navigate: vi.fn(),
 		restart: vi.fn(async () => undefined),
 		lastError: ref<string | null>(null),
+		launcherState: ref<LauncherState>("connected"),
 		api: { get: vi.fn(async () => ({ conflicts: [] })), post: vi.fn() },
 	} as unknown as Harness;
 	harness.hub = createChatTransport({
@@ -113,6 +117,7 @@ export function createHarness(): Harness {
 			};
 		},
 		pendingApprovals: ref(0),
+		launcherState: readonly(harness.launcherState),
 		intents,
 		currentPage: ref({
 			path: "/sales/overview",
