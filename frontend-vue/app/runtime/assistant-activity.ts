@@ -1,11 +1,12 @@
 import { computed, type ComputedRef, type Ref, ref, watch } from "vue";
 import type { ChatTransport } from "./chat-transport";
-import { STATUS_POLL_MS } from "./constants";
+import { CHANNEL_STATUS_CONNECTED, STATUS_POLL_MS } from "./constants";
 import { isTypedMessage } from "./typed-message";
 
 /** The backend's `/ai/status`, as far as the tab reads it. */
 export interface AssistantStatusPayload {
 	pendingApprovals?: number;
+	pendingQuestions?: number;
 	workingConversations?: number;
 	lastError?: string;
 }
@@ -13,6 +14,13 @@ export interface AssistantStatusPayload {
 interface ConversationListItem {
 	isRunning?: boolean;
 	pendingApprovals?: number;
+	pendingQuestions?: number;
+}
+
+interface ActivityCounts {
+	pendingApprovals: number;
+	pendingQuestions: number;
+	workingConversations: number;
 }
 
 interface ConversationListFrame {
@@ -25,6 +33,8 @@ const CONVERSATION_LIST_TYPE = "conversation_list";
 export interface AssistantActivity {
 	/** Requests waiting for an answer, across every chat. */
 	pendingApprovals: Readonly<Ref<number>>;
+	/** Questions the assistant asked and the user has not answered, across every chat. */
+	pendingQuestions: Readonly<Ref<number>>;
 	/** Chats running a turn now. */
 	workingConversations: Readonly<Ref<number>>;
 	/** A chat works or waits: the stream is worth keeping while the tab shows. */
@@ -38,6 +48,10 @@ export interface AssistantActivity {
 /** The read of the backend's status: `useApiData`, polled every `interval`. */
 export interface AssistantStatusRead {
 	data: Readonly<Ref<AssistantStatusPayload | null>>;
+	/**
+	 * Reads again now and drops the answer of a request still in flight. A
+	 * failed read keeps `data` as it was and may resolve or reject.
+	 */
 	refresh: () => Promise<void>;
 }
 
@@ -71,45 +85,90 @@ function sum(
  * What the tab knows of the assistant's work across chats, from the backend's
  * status (polled while the panel is closed or its stream down: the polling
  * follows `shouldPoll`) and from the conversation lists the sidecar
- * broadcasts while the stream is open.
+ * broadcasts while the stream is open. Once a list arrives on a connection,
+ * the lists own the counts until that connection ends: the sidecar sends one
+ * on every change, and a status answer may predate the last one. Past that
+ * end, a status answer counts only once the read asked again at that moment
+ * has answered: one sent earlier may predate the last list. The status
+ * still gives `lastError`.
  */
 export function createAssistantActivity(
 	options: AssistantActivityOptions,
 ): AssistantActivity {
 	const pendingApprovals = ref(0);
+	const pendingQuestions = ref(0);
 	const workingConversations = ref(0);
 	const lastError = ref<string | null>(null);
+	const setCounts = (counts: ActivityCounts): void => {
+		pendingApprovals.value = counts.pendingApprovals;
+		pendingQuestions.value = counts.pendingQuestions;
+		workingConversations.value = counts.workingConversations;
+	};
+	let doListsOwnCounts = false;
+	let freshRead: { staleAnswer: AssistantStatusPayload | null } | null = null;
 
 	const isStopped = ref(false);
 	const status = options.readStatus(() =>
 		!isStopped.value && options.shouldPoll() ? STATUS_POLL_MS : 0,
 	);
+	const setCountsFromStatus = (payload: AssistantStatusPayload): void => {
+		setCounts({
+			pendingApprovals: payload.pendingApprovals ?? 0,
+			pendingQuestions: payload.pendingQuestions ?? 0,
+			workingConversations: payload.workingConversations ?? 0,
+		});
+	};
 	// A failed read keeps the last answer: the counts stay as they were.
 	const stopFollowing = watch(
 		status.data,
 		(payload) => {
 			if (!payload) return;
-			pendingApprovals.value = payload.pendingApprovals ?? 0;
-			workingConversations.value = payload.workingConversations ?? 0;
 			lastError.value = payload.lastError ?? null;
+			if (doListsOwnCounts || freshRead) return;
+			setCountsFromStatus(payload);
 		},
 		{ immediate: true },
 	);
+	const releaseLists = (): void => {
+		if (!doListsOwnCounts) return;
+		doListsOwnCounts = false;
+		const read = { staleAnswer: status.data.value };
+		freshRead = read;
+		const settle = (): void => {
+			if (freshRead !== read) return;
+			freshRead = null;
+			const payload = status.data.value;
+			if (payload && payload !== read.staleAnswer && !doListsOwnCounts)
+				setCountsFromStatus(payload);
+		};
+		void status.refresh().then(settle, settle);
+	};
 
 	const stopListening = options.chat.onMessage((msg) => {
 		if (!isListFrame(msg)) return;
 		const items = msg.conversations ?? [];
-		pendingApprovals.value = sum(items, (item) => item.pendingApprovals ?? 0);
-		workingConversations.value = sum(items, (item) =>
-			item.isRunning === true ? 1 : 0,
-		);
+		doListsOwnCounts = true;
+		setCounts({
+			pendingApprovals: sum(items, (item) => item.pendingApprovals ?? 0),
+			pendingQuestions: sum(items, (item) => item.pendingQuestions ?? 0),
+			workingConversations: sum(items, (item) =>
+				item.isRunning === true ? 1 : 0,
+			),
+		});
+	});
+	const stopWatchingStream = options.chat.onStatus((next) => {
+		if (next !== CHANNEL_STATUS_CONNECTED) releaseLists();
 	});
 
 	return {
 		pendingApprovals,
+		pendingQuestions,
 		workingConversations,
 		isBusy: computed(
-			() => pendingApprovals.value > 0 || workingConversations.value > 0,
+			() =>
+				pendingApprovals.value > 0 ||
+				pendingQuestions.value > 0 ||
+				workingConversations.value > 0,
 		),
 		lastError,
 		refresh: () => status.refresh(),
@@ -117,6 +176,7 @@ export function createAssistantActivity(
 			isStopped.value = true;
 			stopFollowing();
 			stopListening();
+			stopWatchingStream();
 		},
 	};
 }

@@ -16,6 +16,8 @@ export interface ChatSocketRegistry {
   send: (conversationId: string, event: AnyServerEventType) => void;
   /** Every chat socket, attached to a conversation or not. */
   broadcast: (event: AnyServerEventType) => void;
+  /** Whether `broadcast` reaches the socket. */
+  isChat: (socket: SocketSender) => boolean;
   has: (conversationId: string) => boolean;
   /** The socket that most recently opened the conversation, else one following it. */
   socketOf: (conversationId: string) => SocketSender | undefined;
@@ -112,6 +114,7 @@ export function createChatSocketRegistry(): ChatSocketRegistry {
     broadcast: (event) => {
       for (const socket of state.chats) trySend(socket, event);
     },
+    isChat: (socket) => state.chats.has(socket),
     has: (conversationId) => state.byConversation.has(conversationId),
     socketOf: (conversationId) =>
       [...(state.byConversation.get(conversationId) ?? [])].at(-1) ??

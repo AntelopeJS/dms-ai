@@ -68,6 +68,10 @@ import {
 	createHostCommandDispatcher,
 	type HostCommandDispatcher,
 } from "../runtime/host-commands";
+import {
+	createLauncherState,
+	type LauncherStateHandle,
+} from "../runtime/launcher-state";
 import { installNavigationCompleteEmitter } from "../runtime/navigation-complete";
 import { createPanelIntents } from "../runtime/panel-intents";
 import { runWhenLoggedIn } from "../runtime/session-gate";
@@ -253,6 +257,7 @@ interface SessionParts {
 	holds: StreamHolds;
 	status: Readonly<Ref<SidecarStatus>>;
 	activity: AssistantActivity;
+	launcher: LauncherStateHandle;
 	currentPage: Ref<CurrentPage | null>;
 }
 
@@ -274,6 +279,7 @@ function createSession(parts: SessionParts): AssistantSession {
 		},
 		holdStream: parts.holds.hold,
 		pendingApprovals: activity.pendingApprovals,
+		launcherState: parts.launcher.state,
 		intents,
 		currentPage: readonly(parts.currentPage),
 		api: createApi(deps.$authFetch),
@@ -293,9 +299,13 @@ function registerDashboardEntries(
 	session: AssistantSession,
 	i18n: ChatI18n,
 ): () => void {
-	const register = (): void => registerHeaderAction(launcherAction(i18n.t));
+	const register = (): void =>
+		registerHeaderAction(launcherAction(i18n.t, session.launcherState.value));
 	register();
-	const stopWatchingLocale = watch(i18n.locale, register);
+	const stopWatchingLauncher = watch(
+		[i18n.locale, session.launcherState],
+		register,
+	);
 	registerCommandPaletteSource(
 		paletteSource(i18n.t, session.pendingApprovals, {
 			ask: () => {
@@ -313,7 +323,7 @@ function registerDashboardEntries(
 	registerCommandPaletteAssistant(
 		paletteAssistant(i18n.t, session.currentPage),
 	);
-	return stopWatchingLocale;
+	return stopWatchingLauncher;
 }
 
 function installToasts(
@@ -412,6 +422,16 @@ function createRuntime(
 			!panel.isOpen.value ||
 			sidecarStatus.status.value !== SIDECAR_STATUS_CONNECTED,
 	});
+	const launcher = createLauncherState({
+		isConnected: computed(
+			() => sidecarStatus.status.value === SIDECAR_STATUS_CONNECTED,
+		),
+		working: activity.workingConversations,
+		waiting: computed(
+			() => activity.pendingApprovals.value + activity.pendingQuestions.value,
+		),
+		isPanelOpen: panel.isOpen,
+	});
 	const currentPage = ref<CurrentPage | null>(null);
 	const session = createSession({
 		deps,
@@ -421,6 +441,7 @@ function createRuntime(
 		holds,
 		status: sidecarStatus.status,
 		activity,
+		launcher,
 		currentPage,
 	});
 	const stops = [
@@ -429,6 +450,7 @@ function createRuntime(
 		installHostState(client, currentPage),
 		sidecarStatus.stop,
 		activity.stop,
+		launcher.stop,
 		controller.dispose,
 		client.stop,
 	];

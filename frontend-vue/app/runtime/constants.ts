@@ -67,7 +67,17 @@ export const LAUNCHER_ACTION_ID = "dms-ai-launcher";
  * renderer's icon bundle.
  */
 export const LAUNCHER_ICON = "i-ph-sparkle";
+/**
+ * The component the header button draws in place of `icon` on a DMS that
+ * knows `iconComponent`: the sparkle with the assistant's state.
+ */
+export const LAUNCHER_ICON_COMPONENT_NAME = "DmsAiLauncherIcon";
 export const LAUNCHER_ORDER = 50;
+/**
+ * How long a finished turn stays marked when the panel was already open to
+ * see it end; with the panel closed the mark waits for it to open.
+ */
+export const LAUNCHER_FINISHED_HOLD_MS = 4_000;
 export const LAUNCHER_LABEL_KEY = "dms_ai.panel.launcher";
 /** The panel landmark's name, as an i18n key the DMS resolves. */
 export const PANEL_ARIA_LABEL = `$${LAUNCHER_LABEL_KEY}`;

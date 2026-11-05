@@ -131,7 +131,10 @@ function sendSnapshotIfKnown(
   ctx: ConnectionContext,
   msg: ClientHelloMsgType,
 ): void {
-  if (msg.role !== ROLE.CHAT) return;
+  if (msg.role === ROLE.HOST) {
+    send(socket, buildConversationListEvent(ctx));
+    return;
+  }
   send(socket, buildSettingsUpdateEvent(ctx));
   if (msg.conversationId === undefined) return;
   sendConversationState(socket, ctx, msg.conversationId);

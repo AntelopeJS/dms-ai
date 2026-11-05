@@ -2,6 +2,7 @@ import type { InjectionKey, Ref, ShallowRef } from "vue";
 import type { ChatApi } from "../chat/composables/useChangeSetActions";
 import type { CurrentPage } from "../chat/types/conversation";
 import type { ChatTransport } from "./chat-transport";
+import type { LauncherState } from "./launcher-state";
 import type { PanelIntents } from "./panel-intents";
 import type { SidecarStatus } from "./sidecar-status";
 
@@ -50,6 +51,8 @@ export interface AssistantSession {
 	holdStream: () => () => void;
 	/** Requests waiting for an answer, across every chat. */
 	pendingApprovals: Readonly<Ref<number>>;
+	/** What the header launcher shows of the assistant. */
+	launcherState: Readonly<Ref<LauncherState>>;
 	/** What the panel was asked to do and has not done yet. */
 	intents: PanelIntents;
 	/** The page the dashboard shows. */

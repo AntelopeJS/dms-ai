@@ -67,6 +67,22 @@ describe("a socket following a conversation next to the one it shows", () => {
     expect(tab.send).toHaveBeenCalledOnce();
   });
 
+  it("names the sockets a broadcast reaches, attached or not, until they close (fails an isChat that reads only attached sockets)", () => {
+    const chats = createChatSocketRegistry();
+    const attached = buildTab();
+    const unattached = buildTab();
+    const stranger = buildTab();
+    chats.set(PANEL_CONVERSATION, attached.socket);
+    chats.addChat(unattached.socket);
+    expect([
+      chats.isChat(attached.socket),
+      chats.isChat(unattached.socket),
+      chats.isChat(stranger.socket),
+    ]).toEqual([true, true, false]);
+    chats.clear(unattached.socket);
+    expect(chats.isChat(unattached.socket)).toBe(false);
+  });
+
   it("stops following once the socket closes", () => {
     const chats = createChatSocketRegistry();
     const tab = buildTab();
