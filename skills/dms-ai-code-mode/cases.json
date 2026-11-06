@@ -9,7 +9,7 @@
       "expect": {
         "skills": ["dms-ai-code-mode"],
         "acceptable": ["dms-ai", "dms-pages", "dms-best-practices"],
-        "mustMention": ["FindPagesUsing", "NavigateToPage", "Typecheck"]
+        "mustMention": ["find_pages_using", "navigate_to_page", "typecheck"]
       }
     },
     {
@@ -20,14 +20,14 @@
       "expect": {
         "skills": ["dms-ai-code-mode"],
         "acceptable": ["dms-ai", "dms-pages", "dms"],
-        "mustMention": ["QueryLogs"]
+        "mustMention": ["query_logs"]
       }
     },
     {
       "id": "dms-ai-code-mode-not-safe-builder",
       "area": "dms-ai",
       "style": "clean",
-      "prompt": "We are in safe mode. Create a Reports page under the pages.reports category with BuilderCreatePage, then add a TableView on the orders resource.",
+      "prompt": "We are in safe mode. Create a Reports page under the pages.reports category with builder_create_page, then add a TableView on the orders resource.",
       "expect": {
         "skills": ["dms-builder-safe"],
         "acceptable": ["dms-pages", "dms-best-practices"],

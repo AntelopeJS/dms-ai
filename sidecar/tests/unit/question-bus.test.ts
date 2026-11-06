@@ -95,7 +95,7 @@ describe("question bus", () => {
     expect(bus.getPendingForConversation(CONVERSATION_ID)).toHaveLength(0);
   });
 
-  it("expires the question of an AskUser call that already ended", async () => {
+  it("expires the question of an ask_user call that already ended", async () => {
     const expired: string[] = [];
     const bus = createQuestionBus({
       onPromptChat: () => {},

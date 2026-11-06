@@ -84,8 +84,8 @@ export const journeys = guarded([
       const denied = await log(ctx, "?filter_category=is:denied");
       const failed = await log(ctx, "?filter_category=is:failed");
       await ctx.verify("the tabs", [
-        same("Changed files: the writes and Builder operations that succeeded", [changed.total, sorted(changed.tools)], [6, ["BuilderAddBlock", "BuilderAddBlock", "BuilderDeletePage", "Edit", "Edit", "Write"]]),
-        same("Asked you: every call that needed an approval, whatever the answer", [asked.total, sorted(asked.tools)], [8, ["Bash", "Bash", "Bash", "BuilderDeletePage", "Edit", "Edit", "Edit", "Write"]]),
+        same("Changed files: the writes and Builder operations that succeeded", [changed.total, sorted(changed.tools)], [6, ["Edit", "Edit", "Write", "builder_add_block", "builder_add_block", "builder_delete_page"]]),
+        same("Asked you: every call that needed an approval, whatever the answer", [asked.total, sorted(asked.tools)], [8, ["Bash", "Bash", "Bash", "Edit", "Edit", "Edit", "Write", "builder_delete_page"]]),
         same("Denied or blocked: denied, blocked and expired", [denied.total, sorted(denied.tools), sorted(denied.rows.map((row) => text(row, "allowedBy")))], [4, ["Bash", "Bash", "Edit", "Edit"], ["blocked", "denied", "denied", "expired"]]),
         same("Failed", [failed.total, failed.tools, text(failed.rows[0], "target")], [1, ["Bash"], "pnpm lint"]),
       ]);
@@ -106,7 +106,7 @@ export const journeys = guarded([
         same("over a path", (await log(ctx, "?search=notes/b")).total, 3),
         same("a word nothing holds", (await log(ctx, "?search=zzzz")).total, 0),
       ]);
-      const deletion = all.rows.find((row) => text(row, "tool") === "BuilderDeletePage");
+      const deletion = all.rows.find((row) => text(row, "tool") === "builder_delete_page");
       const command = all.rows.find((row) => text(row, "target") === "rm -rf dist");
       await ctx.verify("a deletion's target", [
         same("is the page, in the error tone", [text(deletion, "target"), pick(deletion, "actionDetail", "text"), pick(deletion, "actionDetail", "tone")], ["/orders", "/orders", "error"]),

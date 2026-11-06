@@ -14,7 +14,7 @@ export const RELOAD_ERROR_CHANNELS: readonly string[] = [
 
 export const HOST_LOG_SETTLE_MS = 1_500;
 
-export const QUERY_LOGS_TOOL_NAME = "QueryLogs";
+export const QUERY_LOGS_TOOL_NAME = "query_logs";
 export const QUERY_LOGS_TOOL_DESCRIPTION =
   "Queries the host's recent log entries (all modules/levels) so you can see the host's ACTUAL hot-reload / build outcome and runtime errors — things a local type check can't catch. Optional filters: `sinceMs` (epoch ms), `level` (numeric: 40=error, 30=warn), `channel`, `limit`. Returns the matching entries newest-first as JSON.";
 export const QUERY_LOGS_EMPTY_MESSAGE =

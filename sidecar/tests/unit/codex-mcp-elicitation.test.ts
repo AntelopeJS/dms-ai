@@ -86,25 +86,25 @@ function elicitation(params: Record<string, JsonValue>) {
 const PAGE_CALL = {
   id: "call_page",
   server: DMS_AI_SERVER,
-  tool: "GetCurrentPage",
+  tool: "get_current_page",
   arguments: {},
 };
 const DELETE_CALL = {
   id: "call_delete",
   server: DMS_AI_SERVER,
-  tool: "BuilderDeletePage",
+  tool: "builder_delete_page",
   arguments: { pageRef: "/about" },
 };
 const CREATE_CALL = {
   id: "call_create",
   server: DMS_AI_SERVER,
-  tool: "BuilderCreatePage",
+  tool: "builder_create_page",
   arguments: { route: "/new" },
 };
 const OTHER_CALL = {
   id: "call_other",
   server: OTHER_SERVER,
-  tool: "BuilderDeletePage",
+  tool: "builder_delete_page",
   arguments: { pageRef: "/about" },
 };
 
@@ -121,13 +121,15 @@ describe("a dms-ai tool's call consent", () => {
       const settings = { ...TURN_SETTINGS, ...cell };
       const { handler, decisions } = setup(settings, [PAGE_CALL, CREATE_CALL]);
       expect(
-        await handler.handle(toolConsent(DMS_AI_SERVER, "GetCurrentPage", {})),
+        await handler.handle(
+          toolConsent(DMS_AI_SERVER, "get_current_page", {}),
+        ),
       ).toEqual(ACCEPTED);
       expect(
         await handler.handle(
           toolConsent(
             DMS_AI_SERVER,
-            "BuilderCreatePage",
+            "builder_create_page",
             CREATE_CALL.arguments,
           ),
         ),
@@ -135,12 +137,12 @@ describe("a dms-ai tool's call consent", () => {
       expect(decisions).toEqual([
         {
           callId: "call_page",
-          toolName: "mcp__dms-ai__GetCurrentPage",
+          toolName: "mcp__dms-ai__get_current_page",
           allowedBy: "read_auto",
         },
         {
           callId: "call_create",
-          toolName: "mcp__dms-ai__BuilderCreatePage",
+          toolName: "mcp__dms-ai__builder_create_page",
           allowedBy: "builder_auto",
         },
       ]);
@@ -153,7 +155,7 @@ describe("a dms-ai tool's call consent", () => {
     ]);
     const consent = toolConsent(
       DMS_AI_SERVER,
-      "BuilderDeletePage",
+      "builder_delete_page",
       DELETE_CALL.arguments,
     );
     expect(await handler.handle(consent)).toEqual(ACCEPTED);
@@ -161,7 +163,7 @@ describe("a dms-ai tool's call consent", () => {
     expect(decisions).toEqual([
       {
         callId: "call_delete",
-        toolName: "mcp__dms-ai__BuilderDeletePage",
+        toolName: "mcp__dms-ai__builder_delete_page",
         allowedBy: "builder_auto",
       },
     ]);
@@ -173,7 +175,7 @@ describe("a dms-ai tool's call consent", () => {
       PAGE_CALL,
     ]);
     await handler.handle(
-      toolConsent(DMS_AI_SERVER, "BuilderCreatePage", CREATE_CALL.arguments),
+      toolConsent(DMS_AI_SERVER, "builder_create_page", CREATE_CALL.arguments),
     );
     expect(decisions.map((decision) => decision.callId)).toEqual([
       "call_create",
@@ -186,14 +188,14 @@ describe("an elicitation the sidecar declines", () => {
     const { handler, decisions } = setup(TURN_SETTINGS, [OTHER_CALL]);
     const consent = toolConsent(
       OTHER_SERVER,
-      "BuilderDeletePage",
+      "builder_delete_page",
       OTHER_CALL.arguments,
     );
     expect(await handler.handle(consent)).toEqual(DECLINED);
     expect(decisions).toEqual([
       {
         callId: "call_other",
-        toolName: "mcp__other__BuilderDeletePage",
+        toolName: "mcp__other__builder_delete_page",
         allowedBy: "blocked",
       },
     ]);
@@ -203,7 +205,7 @@ describe("an elicitation the sidecar declines", () => {
     const { handler, decisions } = setup(TURN_SETTINGS, [PAGE_CALL]);
     handler.cancelPending();
     expect(
-      await handler.handle(toolConsent(DMS_AI_SERVER, "GetCurrentPage", {})),
+      await handler.handle(toolConsent(DMS_AI_SERVER, "get_current_page", {})),
     ).toEqual(DECLINED);
     expect(decisions).toEqual([]);
   });
@@ -211,7 +213,7 @@ describe("an elicitation the sidecar declines", () => {
   it("declines a consent no started call matches", async () => {
     const { handler } = setup(TURN_SETTINGS, []);
     expect(
-      await handler.handle(toolConsent(DMS_AI_SERVER, "GetCurrentPage", {})),
+      await handler.handle(toolConsent(DMS_AI_SERVER, "get_current_page", {})),
     ).toEqual(DECLINED);
   });
 

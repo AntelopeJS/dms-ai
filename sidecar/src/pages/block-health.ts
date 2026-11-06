@@ -8,7 +8,7 @@ export interface BlockRef {
 
 /**
  * What the dashboard's data blocks showed once the page stopped changing,
- * as the `NavigateToPage` result carries it.
+ * as the `navigate_to_page` result carries it.
  */
 export interface BlockHealth {
   checked: number;

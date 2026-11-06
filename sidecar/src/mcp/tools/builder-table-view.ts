@@ -9,12 +9,12 @@ import {
 } from "./builder-expr.js";
 
 const DESCRIPTION =
-  "Sets displays, named views and footer figures on a table page's TableView, checking every choice against the columns of the table first: a kanban needs a single-choice column, a sum a number or price column, a view's filters filterable columns and its sort sortable ones, the default display one the table offers. A key left out stays as the page has it; `null` removes it. A footer figure also mounts the controller's summary route. Nothing is written when a choice is refused or the page would not typecheck. Read the column names and types with BuilderResourceStructure first. For the page's title, icon, description and order use BuilderConfigurePage.";
+  "Sets displays, named views and footer figures on a table page's TableView, checking every choice against the columns of the table first: a kanban needs a single-choice column, a sum a number or price column, a view's filters filterable columns and its sort sortable ones, the default display one the table offers. A key left out stays as the page has it; `null` removes it. A footer figure also mounts the controller's summary route. Nothing is written when a choice is refused or the page would not typecheck. Read the column names and types with builder_resource_structure first. For the page's title, icon, description and order use builder_configure_page.";
 
 export function buildTableViewTools(run: BuilderRun) {
   return [
     defineTool(
-      "BuilderConfigureTableView",
+      "builder_configure_table_view",
       note(DESCRIPTION),
       {
         pageRef: z.string(),

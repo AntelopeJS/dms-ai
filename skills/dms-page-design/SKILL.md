@@ -105,13 +105,13 @@ never a title.
 - **Order**: the main analytics page first (`order: 0`), then the most used lists. Keep a
   table page's order at 100 or more unless it must sit among the dashboards.
 
-Set them with `BuilderCreatePage` on new pages, per resource in `BuilderMapResources`
-(`title`, `icon`, `description`, `order`), or with `BuilderConfigurePage` afterwards.
+Set them with `builder_create_page` on new pages, per resource in `builder_map_resources`
+(`title`, `icon`, `description`, `order`), or with `builder_configure_page` afterwards.
 
 ## Tables
 
 A table page is a working tool: the reader finds a row, sees its state, and acts. Read the
-relation's columns with `BuilderResourceStructure` (and the proposal's profiles when there
+relation's columns with `builder_resource_structure` (and the proposal's profiles when there
 is one), then give the table every feature its data supports, and none it does not. Each
 rule below names the shape that earns the feature; decide from the columns and their values,
 never from the relation's name.
@@ -126,7 +126,7 @@ red for failed or lost, grey for closed or neutral); free text (a subject, a not
 never shows badges, even when the sample repeats. A money column shows a price. A relation
 column (a `customer_id`, an `order_id`) is titled by its target ("Customer") and shows the
 target's label, never the raw number: map the target relation with a label first, then send
-the relation column as a relation. Raw id columns stay off the list. Send each field's `display` and the relation's `tabs` in `BuilderMapResources`.
+the relation column as a relation. Raw id columns stay off the list. Send each field's `display` and the relation's `tabs` in `builder_map_resources`.
 
 **Tabs.** A single-choice column with 2 to 6 values that splits the rows into states people
 work through (a status, a stage) gives one tab per value after "All". One tab column per table.
@@ -164,15 +164,15 @@ amount, rows waiting, a share of a status), put a `GridRow` of 3 or 4 `KpiCard`s
 "Awaiting shipment", "Refund rate"), with the series and `compare` rules above. A lookup list
 (a reference table, tags, settings) gets none.
 
-Set displays, views and footer per resource as `tableOptions` in `BuilderMapResources`, or on
-an existing page with `BuilderConfigureTableView`. A refused choice comes back as
+Set displays, views and footer per resource as `tableOptions` in `builder_map_resources`, or on
+an existing page with `builder_configure_table_view`. A refused choice comes back as
 `invalid_config` with the setting it names: fix that one and send again.
 
 ## Build a page in one call, and check it first
 
-Build every page, or every set of blocks added to a page, with one `BuilderComposePage` call:
+Build every page, or every set of blocks added to a page, with one `builder_compose_page` call:
 the blocks as an ordered tree (containers carry `children`), each data block with its `query`
-inline (same fields as `BuilderAddQuery`). It writes everything at once and typechecks once.
+inline (same fields as `builder_add_query`). It writes everything at once and typechecks once.
 Use the single-block tools only for a small fix afterwards.
 
 1. Call it first with `"preview": true` and the default period's `from` and `to` as `args`.
@@ -183,7 +183,7 @@ Use the single-block tools only for a small fix afterwards.
    fix those and call again; nothing was written.
 3. KPI cards above a table: `pageRef` of the table page, `placement: { "before": "table" }`,
    and the `GridRow` of `KpiCard`s as `blocks`. A later remap keeps them.
-4. After the last page, `NavigateToPage` once per page and fix any block it reports as empty
+4. After the last page, `navigate_to_page` once per page and fix any block it reports as empty
    or failed.
 5. Your report names every block that still shows no data, and why.
 

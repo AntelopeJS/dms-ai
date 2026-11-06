@@ -14,7 +14,7 @@ const CHANGE_SET_BASE = {
 const ROW = {
   id: "c-1:call-1",
   timestampMs: Date.UTC(2026, 9, 7, 14, 2),
-  tool: "BuilderAddBlock",
+  tool: "builder_add_block",
   target: "sales/overview",
   agent: "claude",
   allowedBy: "builder_auto",

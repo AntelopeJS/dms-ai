@@ -342,7 +342,7 @@ async function startCheckpoints(
 
 /**
  * Builds the WebSocket stack. The MCP deps passed to attachWsServer are the
- * static ones; the per-conversation server (and its conversation-bound AskUser
+ * static ones; the per-conversation server (and its conversation-bound ask_user
  * tool) is built inside attachWsServer.
  */
 function buildWsStack({

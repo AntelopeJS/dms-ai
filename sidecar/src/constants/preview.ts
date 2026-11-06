@@ -1,6 +1,6 @@
-export const PREVIEW_BLOCKS_TOOL_NAME = "PreviewBlocks";
+export const PREVIEW_BLOCKS_TOOL_NAME = "preview_blocks";
 export const PREVIEW_BLOCKS_TOOL_DESCRIPTION =
-  "Shows the user a live preview of DMS blocks as an attachment in the chat: a card they open to see the real blocks rendered, next to their own mockup when you pass it as `reference`, with one tab per variant. A view may carry a `sketch` instead of (or beside) its `tree`: static HTML and CSS of a custom component you propose, drawn in a sandbox and labelled as not a DMS block, so the user compares it with the DMS option before any code is written. Use it to settle a visual choice before building (DMS block as is versus custom, or between layouts), then ask the decision with AskUser. It returns at once with the preview id; it does not wait for the user and changes nothing in the project.";
+  "Shows the user a live preview of DMS blocks as an attachment in the chat: a card they open to see the real blocks rendered, next to their own mockup when you pass it as `reference`, with one tab per variant. A view may carry a `sketch` instead of (or beside) its `tree`: static HTML and CSS of a custom component you propose, drawn in a sandbox and labelled as not a DMS block, so the user compares it with the DMS option before any code is written. Use it to settle a visual choice before building (DMS block as is versus custom, or between layouts), then ask the decision with ask_user. It returns at once with the preview id; it does not wait for the user and changes nothing in the project.";
 
 /** Bounds of one preview, so a runaway tree cannot flood the transcript. */
 export const PREVIEW_MAX_DEPTH = 8;
@@ -62,9 +62,9 @@ export const PREVIEW_SKETCH_FORBIDDEN: ReadonlyArray<
 ];
 
 export const PREVIEW_RESULT_SHOWN =
-  "Preview shown to the user as an attachment. If it settles a choice, ask it now with AskUser.";
+  "Preview shown to the user as an attachment. If it settles a choice, ask it now with ask_user.";
 export const PREVIEW_ERROR_NO_TYPE =
-  "Every node needs a `type` (a block type from BuilderCatalog) or a `componentName`.";
+  "Every node needs a `type` (a block type from builder_catalog) or a `componentName`.";
 export const PREVIEW_ERROR_DEPTH = `The tree is nested deeper than ${PREVIEW_MAX_DEPTH} levels.`;
 export const PREVIEW_ERROR_NODES = `The preview has more than ${PREVIEW_MAX_NODES} nodes in all; show a smaller part of the page.`;
 export const PREVIEW_ERROR_BYTES = `The preview's trees and sketches are larger than ${PREVIEW_MAX_JSON_BYTES} bytes of JSON; show a smaller part of the page.`;

@@ -21,9 +21,9 @@ import type { ChatMode, GenerationMode } from "./settings-types.js";
  *   shown in the transcript as a notice rather than a user message.
  * - `change_set` is the change set a turn produced, by id; the summary travels
  *   separately.
- * - `question_answer` holds the answers given to an AskUser question, kept for
+ * - `question_answer` holds the answers given to an ask_user question, kept for
  *   the transcript.
- * - `block_preview` is a block preview the agent shared with PreviewBlocks,
+ * - `block_preview` is a block preview the agent shared with preview_blocks,
  *   drawn as an attachment.
  */
 const STORED_MESSAGE_ROLES = [

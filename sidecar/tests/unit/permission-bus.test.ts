@@ -15,8 +15,8 @@ const TEST_COMMAND = { command: "pnpm test --run" };
 const OTHER_TEST_COMMAND = { command: "pnpm test unit" };
 const LINT_COMMAND = { command: "pnpm lint" };
 const DEPENDENCY_COMMAND = { command: "pnpm add jsvat" };
-const DELETE_PAGE = "mcp__dms-ai__BuilderDeletePage";
-const REMOVE_BLOCK = "mcp__dms-ai__BuilderRemoveBlock";
+const DELETE_PAGE = "mcp__dms-ai__builder_delete_page";
+const REMOVE_BLOCK = "mcp__dms-ai__builder_remove_block";
 
 function request(
   args: Record<string, string>,
@@ -243,7 +243,7 @@ describe("permission bus", () => {
       request(
         { ref: "books" },
         CONVERSATION_ID,
-        "mcp__dms-ai__BuilderDeleteResource",
+        "mcp__dms-ai__builder_delete_resource",
       ),
     );
     const [prompt] = await t.waitForPrompts(1);

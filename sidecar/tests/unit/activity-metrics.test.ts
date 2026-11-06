@@ -105,7 +105,7 @@ const ENTRY: ConversationEntry = {
       },
       ...call(
         "b1",
-        "mcp__dms-ai__BuilderAddBlock",
+        "mcp__dms-ai__builder_add_block",
         { page: "/p" },
         { outcome: "done", allowedBy: "builder_auto" },
       ),
@@ -118,7 +118,7 @@ const ENTRY: ConversationEntry = {
       {
         role: "permission",
         content: "",
-        toolName: "mcp__dms-ai__BuilderDeletePage",
+        toolName: "mcp__dms-ai__builder_delete_page",
         requestId: "q1",
         decision: "denied",
         allowedBy: "expired",
@@ -145,11 +145,11 @@ describe("activity log", () => {
   it("has one row per call, approval and undo", () => {
     expect(records.map((r) => r.tool).sort()).toEqual([
       "Bash",
-      "BuilderAddBlock",
-      "BuilderDeletePage",
       "Edit",
       "Read",
       "UndoChangeSet",
+      "builder_add_block",
+      "builder_delete_page",
     ]);
     const edit = records.find((r) => r.tool === "Edit");
     expect(edit).toMatchObject({
@@ -161,10 +161,12 @@ describe("activity log", () => {
       durationMs: 50,
       category: ["changed", "asked"],
     });
-    expect(records.find((r) => r.tool === "BuilderDeletePage")).toMatchObject({
-      result: "expired",
-      category: ["asked", "denied"],
-    });
+    expect(records.find((r) => r.tool === "builder_delete_page")).toMatchObject(
+      {
+        result: "expired",
+        category: ["asked", "denied"],
+      },
+    );
   });
 
   it("filters, hides read-only calls and pages", () => {
@@ -248,7 +250,7 @@ describe("changed category", () => {
     ).toEqual(["changed"]);
     expect(
       categoryOf(
-        "mcp__dms-ai__BuilderAddBlock",
+        "mcp__dms-ai__builder_add_block",
         { page: "/p" },
         { outcome: "done", allowedBy: "builder_auto" },
       ),
@@ -258,7 +260,7 @@ describe("changed category", () => {
   it("leaves out a failed Builder op, even inside a change set", () => {
     expect(
       categoryOf(
-        "mcp__dms-ai__BuilderAddBlock",
+        "mcp__dms-ai__builder_add_block",
         { page: "/p" },
         {
           outcome: "failed",
@@ -394,7 +396,9 @@ describe("metrics", () => {
 
   it("names the top tools with their source", () => {
     const top = buildTopTools(sources, WINDOW, 10).items;
-    expect(top.find((i) => i.id === "BuilderAddBlock")?.source).toBe("builder");
+    expect(top.find((i) => i.id === "builder_add_block")?.source).toBe(
+      "builder",
+    );
     expect(top.find((i) => i.id === "Edit")?.source).toBe("code");
   });
 

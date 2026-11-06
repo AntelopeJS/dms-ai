@@ -91,7 +91,7 @@ async function describeConnection(connection: string) {
   }
 }
 
-/** The catalog routes the sidecar's `Database*` tools call, with the sidecar's token only. */
+/** The catalog routes the sidecar's `database_*` tools call, with the sidecar's token only. */
 export class AIDatabaseController extends Controller(ROUTE_PREFIX) {
   @Get(DATABASE_CONNECTIONS_PATH)
   async connections(

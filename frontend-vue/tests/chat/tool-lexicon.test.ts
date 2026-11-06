@@ -38,7 +38,7 @@ describe("the tool lexicon names a call by what it does", () => {
 	});
 
 	it("names a Builder block by its name and type, through the MCP prefix", () => {
-		const description = describeTool("mcp__dms-ai__BuilderAddBlock", {
+		const description = describeTool("mcp__dms-ai__builder_add_block", {
 			page: "sales/overview",
 			name: "Top customers",
 			type: "TopListCard",
@@ -61,16 +61,21 @@ describe("the tool lexicon names a call by what it does", () => {
 
 	it("covers every Builder tool and the assistant's own", () => {
 		const builder = [
-			"BuilderCatalog",
-			"BuilderDeletePage",
-			"BuilderMoveBlock",
-			"BuilderDeleteResource",
-			"BuilderRemoveField",
-			"BuilderRemoveQuery",
-			"BuilderQueryTemplates",
-			"BuilderPreviewQuery",
+			"builder_catalog",
+			"builder_delete_page",
+			"builder_move_block",
+			"builder_delete_resource",
+			"builder_remove_field",
+			"builder_remove_query",
+			"builder_query_templates",
+			"builder_preview_query",
 		];
-		for (const name of [...builder, "AskUser", "Typecheck", "NavigateToPage"])
+		for (const name of [
+			...builder,
+			"ask_user",
+			"typecheck",
+			"navigate_to_page",
+		])
 			expect(describeTool(`mcp__dms-ai__${name}`, {}).verbKey).not.toBeNull();
 	});
 
@@ -82,7 +87,7 @@ describe("the tool lexicon names a call by what it does", () => {
 		expect(toolVerb(description, echo)).toBe("Fetch invoice totals");
 		expect(description.target).toBe("Q3");
 		expect(readableToolName("some_tool")).toBe("Some tool");
-		expect(bareToolName("mcp__dms-ai__AskUser")).toBe("AskUser");
+		expect(bareToolName("mcp__dms-ai__ask_user")).toBe("ask_user");
 	});
 
 	it("lists named arguments, values on one line", () => {
@@ -143,7 +148,7 @@ describe("permission cards are titled from the preview, never the raw tool", () 
 		requestId: "r",
 		conversationId: "c",
 		args: {},
-		summary: "Use tool: BuilderDeletePage",
+		summary: "Use tool: builder_delete_page",
 		alwaysAsk: true,
 		ruleOptions: [],
 		createdAtMs: 0,
@@ -154,11 +159,11 @@ describe("permission cards are titled from the preview, never the raw tool", () 
 		const text = permissionCardText(
 			{
 				...base,
-				toolName: "mcp__dms-ai__BuilderDeletePage",
+				toolName: "mcp__dms-ai__builder_delete_page",
 				kind: "destructive",
 				preview: {
 					type: "destructive",
-					operation: "BuilderDeletePage",
+					operation: "builder_delete_page",
 					target: "/home",
 					consequence: "removes_code",
 					canKeepData: false,
@@ -176,7 +181,7 @@ describe("permission cards are titled from the preview, never the raw tool", () 
 		const text = permissionCardText(
 			{
 				...base,
-				toolName: "mcp__dms-ai__BuilderRemoveBlock",
+				toolName: "mcp__dms-ai__builder_remove_block",
 				args: { path: "home/contactForm" },
 				kind: "builder",
 				preview: { type: "generic", args: {} },

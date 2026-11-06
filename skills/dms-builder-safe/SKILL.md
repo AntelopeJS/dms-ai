@@ -8,7 +8,7 @@ tags: [Pages, Builder, SafeMode, DMS]
 
 # Building DMS pages through the Builder (safe mode)
 
-In safe mode you act **only through the `Builder*` MCP tools** — raw file edits
+In safe mode you act **only through the `builder_*` MCP tools** — raw file edits
 (`Write`/`Edit`/`Bash`) are blocked. Every op is **atomic and typecheck-gated**: on
 success it returns the file changes; on `typecheck_failed` **nothing is written**.
 
@@ -25,22 +25,22 @@ its safe-mode branch.
 - **BlockPath** = `<pageRef>#<name>[/<childId>...]`: `#<name>` is a top-level block;
   each `/<childId>` descends into a container's child.
 - **CategoryRef** = a dotted id, e.g. `pages.charts` (top-level pages under `pages.*`;
-  module pages under `modules.<id>.*`). Get exact refs from `BuilderListPages`, never guess.
+  module pages under `modules.<id>.*`). Get exact refs from `builder_list_pages`, never guess.
 - **ResourceRef** = a data resource's id — its `/api/<name>` route segment.
-  **FieldPath** = `<resourceRef>#<fieldName>` (flat). Get refs from `BuilderListResources`.
+  **FieldPath** = `<resourceRef>#<fieldName>` (flat). Get refs from `builder_list_resources`.
 - **QueryRef** = `<pageRef>@<queryName>`, e.g. `/catalog/books@inStockCount`. The page is
   where the route lives; the resource it reads is recorded in the query. Get refs from
-  `BuilderPageStructure`'s `queries`.
+  `builder_page_structure`'s `queries`.
 
 ## DataType, component, and reference values
 
 - Wherever the catalog marks a config field `x-dataType` (a Form field's `type`, a
   TableView `Column` `type`, a resource field's `dataType`), pass a **DataType value**
-  `{ $dataType: "<id>", config: {…} }` — an id from `BuilderCatalog`'s `dataTypes`.
+  `{ $dataType: "<id>", config: {…} }` — an id from `builder_catalog`'s `dataTypes`.
   Never pass a raw `$expr`; safe mode refuses it.
 - Config fields the catalog marks `x-component` hold a nested block (e.g. a
   ChartCard's `chart`): pass a **block value** `{ $block: { type: "<type>", config: {…} } }`
-  with a `type` from `BuilderCatalog`. It is validated and allowed in safe mode.
+  with a `type` from `builder_catalog`. It is validated and allowed in safe mode.
 - To name a builder-generated resource class inside config — e.g. a relation column's
   `dataApiController` — pass a **reference value**
   `{ $ref: { resource: "<ref>", as?: "dataApi" | "table" | "model" } }` (default `as`
@@ -49,36 +49,36 @@ its safe-mode branch.
 
 ## Workflow
 
-1. **Discover the catalog first.** `BuilderCatalog` with no arguments returns a
+1. **Discover the catalog first.** `builder_catalog` with no arguments returns a
    compact index: every valid block `type` (Grid, GridRow, KpiCard, Form, Tab,
    ChartCard, TableView, …) with a one-line description and its `container` /
    `controllerArg` flags, every DataType id with its config keys, and
    `reservedFieldNames`. Only use types it lists. Then call it again with
    `blocks: ["TableView", …]` and/or `dataTypes: ["select", …]` for the full config
    schema of just the entries you will use — never ask for everything at once.
-2. **Read before you write.** `BuilderListPages` to find a page/category;
-   `BuilderPageStructure <pageRef>` for the block tree, `editable` flags, and
+2. **Read before you write.** `builder_list_pages` to find a page/category;
+   `builder_page_structure <pageRef>` for the block tree, `editable` flags, and
    `version` hash. Model new blocks on an existing page.
-3. **Create a page** with `BuilderCreatePage` (pass a real `CategoryRef`); it returns
-   `{ ref, filepath }`. Immediately `NavigateToPage` to the new (empty) page — before
+3. **Create a page** with `builder_create_page` (pass a real `CategoryRef`); it returns
+   `{ ref, filepath }`. Immediately `navigate_to_page` to the new (empty) page — before
    adding any blocks — so the user watches it fill in block by block.
-4. **Add blocks** with `BuilderAddBlock`: omit `parent` for a top-level block or pass
+4. **Add blocks** with `builder_add_block`: omit `parent` for a top-level block or pass
    a container's BlockPath to nest; `name` unique among siblings; `type` + `config`
    from the catalog. **Controller-leading blocks** (catalog `controllerArg: true`,
    e.g. `TableView`) bind to a data resource: pass `controller` = the resource `ref`
    (its DataAPI class becomes the leading argument) and display options in `config`.
    Required for those types; rejected for others.
-5. **Configure / rearrange**: `BuilderConfigureBlock` merges options (`replace: true`
-   to overwrite). Children are managed only via `BuilderAddBlock` /
-   `BuilderMoveBlock` / `BuilderRemoveBlock` (removes the whole subtree).
-6. **Pages & categories**: `BuilderConfigurePage` edits page metadata (displayName,
-   icon, order, description); `BuilderDeletePage` removes a page and its barrel
-   import; `BuilderCreateCategory` / `BuilderConfigureCategory` /
-   `BuilderDeleteCategory` manage categories. Category delete is refused with
-   `referential_integrity` while any page still references it — `BuilderDeletePage`
+5. **Configure / rearrange**: `builder_configure_block` merges options (`replace: true`
+   to overwrite). Children are managed only via `builder_add_block` /
+   `builder_move_block` / `builder_remove_block` (removes the whole subtree).
+6. **Pages & categories**: `builder_configure_page` edits page metadata (displayName,
+   icon, order, description); `builder_delete_page` removes a page and its barrel
+   import; `builder_create_category` / `builder_configure_category` /
+   `builder_delete_category` manage categories. Category delete is refused with
+   `referential_integrity` while any page still references it — `builder_delete_page`
    those pages first.
 7. **Verify at runtime.** A typecheck-clean edit can still be wrong at runtime (a
-   bad `fetchUrl` 404s): `NavigateToPage` to load the page and `QueryLogs` to check
+   bad `fetchUrl` 404s): `navigate_to_page` to load the page and `query_logs` to check
    the host's actual reload/runtime output.
 
 ## Data resources (Table + DataAPI)
@@ -86,10 +86,10 @@ its safe-mode branch.
 A **resource** is the data layer a table/form displays: a Database `Table`+`Model`
 and a matching `DataAPI` controller at `/api/<name>`, generated as decorator classes
 kept in sync — never hand-write them. Displaying one on a page is a safe-mode step:
-create and populate the resource, then `BuilderAddBlock` a `TableView` with
+create and populate the resource, then `builder_add_block` a `TableView` with
 `controller` = the resource `ref`. See [REFERENCE.md](REFERENCE.md) for the full
-resource workflow (`BuilderListResources` / `BuilderCreateResource` with `location`
-and `routes` / field ops / `BuilderDeleteResource`), field semantics and reserved
+resource workflow (`builder_list_resources` / `builder_create_resource` with `location`
+and `routes` / field ops / `builder_delete_resource`), field semantics and reserved
 names, and the engine-support caveat for resource ops.
 
 ## Queries (computed data a DataAPI can't serve)
@@ -99,9 +99,9 @@ count, a sum, an average) or one point per group (a series), backed by a generat
 a resource's model. The DataAPI serves rows; a query serves what KPI cards, charts and ranked
 lists read. Its `response` arranges the answer for the block: `value` for a `KpiCard`,
 `card` for a `ChartCard`, `items` for a `TopListCard`, `series` for a bare chart. Run
-`BuilderPreviewQuery` first to see the answer, then add it with `BuilderAddQuery` on the page
+`builder_preview_query` first to see the answer, then add it with `builder_add_query` on the page
 that will display it (not the resource's page), wire the returned `route` as the block's
-`fetchUrl`, and read it back through `BuilderPageStructure`'s `queries`. See [REFERENCE.md](REFERENCE.md) for the
+`fetchUrl`, and read it back through `builder_page_structure`'s `queries`. See [REFERENCE.md](REFERENCE.md) for the
 template catalog, route-bound params, opaque read-back, and the full query workflow.
 
 ## Errors & escalation
@@ -113,17 +113,17 @@ template catalog, route-bound params, opaque read-back, and the full query workf
   or doesn't implement the op (`request_failed` with `HTTP 400` = the host answered
   `unknown_op`). Explain the limitation; don't retry.
 - `opaque_target` / `unsupported` → **safe mode cannot do this**. Explain the
-  limitation and ask with `AskUser` to switch to **Code mode** for that one step; do
-  not force it. After any Code mode excursion, call `BuilderRefresh` (optionally scoped
+  limitation and ask with `ask_user` to switch to **Code mode** for that one step; do
+  not force it. After any Code mode excursion, call `builder_refresh` (optionally scoped
   to the page) so the builder's source index reconciles with disk before further
   safe-mode ops.
-- `stale` → the page changed under you; re-read with `BuilderPageStructure`, retry.
+- `stale` → the page changed under you; re-read with `builder_page_structure`, retry.
 
 ## Guardrails
 
-- Always `BuilderCatalog` before adding blocks, then fetch the full schema of each
+- Always `builder_catalog` before adding blocks, then fetch the full schema of each
   type you use (`blocks: [...]`); use only listed types + config keys.
-  Likewise `BuilderQueryTemplates` before adding a query.
+  Likewise `builder_query_templates` before adding a query.
 - Block/child names are mandatory and unique among siblings.
 - A card showing an aggregate needs a query behind it — don't point a `fetchUrl` at a
   DataAPI route and hope it returns a number.

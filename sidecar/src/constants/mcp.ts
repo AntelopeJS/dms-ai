@@ -18,13 +18,13 @@ export const MCP_SERVER_TYPE_SDK = "sdk" as const;
  */
 export const MCP_TOOL_NAME_PREFIX = `mcp__${MCP_SERVER_KEY}__`;
 
-export const GET_CURRENT_PAGE_TOOL_NAME = "GetCurrentPage";
+export const GET_CURRENT_PAGE_TOOL_NAME = "get_current_page";
 export const GET_CURRENT_PAGE_TOOL_DESCRIPTION =
   "Returns the route and, when known, the title and source file of the page currently displayed in the host browser.";
 
-export const NAVIGATE_TOOL_NAME = "NavigateToPage";
+export const NAVIGATE_TOOL_NAME = "navigate_to_page";
 export const NAVIGATE_TOOL_DESCRIPTION =
-  "Navigates the host browser to the given path using the host router. Awaits a host navigation-complete confirmation (with a short timeout fallback). Then waits for the page's data blocks to settle and lists those that are empty, failed or still loading under `data.blocks`: a page with such blocks is not done. Call GetCurrentPage to verify if needed.";
+  "Navigates the host browser to the given path using the host router. Awaits a host navigation-complete confirmation (with a short timeout fallback). Then waits for the page's data blocks to settle and lists those that are empty, failed or still loading under `data.blocks`: a page with such blocks is not done. Call get_current_page to verify if needed.";
 export const NAVIGATE_RESULT_PREFIX = "Navigation requested to ";
 export const NAVIGATE_RESULT_COMPLETED_SUFFIX = " (completed)";
 export const NAVIGATE_RESULT_TIMEOUT_SUFFIX =
@@ -43,13 +43,13 @@ export const NAVIGATE_UNKNOWN_ROUTE_PREFIX = "Did not navigate: ";
 export const NAVIGATE_UNKNOWN_ROUTE_SUFFIX =
   " is not a registered page route. Closest known routes: ";
 export const NAVIGATE_UNKNOWN_ROUTE_HINT =
-  ". Call ListPages for the full list and use a real route.";
+  ". Call list_pages for the full list and use a real route.";
 /**
  * Cap the number of suggested routes inlined into the tool result.
  */
 export const NAVIGATE_SUGGESTION_LIMIT = 20;
 
-export const ASK_USER_TOOL_NAME = "AskUser";
+export const ASK_USER_TOOL_NAME = "ask_user";
 export const ASK_USER_TOOL_DESCRIPTION =
   "Ask the user one or more multiple-choice questions and wait for their answer. Use this whenever you need a decision or clarification instead of asking in prose. Provide 1-4 questions, each with 2-4 distinct options ({label, description}); the user may also type a custom answer. Returns the user's chosen answer for each question.";
 export const ASK_USER_RESULT_PREFIX = "User answered:";
@@ -61,7 +61,7 @@ export const ASK_USER_RESULT_NO_ANSWER =
 /**
  * The SDK's built-in AskUserQuestion tool cannot render in the chat, so
  * calls to it dead-end at the permission prompt. Redirect the agent to the
- * module's own AskUser MCP tool, which routes to the question bus the chat
+ * module's own ask_user MCP tool, which routes to the question bus the chat
  * does render.
  */
 export const ASK_USER_QUESTION_BUILTIN_TOOL_NAME = "AskUserQuestion";
@@ -121,7 +121,7 @@ export const MCP_LOOPBACK_HOSTNAMES = [
 const MS_PER_SECOND = 1_000;
 
 /**
- * The longest a dms-ai tool waits on the user: an AskUser question, or a
+ * The longest a dms-ai tool waits on the user: an ask_user question, or a
  * Builder deletion held at the gate for the longest permission timeout.
  */
 const LONGEST_USER_WAIT_MS = Math.max(

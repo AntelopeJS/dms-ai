@@ -80,7 +80,7 @@ describe("tool rows and change sets", () => {
 		deliver(harness, {
 			type: "tool_call_start",
 			callId: "c0",
-			toolName: "mcp__dms-ai__BuilderAddBlock",
+			toolName: "mcp__dms-ai__builder_add_block",
 			args: { name: "Top customers", type: "TopListCard" },
 		});
 		deliver(harness, {

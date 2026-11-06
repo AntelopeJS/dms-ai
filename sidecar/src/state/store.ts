@@ -7,6 +7,7 @@ import {
   STATE_JSON_INDENT,
   STATE_LOG_PREFIX,
 } from "../constants/state.js";
+import { migrateConversation } from "./legacy-tool-names.js";
 import type { StoredState } from "./types.js";
 
 export interface CreateStoreOptions {
@@ -44,7 +45,14 @@ function parseStateContents(raw: string): StoredState {
     ) {
       return STATE_INITIAL;
     }
-    return { conversations: candidate.conversations };
+    return {
+      conversations: Object.fromEntries(
+        Object.entries(candidate.conversations).map(([id, conversation]) => [
+          id,
+          migrateConversation(conversation),
+        ]),
+      ),
+    };
   } catch {
     return STATE_INITIAL;
   }

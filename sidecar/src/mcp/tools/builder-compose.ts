@@ -10,7 +10,7 @@ import { JSON_RECORD } from "./builder-project.js";
 import { QUERY_ARGS, QUERY_FIELDS } from "./builder-queries.js";
 
 const DESCRIPTION =
-  "Builds a whole page, or adds a group of blocks to one, in a single call: the blocks, the queries they read, the layout rows and the page itself when it does not exist yet. One rewrite, one typecheck, and nothing is written when any block is refused; the error names each refused block by JSON pointer into your input (`/blocks/3/children/0/query/params/groupBy`). A data block carries its `query` inline (the BuilderAddQuery fields, `name` defaulting to the block's name): the route it compiles to is written into the block's `fetchUrl` for you, so never pass `fetchUrl` yourself. Containers (`PageToolbar`, `Grid`, `GridRow`, `Section`…) carry their blocks in `children`, and a child sits in its row in order. Pass `preview: true` first to run every query with `args` and read each block's answer without writing: a block whose `status` is `empty` or `zero` would render nothing useful, so fix its query before the writing call. To put blocks above or below a table already on the page (a KPI row above the TableView a mapping wrote), pass `placement: { before: \"table\" }`; a later BuilderMapResources keeps them. Use BuilderAddBlock and BuilderAddQuery for a single edit.";
+  "Builds a whole page, or adds a group of blocks to one, in a single call: the blocks, the queries they read, the layout rows and the page itself when it does not exist yet. One rewrite, one typecheck, and nothing is written when any block is refused; the error names each refused block by JSON pointer into your input (`/blocks/3/children/0/query/params/groupBy`). A data block carries its `query` inline (the builder_add_query fields, `name` defaulting to the block's name): the route it compiles to is written into the block's `fetchUrl` for you, so never pass `fetchUrl` yourself. Containers (`PageToolbar`, `Grid`, `GridRow`, `Section`…) carry their blocks in `children`, and a child sits in its row in order. Pass `preview: true` first to run every query with `args` and read each block's answer without writing: a block whose `status` is `empty` or `zero` would render nothing useful, so fix its query before the writing call. To put blocks above or below a table already on the page (a KPI row above the TableView a mapping wrote), pass `placement: { before: \"table\" }`; a later builder_map_resources keeps them. Use builder_add_block and builder_add_query for a single edit.";
 
 const OPTIONS = JSON_RECORD;
 type Options = z.infer<typeof OPTIONS>;
@@ -47,9 +47,9 @@ const COMPOSE_BLOCK: z.ZodType<ComposeBlockInput> = z.lazy(() =>
       .describe(
         "camelCase identifier, unique among its siblings. Becomes the block's path segment.",
       ),
-    type: z.string().describe("A block type from BuilderCatalog."),
+    type: z.string().describe("A block type from builder_catalog."),
     config: OPTIONS.optional().describe(
-      'The block\'s options, per BuilderCatalog. A chart inside a ChartCard is `{ "$block": { "type": "ChartArea", "config": {} } }`.',
+      'The block\'s options, per builder_catalog. A chart inside a ChartCard is `{ "$block": { "type": "ChartArea", "config": {} } }`.',
     ),
     controller: z
       .string()
@@ -79,7 +79,7 @@ const CREATE_PAGE = z
     displayName: z.string(),
     category: z
       .string()
-      .describe("An existing CategoryRef from BuilderListPages."),
+      .describe("An existing CategoryRef from builder_list_pages."),
     icon: z.string().optional(),
     description: z.string().optional(),
     order: z.number().optional(),
@@ -107,7 +107,7 @@ const PLACEMENT = z
 export function buildComposeTools(run: BuilderRun) {
   return [
     defineTool(
-      "BuilderComposePage",
+      "builder_compose_page",
       note(DESCRIPTION),
       {
         pageRef: z
@@ -119,7 +119,7 @@ export function buildComposeTools(run: BuilderRun) {
           .string()
           .optional()
           .describe(
-            "An existing container block path to add the blocks under (from BuilderPageStructure). Omit for the page itself.",
+            "An existing container block path to add the blocks under (from builder_page_structure). Omit for the page itself.",
           ),
         placement: PLACEMENT.optional(),
         blocks: z

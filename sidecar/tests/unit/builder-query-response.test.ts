@@ -31,7 +31,7 @@ async function callTool(name: string, args: QueryToolArgs) {
 describe("the arrangement a query's route answers in", () => {
   it("reaches the Builder when a query is added for a ranked list", async () => {
     builderClient.call.mockClear();
-    await callTool("BuilderAddQuery", {
+    await callTool("builder_add_query", {
       page: "/shop/stats",
       name: "ordersByStatus",
       resource: "shop/orders",
@@ -47,7 +47,7 @@ describe("the arrangement a query's route answers in", () => {
 
   it("reaches the Builder when a query is reconfigured for a chart card", async () => {
     builderClient.call.mockClear();
-    await callTool("BuilderConfigureQuery", {
+    await callTool("builder_configure_query", {
       query: "/shop/stats@ordersByMonth",
       patch: { response: "card" },
     });
@@ -59,7 +59,7 @@ describe("the arrangement a query's route answers in", () => {
 
   it("refuses an arrangement the Builder has no helper for", () => {
     return expect(
-      callTool("BuilderAddQuery", {
+      callTool("builder_add_query", {
         page: "/shop/stats",
         name: "orders",
         resource: "shop/orders",

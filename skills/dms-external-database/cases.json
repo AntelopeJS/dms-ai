@@ -9,7 +9,7 @@
       "expect": {
         "skills": ["dms-external-database"],
         "acceptable": ["dms", "dms-builder", "dms-builder-safe"],
-        "mustMention": ["BuilderConfigureProject"]
+        "mustMention": ["builder_configure_project"]
       }
     },
     {

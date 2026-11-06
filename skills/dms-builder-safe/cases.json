@@ -35,9 +35,9 @@
         "skills": ["dms-builder-safe"],
         "acceptable": ["dms-pages", "dms-best-practices", "dms-builder"],
         "mustMention": [
-          "BuilderQueryTemplates",
-          "BuilderAddQuery",
-          "BuilderAddBlock"
+          "builder_query_templates",
+          "builder_add_query",
+          "builder_add_block"
         ]
       }
     },
@@ -49,14 +49,14 @@
       "expect": {
         "skills": ["dms-builder-safe"],
         "acceptable": ["dms-ai-code-mode", "dms-best-practices", "dms-pages"],
-        "mustMention": ["AskUser"]
+        "mustMention": ["ask_user"]
       }
     },
     {
       "id": "dms-builder-safe-not-code-mode",
       "area": "dms-ai",
       "style": "clean",
-      "prompt": "dms-ai is in Code mode. I changed a custom block by hand and want to show the three pages that render it, then check the Typecheck output.",
+      "prompt": "dms-ai is in Code mode. I changed a custom block by hand and want to show the three pages that render it, then check the typecheck output.",
       "expect": {
         "skills": ["dms-ai-code-mode"],
         "acceptable": ["dms-ai", "dms-pages"],

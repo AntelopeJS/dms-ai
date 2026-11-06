@@ -22,49 +22,49 @@ export const BUILDER_LOG_PREFIX = "[builder]";
 
 /** The names of every Builder MCP tool. */
 export const BUILDER_TOOL_NAMES = [
-  "BuilderCatalog",
-  "BuilderListPages",
-  "BuilderPageStructure",
-  "BuilderCreatePage",
-  "BuilderConfigurePage",
-  "BuilderDeletePage",
-  "BuilderAddBlock",
-  "BuilderComposePage",
-  "BuilderConfigureBlock",
-  "BuilderConfigureTableView",
-  "BuilderMoveBlock",
-  "BuilderRemoveBlock",
-  "BuilderCreateCategory",
-  "BuilderConfigureCategory",
-  "BuilderDeleteCategory",
-  "BuilderRefresh",
-  "BuilderCreateResource",
-  "BuilderDeleteResource",
-  "BuilderListResources",
-  "BuilderResourceStructure",
-  "BuilderAddField",
-  "BuilderConfigureField",
-  "BuilderRemoveField",
-  "BuilderQueryTemplates",
-  "BuilderAddQuery",
-  "BuilderPreviewQuery",
-  "BuilderConfigureQuery",
-  "BuilderRemoveQuery",
-  "BuilderConfigureProject",
-  "BuilderMapResources",
-  "BuilderAnalyseDatabase",
-  "BuilderMapping",
+  "builder_catalog",
+  "builder_list_pages",
+  "builder_page_structure",
+  "builder_create_page",
+  "builder_configure_page",
+  "builder_delete_page",
+  "builder_add_block",
+  "builder_compose_page",
+  "builder_configure_block",
+  "builder_configure_table_view",
+  "builder_move_block",
+  "builder_remove_block",
+  "builder_create_category",
+  "builder_configure_category",
+  "builder_delete_category",
+  "builder_refresh",
+  "builder_create_resource",
+  "builder_delete_resource",
+  "builder_list_resources",
+  "builder_resource_structure",
+  "builder_add_field",
+  "builder_configure_field",
+  "builder_remove_field",
+  "builder_query_templates",
+  "builder_add_query",
+  "builder_preview_query",
+  "builder_configure_query",
+  "builder_remove_query",
+  "builder_configure_project",
+  "builder_map_resources",
+  "builder_analyse_database",
+  "builder_mapping",
 ] as const;
 
-export const BUILDER_CONFIGURE_PROJECT_TOOL_NAME = "BuilderConfigureProject";
-export const BUILDER_MAP_RESOURCES_TOOL_NAME = "BuilderMapResources";
+export const BUILDER_CONFIGURE_PROJECT_TOOL_NAME = "builder_configure_project";
+export const BUILDER_MAP_RESOURCES_TOOL_NAME = "builder_map_resources";
 /** The Builder operation that answers which pages a mapping would remove, writing nothing. */
 export const BUILDER_PREVIEW_MAP_RESOURCES_OP = "PreviewMapResources";
 /** The key the gate reads the pages a mapping would remove from, for the approval card. */
 export const PAGES_TO_REMOVE_ARG = "pagesToRemove";
-export const BUILDER_ANALYSE_DATABASE_TOOL_NAME = "BuilderAnalyseDatabase";
-export const BUILDER_MAPPING_TOOL_NAME = "BuilderMapping";
-/** How long BuilderAnalyseDatabase waits for the analysis before answering its progress. */
+export const BUILDER_ANALYSE_DATABASE_TOOL_NAME = "builder_analyse_database";
+export const BUILDER_MAPPING_TOOL_NAME = "builder_mapping";
+/** How long builder_analyse_database waits for the analysis before answering its progress. */
 export const BUILDER_ANALYSIS_WAIT_MS = 60_000;
 export const BUILDER_ANALYSIS_POLL_MS = 1_000;
 
@@ -76,4 +76,4 @@ export const BUILDER_CATALOG_SECTIONS = ["blocks", "dataTypes"] as const;
 export type BuilderCatalogSection = (typeof BUILDER_CATALOG_SECTIONS)[number];
 
 export const BUILDER_CATALOG_DETAIL_HINT =
-  'This is the index. Call BuilderCatalog again with `blocks: ["<type>", …]` and/or `dataTypes: ["<id>", …]` for the full config schema of the entries you will use.';
+  'This is the index. Call builder_catalog again with `blocks: ["<type>", …]` and/or `dataTypes: ["<id>", …]` for the full config schema of the entries you will use.';

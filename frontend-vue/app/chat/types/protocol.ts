@@ -257,7 +257,7 @@ export interface BlockPreviewReference {
 	caption?: string;
 }
 
-/** A block preview the agent shared with its PreviewBlocks tool. */
+/** A block preview the agent shared with its preview_blocks tool. */
 export interface BlockPreview extends PreviewView {
 	id: string;
 	title: string;

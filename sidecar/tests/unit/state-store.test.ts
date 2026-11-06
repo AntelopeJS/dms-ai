@@ -56,3 +56,67 @@ describe("state file parsing", () => {
     expect(await createStore({ filePath }).read()).toEqual(stored);
   });
 });
+
+describe("tool names recorded before the snake_case rename", () => {
+  let dir: string;
+  let filePath: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), TMP_PREFIX));
+    filePath = join(dir, STATE_FILE);
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("reads them under their current names, leaving other tools alone", async () => {
+    const legacy = (toolName: string) => ({
+      role: "tool_use",
+      content: "{}",
+      toolName,
+      timestampMs: 1,
+    });
+    const stored = {
+      conversations: {
+        "conv-1": {
+          createdAtMs: 1,
+          updatedAtMs: 2,
+          messages: [
+            legacy("mcp__dms-ai__BuilderDeletePage"),
+            legacy("mcp__dms-ai__Typecheck"),
+            legacy("Read"),
+            legacy("mcp__other__GetCurrentPage"),
+            legacy("BuilderDeletePage"),
+            {
+              role: "notice",
+              content: "",
+              timestampMs: 3,
+              notice: {
+                kind: "permission_expired",
+                toolName: "BuilderRemoveField",
+                summary: "",
+                timestampMs: 3,
+              },
+            },
+          ],
+        },
+      },
+    };
+    await writeFile(filePath, JSON.stringify(stored), FILE_ENCODING);
+    const { messages } = (await createStore({ filePath }).read()).conversations[
+      "conv-1"
+    ]!;
+    expect(messages.map((message) => message.toolName)).toEqual([
+      "mcp__dms-ai__builder_delete_page",
+      "mcp__dms-ai__typecheck",
+      "Read",
+      "mcp__other__GetCurrentPage",
+      "builder_delete_page",
+      undefined,
+    ]);
+    expect(messages[5]?.notice).toMatchObject({
+      toolName: "builder_remove_field",
+    });
+  });
+});

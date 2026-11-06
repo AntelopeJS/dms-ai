@@ -38,20 +38,20 @@ describe("formatMoment", () => {
 
 describe("tool names", () => {
 	it("drops the MCP namespace", () => {
-		expect(bareToolName("mcp__dms-builder__BuilderAddBlock")).toBe(
-			"BuilderAddBlock",
+		expect(bareToolName("mcp__dms-builder__builder_add_block")).toBe(
+			"builder_add_block",
 		);
 	});
 
 	it("writes an unknown tool as words", () => {
-		expect(readableToolName("mcp__dms-builder__BuilderAddBlock")).toBe(
+		expect(readableToolName("mcp__dms-builder__builder_add_block")).toBe(
 			"Add block",
 		);
 		expect(readableToolName("command_execution")).toBe("Command execution");
 	});
 
 	it("places a tool in its source", () => {
-		expect(toolSource("mcp__dms-builder__BuilderAddBlock")).toBe("builder");
+		expect(toolSource("mcp__dms-builder__builder_add_block")).toBe("builder");
 		expect(toolSource("Edit")).toBe("code");
 		expect(toolSource("WebFetch")).toBe("web");
 		expect(toolSource("Something")).toBe("assistant");

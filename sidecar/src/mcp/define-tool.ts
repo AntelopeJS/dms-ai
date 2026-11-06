@@ -1,4 +1,5 @@
 import type { ZodType } from "zod";
+import { MCP_TOOL_TITLES, type McpToolName } from "../constants/tool-titles.js";
 
 interface McpToolTextContent {
   type: "text";
@@ -36,7 +37,9 @@ export type McpToolHandler<Schema extends McpToolInputSchema> = (
 export interface McpToolDefinition<
   Schema extends McpToolInputSchema = McpToolInputSchema,
 > {
-  name: string;
+  name: McpToolName;
+  /** What MCP clients display for the tool, from `MCP_TOOL_TITLES`. */
+  title: string;
   description: string;
   schema: Schema;
   handler: McpToolHandler<Schema>;
@@ -45,10 +48,10 @@ export interface McpToolDefinition<
 export type AnyMcpToolDefinition = McpToolDefinition<any>;
 
 export function defineTool<Schema extends McpToolInputSchema>(
-  name: string,
+  name: McpToolName,
   description: string,
   schema: Schema,
   handler: McpToolHandler<Schema>,
 ): McpToolDefinition<Schema> {
-  return { name, description, schema, handler };
+  return { name, title: MCP_TOOL_TITLES[name], description, schema, handler };
 }

@@ -124,7 +124,7 @@ function tomlArray(values: readonly string[]): string {
  * that table, and --strict-config rejects the misplacement outright. The host
  * project's AGENTS.md is not ours to inject, hence `project_doc_max_bytes = 0`.
  * `tool_timeout_sec` is raised because Codex abandons a tool call after 60 s by
- * default, while AskUser and the Builder deletion gate wait on the user for much
+ * default, while ask_user and the Builder deletion gate wait on the user for much
  * longer. The `untrusted` project entry keeps the host project's own .codex
  * layers out of the session, mirroring `settingSources: []` on the Claude path.
  */

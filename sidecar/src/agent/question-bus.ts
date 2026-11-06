@@ -26,7 +26,7 @@ export type QuestionAnswers = QuestionReply | null;
 export interface QuestionRequest {
   conversationId: string;
   questions: QuestionType[];
-  /** The provider's id for the AskUser call, when it could be paired. */
+  /** The provider's id for the ask_user call, when it could be paired. */
   callId?: string;
 }
 
@@ -63,7 +63,7 @@ export interface QuestionBus {
    */
   cancelConversation: (conversationId: string) => void;
   /**
-   * Resolve the question its AskUser call is waiting on as unanswered: the
+   * Resolve the question its ask_user call is waiting on as unanswered: the
    * call already ended on the provider's side.
    */
   cancelCall: (conversationId: string, callId: string) => void;

@@ -42,7 +42,7 @@ const CATALOG = {
 
 const NO_SELECTION = { blocks: undefined, dataTypes: undefined };
 
-describe("BuilderCatalog shaping", () => {
+describe("builder_catalog shaping", () => {
   it("answers a compact index by default", () => {
     expect(summarizeCatalog(CATALOG, NO_SELECTION)).toMatchObject({
       blocks: [
@@ -117,7 +117,7 @@ describe("Builder tool results", () => {
   }
 
   it("serves the catalog index through the tool", async () => {
-    const result = await tool("BuilderCatalog", CATALOG).handler(NO_SELECTION);
+    const result = await tool("builder_catalog", CATALOG).handler(NO_SELECTION);
     expect(result.isError).toBeUndefined();
     const text = result.content[0]?.text ?? "";
     expect(JSON.parse(text).blocks[0]).not.toHaveProperty("config");
@@ -125,7 +125,7 @@ describe("Builder tool results", () => {
 
   it("marks an ok:false answer as a failed call", async () => {
     const failure = { ok: false, error: { code: "typecheck_failed" } };
-    const result = await tool("BuilderAddBlock", failure).handler({
+    const result = await tool("builder_add_block", failure).handler({
       page: "/p",
       name: "kpi",
       type: "KpiCard",
@@ -138,7 +138,7 @@ describe("Builder tool results", () => {
   });
 
   it("leaves a successful answer unmarked", async () => {
-    const result = await tool("BuilderAddBlock", { ok: true }).handler({
+    const result = await tool("builder_add_block", { ok: true }).handler({
       page: "/p",
       name: "kpi",
       type: "KpiCard",
@@ -148,7 +148,7 @@ describe("Builder tool results", () => {
   });
 
   it("marks a refused $expr as a failed call", async () => {
-    const result = await tool("BuilderAddBlock", { ok: true }).handler({
+    const result = await tool("builder_add_block", { ok: true }).handler({
       page: "/p",
       name: "kpi",
       type: "KpiCard",
@@ -158,7 +158,7 @@ describe("Builder tool results", () => {
   });
 
   it("refuses a $expr nested inside arrays and records", async () => {
-    const result = await tool("BuilderAddBlock", { ok: true }).handler({
+    const result = await tool("builder_add_block", { ok: true }).handler({
       page: "/p",
       name: "kpi",
       type: "KpiCard",
@@ -168,7 +168,7 @@ describe("Builder tool results", () => {
   });
 
   it("leaves a call whose $expr is not a string unmarked", async () => {
-    const result = await tool("BuilderAddBlock", { ok: true }).handler({
+    const result = await tool("builder_add_block", { ok: true }).handler({
       page: "/p",
       name: "kpi",
       type: "KpiCard",

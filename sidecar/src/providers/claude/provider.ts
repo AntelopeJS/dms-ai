@@ -269,7 +269,7 @@ function allowAutomatically(
 /**
  * Builds the permission callback for a session. The SDK's built-in
  * AskUserQuestion cannot render in the chat, so the agent is bounced to our own
- * AskUser MCP tool instead of dead-ending at a permission prompt the host
+ * ask_user MCP tool instead of dead-ending at a permission prompt the host
  * cannot show. The module's own MCP tools (the FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES
  * set) are first-party and driven constantly by the documented workflow, so
  * they are auto-allowed instead of prompting; Builder deletions are gated

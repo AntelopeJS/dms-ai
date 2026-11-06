@@ -57,7 +57,7 @@ export const DELETE_REQUEST = {
 	...DIFF_REQUEST,
 	requestId: "r3",
 	callId: "c3",
-	toolName: "mcp__dms-ai__BuilderDeleteResource",
+	toolName: "mcp__dms-ai__builder_delete_resource",
 	args: { ref: "legacy_coupons" },
 	summary: "Delete the table legacy_coupons",
 	kind: "destructive",

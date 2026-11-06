@@ -8,7 +8,7 @@ import {
 import { buildToolDefinitions } from "../../src/mcp/tool-definitions.js";
 import { buildInertMcpDeps } from "../helpers/provider-runner.js";
 
-const DELETING_NAME = /Delete|Remove/;
+const DELETING_NAME = /_(delete|remove)_/;
 
 function registeredNames(builderEnabled: boolean): string[] {
   return buildToolDefinitions({

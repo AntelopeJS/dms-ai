@@ -7,7 +7,7 @@ import type { BuilderGate } from "../../src/mcp/tools/builder-gate.js";
 import { gateBuilderTools } from "../../src/mcp/tools/builder-gate.js";
 import { buildProjectTools } from "../../src/mcp/tools/builder-project.js";
 
-const TOOL = "BuilderMapResources";
+const TOOL = "builder_map_resources";
 const PAGE = "pages.shop.shop-orders";
 const INPUT = {
   module: "shop-tables",
@@ -46,7 +46,7 @@ function mapResources(builder: BuilderClient, gate: BuilderGate) {
   return () => tool.handler(INPUT);
 }
 
-describe("BuilderMapResources asks before it removes a page", () => {
+describe("builder_map_resources asks before it removes a page", () => {
   it("asks with the pages the preview lists, then maps once approved", async () => {
     const calls: Recorded[] = [];
     const asked: GateArgs[] = [];
@@ -185,9 +185,9 @@ describe("which mapping calls wait for the person", () => {
   });
 
   it("keeps asking for a page deletion whatever its arguments", () => {
-    expect(asksBeforeBuilderCall("BuilderDeletePage", { pageRef: PAGE })).toBe(
-      true,
-    );
+    expect(
+      asksBeforeBuilderCall("builder_delete_page", { pageRef: PAGE }),
+    ).toBe(true);
   });
 });
 

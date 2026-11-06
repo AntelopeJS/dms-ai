@@ -107,7 +107,7 @@ const none: TargetReader = () => "";
 const TOOL_QUERY_PREFIX = /^select:/;
 const TOOL_LIST_SEPARATOR = ",";
 
-/** "select:mcp__dms-ai__ListPages,…" → "ListPages, …". */
+/** "select:mcp__dms-ai__list_pages,…" → "list_pages, …". */
 const toolQuery: TargetReader = (args) =>
 	readString(args, "query")
 		.replace(TOOL_QUERY_PREFIX, "")
@@ -256,73 +256,73 @@ const CLAUDE_TOOLS: Record<string, ToolLexiconEntry> = {
 };
 
 const ASSISTANT_TOOLS: Record<string, ToolLexiconEntry> = {
-	GetCurrentPage: {
+	get_current_page: {
 		verb: "read_current_page",
 		icon: ICONS.BROWSER,
 		target: none,
 		isReadOnly: true,
 	},
-	NavigateToPage: {
+	navigate_to_page: {
 		verb: "open_page",
 		icon: ICONS.OPEN,
 		target: firstOf("path"),
 		isReadOnly: true,
 	},
-	FindPagesUsing: {
+	find_pages_using: {
 		verb: "find_pages",
 		icon: ICONS.SEARCH,
 		target: firstOf("component", "query", "name"),
 		isReadOnly: true,
 	},
-	ListPages: {
+	list_pages: {
 		verb: "list_pages",
 		icon: ICONS.PAGE,
 		target: none,
 		isReadOnly: true,
 	},
-	AskUser: {
+	ask_user: {
 		verb: "ask_you",
 		icon: ICONS.ASK,
 		target: countOf("questions"),
 		isReadOnly: true,
 	},
-	PreviewBlocks: {
+	preview_blocks: {
 		verb: "show_preview",
 		icon: ICONS.PREVIEW,
 		target: firstOf("title"),
 		isReadOnly: true,
 	},
-	Typecheck: {
+	typecheck: {
 		verb: "typecheck",
 		icon: ICONS.CHECK,
 		target: none,
 		isReadOnly: true,
 	},
-	QueryLogs: {
+	query_logs: {
 		verb: "read_logs",
 		icon: ICONS.LOGS,
 		target: firstOf("query", "search", "level"),
 		isReadOnly: true,
 	},
-	DatabaseConnections: {
+	database_connections: {
 		verb: "list_databases",
 		icon: ICONS.DATA,
 		target: none,
 		isReadOnly: true,
 	},
-	DatabaseRelations: {
+	database_relations: {
 		verb: "list_relations",
 		icon: ICONS.DATA,
 		target: firstOf("connection"),
 		isReadOnly: true,
 	},
-	DatabaseDescribe: {
+	database_describe: {
 		verb: "describe_relations",
 		icon: ICONS.TABLE,
 		target: countOf("relations"),
 		isReadOnly: true,
 	},
-	DatabaseProfile: {
+	database_profile: {
 		verb: "profile_relation",
 		icon: ICONS.TABLE,
 		target: firstOf("relation", "connection"),
@@ -331,172 +331,172 @@ const ASSISTANT_TOOLS: Record<string, ToolLexiconEntry> = {
 };
 
 const BUILDER_TOOLS: Record<string, ToolLexiconEntry> = {
-	BuilderCatalog: {
+	builder_catalog: {
 		verb: "browse_blocks",
 		icon: ICONS.BLOCK,
 		target: none,
 		isReadOnly: true,
 	},
-	BuilderListPages: {
+	builder_list_pages: {
 		verb: "list_pages",
 		icon: ICONS.PAGE,
 		target: none,
 		isReadOnly: true,
 	},
-	BuilderPageStructure: {
+	builder_page_structure: {
 		verb: "read_page",
 		icon: ICONS.PAGE,
 		target: firstOf("pageRef"),
 		isReadOnly: true,
 	},
-	BuilderCreatePage: {
+	builder_create_page: {
 		verb: "create_page",
 		icon: ICONS.CREATE_PAGE,
 		target: firstOf("displayName", "name"),
 	},
-	BuilderConfigurePage: {
+	builder_configure_page: {
 		verb: "configure_page",
 		icon: ICONS.PAGE,
 		target: firstOf("pageRef"),
 	},
-	BuilderDeletePage: {
+	builder_delete_page: {
 		verb: "delete_page",
 		icon: ICONS.DELETE,
 		target: firstOf("pageRef"),
 	},
-	BuilderAddBlock: {
+	builder_add_block: {
 		verb: "add_block",
 		icon: ICONS.BLOCK,
 		target: joined(firstOf("name"), firstOf("type")),
 	},
-	BuilderConfigureBlock: {
+	builder_configure_block: {
 		verb: "configure_block",
 		icon: ICONS.BLOCK,
 		target: firstOf("path"),
 	},
-	BuilderComposePage: {
+	builder_compose_page: {
 		verb: "compose_page",
 		icon: ICONS.BLOCK,
 		target: firstOf("pageRef"),
 	},
-	BuilderConfigureTableView: {
+	builder_configure_table_view: {
 		verb: "configure_table_view",
 		icon: ICONS.BLOCK,
 		target: firstOf("pageRef"),
 	},
-	BuilderMoveBlock: {
+	builder_move_block: {
 		verb: "move_block",
 		icon: ICONS.BLOCK,
 		target: firstOf("path"),
 	},
-	BuilderRemoveBlock: {
+	builder_remove_block: {
 		verb: "remove_block",
 		icon: ICONS.BLOCK,
 		target: firstOf("path"),
 	},
-	BuilderCreateCategory: {
+	builder_create_category: {
 		verb: "create_category",
 		icon: ICONS.CATEGORY,
 		target: firstOf("displayName", "name"),
 	},
-	BuilderConfigureCategory: {
+	builder_configure_category: {
 		verb: "configure_category",
 		icon: ICONS.CATEGORY,
 		target: firstOf("ref"),
 	},
-	BuilderDeleteCategory: {
+	builder_delete_category: {
 		verb: "delete_category",
 		icon: ICONS.DELETE,
 		target: firstOf("ref"),
 	},
-	BuilderRefresh: {
+	builder_refresh: {
 		verb: "refresh_builder",
 		icon: ICONS.REFRESH,
 		target: firstOf("pageRef"),
 		isReadOnly: true,
 	},
-	BuilderListResources: {
+	builder_list_resources: {
 		verb: "list_tables",
 		icon: ICONS.TABLE,
 		target: none,
 		isReadOnly: true,
 	},
-	BuilderResourceStructure: {
+	builder_resource_structure: {
 		verb: "read_table",
 		icon: ICONS.TABLE,
 		target: firstOf("ref"),
 		isReadOnly: true,
 	},
-	BuilderConfigureProject: {
+	builder_configure_project: {
 		verb: "configure_project",
 		icon: ICONS.DATA,
 		target: countOf("steps"),
 	},
-	BuilderMapResources: {
+	builder_map_resources: {
 		verb: "map_tables",
 		icon: ICONS.TABLE,
 		target: firstOf("connection", "module"),
 	},
-	BuilderMapping: {
+	builder_mapping: {
 		verb: "read_mapping",
 		icon: ICONS.TABLE,
 		target: firstOf("connection", "module"),
 		isReadOnly: true,
 	},
-	BuilderAnalyseDatabase: {
+	builder_analyse_database: {
 		verb: "analyse_database",
 		icon: ICONS.TABLE,
 		target: firstOf("connection", "job"),
 		isReadOnly: true,
 	},
-	BuilderCreateResource: {
+	builder_create_resource: {
 		verb: "create_table",
 		icon: ICONS.TABLE,
 		target: firstOf("displayName", "name"),
 	},
-	BuilderDeleteResource: {
+	builder_delete_resource: {
 		verb: "delete_table",
 		icon: ICONS.DELETE,
 		target: firstOf("ref"),
 	},
-	BuilderAddField: {
+	builder_add_field: {
 		verb: "add_field",
 		icon: ICONS.FIELD,
 		target: joined(firstOf("ref"), nested("field", "name")),
 	},
-	BuilderConfigureField: {
+	builder_configure_field: {
 		verb: "configure_field",
 		icon: ICONS.FIELD,
 		target: firstOf("path"),
 	},
-	BuilderRemoveField: {
+	builder_remove_field: {
 		verb: "remove_field",
 		icon: ICONS.FIELD,
 		target: firstOf("path"),
 	},
-	BuilderQueryTemplates: {
+	builder_query_templates: {
 		verb: "browse_queries",
 		icon: ICONS.DATA,
 		target: firstOf("resourceType"),
 		isReadOnly: true,
 	},
-	BuilderAddQuery: {
+	builder_add_query: {
 		verb: "add_query",
 		icon: ICONS.DATA,
 		target: firstOf("name"),
 	},
-	BuilderPreviewQuery: {
+	builder_preview_query: {
 		verb: "preview_query",
 		icon: ICONS.DATA,
 		target: firstOf("name"),
 		isReadOnly: true,
 	},
-	BuilderConfigureQuery: {
+	builder_configure_query: {
 		verb: "configure_query",
 		icon: ICONS.DATA,
 		target: firstOf("path", "name"),
 	},
-	BuilderRemoveQuery: {
+	builder_remove_query: {
 		verb: "remove_query",
 		icon: ICONS.DATA,
 		target: firstOf("path", "name"),
@@ -519,7 +519,7 @@ export function bareToolName(toolName: string): string {
 	return toolName.replace(MCP_PREFIX, "");
 }
 
-/** "BuilderAddBlock" → "Builder add block", for a tool the lexicon lacks. */
+/** "builder_add_block" → "Builder add block", for a tool the lexicon lacks. */
 export function readableToolName(toolName: string): string {
 	const words = bareToolName(toolName)
 		.replace(WORD_BOUNDARY, "$1 $2")

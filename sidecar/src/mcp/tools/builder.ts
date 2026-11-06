@@ -29,29 +29,31 @@ export interface BuilderToolsDeps {
 const CONFIG = JSON_RECORD;
 
 /**
- * Every block path returned by BuilderPageStructure follows this shape; the
+ * Every block path returned by builder_page_structure follows this shape; the
  * separators are easy to guess wrong (`/` between blocks, not `.` or `#`).
  */
 const BLOCK_PATH_FORMAT =
-  "A block path from BuilderPageStructure: `<pageRef>#<block>` for a top-level block, then `/<child>` per nesting level (e.g. `/dashboard#grid/row/kpi`). Separators: `#` after the page, `/` between blocks.";
+  "A block path from builder_page_structure: `<pageRef>#<block>` for a top-level block, then `/<child>` per nesting level (e.g. `/dashboard#grid/row/kpi`). Separators: `#` after the page, `/` between blocks.";
 const BLOCK_PATH = z.string().describe(BLOCK_PATH_FORMAT);
 const PARENT_PATH = z
   .string()
   .describe(`Container block to nest under. ${BLOCK_PATH_FORMAT}`);
 
 const FIELD_PATH_FORMAT =
-  "A field path `<resourceRef>#<fieldName>` (the `ref` from BuilderListResources plus the field name).";
+  "A field path `<resourceRef>#<fieldName>` (the `ref` from builder_list_resources plus the field name).";
 const FIELD_PATH = z.string().describe(FIELD_PATH_FORMAT);
 
 const DATA_TYPE_VALUE = z.object({
   $dataType: z
     .string()
-    .describe("A `dataTypes` id from BuilderCatalog, e.g. `string`, `select`."),
+    .describe(
+      "A `dataTypes` id from builder_catalog, e.g. `string`, `select`.",
+    ),
   config: z
     .record(z.string(), JsonValueSchema)
     .optional()
     .describe(
-      `That DataType's own config, per BuilderCatalog. ${BUILDER_REF_NOTE}`,
+      `That DataType's own config, per builder_catalog. ${BUILDER_REF_NOTE}`,
     ),
 });
 
@@ -109,7 +111,7 @@ const FIELD_SPEC = z.object({
   name: z
     .string()
     .describe(
-      "Field name. Must not be one of BuilderCatalog's `reservedFieldNames` (they collide with a generated route or Model member) — e.g. use `itemCount`, not `count`.",
+      "Field name. Must not be one of builder_catalog's `reservedFieldNames` (they collide with a generated route or Model member) — e.g. use `itemCount`, not `count`.",
     ),
   ...FIELD_ASPECTS,
 });
@@ -143,7 +145,7 @@ const CATALOG_NAMES = z.array(z.string()).optional();
 
 function buildCatalogTool(builderClient: BuilderClient) {
   return defineTool(
-    "BuilderCatalog",
+    "builder_catalog",
     note(
       "The block types and DataTypes the page builder can emit. Without arguments it returns a compact index: each block type with a one-line description, its group, whether it is a `container` and whether it binds a resource (`controllerArg`); each DataType id with its config keys; and `reservedFieldNames`. Then pass `blocks` and/or `dataTypes` with the names you will use to get their full config schemas — always do so before adding or configuring a block of that type. For a config field whose schema is marked `x-dataType` (e.g. a Form field's `type`), pass a DataType value `{ $dataType: \"<id>\", config: {…} }` using an id and config from this catalog's `dataTypes` — never a raw `$expr`.",
     ),
@@ -165,13 +167,13 @@ function buildCatalogTool(builderClient: BuilderClient) {
 function buildPageTools(run: BuilderRun) {
   return [
     defineTool(
-      "BuilderListPages",
+      "builder_list_pages",
       note("Lists all builder-editable pages (route, id, category, file)."),
       {},
       () => run("ListPages", []),
     ),
     defineTool(
-      "BuilderPageStructure",
+      "builder_page_structure",
       note(
         `Returns a page's block tree (each block's path, type, editability, config) plus a version hash for optimistic concurrency. ${BLOCK_PATH_FORMAT}`,
       ),
@@ -179,7 +181,7 @@ function buildPageTools(run: BuilderRun) {
       ({ pageRef }: { pageRef: string }) => run("GetPageStructure", [pageRef]),
     ),
     defineTool(
-      "BuilderCreatePage",
+      "builder_create_page",
       note(
         "Creates a new page under an existing category and wires it into the barrel so it registers.",
       ),
@@ -206,9 +208,9 @@ function buildPageTools(run: BuilderRun) {
       (input) => run("CreatePage", [input]),
     ),
     defineTool(
-      "BuilderConfigurePage",
+      "builder_configure_page",
       note(
-        "Updates a page's metadata: displayName, icon, order (lowest first, then by title; a dashboard takes 0, mapped table pages 100), description. Works on pages BuilderMapResources wrote too.",
+        "Updates a page's metadata: displayName, icon, order (lowest first, then by title; a dashboard takes 0, mapped table pages 100), description. Works on pages builder_map_resources wrote too.",
       ),
       { pageRef: z.string(), patch: CONFIG },
       async ({ pageRef, patch }) =>
@@ -217,7 +219,7 @@ function buildPageTools(run: BuilderRun) {
           : run("ConfigurePage", [pageRef, patch]),
     ),
     defineTool(
-      "BuilderDeletePage",
+      "builder_delete_page",
       note("Deletes a page file and removes its barrel import."),
       { pageRef: z.string() },
       ({ pageRef }: { pageRef: string }) => run("DeletePage", [pageRef]),
@@ -228,9 +230,9 @@ function buildPageTools(run: BuilderRun) {
 function buildBlockTools(run: BuilderRun) {
   return [
     defineTool(
-      "BuilderAddBlock",
+      "builder_add_block",
       note(
-        "Adds a block. Omit `parent` for a top-level block, or pass a container block's path to nest. `type` and `config` must match the catalog. Block types the catalog marks `controllerArg: true` (e.g. `TableView`) bind to a data resource: pass `controller` = the resource `ref` from BuilderListResources (its DataAPI class becomes the block's leading argument) and put the display options in `config`.",
+        "Adds a block. Omit `parent` for a top-level block, or pass a container block's path to nest. `type` and `config` must match the catalog. Block types the catalog marks `controllerArg: true` (e.g. `TableView`) bind to a data resource: pass `controller` = the resource `ref` from builder_list_resources (its DataAPI class becomes the block's leading argument) and put the display options in `config`.",
       ),
       {
         page: z.string(),
@@ -244,7 +246,7 @@ function buildBlockTools(run: BuilderRun) {
           .string()
           .optional()
           .describe(
-            "Resource ref (from BuilderListResources) for a controller-leading block such as TableView. Required for those types; rejected for others.",
+            "Resource ref (from builder_list_resources) for a controller-leading block such as TableView. Required for those types; rejected for others.",
           ),
       },
       async (input) =>
@@ -253,7 +255,7 @@ function buildBlockTools(run: BuilderRun) {
           : run("AddBlock", [input]),
     ),
     defineTool(
-      "BuilderConfigureBlock",
+      "builder_configure_block",
       note(
         "Merges (or replaces, with replace:true) options into a block's config. Children are managed with Add/Move/Remove, not here.",
       ),
@@ -264,7 +266,7 @@ function buildBlockTools(run: BuilderRun) {
           : run("ConfigureBlock", [path, patch, { replace }]),
     ),
     defineTool(
-      "BuilderMoveBlock",
+      "builder_move_block",
       note("Moves a child block to a new position within a container."),
       {
         path: BLOCK_PATH,
@@ -285,13 +287,13 @@ function buildBlockTools(run: BuilderRun) {
       }) => run("MoveBlock", [path, { parent, slot, index }]),
     ),
     defineTool(
-      "BuilderRemoveBlock",
+      "builder_remove_block",
       note("Removes a block and its whole subtree."),
       { path: BLOCK_PATH },
       ({ path }: { path: string }) => run("RemoveBlock", [path]),
     ),
     defineTool(
-      "BuilderCreateCategory",
+      "builder_create_category",
       note(
         "Creates a navigation category (optionally under a parent category).",
       ),
@@ -306,7 +308,7 @@ function buildBlockTools(run: BuilderRun) {
       (input) => run("CreateCategory", [input]),
     ),
     defineTool(
-      "BuilderConfigureCategory",
+      "builder_configure_category",
       note("Updates a category's metadata (displayName, icon, order)."),
       { ref: z.string(), patch: CONFIG },
       async ({ ref, patch }) =>
@@ -315,7 +317,7 @@ function buildBlockTools(run: BuilderRun) {
           : run("ConfigureCategory", [ref, patch]),
     ),
     defineTool(
-      "BuilderDeleteCategory",
+      "builder_delete_category",
       note(
         "Deletes a category. Refused with referential_integrity if any page still references it.",
       ),
@@ -323,7 +325,7 @@ function buildBlockTools(run: BuilderRun) {
       ({ ref }: { ref: string }) => run("DeleteCategory", [ref]),
     ),
     defineTool(
-      "BuilderRefresh",
+      "builder_refresh",
       note(
         "Reconciles the builder's source index with disk after out-of-band edits (e.g. a Code mode excursion).",
       ),
@@ -337,7 +339,7 @@ function buildBlockTools(run: BuilderRun) {
 function buildResourceTools(run: BuilderRun) {
   return [
     defineTool(
-      "BuilderListResources",
+      "builder_list_resources",
       note(
         "Lists every data resource (its ref, class/table names, /api route, field count, files). A resource is a Database Table+Model paired with a DataAPI controller.",
       ),
@@ -345,7 +347,7 @@ function buildResourceTools(run: BuilderRun) {
       () => run("ListResources", []),
     ),
     defineTool(
-      "BuilderResourceStructure",
+      "builder_resource_structure",
       note(
         "Returns a resource's fields with their semantic aspects, its `routes` (absent when it serves the full set), and a version hash for optimistic concurrency. Hand-edited or relation fields come back marked `opaque` — safe mode cannot reconfigure those.",
       ),
@@ -353,7 +355,7 @@ function buildResourceTools(run: BuilderRun) {
       ({ ref }: { ref: string }) => run("GetResourceStructure", [ref]),
     ),
     defineTool(
-      "BuilderCreateResource",
+      "builder_create_resource",
       note(
         "Creates a data resource — a Database Table+Model plus a matching DataAPI controller at /api/<name> — as a folder wired into the nearest barrel. Every resource auto-manages its own `_id`. When you limit `routes`, keep the view in sync: drop the TableView rowActions whose routes you left out, or bind a Form instead.",
       ),
@@ -373,7 +375,7 @@ function buildResourceTools(run: BuilderRun) {
           : run("CreateResource", [input]),
     ),
     defineTool(
-      "BuilderDeleteResource",
+      "builder_delete_resource",
       note(
         "Deletes a resource: removes its database.ts/data-api.ts/index.ts files, unwires the barrel export, and (by default) clears the resource's database table so a later resource reusing the name re-seeds cleanly instead of inheriting stale rows. Pass keepData: true to leave the table data in place. Does not detect pages whose TableView references its /api route.",
       ),
@@ -385,7 +387,7 @@ function buildResourceTools(run: BuilderRun) {
         ),
     ),
     defineTool(
-      "BuilderAddField",
+      "builder_add_field",
       note(
         "Adds a field to a resource, editing the Table and DataAPI classes together in one atomic op.",
       ),
@@ -396,9 +398,9 @@ function buildResourceTools(run: BuilderRun) {
           : run("AddField", [ref, field]),
     ),
     defineTool(
-      "BuilderConfigureField",
+      "builder_configure_field",
       note(
-        "Reconfigures a field by merging the patch over its current aspects and re-deriving the whole decorator stack on both classes (no drift). Field name is immutable — rename via BuilderRemoveField + BuilderAddField.",
+        "Reconfigures a field by merging the patch over its current aspects and re-deriving the whole decorator stack on both classes (no drift). Field name is immutable — rename via builder_remove_field + builder_add_field.",
       ),
       { path: FIELD_PATH, patch: FIELD_ASPECTS_PATCH },
       async ({ path, patch }) =>
@@ -407,7 +409,7 @@ function buildResourceTools(run: BuilderRun) {
           : run("ConfigureField", [path, patch]),
     ),
     defineTool(
-      "BuilderRemoveField",
+      "builder_remove_field",
       note(
         "Removes a field from a resource's Table and DataAPI classes in one atomic op. Leaves seed rows untouched.",
       ),

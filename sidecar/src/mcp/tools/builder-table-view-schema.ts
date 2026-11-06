@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const COLUMN = z
   .string()
-  .describe("A column name as BuilderResourceStructure lists it.");
+  .describe("A column name as builder_resource_structure lists it.");
 
 const DISPLAY = z.enum(["table", "kanban", "cards", "grouped"]);
 
@@ -117,7 +117,7 @@ const FOOTER_SUMMARY = z.object({
     ),
 });
 
-/** What the Builder sets on a table page; shared by BuilderConfigureTableView and the mapping's `tableOptions`. */
+/** What the Builder sets on a table page; shared by builder_configure_table_view and the mapping's `tableOptions`. */
 export const TABLE_VIEW_SETTINGS = {
   kanban: KANBAN.nullable()
     .optional()

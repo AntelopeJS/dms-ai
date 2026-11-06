@@ -19,8 +19,8 @@
  * Two corollaries, and they are what keeps this file small:
  *
  * - **A fact the agent can read at runtime does not belong in prose at all.**
- *   Reserved field names come from `BuilderCatalog.reservedFieldNames`; a query
- *   template's parameters come from `BuilderQueryTemplates`. Restating either
+ *   Reserved field names come from `builder_catalog.reservedFieldNames`; a query
+ *   template's parameters come from `builder_query_templates`. Restating either
  *   here would be a copy that silently drifts. When prose is tempting because
  *   the data is uninformative, fix the data.
  * - **Prose lives here only if more than one tool needs it.** A note used by a
@@ -33,7 +33,7 @@ export const BUILDER_ESCALATION_NOTE =
 
 /** Returned in place of an op when a tool is handed a raw `$expr` value. */
 export const BUILDER_EXPR_REFUSAL =
-  'Refused: safe mode does not allow raw `$expr` values in builder config. For a Form field or Column DataType, use `{ $dataType: "<id>", config: {…} }` (see BuilderCatalog for ids). To reference a generated resource class (e.g. a RelationType\'s `dataApiController`), use a reference value `{ $ref: { resource: "<name>" } }` instead — it is validated and allowed in safe mode. Only escalate to Code mode for genuinely arbitrary code.';
+  'Refused: safe mode does not allow raw `$expr` values in builder config. For a Form field or Column DataType, use `{ $dataType: "<id>", config: {…} }` (see builder_catalog for ids). To reference a generated resource class (e.g. a RelationType\'s `dataApiController`), use a reference value `{ $ref: { resource: "<name>" } }` instead — it is validated and allowed in safe mode. Only escalate to Code mode for genuinely arbitrary code.';
 
 /**
  * The `$ref` shape. Describes a *value* the agent writes, so it rides on the
@@ -41,4 +41,4 @@ export const BUILDER_EXPR_REFUSAL =
  * accepts one.
  */
 export const BUILDER_REF_NOTE =
-  'To reference a builder-generated resource class inside config (e.g. a RelationType DataType\'s `dataApiController`), pass `{ $ref: { resource: "<ref>", as?: "dataApi" | "table" | "model" } }` (default `as` = "dataApi", the DataAPI controller). The resource must already exist (BuilderListResources). Unlike `$expr`, `$ref` is allowed in safe mode.';
+  'To reference a builder-generated resource class inside config (e.g. a RelationType DataType\'s `dataApiController`), pass `{ $ref: { resource: "<ref>", as?: "dataApi" | "table" | "model" } }` (default `as` = "dataApi", the DataAPI controller). The resource must already exist (builder_list_resources). Unlike `$expr`, `$ref` is allowed in safe mode.';

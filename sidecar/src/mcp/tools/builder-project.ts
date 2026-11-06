@@ -103,7 +103,7 @@ const MAPPED_FIELD = z.object({
     .string()
     .optional()
     .describe(
-      "One of the column's `accepts`, from the proposal or DatabaseDescribe; the first by default.",
+      "One of the column's `accepts`, from the proposal or database_describe; the first by default.",
     ),
   label: z.string().optional(),
   listable: z.boolean().optional(),
@@ -202,7 +202,7 @@ const MAPPED_RESOURCE = z.object({
     .object(TABLE_VIEW_SETTINGS)
     .optional()
     .describe(
-      "Displays (kanban, cards, grouped), views and footer figures for the page's table, with the same checks as BuilderConfigureTableView; a refused choice is a warning and the page keeps what it had.",
+      "Displays (kanban, cards, grouped), views and footer figures for the page's table, with the same checks as builder_configure_table_view; a refused choice is a warning and the page keeps what it had.",
     ),
 });
 
@@ -215,7 +215,7 @@ const MAP_RESOURCES_INPUT = {
   module: z
     .string()
     .describe("The project module bound to the connection's database."),
-  connection: z.string().describe("A connection id from DatabaseConnections."),
+  connection: z.string().describe("A connection id from database_connections."),
   resources: z.array(MAPPED_RESOURCE),
   excluded: z.array(EXCLUDED).optional(),
 };
@@ -225,7 +225,7 @@ const ANALYSE_DATABASE_INPUT = {
     .string()
     .optional()
     .describe(
-      "A connection id from DatabaseConnections, to start an analysis.",
+      "A connection id from database_connections, to start an analysis.",
     ),
   module: z
     .string()
@@ -246,13 +246,13 @@ const ANALYSE_DATABASE_INPUT = {
 };
 
 const MAP_RESOURCES_DESCRIPTION =
-  "Maps relations of a connected database into a project module bound to it (created with BuilderConfigureProject): table classes and models with the database's names verbatim, DataAPI controllers and one TableView page per relation that has a key. Only your choices are sent: the Builder reads the relations' descriptions from its own catalog connection and checks every choice against them. A relation mapped before is rewritten from the new choices, its page created, kept or removed; a mapping that would remove a page asks the person first, listing it, and a denial writes nothing, and a page that appeared after the person approved is never removed: that write is refused, so call again to ask. `excluded` records relations decided against, so the next analysis does not propose them. Answers what was written and `leftOut`: columns a TableView cannot show, with why.";
+  "Maps relations of a connected database into a project module bound to it (created with builder_configure_project): table classes and models with the database's names verbatim, DataAPI controllers and one TableView page per relation that has a key. Only your choices are sent: the Builder reads the relations' descriptions from its own catalog connection and checks every choice against them. A relation mapped before is rewritten from the new choices, its page created, kept or removed; a mapping that would remove a page asks the person first, listing it, and a denial writes nothing, and a page that appeared after the person approved is never removed: that write is refused, so call again to ask. `excluded` records relations decided against, so the next analysis does not propose them. Answers what was written and `leftOut`: columns a TableView cannot show, with why.";
 
 const ANALYSE_DATABASE_DESCRIPTION =
-  "Runs the Builder's analysis of a connected database: it reads the catalog and the profiles and proposes a mapping by fixed rules, writing nothing. Answers the proposal: resources in the shape BuilderMapResources takes, each choice with its rule and `kind` (`fact` from the catalog, or `default`, a judgement to check), the relations excluded and why, and `open`: what the rules could not decide, each with its options. Profiling is slow: when the analysis is still running after a minute this answers its progress and `job`; call again with that `job` to read on.";
+  "Runs the Builder's analysis of a connected database: it reads the catalog and the profiles and proposes a mapping by fixed rules, writing nothing. Answers the proposal: resources in the shape builder_map_resources takes, each choice with its rule and `kind` (`fact` from the catalog, or `default`, a judgement to check), the relations excluded and why, and `open`: what the rules could not decide, each with its options. Profiling is slow: when the analysis is still running after a minute this answers its progress and `job`; call again with that `job` to read on.";
 
 const MAPPING_DESCRIPTION =
-  "The relations a module maps for a connection, read back from its code as their current choices, in the proposal's shape (every rule `mapped`), with `included`: the columns the module declares. Read it before mapping a relation again with BuilderMapResources, so you send its current choices with only what you change.";
+  "The relations a module maps for a connection, read back from its code as their current choices, in the proposal's shape (every rule `mapped`), with `included`: the columns the module declares. Read it before mapping a relation again with builder_map_resources, so you send its current choices with only what you change.";
 
 const ANALYSIS_ANSWER = z.object({
   ok: z.unknown().optional(),
@@ -460,7 +460,7 @@ export function buildProjectTools(
       {
         connection: z
           .string()
-          .describe("A connection id from DatabaseConnections."),
+          .describe("A connection id from database_connections."),
         module: z
           .string()
           .describe("The project module bound to the connection's database."),
