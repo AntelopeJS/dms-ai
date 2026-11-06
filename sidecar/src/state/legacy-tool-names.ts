@@ -6,15 +6,19 @@ const WORD_BOUNDARY = /([a-z0-9])([A-Z])/g;
 
 /**
  * The current name of a tool a transcript recorded before dms-ai's MCP tools
- * were renamed to snake_case: `mcp__dms-ai__BuilderAddBlock` becomes
- * `mcp__dms-ai__builder_add_block`. Any other name is returned as is.
+ * were renamed to snake_case, with or without the `mcp__dms-ai__` prefix:
+ * `mcp__dms-ai__BuilderAddBlock` becomes `mcp__dms-ai__builder_add_block` and
+ * `BuilderDeletePage` becomes `builder_delete_page`. Any other name is
+ * returned as is.
  */
 export function currentToolName(toolName: string): string {
-  if (!toolName.startsWith(MCP_TOOL_NAME_PREFIX)) return toolName;
-  const bare = toolName.slice(MCP_TOOL_NAME_PREFIX.length);
+  const prefix = toolName.startsWith(MCP_TOOL_NAME_PREFIX)
+    ? MCP_TOOL_NAME_PREFIX
+    : "";
+  const bare = toolName.slice(prefix.length);
   const snake = bare.replace(WORD_BOUNDARY, "$1_$2").toLowerCase();
   return snake !== bare && isMcpToolName(snake)
-    ? `${MCP_TOOL_NAME_PREFIX}${snake}`
+    ? `${prefix}${snake}`
     : toolName;
 }
 

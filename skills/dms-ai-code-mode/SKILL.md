@@ -35,7 +35,7 @@ The change is done when every impacted page shows it and `typecheck` reports no 
 
 ## Builder tools in Code mode
 
-When `@antelopejs/dms-builder` is loaded, the `Builder*` tools stay available in Code mode.
+When `@antelopejs/dms-builder` is loaded, the `builder_*` tools stay available in Code mode.
 Prefer them for what they cover: every operation is atomic and typecheck-gated. For a computed number over a builder-managed resource (a `KpiCard` count or sum),
 `builder_query_templates` then `builder_add_query` generate the route to pass as `fetchUrl`.
 

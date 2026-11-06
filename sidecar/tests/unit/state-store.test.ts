@@ -87,13 +87,14 @@ describe("tool names recorded before the snake_case rename", () => {
             legacy("mcp__dms-ai__Typecheck"),
             legacy("Read"),
             legacy("mcp__other__GetCurrentPage"),
+            legacy("BuilderDeletePage"),
             {
               role: "notice",
               content: "",
               timestampMs: 3,
               notice: {
                 kind: "permission_expired",
-                toolName: "mcp__dms-ai__BuilderRemoveField",
+                toolName: "BuilderRemoveField",
                 summary: "",
                 timestampMs: 3,
               },
@@ -111,10 +112,11 @@ describe("tool names recorded before the snake_case rename", () => {
       "mcp__dms-ai__typecheck",
       "Read",
       "mcp__other__GetCurrentPage",
+      "builder_delete_page",
       undefined,
     ]);
-    expect(messages[4]?.notice).toMatchObject({
-      toolName: "mcp__dms-ai__builder_remove_field",
+    expect(messages[5]?.notice).toMatchObject({
+      toolName: "builder_remove_field",
     });
   });
 });

@@ -8,7 +8,7 @@ tags: [Pages, Builder, SafeMode, DMS]
 
 # Building DMS pages through the Builder (safe mode)
 
-In safe mode you act **only through the `Builder*` MCP tools** — raw file edits
+In safe mode you act **only through the `builder_*` MCP tools** — raw file edits
 (`Write`/`Edit`/`Bash`) are blocked. Every op is **atomic and typecheck-gated**: on
 success it returns the file changes; on `typecheck_failed` **nothing is written**.
 
