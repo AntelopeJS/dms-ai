@@ -215,7 +215,7 @@ function bindConnection(socket: WebSocket, config: RoutingConfig): void {
 }
 
 /**
- * Tools are bound per conversation so AskUser can reach the right chat: no
+ * Tools are bound per conversation so ask_user can reach the right chat: no
  * MCP transport carries our conversationId down to a tool handler, so it is
  * closed over here instead. Shared by both bindings.
  */
@@ -240,7 +240,7 @@ function buildMcpDepsFactory(
   });
 }
 
-/** Paired with its AskUser call so the question ends with the call. */
+/** Paired with its ask_user call so the question ends with the call. */
 function askUser(
   current: SidecarServices,
   req: QuestionRequest,

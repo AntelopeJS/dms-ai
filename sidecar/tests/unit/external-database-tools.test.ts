@@ -49,9 +49,9 @@ function recordingClient(calls: Recorded[]): BuilderClient {
 
 function configureProject(client: BuilderClient, gate: BuilderGate) {
   const tool = buildProjectTools(client, gate).find(
-    (definition) => definition.name === "BuilderConfigureProject",
+    (definition) => definition.name === "builder_configure_project",
   );
-  if (!tool) throw new Error("BuilderConfigureProject is missing");
+  if (!tool) throw new Error("builder_configure_project is missing");
   return (args: ToolArgs) => tool.handler(args);
 }
 
@@ -67,7 +67,7 @@ describe("the external-database tools", () => {
 
   it("always asks before editing antelope.config.ts, showing the dry run's diff", async () => {
     const description = await describeRequest({
-      toolName: `${MCP_TOOL_NAME_PREFIX}BuilderConfigureProject`,
+      toolName: `${MCP_TOOL_NAME_PREFIX}builder_configure_project`,
       args: { steps: STEPS, plannedChanges: PLANNED },
       hostProjectRoot: ROOT,
       alwaysAskDependencies: false,
@@ -92,7 +92,7 @@ describe("the external-database tools", () => {
 
   it("shows a unified diff whole, unindented lines and line numbers included", async () => {
     const description = await describeRequest({
-      toolName: `${MCP_TOOL_NAME_PREFIX}BuilderConfigureProject`,
+      toolName: `${MCP_TOOL_NAME_PREFIX}builder_configure_project`,
       args: {
         steps: STEPS,
         plannedChanges: [
@@ -157,19 +157,19 @@ describe("the external-database tools", () => {
 describe("the Builder's analysis tool", () => {
   function analyse(client: BuilderClient) {
     const tool = buildProjectTools(client, undefined).find(
-      (definition) => definition.name === "BuilderAnalyseDatabase",
+      (definition) => definition.name === "builder_analyse_database",
     );
-    if (!tool) throw new Error("BuilderAnalyseDatabase is missing");
+    if (!tool) throw new Error("builder_analyse_database is missing");
     return (args: ToolArgs) => tool.handler(args);
   }
 
   it("reads without a prompt and in plan mode", () => {
     expect(
       FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES.has(
-        `${MCP_TOOL_NAME_PREFIX}BuilderAnalyseDatabase`,
+        `${MCP_TOOL_NAME_PREFIX}builder_analyse_database`,
       ),
     ).toBe(true);
-    expect(isReadOnlyTool("BuilderAnalyseDatabase")).toBe(true);
+    expect(isReadOnlyTool("builder_analyse_database")).toBe(true);
   });
 
   it("starts the analysis, then reads its job until the proposal is in", async () => {
@@ -214,10 +214,10 @@ describe("the Builder's analysis tool", () => {
   });
 
   it("reads the module's mapping without a prompt, through GetMapping", async () => {
-    expect(isReadOnlyTool("BuilderMapping")).toBe(true);
+    expect(isReadOnlyTool("builder_mapping")).toBe(true);
     const calls: Recorded[] = [];
     const tool = buildProjectTools(recordingClient(calls), undefined).find(
-      (definition) => definition.name === "BuilderMapping",
+      (definition) => definition.name === "builder_mapping",
     );
     await tool?.handler({ connection: "erp", module: "erp-tables" });
     expect(calls).toEqual([{ op: "GetMapping", args: ["erp", "erp-tables"] }]);

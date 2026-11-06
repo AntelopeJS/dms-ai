@@ -50,7 +50,7 @@ const OUTSIDE_REACHERS: Call[] = [
 const UNKNOWN_TOOLS: Call[] = [
   call("ToolTheCliAddsNext", { command: INSTALL }),
   call("mcp__acme__Frobnicate", { target: "home" }),
-  call("mcp__other__BuilderDeletePage", { target: "home" }),
+  call("mcp__other__builder_delete_page", { target: "home" }),
 ];
 
 const INSTALL_HOOK_FILES: Call[] = [
@@ -125,7 +125,7 @@ const SAFE_SCOPE_CALLS: Call[] = [
   call("ToolSearch", { query: "select:Monitor" }),
   call("Skill", { skill: "dms-ai" }),
   call("AskUserQuestion", { questions: [] }),
-  call(`${MCP_TOOL_NAME_PREFIX}BuilderAddBlock`, {}),
+  call(`${MCP_TOOL_NAME_PREFIX}builder_add_block`, {}),
   call("Write", { file_path: join(homedir(), ".claude", "plans", "p.md") }),
 ];
 

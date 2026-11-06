@@ -5,7 +5,7 @@ import {
 import type { CurrentPage } from "../../state/host-state.js";
 import { defineTool, type McpToolResult } from "../define-tool.js";
 
-type GetCurrentPage = () => CurrentPage;
+type get_current_page = () => CurrentPage;
 
 const EMPTY_INPUT_SCHEMA = {} as const;
 
@@ -15,7 +15,7 @@ function buildContent(page: CurrentPage): McpToolResult {
   };
 }
 
-export function buildGetCurrentPageTool(getCurrentPage: GetCurrentPage) {
+export function buildGetCurrentPageTool(getCurrentPage: get_current_page) {
   return defineTool(
     GET_CURRENT_PAGE_TOOL_NAME,
     GET_CURRENT_PAGE_TOOL_DESCRIPTION,

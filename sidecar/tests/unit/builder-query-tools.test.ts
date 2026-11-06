@@ -100,9 +100,9 @@ async function callTool(name: string, args: ToolArguments, gate?: BuilderGate) {
   return { result, calls };
 }
 
-describe("BuilderAddQuery", () => {
+describe("builder_add_query", () => {
   it("hands the Builder whether to compare the preceding period", async () => {
-    const { calls } = await callTool("BuilderAddQuery", {
+    const { calls } = await callTool("builder_add_query", {
       page: "/dashboard",
       ...SERIES,
       response: "card",
@@ -117,7 +117,7 @@ describe("BuilderAddQuery", () => {
   });
 
   it("refuses a compare that is not a boolean, without calling the Builder", async () => {
-    const { result, calls } = await callTool("BuilderAddQuery", {
+    const { result, calls } = await callTool("builder_add_query", {
       page: "/dashboard",
       ...SERIES,
       compare: "yes",
@@ -127,9 +127,9 @@ describe("BuilderAddQuery", () => {
   });
 });
 
-describe("BuilderConfigureQuery", () => {
+describe("builder_configure_query", () => {
   it("forwards a compare patch", async () => {
-    const { calls } = await callTool("BuilderConfigureQuery", {
+    const { calls } = await callTool("builder_configure_query", {
       query: "/dashboard@revenue",
       patch: { compare: false },
     });
@@ -142,10 +142,10 @@ describe("BuilderConfigureQuery", () => {
   });
 });
 
-describe("BuilderPreviewQuery", () => {
+describe("builder_preview_query", () => {
   it("runs the unsaved query with the arguments its route would receive and answers the Builder's result", async () => {
     const args = { from: "2026-01-01", to: "2026-01-31" };
-    const { result, calls } = await callTool("BuilderPreviewQuery", {
+    const { result, calls } = await callTool("builder_preview_query", {
       ...SERIES,
       response: "card",
       compare: true,
@@ -161,12 +161,12 @@ describe("BuilderPreviewQuery", () => {
   });
 
   it("needs no page, and sends no arguments when it is given none", async () => {
-    const { calls } = await callTool("BuilderPreviewQuery", SERIES);
+    const { calls } = await callTool("builder_preview_query", SERIES);
     expect(calls).toEqual([{ op: "PreviewQuery", args: [{ query: SERIES }] }]);
   });
 
   it("refuses a raw $expr value with the safe-mode refusal", async () => {
-    const { result, calls } = await callTool("BuilderPreviewQuery", {
+    const { result, calls } = await callTool("builder_preview_query", {
       ...SERIES,
       args: { from: { $expr: "x" } },
     });
@@ -177,8 +177,8 @@ describe("BuilderPreviewQuery", () => {
   it("is listed with the other Builder tools and takes the query fields but no page", async () => {
     const { server } = startServer();
     const { tools } = await withClient(server, (client) => client.listTools());
-    const preview = tools.find((tool) => tool.name === "BuilderPreviewQuery");
-    const add = tools.find((tool) => tool.name === "BuilderAddQuery");
+    const preview = tools.find((tool) => tool.name === "builder_preview_query");
+    const add = tools.find((tool) => tool.name === "builder_add_query");
     expect(Object.keys(preview?.inputSchema.properties ?? {}).sort()).toEqual(
       [
         "args",
@@ -198,15 +198,15 @@ describe("BuilderPreviewQuery", () => {
 
   it("runs in plan mode and without an approval, and never waits at the mutation gate", async () => {
     const gate = vi.fn<BuilderGate>(async () => ({ isAllowed: false }));
-    const { calls } = await callTool("BuilderPreviewQuery", SERIES, gate);
+    const { calls } = await callTool("builder_preview_query", SERIES, gate);
     expect(calls).toHaveLength(1);
     expect(gate).not.toHaveBeenCalled();
-    expect(isReadOnlyTool("BuilderPreviewQuery")).toBe(true);
-    expect(BUILDER_TOOL_NAMES).toContain("BuilderPreviewQuery");
-    expect(BUILDER_MUTATING_TOOL_NAMES).not.toContain("BuilderPreviewQuery");
+    expect(isReadOnlyTool("builder_preview_query")).toBe(true);
+    expect(BUILDER_TOOL_NAMES).toContain("builder_preview_query");
+    expect(BUILDER_MUTATING_TOOL_NAMES).not.toContain("builder_preview_query");
     expect(
       FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES.has(
-        `${MCP_TOOL_NAME_PREFIX}BuilderPreviewQuery`,
+        `${MCP_TOOL_NAME_PREFIX}builder_preview_query`,
       ),
     ).toBe(true);
   });

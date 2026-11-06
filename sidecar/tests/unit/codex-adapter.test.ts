@@ -139,7 +139,7 @@ describe("synthesized events", () => {
           type: "mcpToolCall",
           id: "call_1",
           server: "dms-ai",
-          tool: "BuilderCatalog",
+          tool: "builder_catalog",
           status: "inProgress",
           arguments: {},
           result: null,
@@ -148,7 +148,7 @@ describe("synthesized events", () => {
       },
     });
     expect(events[0]).toMatchObject({
-      toolName: `${MCP_TOOL_NAME_PREFIX}BuilderCatalog`,
+      toolName: `${MCP_TOOL_NAME_PREFIX}builder_catalog`,
     });
   });
 
@@ -160,14 +160,14 @@ describe("synthesized events", () => {
           type: "mcpToolCall",
           id: "call_2",
           server: "other",
-          tool: "BuilderDeletePage",
+          tool: "builder_delete_page",
           status: "inProgress",
           arguments: {},
         },
       },
     });
     expect(events[0]).toMatchObject({
-      toolName: "mcp__other__BuilderDeletePage",
+      toolName: "mcp__other__builder_delete_page",
     });
   });
 

@@ -123,7 +123,7 @@ function hasSelection(selection: CatalogSelection): boolean {
 }
 
 /**
- * What BuilderCatalog answers: the full catalog is far too large for one tool
+ * What builder_catalog answers: the full catalog is far too large for one tool
  * result, so it is a compact index unless the agent names the block types and
  * DataTypes whose full schemas it needs. Anything that is not a catalog (an
  * `{ ok: false }` from the builder) passes through untouched.

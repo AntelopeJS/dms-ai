@@ -85,12 +85,12 @@ const TEXT_BY_PREVIEW: Record<PermissionPreview["type"], TextBuilder> = {
 
 /** "Delete the page {target}": the Builder's destructive operations by name. */
 const DESTRUCTIVE_TITLE_KEYS: Record<string, string> = {
-	BuilderDeletePage: "dms_ai.panel.approvals.destructive.delete_page",
-	BuilderDeleteResource: "dms_ai.panel.approvals.destructive.delete_table",
-	BuilderRemoveField: "dms_ai.panel.approvals.destructive.remove_field",
-	BuilderDeleteCategory: "dms_ai.panel.approvals.destructive.delete_category",
-	BuilderRemoveQuery: "dms_ai.panel.approvals.destructive.remove_query",
-	BuilderMapResources: "dms_ai.panel.approvals.destructive.map_resources",
+	builder_delete_page: "dms_ai.panel.approvals.destructive.delete_page",
+	builder_delete_resource: "dms_ai.panel.approvals.destructive.delete_table",
+	builder_remove_field: "dms_ai.panel.approvals.destructive.remove_field",
+	builder_delete_category: "dms_ai.panel.approvals.destructive.delete_category",
+	builder_remove_query: "dms_ai.panel.approvals.destructive.remove_query",
+	builder_map_resources: "dms_ai.panel.approvals.destructive.map_resources",
 };
 
 function destructiveTitle(

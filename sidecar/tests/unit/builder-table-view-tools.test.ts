@@ -99,16 +99,18 @@ async function callTool(name: string, args: ToolArguments, answer?: JsonValue) {
   return { result, calls };
 }
 
-describe("BuilderConfigureTableView", () => {
+describe("builder_configure_table_view", () => {
   it("is a mutating Builder tool the assistant may call without a prompt", () => {
-    expect(BUILDER_TOOL_NAMES).toContain("BuilderConfigureTableView");
-    expect(BUILDER_MUTATING_TOOL_NAMES).toContain("BuilderConfigureTableView");
+    expect(BUILDER_TOOL_NAMES).toContain("builder_configure_table_view");
+    expect(BUILDER_MUTATING_TOOL_NAMES).toContain(
+      "builder_configure_table_view",
+    );
     expect(
       FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES.has(
-        `${MCP_TOOL_NAME_PREFIX}BuilderConfigureTableView`,
+        `${MCP_TOOL_NAME_PREFIX}builder_configure_table_view`,
       ),
     ).toBe(true);
-    expect(isReadOnlyTool("BuilderConfigureTableView")).toBe(false);
+    expect(isReadOnlyTool("builder_configure_table_view")).toBe(false);
   });
 
   it("hands the Builder the page and the settings it was given, nothing else", async () => {
@@ -140,7 +142,7 @@ describe("BuilderConfigureTableView", () => {
         ],
       },
     };
-    const { result, calls } = await callTool("BuilderConfigureTableView", {
+    const { result, calls } = await callTool("builder_configure_table_view", {
       pageRef: PAGE,
       ...settings,
     });
@@ -151,7 +153,7 @@ describe("BuilderConfigureTableView", () => {
   });
 
   it("names the block when the page holds several, and passes null to remove a setting", async () => {
-    const { calls } = await callTool("BuilderConfigureTableView", {
+    const { calls } = await callTool("builder_configure_table_view", {
       pageRef: PAGE,
       block: "orders",
       kanban: null,
@@ -173,7 +175,7 @@ describe("BuilderConfigureTableView", () => {
       { kanban: { draggable: true } },
     ];
     for (const settings of wrong) {
-      const { result, calls } = await callTool("BuilderConfigureTableView", {
+      const { result, calls } = await callTool("builder_configure_table_view", {
         pageRef: PAGE,
         ...settings,
       });
@@ -191,7 +193,7 @@ describe("BuilderConfigureTableView", () => {
       },
     };
     const { result } = await callTool(
-      "BuilderConfigureTableView",
+      "builder_configure_table_view",
       { pageRef: PAGE, kanban: { groupBy: "total" } },
       refused,
     );
@@ -199,7 +201,7 @@ describe("BuilderConfigureTableView", () => {
   });
 });
 
-describe("BuilderMapResources", () => {
+describe("builder_map_resources", () => {
   const resource = {
     relation: "shop.orders",
     tableView: true,
@@ -223,7 +225,7 @@ describe("BuilderMapResources", () => {
   };
 
   it("keeps the displays, tabs, page options and table options it was given", async () => {
-    const { result, calls } = await callTool("BuilderMapResources", {
+    const { result, calls } = await callTool("builder_map_resources", {
       module: "shop-tables",
       connection: "shop",
       resources: [resource],
@@ -247,7 +249,7 @@ describe("BuilderMapResources", () => {
   });
 });
 
-describe("BuilderMapResources relation columns", () => {
+describe("builder_map_resources relation columns", () => {
   it("passes a null relation on, which keeps a foreign key column plain", async () => {
     const orders = {
       relation: "shop.orders",
@@ -255,7 +257,7 @@ describe("BuilderMapResources relation columns", () => {
       writable: false,
       fields: [{ column: "customer_id", relation: null }],
     };
-    const { result, calls } = await callTool("BuilderMapResources", {
+    const { result, calls } = await callTool("builder_map_resources", {
       module: "shop-tables",
       connection: "shop",
       resources: [orders],
@@ -275,7 +277,7 @@ describe("BuilderMapResources relation columns", () => {
   });
 });
 
-describe("BuilderCreatePage", () => {
+describe("builder_create_page", () => {
   it("takes an order and an icon, so a dashboard sorts before the mapped tables", async () => {
     const page = {
       name: "dashboard",
@@ -285,7 +287,7 @@ describe("BuilderCreatePage", () => {
       order: 0,
       description: "How the shop is doing.",
     };
-    const { calls } = await callTool("BuilderCreatePage", page);
+    const { calls } = await callTool("builder_create_page", page);
     expect(calls).toEqual([{ op: "CreatePage", args: [page] }]);
   });
 });

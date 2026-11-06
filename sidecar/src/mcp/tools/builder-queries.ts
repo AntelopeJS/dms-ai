@@ -11,7 +11,7 @@ import {
 const QUERY_REF = z
   .string()
   .describe(
-    "A query ref `<pageRef>@<queryName>` (e.g. `/catalog/books@inStockCount`), as reported in BuilderPageStructure's `queries`.",
+    "A query ref `<pageRef>@<queryName>` (e.g. `/catalog/books@inStockCount`), as reported in builder_page_structure's `queries`.",
   );
 
 const QUERY_ENDPOINT = z
@@ -21,7 +21,7 @@ const QUERY_ENDPOINT = z
   );
 
 const QUERY_PARAMS = JSON_RECORD.describe(
-  "The template's parameters, keyed exactly as the `params` schema BuilderQueryTemplates reports for it — that schema documents every key and value shape, and an unrecognised key is rejected.",
+  "The template's parameters, keyed exactly as the `params` schema builder_query_templates reports for it — that schema documents every key and value shape, and an unrecognised key is rejected.",
 );
 
 const QUERY_RESPONSE = z
@@ -48,8 +48,8 @@ export const QUERY_FIELDS = {
     ),
   resource: z
     .string()
-    .describe("Resource ref to read, from BuilderListResources."),
-  template: z.string().describe("A template id from BuilderQueryTemplates."),
+    .describe("Resource ref to read, from builder_list_resources."),
+  template: z.string().describe("A template id from builder_query_templates."),
   params: QUERY_PARAMS.optional(),
   response: QUERY_RESPONSE.optional(),
   compare: QUERY_COMPARE.optional(),
@@ -60,9 +60,9 @@ export const QUERY_FIELDS = {
 export function buildQueryTools(run: BuilderRun) {
   return [
     defineTool(
-      "BuilderQueryTemplates",
+      "builder_query_templates",
       note(
-        "Lists the query templates BuilderAddQuery can compile, each with its id, what it computes, its `output` kind, and the JSON Schema for its `params`. Call this before adding a query — the schema is the reference for every parameter and value shape.",
+        "Lists the query templates builder_add_query can compile, each with its id, what it computes, its `output` kind, and the JSON Schema for its `params`. Call this before adding a query — the schema is the reference for every parameter and value shape.",
       ),
       {
         resourceType: z
@@ -76,9 +76,9 @@ export function buildQueryTools(run: BuilderRun) {
         run("ListQueryTemplates", resourceType ? [resourceType] : []),
     ),
     defineTool(
-      "BuilderAddQuery",
+      "builder_add_query",
       note(
-        "Adds a query — a page-hosted GET route serving a computed number, or one per group, that the DataAPI cannot give you. Compiles the template into a method on the resource's model and a route on the page, atomically. Returns `{ query, route }`; `route` is the full URL to pass as the reading block's `fetchUrl`. A `count` or `aggregate` route serves `{ \"value\": <number> }`; a `series` route serves the arrangement `response` names. Add `compare: true` to a query that binds its period with `$param` `from` and `to` so a card shows a delta. Run BuilderPreviewQuery first to see what the route would answer.",
+        "Adds a query — a page-hosted GET route serving a computed number, or one per group, that the DataAPI cannot give you. Compiles the template into a method on the resource's model and a route on the page, atomically. Returns `{ query, route }`; `route` is the full URL to pass as the reading block's `fetchUrl`. A `count` or `aggregate` route serves `{ \"value\": <number> }`; a `series` route serves the arrangement `response` names. Add `compare: true` to a query that binds its period with `$param` `from` and `to` so a card shows a delta. Run builder_preview_query first to see what the route would answer.",
       ),
       {
         page: z
@@ -94,9 +94,9 @@ export function buildQueryTools(run: BuilderRun) {
           : run("AddQuery", [page, input]),
     ),
     defineTool(
-      "BuilderPreviewQuery",
+      "builder_preview_query",
       note(
-        "Runs a query that is not saved and answers what its route would, as `{ body, truncated }`, writing nothing. Takes BuilderAddQuery's query fields (no page) and `args`. An empty `series` or `items` in `body` means the block reading it renders empty: fix the query before wiring its route.",
+        "Runs a query that is not saved and answers what its route would, as `{ body, truncated }`, writing nothing. Takes builder_add_query's query fields (no page) and `args`. An empty `series` or `items` in `body` means the block reading it renders empty: fix the query before wiring its route.",
       ),
       {
         ...QUERY_FIELDS,
@@ -110,9 +110,9 @@ export function buildQueryTools(run: BuilderRun) {
             ]),
     ),
     defineTool(
-      "BuilderConfigureQuery",
+      "builder_configure_query",
       note(
-        "Recompiles a query, replacing both its route and its chain. Only the keys you pass change; the rest are re-read from the query. A query BuilderPageStructure reports as `opaque` is refused with opaque_target, leaving the hand-edit intact. Renaming is not supported — remove and re-add. Never affects another page's query, even one sharing the same model method.",
+        "Recompiles a query, replacing both its route and its chain. Only the keys you pass change; the rest are re-read from the query. A query builder_page_structure reports as `opaque` is refused with opaque_target, leaving the hand-edit intact. Renaming is not supported — remove and re-add. Never affects another page's query, even one sharing the same model method.",
       ),
       {
         query: QUERY_REF,
@@ -131,7 +131,7 @@ export function buildQueryTools(run: BuilderRun) {
           : run("ConfigureQuery", [query, patch]),
     ),
     defineTool(
-      "BuilderRemoveQuery",
+      "builder_remove_query",
       note(
         "Removes a query's route from the page, and its model method too once no route on any page still calls it. Works on an opaque query as well — the builder can always remove what it cannot edit. Does not detect blocks whose fetchUrl points at the removed route: fix those in the same turn.",
       ),

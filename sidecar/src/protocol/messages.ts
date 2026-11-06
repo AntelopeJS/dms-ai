@@ -186,7 +186,7 @@ export const PermissionRuleSchema = z.object({
 /**
  * Chat -> server: the answer to a permission request. `rule` is required with
  * allow_rule and must be one of the request's ruleOptions. `keepData` applies
- * to allow_once on BuilderDeleteResource: delete the code, keep the data.
+ * to allow_once on builder_delete_resource: delete the code, keep the data.
  */
 export const PermissionResponseMsg = z.object({
   type: z.literal(MESSAGE_TYPES.PERMISSION_RESPONSE),

@@ -399,8 +399,8 @@ describe("the permission modes on the Claude provider", () => {
     "keeps Builder deletions and block removals on canUseTool, where their own gate asks",
     async () => {
       const turn = await runTurn([
-        { id: "delete", name: `${MCP}BuilderDeletePage`, input: {} },
-        { id: "remove", name: `${MCP}BuilderRemoveBlock`, input: {} },
+        { id: "delete", name: `${MCP}builder_delete_page`, input: {} },
+        { id: "remove", name: `${MCP}builder_remove_block`, input: {} },
       ]);
       expect(turn.tools).toMatchObject([ASKED, ASKED]);
       expect(turn.announced).toEqual(["delete", "remove"]);
@@ -412,19 +412,19 @@ describe("the permission modes on the Claude provider", () => {
     "announces first-party tools to the call ledger and records them as in Ask first",
     async () => {
       const turn = await runTurn([
-        { id: "add", name: `${MCP}BuilderAddBlock`, input: {} },
-        { id: "list", name: `${MCP}BuilderListPages`, input: {} },
+        { id: "add", name: `${MCP}builder_add_block`, input: {} },
+        { id: "list", name: `${MCP}builder_list_pages`, input: {} },
       ]);
       expect(turn.announced).toEqual(["add", "list"]);
       expect(turn.decisions).toEqual([
         {
           callId: "add",
-          toolName: `${MCP}BuilderAddBlock`,
+          toolName: `${MCP}builder_add_block`,
           allowedBy: "builder_auto",
         },
         {
           callId: "list",
-          toolName: `${MCP}BuilderListPages`,
+          toolName: `${MCP}builder_list_pages`,
           allowedBy: "read_auto",
         },
       ]);

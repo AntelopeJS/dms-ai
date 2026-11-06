@@ -3,7 +3,7 @@ export type ToolSource = "builder" | "code" | "web" | "project" | "assistant";
 
 const MCP_PREFIX = /^mcp__.+?__/;
 const WORD_BOUNDARY = /([a-z0-9])([A-Z])|[_-]+/g;
-const BUILDER_PREFIX = "Builder";
+const BUILDER_PREFIX = "builder_";
 
 const CODE_TOOLS = new Set([
 	"Bash",
@@ -19,7 +19,7 @@ const CODE_TOOLS = new Set([
 	"file_change",
 ]);
 const WEB_TOOLS = new Set(["WebFetch", "WebSearch", "web_search"]);
-const PROJECT_TOOLS = new Set(["Typecheck", "NavigateToPage"]);
+const PROJECT_TOOLS = new Set(["typecheck", "navigate_to_page"]);
 
 const SOURCE_ICONS: Record<ToolSource, string> = {
 	builder: "i-ph-squares-four",
@@ -34,7 +34,7 @@ export function bareToolName(tool: string): string {
 	return tool.replace(MCP_PREFIX, "");
 }
 
-/** "BuilderAddBlock" → "Builder add block", for a tool the lexicon lacks. */
+/** "builder_add_block" → "Add block", for a tool the lexicon lacks. */
 export function readableToolName(tool: string): string {
 	const name = bareToolName(tool);
 	const words = (

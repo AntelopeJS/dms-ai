@@ -105,7 +105,7 @@ List these under `notVerified` in the judgement of every verdict:
 
 - every model turn (Claude Code, Codex): no credentials in a run. That covers the chat itself, tool calls as they happen, approvals as they are asked and their rules, Full auto, plan mode, questions, queued messages, auto-fix turns, a diff a turn produces, token counts a turn reports, and the Builder and database catalog tools the agent calls. (Their stored results are driven from seeded records.)
 - the chat panel, launcher, shortcuts, palette assistant and block-preview dialog: development dashboard only; `dms-control up` has no mode for it (AntelopeJS/dms#749);
-- block previews and custom sketches (`PreviewBlocks`, the 64 KB and depth limits, the sketch refusals): the agent's tool, reachable only through a turn;
+- block previews and custom sketches (`preview_blocks`, the 64 KB and depth limits, the sketch refusals): the agent's tool, reachable only through a turn;
 - the ChatGPT consent page, the token exchange and refresh, `chatgpt-auth.json` with a token, the sign-out of a real session and the pinned `codex` CLI version gate: they need an OpenAI account and the optional peer;
 - Safe mode and the Builder-backed rows (Builder Connected, Safe mode enabled): the playground does not load `@antelopejs/dms-builder`;
 - the Overview banners "The assistant's last turn failed" with Open activity and "N requests are waiting for you": they read a live turn and live approvals;

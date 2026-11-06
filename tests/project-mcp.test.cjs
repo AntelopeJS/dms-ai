@@ -440,7 +440,7 @@ void test("a request holding U+2028 reaches the sidecar whole", async () => {
   await publish(root);
   const bridge = await startBridge(root);
   const params = {
-    name: "BuilderCreatePage",
+    name: "builder_create_page",
     arguments: { title: "a\u2028b\u2029c" },
   };
   try {

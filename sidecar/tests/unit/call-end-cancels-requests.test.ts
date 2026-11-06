@@ -77,7 +77,7 @@ async function settle(): Promise<void> {
 }
 
 describe("a provider-side call end", () => {
-  it("expires the question its AskUser call was waiting on", async () => {
+  it("expires the question its ask_user call was waiting on", async () => {
     const { services, questionBus, sent } = buildHarness();
     const answer = questionBus.requestQuestion({
       conversationId: CONVERSATION_ID,
@@ -88,7 +88,7 @@ describe("a provider-side call end", () => {
     handleTurnEvent(services, CONVERSATION_ID, {
       type: "tool_result",
       callId: "call-ask",
-      result: 'MCP server "dms-ai" tool "AskUser" timed out after 60s',
+      result: 'MCP server "dms-ai" tool "ask_user" timed out after 60s',
       isError: true,
     });
     await expect(answer).resolves.toBeNull();
@@ -99,7 +99,7 @@ describe("a provider-side call end", () => {
     const { services, permissionBus } = buildHarness();
     const outcome = permissionBus.requestPermission({
       conversationId: CONVERSATION_ID,
-      toolName: "mcp__dms-ai__BuilderDeletePage",
+      toolName: "mcp__dms-ai__builder_delete_page",
       args: { pageRef: "/p" },
       callId: "call-delete",
     });

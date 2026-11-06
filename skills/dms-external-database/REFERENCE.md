@@ -2,7 +2,7 @@
 
 ## Connecting
 
-One `BuilderConfigureProject` call. Replace the names, and `<version>` with the range the
+One `builder_configure_project` call. Replace the names, and `<version>` with the range the
 integrator gave you:
 
 ```json
@@ -54,7 +54,7 @@ The RethinkDB URL holds the database as its path: `rethinkdb://user:password@hos
 
 ## The proposal
 
-`BuilderAnalyseDatabase` answers it once the job is done:
+`builder_analyse_database` answers it once the job is done:
 
 ```json
 { "connection": "erp", "module": "erp-tables",
@@ -163,7 +163,7 @@ The proposal's values, without their rules, plus what you changed:
 - Two spellings, never mixed:
   - a relation is `schema.name` (`erp.audit_log`) in `relation` fields;
   - a resource ref is `<connection>/<schema>/<relation>` in kebab case (`erp/erp/audit-log`) in
-    `BuilderAddQuery`'s `resource`.
+    `builder_add_query`'s `resource`.
 
   Every mapped relation has a ref, `tableView: false` ones included. MapResources answers each
   one's ref.

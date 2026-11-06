@@ -22,7 +22,7 @@ export const PreviewNodeSchema = z.object({
   type: z
     .string()
     .optional()
-    .describe("Block type from BuilderCatalog, e.g. `KpiCard`."),
+    .describe("Block type from builder_catalog, e.g. `KpiCard`."),
   componentName: z
     .string()
     .optional()

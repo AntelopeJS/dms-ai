@@ -10,7 +10,7 @@ export interface BuilderGateDecision {
   isAllowed: boolean;
   /** Why not, in words the agent reads. */
   message?: string;
-  /** BuilderDeleteResource: the user chose to keep the table's data. */
+  /** builder_delete_resource: the user chose to keep the table's data. */
   keepData?: boolean;
 }
 

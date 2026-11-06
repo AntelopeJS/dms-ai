@@ -108,8 +108,8 @@ function nested(depth: number): PreviewNodeType {
   return { type: "Section", children: [nested(depth - 1)] };
 }
 
-describe("PreviewBlocks tool", () => {
-  it("is named PreviewBlocks", () => {
+describe("preview_blocks tool", () => {
+  it("is named preview_blocks", () => {
     expect(buildHarness().tool.name).toBe(PREVIEW_BLOCKS_TOOL_NAME);
   });
 
@@ -307,7 +307,7 @@ describe("PreviewBlocks tool", () => {
   });
 });
 
-describe("PreviewBlocks sketches", () => {
+describe("preview_blocks sketches", () => {
   it("shows a sketch beside the DMS tree, with a main tab label", async () => {
     const { shown, tool } = buildHarness();
     const result = await tool.handler({

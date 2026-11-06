@@ -115,20 +115,20 @@ const KPI_ROW = {
   ],
 };
 
-describe("BuilderComposePage", () => {
+describe("builder_compose_page", () => {
   it("is a mutating Builder tool the assistant may call without a prompt", () => {
-    expect(BUILDER_TOOL_NAMES).toContain("BuilderComposePage");
-    expect(BUILDER_MUTATING_TOOL_NAMES).toContain("BuilderComposePage");
+    expect(BUILDER_TOOL_NAMES).toContain("builder_compose_page");
+    expect(BUILDER_MUTATING_TOOL_NAMES).toContain("builder_compose_page");
     expect(
       FIRST_PARTY_AUTO_ALLOW_TOOL_NAMES.has(
-        `${MCP_TOOL_NAME_PREFIX}BuilderComposePage`,
+        `${MCP_TOOL_NAME_PREFIX}builder_compose_page`,
       ),
     ).toBe(true);
-    expect(isReadOnlyTool("BuilderComposePage")).toBe(false);
+    expect(isReadOnlyTool("builder_compose_page")).toBe(false);
   });
 
   it("hands the Builder one ComposePage call with the page, the placement and the nested blocks", async () => {
-    const { result, calls } = await callTool("BuilderComposePage", {
+    const { result, calls } = await callTool("builder_compose_page", {
       pageRef: PAGE,
       placement: { before: "table" },
       blocks: [KPI_ROW],
@@ -153,7 +153,7 @@ describe("BuilderComposePage", () => {
       order: 2,
     };
     const args = { from: "2026-01-01", to: "2026-03-31" };
-    const { calls } = await callTool("BuilderComposePage", {
+    const { calls } = await callTool("builder_compose_page", {
       create,
       blocks: [KPI_ROW],
       preview: true,
@@ -182,7 +182,7 @@ describe("BuilderComposePage", () => {
       },
     ];
     for (const input of wrong) {
-      const { result, calls } = await callTool("BuilderComposePage", input);
+      const { result, calls } = await callTool("builder_compose_page", input);
       expect(result.isError, JSON.stringify(input)).toBe(true);
       expect(calls).toEqual([]);
     }

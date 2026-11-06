@@ -30,7 +30,7 @@ export interface AiMcpServerStaticDeps {
 }
 
 /**
- * The MCP server is built per conversation so conversation-scoped tools (AskUser)
+ * The MCP server is built per conversation so conversation-scoped tools (ask_user)
  * can route to the right chat — the SDK does not pass our conversationId to tool
  * handlers, so we bind it here at construction instead.
  */

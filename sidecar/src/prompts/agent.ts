@@ -35,12 +35,12 @@ const CODE_MODE_DESCRIPTION = `full code access — you may write and edit any f
 
 const SAFE_MODE_DESCRIPTION = `you act ONLY through the Builder ("Builder…") MCP tools; raw file edits (Write/Edit/Bash) are blocked. Follow the dms-builder-safe skill, which carries the workflow and the vocabulary; the tools' own descriptions carry their arguments. Every op is atomic and typecheck-gated: on typecheck_failed nothing was written — read the diagnostics, fix the config, retry.
   Reach for the right mechanism:
-  - a page's layout and content — the block tools, after BuilderCatalog;
+  - a page's layout and content — the block tools, after builder_catalog;
   - the data layer a table or form needs — the resource tools (they emit a Database Table + a DataAPI at /api/<name>);
-  - showing that resource on a page — BuilderAddBlock a controller-leading block (catalog \`controllerArg: true\`, e.g. TableView) with \`controller\` set to the resource ref;
-  - computed data rather than rows, e.g. a KpiCard's sum or a chart's series — the DataAPI cannot serve it: add a query (BuilderQueryTemplates, BuilderPreviewQuery, then BuilderAddQuery with the \`response\` the block reads) and pass the \`route\` it returns as the block's \`fetchUrl\`;
+  - showing that resource on a page — builder_add_block a controller-leading block (catalog \`controllerArg: true\`, e.g. TableView) with \`controller\` set to the resource ref;
+  - computed data rather than rows, e.g. a KpiCard's sum or a chart's series — the DataAPI cannot serve it: add a query (builder_query_templates, builder_preview_query, then builder_add_query with the \`response\` the block reads) and pass the \`route\` it returns as the block's \`fetchUrl\`;
   - naming a generated resource class inside config — a \`$ref\` value, which is validated and allowed here, never \`$expr\`.
-  - a config field the catalog marks \`x-component\`, such as a chart card's \`chart\` — a nested block value, \`{ "$block": { "type": "ChartArea", "config": {…} } }\`, with a type from BuilderCatalog.
+  - a config field the catalog marks \`x-component\`, such as a chart card's \`chart\` — a nested block value, \`{ "$block": { "type": "ChartArea", "config": {…} } }\`, with a type from builder_catalog.
   The boundary: on opaque_target or unsupported, explain the limitation and ask permission to switch to Code mode for that step; never attempt a raw edit.`;
 
 export const SYSTEM_PROMPT_TEMPLATE = `You are the development assistant for an Antelope project.

@@ -29,7 +29,7 @@ describe("Builder gate", () => {
 
   it("refuses a denied deletion with the reason, without calling the Builder", async () => {
     builderClient.call.mockClear();
-    const deletePage = tool("BuilderDeletePage", async () => ({
+    const deletePage = tool("builder_delete_page", async () => ({
       isAllowed: false,
       message: "no",
     }));
@@ -40,7 +40,7 @@ describe("Builder gate", () => {
 
   it("deletes the resource's code only when the user keeps the data", async () => {
     builderClient.call.mockClear();
-    const remove = tool("BuilderDeleteResource", async () => ({
+    const remove = tool("builder_delete_resource", async () => ({
       isAllowed: true,
       keepData: true,
     }));
@@ -53,7 +53,7 @@ describe("Builder gate", () => {
 
   it("never gates a read tool", async () => {
     const gate = vi.fn(async () => ({ isAllowed: false }));
-    await tool("BuilderCatalog", gate)?.handler({});
+    await tool("builder_catalog", gate)?.handler({});
     expect(gate).not.toHaveBeenCalled();
   });
 });
@@ -64,23 +64,23 @@ describe("call ledger", () => {
     ledger.announce(
       CONVERSATION_ID,
       "toolu_1",
-      "mcp__dms-ai__BuilderDeletePage",
+      "mcp__dms-ai__builder_delete_page",
       { pageRef: "/a" },
     );
     ledger.announce(
       CONVERSATION_ID,
       "toolu_2",
-      "mcp__dms-ai__BuilderDeletePage",
+      "mcp__dms-ai__builder_delete_page",
       { pageRef: "/b" },
     );
     expect(
-      ledger.claim(CONVERSATION_ID, "BuilderDeletePage", { pageRef: "/b" }),
+      ledger.claim(CONVERSATION_ID, "builder_delete_page", { pageRef: "/b" }),
     ).toBe("toolu_2");
     expect(
-      ledger.claim(CONVERSATION_ID, "BuilderDeletePage", { pageRef: "/zzz" }),
+      ledger.claim(CONVERSATION_ID, "builder_delete_page", { pageRef: "/zzz" }),
     ).toBe("toolu_1");
     expect(
-      ledger.claim(CONVERSATION_ID, "BuilderDeletePage", {}),
+      ledger.claim(CONVERSATION_ID, "builder_delete_page", {}),
     ).toBeUndefined();
   });
 });
@@ -126,7 +126,7 @@ describe("chat sockets", () => {
   });
 });
 
-describe("AskUser", () => {
+describe("ask_user", () => {
   it("tells the agent to decide a skipped question", async () => {
     const askUser = buildAskUserTool({
       conversationId: CONVERSATION_ID,

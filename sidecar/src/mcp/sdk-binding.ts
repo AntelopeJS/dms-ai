@@ -10,6 +10,7 @@ function toSdkTool(definition: AnyMcpToolDefinition) {
     definition.description,
     definition.schema,
     definition.handler,
+    { annotations: { title: definition.title } },
   );
 }
 

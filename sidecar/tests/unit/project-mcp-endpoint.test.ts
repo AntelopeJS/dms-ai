@@ -94,9 +94,9 @@ describe("createProjectMcpEndpoint", () => {
     const names = await listToolNames();
     expect(names).toEqual(
       expect.arrayContaining([
-        "BuilderAnalyseDatabase",
-        "BuilderMapResources",
-        "BuilderComposePage",
+        "builder_analyse_database",
+        "builder_map_resources",
+        "builder_compose_page",
         DATABASE_CONNECTIONS_TOOL_NAME,
         NAVIGATE_TOOL_NAME,
       ]),
@@ -129,7 +129,7 @@ describe("createProjectMcpEndpoint", () => {
       },
     };
     const reply = await buildEndpoint(builder).handle(
-      request(7, "tools/call", { name: "BuilderListPages", arguments: {} }),
+      request(7, "tools/call", { name: "builder_list_pages", arguments: {} }),
     );
     expect(reply).toHaveProperty("id", 7);
     expect(calls).toEqual(["ListPages"]);
@@ -145,7 +145,7 @@ describe("createProjectMcpEndpoint", () => {
     };
     const endpoint = buildEndpoint(builder);
     const deletion = {
-      name: "BuilderDeleteResource",
+      name: "builder_delete_resource",
       arguments: { ref: "orders" },
     };
     const first = await endpoint.handle(request(1, "tools/call", deletion));
@@ -175,7 +175,7 @@ describe("createProjectMcpEndpoint", () => {
       },
     };
     await buildEndpoint(builder, idle).handle(
-      request(1, "tools/call", { name: "BuilderListPages", arguments: {} }),
+      request(1, "tools/call", { name: "builder_list_pages", arguments: {} }),
     );
     expect(heldDuringCall).toBe(1);
     expect(idle.held).toBe(0);

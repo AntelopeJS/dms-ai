@@ -257,7 +257,7 @@ describe("recipe — session on codex only", () => {
   );
 
   it(
-    "7 — AskUser reaches the chat and the answer returns to the agent",
+    "7 — ask_user reaches the chat and the answer returns to the agent",
     async () => {
       const events = await runOneTurn({
         script: codexScript("mcp-ask-user.jsonl"),

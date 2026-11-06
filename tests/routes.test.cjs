@@ -65,7 +65,7 @@ void test("draws the action's target under its name, in red for a destructive to
   const deletion = {
     ...ROW,
     id: "c-1:call-2",
-    tool: "BuilderDeleteResource",
+    tool: "builder_delete_resource",
     target: "orders",
   };
   const untargeted = { ...ROW, id: "c-1:call-3", target: "" };
@@ -154,7 +154,7 @@ void test("words the How-allowed breakdown and the top tools with $dms_ai keys",
   });
   answer("GET", "/metrics/top-tools", 200, {
     items: [
-      { id: "mcp__dms-ai__BuilderAddBlock", value: 42, source: "builder" },
+      { id: "mcp__dms-ai__builder_add_block", value: 42, source: "builder" },
       { id: "SomethingNew", value: 1, source: "code" },
     ],
   });
@@ -172,7 +172,7 @@ void test("words the How-allowed breakdown and the top tools with $dms_ai keys",
   assert.equal(sidecar.requests.at(-1).query.limit, "5");
   assert.deepEqual(
     tools.items.map((item) => item.title),
-    ["$dms_ai.activity.tools.BuilderAddBlock", "SomethingNew"],
+    ["$dms_ai.activity.tools.builder_add_block", "SomethingNew"],
   );
 });
 

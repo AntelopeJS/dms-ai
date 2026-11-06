@@ -13,11 +13,11 @@ export const SCAN_IGNORE_DIRS = [
 
 export const IMPORT_REGEX_GLOBAL = /import\s+[^"']*?from\s+["']([^"']+)["']/g;
 
-export const FIND_PAGES_TOOL_NAME = "FindPagesUsing";
+export const FIND_PAGES_TOOL_NAME = "find_pages_using";
 export const FIND_PAGES_TOOL_DESCRIPTION =
   "Given a source filepath, returns the list of pages that import it (transitively via the local source tree).";
 
-export const LIST_PAGES_TOOL_NAME = "ListPages";
+export const LIST_PAGES_TOOL_NAME = "list_pages";
 export const LIST_PAGES_TOOL_DESCRIPTION =
   "Returns all registered DMS pages as {id, path, moduleId}, where `path` is the real route the page is served at. Use this to find a page's actual URL before navigating — never guess a route from a filename. Pass refresh:true after you create or edit a page so newly-registered pages appear.";
 export const LIST_PAGES_EMPTY_MESSAGE =

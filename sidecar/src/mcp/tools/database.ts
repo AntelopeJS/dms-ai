@@ -32,14 +32,14 @@ function answer(value: JsonValue): McpToolResult {
 
 const CONNECTION = z
   .string()
-  .describe("A connection id from DatabaseConnections, e.g. `erp`.");
+  .describe("A connection id from database_connections, e.g. `erp`.");
 const RELATION = z
   .string()
   .describe('A relation named `"schema.name"`, e.g. `sales.accounts`.');
 const COLUMN_REFERENCE = z.object({ relation: RELATION, column: z.string() });
 
 const CONNECTIONS_DESCRIPTION =
-  "Lists the databases the project connects dms-ai to, each with its engine, version, database and role. Configuration declares them; when none is listed, connect one first with BuilderConfigureProject.";
+  "Lists the databases the project connects dms-ai to, each with its engine, version, database and role. Configuration declares them; when none is listed, connect one first with builder_configure_project.";
 const RELATIONS_DESCRIPTION =
   "Lists every relation of a connection (tables, views and their kin; MongoDB collections and RethinkDB tables), with its row estimate and where it came from, its key (the columns `_id` aliases, or null), what the connected account may write, its comment, and `unmappable` with the reason when it cannot be mapped.";
 const DESCRIBE_DESCRIPTION =

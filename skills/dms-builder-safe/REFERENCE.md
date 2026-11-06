@@ -9,26 +9,26 @@ they feed) require a dms-builder engine version that implements them: if one ret
 `request_failed` (the host answered `unknown_op`) or `builder_unavailable`, the
 installed engine doesn't support it — explain the limitation instead of retrying.
 
-1. **Read first.** `BuilderListResources`; `BuilderResourceStructure <ref>` for
+1. **Read first.** `builder_list_resources`; `builder_resource_structure <ref>` for
    fields + `version` hash. Hand-edited or relation fields come back `opaque` —
    safe mode can't reconfigure those.
-2. **Create** with `BuilderCreateResource` (`name`, `fields`, optional `seeds` — each
+2. **Create** with `builder_create_resource` (`name`, `fields`, optional `seeds` — each
    seed row supplies its own `_id`; never declare `_id`, it is auto-managed). It
    scaffolds a `<name>/{database,data-api,index}.ts` folder and wires the nearest barrel.
    - `location` — where the folder goes (omit for `src/<name>/`): a dir string
      relative to the src root, `{ category: <CategoryRef> }` (mirrors that category's
      page placement; prefer for a resource shared by one section), or
      `{ page: <PageRef> }` (nests beside that page; prefer for a one-page resource).
-     Pass exact refs from `BuilderListPages`, never guess.
+     Pass exact refs from `builder_list_pages`, never guess.
    - `routes` — which DataAPI endpoints to expose (omit for the full set): `list`,
      `get`, `create`, `edit`, `delete`, `select` (relation-picker options), `archive`
      (soft delete + undo), `export`. Pass a subset whenever a resource is not a full
      CRUD table — a singleton edit form wants `["get","edit"]`, a read-only listing
      `["list","get"]` — and keep the view in sync: drop the `TableView` `rowActions`
      whose routes you left out, or bind a `Form` instead for a singleton.
-3. **Edit fields** with `BuilderAddField` / `BuilderConfigureField <ref>#<field>` /
-   `BuilderRemoveField`; field name is immutable (rename = remove + add). **Delete**
-   with `BuilderDeleteResource`: removes the files, unwires the barrel, and by default
+3. **Edit fields** with `builder_add_field` / `builder_configure_field <ref>#<field>` /
+   `builder_remove_field`; field name is immutable (rename = remove + add). **Delete**
+   with `builder_delete_resource`: removes the files, unwires the barrel, and by default
    clears the resource's database table so a name reuse re-seeds cleanly rather than
    showing stale rows (`keepData: true` to keep them).
 4. **Fields are semantic aspects, not decorators:** `dataType`, `label`, `listable`
@@ -39,7 +39,7 @@ installed engine doesn't support it — explain the limitation instead of retryi
    `exportStart`, `exportStatus`, `exportDownload`) are rejected with `invalid_config`.
 
 **Displaying a resource on a page is a safe-mode step**: create and populate the
-resource, then `BuilderAddBlock` a `TableView` with `controller` = the resource `ref`
+resource, then `builder_add_block` a `TableView` with `controller` = the resource `ref`
 and display options in `config`. Relation columns work via `$ref` (see
 "DataType, component, and reference values" in SKILL.md).
 
@@ -49,22 +49,22 @@ A **query** is a derived-data endpoint on a *page*: a GET route serving an aggre
 point per group, backed by a generated method on the resource's model. The DataAPI serves
 rows; a query serves what a KPI card, a chart or a ranked list reads.
 
-1. **Read the templates.** `BuilderQueryTemplates` returns each template's `id`, what it
+1. **Read the templates.** `builder_query_templates` returns each template's `id`, what it
    computes, its `output` kind, and its `params` schema. Never guess an id or a param key —
    an unrecognised key is rejected.
-2. **Add the query** with `BuilderAddQuery` on the page that will display it (not the
+2. **Add the query** with `builder_add_query` on the page that will display it (not the
    resource's page). It compiles the template into a model method and a page route in one
    atomic op and returns `{ query, route }`.
 3. **Wire the block to it.** `route` is the full URL — pass it as the card's `fetchUrl`.
    There is no reference sentinel for queries yet, so wire the returned string; if you later
    move the endpoint, update the card in the same turn.
-4. **Read back** with `BuilderPageStructure` — a page's `queries` array reports each one's
+4. **Read back** with `builder_page_structure` — a page's `queries` array reports each one's
    `name`, `endpoint`, `resource`, `modelMethod`, `template` and `params`.
-5. **Reconfigure / remove** with `BuilderConfigureQuery` (only the keys you patch change)
-   and `BuilderRemoveQuery` (drops the route, and the model method once nothing calls it).
+5. **Reconfigure / remove** with `builder_configure_query` (only the keys you patch change)
+   and `builder_remove_query` (drops the route, and the model method once nothing calls it).
 
 **Params** are documented by each template's own `params` schema from
-`BuilderQueryTemplates` — every key, every value shape, down to the enums. Read it rather
+`builder_query_templates` — every key, every value shape, down to the enums. Read it rather
 than guessing; an unrecognised key is rejected.
 
 The one idea worth stating here, because it is what makes a query reusable: a filter value
@@ -104,7 +104,7 @@ parses** — not merely because a human touched it. An in-grammar edit (a change
 added filter) is simply re-read and stays editable. `opaqueReason` is `unparseable_route` (the
 GET wrapper isn't the `return { value: await model.m(...) }` shape) or `unparseable_chain` (the
 model method isn't a chain any template accepts — hand-written differently, edited out of the
-grammar, or emitted by a newer builder). `BuilderConfigureQuery` refuses an opaque query with
-`opaque_target`, but it stays visible and `BuilderRemoveQuery` still works: the builder can
+grammar, or emitted by a newer builder). `builder_configure_query` refuses an opaque query with
+`opaque_target`, but it stays visible and `builder_remove_query` still works: the builder can
 always remove what it cannot edit. To reshape an opaque query, edit it in Code mode — or bring
 its body back within the chain grammar and the builder picks it up again.

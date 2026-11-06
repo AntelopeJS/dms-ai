@@ -22,8 +22,8 @@ const CALLS = [
   ["Skill", { skill: "dms-ai-code-mode" }, "read_auto", "done", false, ""],
   ["Skill", { skill: "dms-ai" }, "read_auto", "done", false, ""],
   ["Skill", { skill: "dms-ai" }, "read_auto", "done", false, ""],
-  ["BuilderAddBlock", { pageId: "home" }, "builder_auto", "done", false, "one"],
-  ["BuilderAddBlock", { pageId: "orders" }, "builder_auto", "done", false, "one"],
+  ["builder_add_block", { pageId: "home" }, "builder_auto", "done", false, "one"],
+  ["builder_add_block", { pageId: "orders" }, "builder_auto", "done", false, "one"],
   ["Write", { file_path: "src/notes/a.txt" }, "approved", "done", true, "one"],
   ["Bash", { command: "pnpm add dayjs" }, "rule", "done", true, ""],
   ["Bash", { command: "pnpm test" }, "rule", "stopped", false, ""],
@@ -35,7 +35,7 @@ const CALLS = [
   ["Edit", { file_path: "src/notes/c.txt" }, "blocked", "blocked", false, ""],
   ["Edit", { file_path: "src/notes/b.txt" }, "approved", "done", true, "two"],
   ["Edit", { file_path: "src/notes/b.txt" }, "approved", "done", true, "two"],
-  ["BuilderDeletePage", { pageRef: "/orders" }, "approved", "done", true, ""],
+  ["builder_delete_page", { pageRef: "/orders" }, "approved", "done", true, ""],
   ["Grep", { pattern: "total" }, "read_auto", "done", false, ""],
   ["Glob", { pattern: '=SUM(1,2),"q"' }, "read_auto", "done", false, ""],
 ];
@@ -46,7 +46,7 @@ export const SAMPLE_ALLOWED = [
 ];
 
 /** Calls per tool, most used first. */
-export const SAMPLE_TOOLS = [["Bash", 6], ["Skill", 5], ["Edit", 4], ["Read", 3], ["BuilderAddBlock", 2]];
+export const SAMPLE_TOOLS = [["Bash", 6], ["Skill", 5], ["Edit", 4], ["Read", 3], ["builder_add_block", 2]];
 
 /** How many calls the sample holds in the last seven days. */
 export const SAMPLE_CALLS = CALLS.length;
@@ -93,7 +93,7 @@ export function sampleConversations(now, sets) {
     const changeSetId = set === "one" ? sets.one : set === "two" ? sets.two : undefined;
     const owned = changeSetId === undefined ? {} : { changeSetId };
     messages.push(toolUse(id, tool, args, at, { allowedBy, ...owned }));
-    if (asked) messages.push(permission(id, tool, at, { allowedBy, kind: tool.startsWith("Builder") ? "destructive" : "edit", summary: `${tool} ${JSON.stringify(args)}`, decidedBy: "Verify Admin", alwaysAsk: tool === "BuilderDeletePage", feedback: allowedBy === "denied" ? "use the Builder" : undefined }));
+    if (asked) messages.push(permission(id, tool, at, { allowedBy, kind: tool.startsWith("builder_") ? "destructive" : "edit", summary: `${tool} ${JSON.stringify(args)}`, decidedBy: "Verify Admin", alwaysAsk: tool === "builder_delete_page", feedback: allowedBy === "denied" ? "use the Builder" : undefined }));
     messages.push(toolResult(id, at + 1500, { allowedBy, content: `${tool} answered`, ...ended(outcome), ...owned }));
   });
   /**

@@ -25,7 +25,7 @@ read only, so they run in plan mode. Nothing is written before the integrator pr
 your plan.
 
 In a Claude Code session started outside the dashboard chat, the tools are named
-`mcp__dms-ai__DatabaseConnections`, `mcp__dms-ai__BuilderAnalyseDatabase` and so on. There is no
+`mcp__dms-ai__database_connections`, `mcp__dms-ai__builder_analyse_database` and so on. There is no
 **Run** button and no sidecar guarding `.env`: present the plan, and write nothing until the
 integrator approves it in the session. The rules above on `.env` still hold. A mapping that removes
 pages, a deletion or a project configuration change is refused once with what it would do: show
@@ -33,13 +33,13 @@ that to the integrator, and repeat the identical call only after they confirm it
 
 ## 1. Connect
 
-Call `DatabaseConnections`.
+Call `database_connections`.
 
 - **A connection is listed** with an `engine`: use its id and go to 2.
 - **An entry answers `error`**: say what it says (an owned instance, the catalog not enabled, a
   role that cannot read) and stop.
 - **Nothing is listed**: the project is not connected yet. Ask the integrator which engine the
-  database runs: PostgreSQL, MongoDB or RethinkDB. Propose one `BuilderConfigureProject` call
+  database runs: PostgreSQL, MongoDB or RethinkDB. Propose one `builder_configure_project` call
   with that engine's steps in REFERENCE.md *Connecting*. Pick the names with the integrator, for
   example connection `erp`, provider module `postgres-erp` (`mongodb-erp`, `rethinkdb-erp`),
   generated module `erp-tables`, variable `ERP_DATABASE_URL`, and for MongoDB
@@ -60,7 +60,7 @@ its analysis and mapping, you for your probing.
 
 ## 2. Analyse
 
-`BuilderAnalyseDatabase` with the connection and the generated module.
+`builder_analyse_database` with the connection and the generated module.
 
 - It answers the proposal, or, when profiling takes longer, the job's progress and `id`: call it
   again with `job` until the proposal is in.
@@ -74,8 +74,8 @@ A `fact` follows from the catalog; leave it. A `default` is a judgement; check i
 
 ## 3. Settle
 
-In plan mode, through the read-only tools. Probe lightly: a targeted `DatabaseProfile` of a few
-columns, a `CheckReference` in `references`, a `DatabaseDescribe` of one relation. Never a
+In plan mode, through the read-only tools. Probe lightly: a targeted `database_profile` of a few
+columns, a `CheckReference` in `references`, a `database_describe` of one relation. Never a
 profile of the whole database again: the Builder did it.
 
 - **Open items**, one by one:
@@ -133,9 +133,9 @@ profile of the whole database again: the Builder did it.
     supports, as `dms-page-design` *Tables* decides;
   - at least 3 different chart kinds on it when the data has the shapes for them;
   - a default period computed from the data's real dates, never assumed;
-  - every page built with one `BuilderComposePage` call, previewed first, and every block whose
+  - every page built with one `builder_compose_page` call, previewed first, and every block whose
     preview is empty, zero or failed dropped or changed;
-  - every page opened with `NavigateToPage` and its block report read before you report.
+  - every page opened with `navigate_to_page` and its block report read before you report.
 - **Not possible yet:** breakdowns by a related entity's name, such as revenue per customer.
   Templates read one relation, so they would show ids. List them under *Not possible yet*,
   never as pages.
@@ -154,7 +154,7 @@ again. Write nothing before Run.
 Work in this order, so the most visible result lands first: map the tables, build the
 dashboard and check it, then add KPI rows above tables, then any second analytics page.
 
-1. `BuilderMapResources` in batches of 3 or 4 relations per call, TableViews and stats-only
+1. `builder_map_resources` in batches of 3 or 4 relations per call, TableViews and stats-only
    relations alike; the relations decided against go in `excluded` on the first call
    (REFERENCE.md *Mapping*). One call with every relation of a large database can abort.
    - Send the proposal's choices as they stand where you changed nothing, plus per resource
@@ -164,32 +164,32 @@ dashboard and check it, then add KPI rows above tables, then any second analytic
      option) and say so in your report, rather than trying more variants.
    - It answers each relation's `ref`, which queries name it by, `category`, the connection's
      category ref (`pages.<connection>`), and `leftOut`: carry those into your report.
-2. Per analytics page, one `BuilderComposePage` call with `create` (`name`, `displayName`,
+2. Per analytics page, one `builder_compose_page` call with `create` (`name`, `displayName`,
    `module` set to the generated module, `category` set to the `category` MapResources
    answered, an icon, a description, and `order: 0` for the dashboard, 1, 2… for the next
    ones) and every block in the order `dms-page-design` lays out, each data block with its
    query inline. Preview first, then write, as `dms-page-design` *Build a page in one call*
    says.
    - Queries read the mapped resources by their refs (`<connection>/<schema>/<relation>`).
-3. Per table page that gets KPI cards above its table, one `BuilderComposePage` call with
+3. Per table page that gets KPI cards above its table, one `builder_compose_page` call with
    `placement: { "before": "table" }`, previewed first. A table option MapResources refused
-   comes back as a warning: fix it with `BuilderConfigureTableView`.
+   comes back as a warning: fix it with `builder_configure_table_view`.
 
-To change a relation later, read its current choices with `BuilderMapping`, then call
-`BuilderMapResources` with that relation alone, its included columns as they are and only your
+To change a relation later, read its current choices with `builder_mapping`, then call
+`builder_map_resources` with that relation alone, its included columns as they are and only your
 change made: a mapped relation is rewritten from the choices sent, and its page follows.
 
 ## 6. Check
 
 - Navigate only once every page is written. Pages register when the host reloads the generated
   module: under `ajs project dev` its watcher rebuilds the module after your writes.
-- `NavigateToPage` to each page. If it answers `unknown_route`, the reload has not happened.
-  - Read `QueryLogs` once, for a reload error.
+- `navigate_to_page` to each page. If it answers `unknown_route`, the reload has not happened.
+  - Read `query_logs` once, for a reload error.
   - Then tell the integrator the pages appear once the module reloads. Do not wait, retry or
     investigate further.
-- `QueryLogs` for registration warnings (lossy fields, unserved indexes) and for the errors of
+- `query_logs` for registration warnings (lossy fields, unserved indexes) and for the errors of
   the routes the pages called.
-- On each analytics page, fix or remove every block `NavigateToPage` reports as empty or
+- On each analytics page, fix or remove every block `navigate_to_page` reports as empty or
   failed, and navigate again, as in `dms-page-design` *Check every block*.
 
 Then report:
