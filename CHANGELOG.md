@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.10.0
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.9.2...v0.10.0)
+
+### 🚀 Enhancements
+
+- **mcp:** Serve the assistant's tools to Claude Code sessions outside the chat ([#184](https://github.com/AntelopeJS/dms-ai/pull/184))
+- **frontend:** Animate the header launcher by the assistant's state ([#186](https://github.com/AntelopeJS/dms-ai/pull/186))
+- **skills:** Add the verify-dms-ai verification skill ([#167](https://github.com/AntelopeJS/dms-ai/pull/167))
+
+### 🩹 Fixes
+
+- **mcp:** Name the MCP tools in snake_case with a readable title ([#188](https://github.com/AntelopeJS/dms-ai/pull/188))
+
+### 📦 Build
+
+- **deps:** Bump @antelopejs packages to the 2026-11-06 releases ([#191](https://github.com/AntelopeJS/dms-ai/pull/191))
+
+### 🏡 Chore
+
+- Remove the .amp directory ([#183](https://github.com/AntelopeJS/dms-ai/pull/183))
+- **verify:** Remove seeded runs from the verification skill ([#187](https://github.com/AntelopeJS/dms-ai/pull/187))
+- **ci:** Remove the weekly mutation caller ([#189](https://github.com/AntelopeJS/dms-ai/pull/189))
+
+### 🤖 CI
+
+- Call ci-node.yml@v1 ([#190](https://github.com/AntelopeJS/dms-ai/pull/190))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v0.9.2
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.9.1...v0.9.2)
