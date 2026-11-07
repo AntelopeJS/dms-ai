@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import type WebSocket from "ws";
 import { PERMISSION_DECISIONS } from "../../src/constants/permissions.js";
 import { PROVIDER_FIXTURES } from "../helpers/provider-fixtures.js";
@@ -13,6 +13,7 @@ import {
   type WireMessage,
   type WsHarness,
 } from "../helpers/ws-harness.js";
+import { setBuilderAvailable } from "../../src/builder/capability.js";
 
 const CONVERSATION_ID = "conv-queue-1";
 const WAIT_TIMEOUT_MS = 20_000;
@@ -54,6 +55,10 @@ async function startPausedTurn(
   );
   return { collector, permission };
 }
+
+beforeAll(() => {
+  setBuilderAvailable(false);
+});
 
 describe.each(PROVIDER_FIXTURES)(
   "queue protocol while a turn holds the drain lock on $name",

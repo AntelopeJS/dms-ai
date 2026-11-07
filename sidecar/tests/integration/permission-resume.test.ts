@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import type WebSocket from "ws";
 import { PERMISSION_DECISIONS } from "../../src/constants/permissions.js";
 import { PROVIDER_FIXTURES } from "../helpers/provider-fixtures.js";
@@ -11,10 +11,15 @@ import {
   startWsHarness,
   type WsHarness,
 } from "../helpers/ws-harness.js";
+import { setBuilderAvailable } from "../../src/builder/capability.js";
 
 const CONVERSATION_ID = "conv-resume-1";
 const WAIT_TIMEOUT_MS = 20_000;
 const TEST_TIMEOUT_MS = 30_000;
+
+beforeAll(() => {
+  setBuilderAvailable(false);
+});
 
 describe.each(PROVIDER_FIXTURES)(
   "chat reconnect resumes a pending permission on $name",

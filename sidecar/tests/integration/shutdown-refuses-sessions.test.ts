@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { RUNNER_CLOSED_MESSAGE } from "../../src/constants/agent.js";
 import { codexHomeFor } from "../../src/providers/codex/process.js";
@@ -15,6 +15,7 @@ import {
   type WireMessage,
   type WsHarness,
 } from "../helpers/ws-harness.js";
+import { setBuilderAvailable } from "../../src/builder/capability.js";
 
 const RUNNING_CONVERSATION = "conv-shutdown-running";
 const LATE_CONVERSATION = "conv-shutdown-late";
@@ -25,6 +26,10 @@ function isRunErrorOf(conversationId: string) {
   return (event: WireMessage): boolean =>
     event.type === "run_error" && event.conversationId === conversationId;
 }
+
+beforeAll(() => {
+  setBuilderAvailable(false);
+});
 
 describe("a shutdown under way", () => {
   let harness: WsHarness | undefined;

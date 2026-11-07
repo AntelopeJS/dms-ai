@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import type WebSocket from "ws";
 import { TURN_RESTARTED_MESSAGE } from "../../src/constants/agent.js";
 import { createConversationStore } from "../../src/state/conversations.js";
@@ -15,6 +15,7 @@ import {
   startWsHarness,
   type WsHarness,
 } from "../helpers/ws-harness.js";
+import { setBuilderAvailable } from "../../src/builder/capability.js";
 
 const CONVERSATION_ID = "conv-cut-by-shutdown";
 const QUESTION = "Count from 1 to 40";
@@ -32,6 +33,10 @@ async function readPersisted(tmpDir: string): Promise<StoredMessage[]> {
 function visibleTranscript(messages: StoredMessage[]): StoredMessage[] {
   return messages.filter((message) => message.role !== "permission");
 }
+
+beforeAll(() => {
+  setBuilderAvailable(false);
+});
 
 describe.each(PROVIDER_FIXTURES)(
   "a turn cut short by a shutdown on $name",
