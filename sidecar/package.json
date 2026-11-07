@@ -10,7 +10,7 @@
   "scripts": {
     "build": "rimraf dist && tsc",
     "dev": "tsc -w",
-    "typecheck": "tsc -p tsconfig.test.json",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run --passWithNoTests --exclude tests/integration/codex-acceptance.test.ts",
     "test:acceptance": "vitest run tests/integration/codex-acceptance.test.ts",
     "generate:codex-types": "node scripts/generate-codex-types.mjs",
