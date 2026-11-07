@@ -17,6 +17,10 @@ covers:
   - sidecar/src/constants/database.ts
   - sidecar/src/mcp/tool-definitions.ts
   - sidecar/src/mcp/tools/database.ts
+  - sidecar/src/server/http-io.ts
+  - sidecar/src/constants/http.ts
+  - sidecar/src/state/lock.ts
+  - sidecar/src/mcp/http-binding.ts
   - src/routes/sidecar-answers.ts
   - src/routes/logs.ts
   - src/routes/pages-registry.ts
