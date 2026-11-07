@@ -1,6 +1,7 @@
 ---
 covers:
   - src/lifecycle/**
+  - src/mcp-bridge.ts
   - src/routes/health.ts
   - src/routes/sidecar-info.ts
   - src/routes/status.ts

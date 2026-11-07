@@ -70,7 +70,7 @@ $C down "$RUN"
 
 ## Verdict rules
 
-1. **Run every feature whose `covers:` globs the diff touches, plus the smoke journey.** `plan` prints that list as `run`.
+1. **Run every feature whose `covers:` globs the diff touches, plus the smoke journey.** `plan` prints that list as `run`. Run every feature instead when the diff touches a shared file, and before a release. The shared files are the manifests and lockfiles (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, and those of `sidecar/` and `frontend-vue/`), `.nvmrc`, the `tsconfig.json` of the module and of the sidecar, and this skill's own `verify.config.ts`, `ai.mjs`, `guard.mjs`, `seed.mjs`, `sample.mjs` and `playground/`. A manifest pins the `@antelopejs/interface-*` contracts and the runtime every feature runs on, so `plan` naming only `package` understates the change.
 2. **Unmapped surface fails the verdict.** User-facing code is `src/**`, `sidecar/src/**`, `frontend-vue/**`, `skills/**` and the two `package.json`, tests and tool configs excluded (`verify.config.ts`). `map` checks the whole tree.
 3. **Every registered journey of a feature in `run` must have run and passed.** Known findings stay as failing journeys (see Gotchas): they fail a verdict only when the diff touches their feature.
 4. **Docs.** Judge every `docs:` page of each touched feature against what the journeys showed.

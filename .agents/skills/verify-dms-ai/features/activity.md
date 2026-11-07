@@ -6,6 +6,7 @@ covers:
   - src/types/activity.ts
   - sidecar/src/audit/**
   - sidecar/src/constants/audit.ts
+  - sidecar/src/state/legacy-tool-names.ts
 docs:
   - docs/4.usage/4.activity.md
 ---

@@ -3,6 +3,8 @@ covers:
   - src/routes/actor.ts
   - src/routes/index.ts
   - src/routes/sidecar-auth.ts
+  - src/routes/mcp.ts
+  - sidecar/src/server/project-mcp-route.ts
   - src/routes/sidecar-answers.ts
   - src/routes/logs.ts
   - src/routes/pages-registry.ts
