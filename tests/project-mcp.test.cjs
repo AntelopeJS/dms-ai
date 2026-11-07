@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const {
   chmod,
   mkdir,
@@ -19,6 +19,9 @@ const { z } = require("zod");
 const { installRequireMocks } = require("./helpers/require-mocks.cjs");
 
 const DIST_DIR = path.resolve(__dirname, "../dist");
+const REPO_ROOT = path.resolve(__dirname, "..");
+/** The characters that make `      "args": ["..."]` exactly 80 columns wide. */
+const ARGS_LINE_FILL = 62;
 const CLIENT_TOKEN = "client-secret";
 const REPLY_WAIT_MS = 5_000;
 const CACHE = ["node_modules", ".cache", "dms-ai"];
@@ -334,6 +337,38 @@ void test(".mcp.json gains the dms-ai server and keeps the others", async () => 
   assert.deepEqual(Object.keys(mcpServers).sort(), ["dms-ai", "other"]);
   assert.deepEqual(mcpServers.other, { command: "other" });
   await rm(root, { recursive: true, force: true });
+});
+
+void test("the .mcp.json the module writes passes the projects' format check", async () => {
+  const fresh = await tempProject();
+  const extended = await tempProject();
+  const longArgs = Array.from({ length: 6 }, (_, index) => `--option-${index}`);
+  const servers = {
+    other: { command: "other", args: longArgs, env: {} },
+    eighty: { command: "x", args: ["a".repeat(ARGS_LINE_FILL)] },
+    eightyOne: { command: "x", args: ["a".repeat(ARGS_LINE_FILL + 1)] },
+    wide: { command: "x", args: ["\u65E5".repeat(ARGS_LINE_FILL / 2 + 1)] },
+    accented: { command: "x", args: ["e\u0301".repeat(ARGS_LINE_FILL - 2)] },
+  };
+  await writeFile(
+    path.join(extended, ".mcp.json"),
+    JSON.stringify({ mcpServers: servers }),
+  );
+  await publish(fresh);
+  await publish(extended);
+  const files = [fresh, extended].map((root) => path.join(root, ".mcp.json"));
+  const check = spawnSync(
+    path.join(REPO_ROOT, "node_modules", ".bin", "oxfmt"),
+    ["--check", "-c", path.join(REPO_ROOT, "oxfmt.config.ts"), ...files],
+    { encoding: "utf8" },
+  );
+  assert.equal(check.status, 0, `${check.stdout}${check.stderr}`);
+  const { mcpServers } = await readMcpJson(extended);
+  for (const [name, server] of Object.entries(servers)) {
+    assert.deepEqual(mcpServers[name], server);
+  }
+  await rm(fresh, { recursive: true, force: true });
+  await rm(extended, { recursive: true, force: true });
 });
 
 void test("a dms-ai entry the integrator wrote is left as written", async () => {

@@ -20,6 +20,50 @@ import {
 
 const PRIVATE_DIRECTORY_MODE = 0o700;
 const BEARER_PREFIX = "Bearer ";
+const JSON_INDENT = 2;
+const FORMAT_PRINT_WIDTH = 80;
+const EXPANDED_PRIMITIVE_ARRAY =
+  /\[\n((?: *(?:"(?:[^"\\\n]|\\.)*"|-?\d[\d.eE+-]*|true|false|null),?\n)+) *\]/g;
+const ZERO_WIDTH = /^[\p{M}\p{Cc}\u200B-\u200F\u2060\uFEFF]$/u;
+const DOUBLE_WIDTH =
+  /^[\p{Extended_Pictographic}\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{20000}-\u{3FFFD}]$/u;
+
+/** The columns a formatter gives a line: wide and emoji characters take two, combining marks none. */
+function displayWidth(text: string): number {
+  let width = 0;
+  for (const char of text) {
+    if (ZERO_WIDTH.test(char)) continue;
+    width += DOUBLE_WIDTH.test(char) ? 2 : 1;
+  }
+  return width;
+}
+
+/**
+ * Serializes `.mcp.json` the way the projects' formatter (oxfmt, Prettier)
+ * prints it: two-space indent, and an array of plain values on one line when
+ * that line fits the print width, so the written file passes a format check.
+ */
+function formatMcpJson(value: McpJson): string {
+  const expanded = JSON.stringify(value, null, JSON_INDENT);
+  return expanded.replace(
+    EXPANDED_PRIMITIVE_ARRAY,
+    (match: string, body: string, offset: number) => {
+      const items = body
+        .split("\n")
+        .filter((line) => line.trim() !== "")
+        .map((line) => line.trim().replace(/,$/, ""));
+      const inline = `[${items.join(", ")}]`;
+      const lineStart = expanded.lastIndexOf("\n", offset) + 1;
+      const end = offset + match.length;
+      const lineEnd = expanded.indexOf("\n", end);
+      const line =
+        expanded.slice(lineStart, offset) +
+        inline +
+        expanded.slice(end, lineEnd === -1 ? expanded.length : lineEnd);
+      return displayWidth(line) <= FORMAT_PRINT_WIDTH ? inline : match;
+    },
+  );
+}
 
 interface ProjectMcpState {
   token: string | null;
@@ -100,7 +144,7 @@ async function ensureMcpJsonEntry(root: string): Promise<void> {
       [PROJECT_MCP_SERVER_KEY]: { command: "node", args: [LAUNCHER_FROM_ROOT] },
     },
   };
-  await writeFile(filePath, `${JSON.stringify(next, null, 2)}\n`);
+  await writeFile(filePath, `${formatMcpJson(next)}\n`);
 }
 
 /**
