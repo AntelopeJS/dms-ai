@@ -10,6 +10,13 @@ covers:
   - src/lifecycle/project-mcp.ts
   - sidecar/src/mcp/project-endpoint.ts
   - sidecar/src/server/http.ts
+  - src/index.ts
+  - sidecar/src/constants/mcp.ts
+  - sidecar/src/constants/preview.ts
+  - sidecar/src/constants/logs.ts
+  - sidecar/src/constants/database.ts
+  - sidecar/src/mcp/tool-definitions.ts
+  - sidecar/src/mcp/tools/database.ts
   - src/routes/sidecar-answers.ts
   - src/routes/logs.ts
   - src/routes/pages-registry.ts
