@@ -227,6 +227,7 @@ export async function startWsHarness(
       await ws.close();
       await mcpHttpRegistry.dispose();
       await conversationStore.flush();
+      await checkpoints?.flush();
       await new Promise<void>((done) => server.close(() => done()));
       await rm(tmpDir, { recursive: true, force: true });
     },
