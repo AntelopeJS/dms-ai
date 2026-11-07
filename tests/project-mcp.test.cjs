@@ -20,6 +20,8 @@ const { installRequireMocks } = require("./helpers/require-mocks.cjs");
 
 const DIST_DIR = path.resolve(__dirname, "../dist");
 const REPO_ROOT = path.resolve(__dirname, "..");
+/** The characters that make `      "args": ["..."]` exactly 80 columns wide. */
+const ARGS_LINE_FILL = 62;
 const CLIENT_TOKEN = "client-secret";
 const REPLY_WAIT_MS = 5_000;
 const CACHE = ["node_modules", ".cache", "dms-ai"];
@@ -341,11 +343,16 @@ void test("the .mcp.json the module writes passes the projects' format check", a
   const fresh = await tempProject();
   const extended = await tempProject();
   const longArgs = Array.from({ length: 6 }, (_, index) => `--option-${index}`);
+  const servers = {
+    other: { command: "other", args: longArgs, env: {} },
+    eighty: { command: "x", args: ["a".repeat(ARGS_LINE_FILL)] },
+    eightyOne: { command: "x", args: ["a".repeat(ARGS_LINE_FILL + 1)] },
+    wide: { command: "x", args: ["\u65E5".repeat(ARGS_LINE_FILL / 2 + 1)] },
+    accented: { command: "x", args: ["e\u0301".repeat(ARGS_LINE_FILL - 2)] },
+  };
   await writeFile(
     path.join(extended, ".mcp.json"),
-    JSON.stringify({
-      mcpServers: { other: { command: "other", args: longArgs, env: {} } },
-    }),
+    JSON.stringify({ mcpServers: servers }),
   );
   await publish(fresh);
   await publish(extended);
@@ -356,10 +363,10 @@ void test("the .mcp.json the module writes passes the projects' format check", a
     { encoding: "utf8" },
   );
   assert.equal(check.status, 0, `${check.stdout}${check.stderr}`);
-  assert.deepEqual(
-    (await readMcpJson(extended)).mcpServers.other.args,
-    longArgs,
-  );
+  const { mcpServers } = await readMcpJson(extended);
+  for (const [name, server] of Object.entries(servers)) {
+    assert.deepEqual(mcpServers[name], server);
+  }
   await rm(fresh, { recursive: true, force: true });
   await rm(extended, { recursive: true, force: true });
 });
