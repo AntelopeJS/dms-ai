@@ -8,6 +8,11 @@ covers:
   - src/pages/overview/recent-changes.ts
   - src/types/metrics.ts
   - sidecar/src/metrics/**
+  - sidecar/src/state/legacy-tool-names.ts
+  - sidecar/src/state/store.ts
+  - sidecar/src/state/conversations.ts
+  - sidecar/src/agent/tool-kinds.ts
+  - sidecar/src/constants/tool-kinds.ts
 docs:
   - docs/4.usage/2.overview.md
 ---

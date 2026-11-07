@@ -1,7 +1,13 @@
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { guarded } from "../guard.mjs";
-import { AI, ai, check, freshSidecar, member, parseJson, raw, recordRaw, same, sidecarLock, text } from "../ai.mjs";
+import { AI, ai, check, freshSidecar, list, member, parseJson, pick, raw, recordRaw, same, sidecarLock, sidecarPath, text, tokenOf, until } from "../ai.mjs";
 
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
+
+const MCP_MESSAGE = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+const MCP_NOTIFICATION = JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" });
+const TOOLS_ONLY_THE_CHAT_SHOWS = ["ask_user", "preview_blocks"];
+const FORWARDED = { "x-forwarded-for": "203.0.113.9" };
 
 /** Every route the module serves to the owner, with the method and a path that exists. */
 const OWNER_ROUTES = [
@@ -27,6 +33,19 @@ function call(ctx, method, path, who) {
     headers: hasBody ? { "content-type": "application/json" } : {},
     body: hasBody ? "{}" : undefined,
   });
+}
+
+/**
+ * What the backend published for the bridge of an outside Claude Code session: the route and this start's credential.
+ *
+ * @param {Ctx} ctx The journey
+ * @returns {Promise<{ file: string, url: string, token: string }>} The file, the route and the credential
+ */
+async function publishedMcp(ctx) {
+  const file = sidecarPath(ctx, "mcp.json");
+  await until(() => existsSync(file), { timeoutMs: 30_000 });
+  const published = existsSync(file) ? parseJson(readFileSync(file, "utf8")) : undefined;
+  return { file, url: text(published, "url"), token: text(published, "token") };
 }
 
 export const journeys = guarded([
@@ -88,6 +107,59 @@ export const journeys = guarded([
       recordRaw(ctx, health, [same("health needs no session", [health.status, parseJson(health.text)], [200, { ok: true, module: "ai" }])]);
       const info = await ai(ctx, "the probe", "GET", "/sidecar-info");
       await ctx.verify("the owner's probe", [same("never shows the token", JSON.stringify(info.body).includes(lock?.token ?? "x"), false), same("never shows the port", JSON.stringify(info.body).includes(String(lock?.port)), false)]);
+    },
+  },
+  {
+    id: "the-project-mcp-route-serves-only-a-local-caller-holding-the-start-credential",
+    title: "POST /ai/mcp refuses a forwarded request with 403, and a request without the bearer the backend published, with a wrong one or with a session token with 401; the published bearer reaches the project's tools, a notification is accepted and a malformed message refused; the sidecar's own /mcp/project takes only its client credential",
+    entryPoint: "POST /ai/mcp (direct, forwarded, through the dashboard), POST <sidecar>/mcp/project, <cache>/mcp.json",
+    async run(/** @type {Ctx} */ ctx) {
+      await freshSidecar(ctx);
+      const published = await publishedMcp(ctx);
+      const session = await tokenOf(ctx, "admin");
+      const post = (/** @type {string} */ label, /** @type {Record<string, string>} */ headers, /** @type {string} */ body = MCP_MESSAGE, /** @type {string} */ url = published.url) =>
+        raw(ctx, label, { url, method: "POST", headers: { "content-type": "application/json", ...headers }, body });
+      const bearer = (/** @type {string} */ token) => ({ authorization: `Bearer ${token}` });
+      const sameLength = "0".repeat(published.token.length);
+      /** @type {[string, Awaited<ReturnType<typeof post>>, number][]} */
+      const outsiders = [
+        ["no bearer", await post("no bearer", {}), 401],
+        ["a wrong bearer", await post("a wrong bearer", bearer("not-the-token")), 401],
+        ["a wrong bearer of the right length", await post("a wrong bearer of the right length", bearer(sameLength)), 401],
+        ["the token without Bearer", await post("the token without Bearer", { authorization: published.token }), 401],
+        ["another scheme", await post("another scheme", { authorization: `Basic ${published.token}` }), 401],
+        ["the owner's session token", await post("the owner's session token", bearer(session ?? "no-session")), 401],
+        ["forwarded, no bearer", await post("forwarded, no bearer", FORWARDED), 403],
+        ["forwarded with the right bearer", await post("forwarded with the right bearer", { ...bearer(published.token), ...FORWARDED }), 403],
+        ["the standard Forwarded header with the right bearer", await post("the standard Forwarded header with the right bearer", { ...bearer(published.token), forwarded: "for=203.0.113.9" }), 403],
+        ["through the dashboard origin with the right bearer", await post("through the dashboard origin with the right bearer", { ...bearer(published.token), origin: ctx.state.webUrl }, MCP_MESSAGE, `${ctx.state.webUrl}${AI}/mcp`), 403],
+      ];
+      await ctx.verify("the published credential", [
+        check("the backend published the route and a credential", published.token.length >= 32 && published.url.endsWith("/ai/mcp"), `${published.url} token of ${published.token.length} characters`),
+        same("readable by its owner only", statSync(published.file).mode & 0o777, 0o600),
+      ]);
+      for (const [name, answer, status] of outsiders) recordRaw(ctx, answer, [same(`${name} is refused`, answer.status, status), check("and the refusal does not show the credential", !answer.text.includes(published.token), answer.text.slice(0, 80))]);
+      const tools = await post("tools/list with the published bearer", bearer(published.token));
+      const names = list(pick(tools.json, "result"), "tools").map((tool) => text(tool, "name"));
+      recordRaw(ctx, tools, [
+        same("the project's tools are served", [tools.status, pick(tools.json, "jsonrpc"), pick(tools.json, "id")], [200, "2.0", 1]),
+        check("with the logs and database tools", names.includes("query_logs") && names.includes("database_connections"), names.join(", ")),
+        same("none of the tools that exist only in the dashboard chat", names.filter((name) => TOOLS_ONLY_THE_CHAT_SHOWS.includes(name)), []),
+      ]);
+      const notification = await post("a notification", bearer(published.token), MCP_NOTIFICATION);
+      const malformed = await post("a malformed message", bearer(published.token), JSON.stringify({ not: "json-rpc" }));
+      recordRaw(ctx, notification, [same("a notification is accepted with no body", [notification.status, notification.text], [202, ""])]);
+      recordRaw(ctx, malformed, [same("a message that is not JSON-RPC is refused as an invalid request", [malformed.status, pick(malformed.json, "error", "code")], [400, -32600])]);
+      const lock = sidecarLock(ctx);
+      const sidecarUrl = `http://127.0.0.1:${lock?.port}/mcp/project`;
+      const direct = await post("the sidecar, no credential", {}, MCP_MESSAGE, sidecarUrl);
+      const swapped = await post("the sidecar, the bearer of the route", bearer(published.token), MCP_MESSAGE, sidecarUrl);
+      const sidecarToken = await post("the sidecar, its backend token", bearer(lock?.token ?? ""), MCP_MESSAGE, sidecarUrl);
+      const client = await post("the sidecar, its client credential", bearer(lock?.clientToken ?? ""), MCP_MESSAGE, sidecarUrl);
+      recordRaw(ctx, direct, [same("no credential is refused", direct.status, 401)]);
+      recordRaw(ctx, swapped, [same("the route's bearer is not the client credential", swapped.status, 401)]);
+      recordRaw(ctx, sidecarToken, [same("the backend token is not the client credential", sidecarToken.status, 401)]);
+      recordRaw(ctx, client, [same("the client credential reaches the tools", [client.status, list(pick(client.json, "result"), "tools").length > 0], [200, true])]);
     },
   },
   {

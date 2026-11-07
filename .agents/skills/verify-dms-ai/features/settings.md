@@ -6,6 +6,8 @@ covers:
   - sidecar/src/state/settings-store.ts
   - sidecar/src/state/settings-types.ts
   - sidecar/src/constants/settings.ts
+  - sidecar/src/state/store.ts
+  - sidecar/src/state/conversations.ts
 docs:
   - docs/4.usage/6.settings.md
 ---
