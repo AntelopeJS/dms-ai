@@ -90,6 +90,7 @@ describe("checkpoints", () => {
   });
 
   afterEach(async () => {
+    await project.checkpoints.flush();
     await rm(root, { recursive: true, force: true });
   });
 
