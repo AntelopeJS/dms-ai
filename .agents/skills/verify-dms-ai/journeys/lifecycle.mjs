@@ -8,6 +8,8 @@ import { AI, ai, alive, check, freshSidecar, list, pageHas, parseJson, pause, pi
 
 const READY = (/** @type {unknown} */ status) => text(status, "status") === "ready";
 
+const IDLE_TIMEOUT_MS = 20_000;
+
 export const journeys = guarded([
   {
     id: "the-status-reads-ready-and-names-the-sidecar",
@@ -158,35 +160,35 @@ export const journeys = guarded([
     },
   },
   {
-    id: "an-idle-sidecar-exits-after-15-minutes-and-the-next-probe-starts-it",
-    title: "left alone, the sidecar is still running 14 minutes later and gone after 16; the next sidecar probe starts another one that answers",
-    entryPoint: "the sidecar's idle timer, GET /ai/sidecar-info",
+    id: "an-idle-sidecar-exits-after-its-idle-timeout-and-the-next-probe-starts-it",
+    title: "with DMS_AI_IDLE_SHUTDOWN_MS set, left alone the sidecar is still running before the timeout and gone after it; the next sidecar probe starts another one that answers",
+    entryPoint: "DMS_AI_IDLE_SHUTDOWN_MS, the sidecar's idle timer, GET /ai/sidecar-info",
     async run(/** @type {Ctx} */ ctx) {
-      await freshSidecar(ctx);
-      const first = sidecarLock(ctx);
-      await ai(ctx, "the last request before the wait", "GET", "/status");
-      const startedAt = Date.now();
-      const minutes = () => (Date.now() - startedAt) / 60_000;
-      await pause(10 * 60_000);
-      const aliveAtTen = first !== null && alive(first.pid);
-      await pause(4 * 60_000);
-      const aliveAtFourteen = first !== null && alive(first.pid);
-      const gone = await until(() => first !== null && !alive(first.pid), { timeoutMs: 150_000, everyMs: 5000 });
-      const exitedAt = minutes();
-      await ctx.verify("the idle timer", [
-        check("still running after 10 minutes", aliveAtTen, `pid ${first?.pid}`),
-        check("still running after 14 minutes", aliveAtFourteen, `pid ${first?.pid}`),
-        check("gone by 17 minutes", Boolean(gone), `${exitedAt.toFixed(1)} minutes`),
-        check("and not before 14", exitedAt >= 14.5, `${exitedAt.toFixed(1)} minutes`),
-      ]);
-      const probe = await ai(ctx, "the probe", "GET", "/sidecar-info");
-      const back = await statusIs(ctx, (status) => text(status, "status") === "ready", 90_000);
-      const second = sidecarLock(ctx);
-      await ctx.verify("the next probe", [
-        same("answers that it runs", pick(probe.body, "isRunning"), true),
-        same("the assistant is ready again", text(back.status, "status"), "ready"),
-        check("another process", second !== null && second.pid !== first?.pid && alive(second.pid), `${first?.pid} -> ${second?.pid}`),
-      ]);
+      await withEnv(ctx, { DMS_AI_IDLE_SHUTDOWN_MS: String(IDLE_TIMEOUT_MS) }, async () => {
+        await statusIs(ctx, READY, 60_000);
+        const first = sidecarLock(ctx);
+        const touch = await fetch(`http://127.0.0.1:${first?.port}/health`, { signal: AbortSignal.timeout(10_000) }).catch(() => null);
+        const touchedAt = Date.now();
+        await pause(IDLE_TIMEOUT_MS / 3);
+        const aliveBeforeTimeout = first !== null && alive(first.pid);
+        const earlyAt = Date.now() - touchedAt;
+        const gone = await until(() => first !== null && !alive(first.pid), { timeoutMs: 60_000, everyMs: 200 });
+        const exitedAfter = Date.now() - touchedAt;
+        await ctx.verify("the idle timer", [
+          same("the last request before the wait answered", touch?.status, 200),
+          check(`still running ${earlyAt} ms after it, inside the ${IDLE_TIMEOUT_MS} ms timeout`, aliveBeforeTimeout, `pid ${first?.pid}`),
+          check("gone well after the timeout", Boolean(gone), `${exitedAfter} ms`),
+          check(`and not before the timeout (${IDLE_TIMEOUT_MS} ms)`, exitedAfter >= IDLE_TIMEOUT_MS - 1000, `${exitedAfter} ms`),
+        ]);
+        const probe = await ai(ctx, "the probe", "GET", "/sidecar-info");
+        const back = await statusIs(ctx, READY, 90_000);
+        const second = sidecarLock(ctx);
+        await ctx.verify("the next probe", [
+          same("answers that it runs", pick(probe.body, "isRunning"), true),
+          same("the assistant is ready again", text(back.status, "status"), "ready"),
+          check("another process", second !== null && second.pid !== first?.pid && alive(second.pid), `${first?.pid} -> ${second?.pid}`),
+        ]);
+      });
     },
   },
   {

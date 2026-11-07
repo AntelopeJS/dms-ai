@@ -1,7 +1,40 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createIdleShutdownController } from "../../src/server/idle-shutdown.js";
+import { IDLE_SHUTDOWN_MS } from "../../src/constants/daemon.js";
+import {
+  createIdleShutdownController,
+  resolveIdleShutdownMs,
+} from "../../src/server/idle-shutdown.js";
 
 const IDLE_MS = 1000;
+
+describe("idle shutdown override", () => {
+  it("takes a positive integer", () => {
+    expect(resolveIdleShutdownMs("4000")).toBe(4000);
+    expect(resolveIdleShutdownMs("1")).toBe(1);
+    expect(resolveIdleShutdownMs("2147483647")).toBe(2_147_483_647);
+  });
+
+  it.each([
+    undefined,
+    "",
+    " ",
+    "0",
+    "-5",
+    "1.5",
+    "4e3",
+    "0x10",
+    "007",
+    " 4000",
+    "4000ms",
+    "abc",
+    "NaN",
+    "Infinity",
+    "2147483648",
+    "99999999999999999999",
+  ])("falls back to the default for %j", (raw) => {
+    expect(resolveIdleShutdownMs(raw)).toBe(IDLE_SHUTDOWN_MS);
+  });
+});
 
 describe("idle shutdown controller", () => {
   beforeEach(() => {
