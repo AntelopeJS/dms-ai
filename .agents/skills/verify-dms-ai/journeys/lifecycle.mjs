@@ -9,7 +9,7 @@ import { AI, ai, alive, check, freshSidecar, list, pageHas, parseJson, pause, pi
 const READY = (/** @type {unknown} */ status) => text(status, "status") === "ready";
 
 const IDLE_TIMEOUT_MS = 20_000;
-const IDLE_MARGIN_MS = 15_000;
+const IDLE_MARGIN_MS = 5000;
 const IDLE_EARLY_MS = 2000;
 
 export const journeys = guarded([

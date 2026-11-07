@@ -77,6 +77,22 @@ describe("idle shutdown controller", () => {
     expect(idle).toBe(1);
   });
 
+  it("waits for every connection to close, not the first", () => {
+    let idle = 0;
+    const controller = createIdleShutdownController({
+      idleMs: IDLE_MS,
+      onIdle: () => idle++,
+    });
+    controller.increment();
+    controller.increment();
+    controller.decrement();
+    vi.advanceTimersByTime(IDLE_MS * 5);
+    expect(idle).toBe(0);
+    controller.decrement();
+    vi.advanceTimersByTime(IDLE_MS);
+    expect(idle).toBe(1);
+  });
+
   it("touch resets the idle countdown", () => {
     let idle = 0;
     const controller = createIdleShutdownController({
