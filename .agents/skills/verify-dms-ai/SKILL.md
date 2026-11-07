@@ -70,7 +70,7 @@ $C down "$RUN"
 
 ## Verdict rules
 
-1. **Run every feature whose `covers:` globs the diff touches, plus the smoke journey.** `plan` prints that list as `run`.
+1. **Run every feature whose `covers:` globs the diff touches, plus the smoke journey.** `plan` prints that list as `run`. Run every feature instead when the diff touches a shared file, and before a release. The shared files are `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `sidecar/package.json`, `sidecar/pnpm-lock.yaml`, `frontend-vue/package.json` and `frontend-vue/pnpm-lock.yaml` (the sidecar has no workspace file), `.nvmrc`, the `tsconfig.json` of the module and of the sidecar, and this skill's own `verify.config.ts`, `ai.mjs`, `guard.mjs`, `seed.mjs`, `sample.mjs`, `windows.mjs` (every feature loads it through `ai.mjs`) and `playground/`. A manifest pins the `@antelopejs/interface-*` contracts and the runtime every feature runs on, so `plan` naming only `package` or only `smoke` understates the change: for a lockfile, `.nvmrc` or a tsconfig it names only `smoke`.
 2. **Unmapped surface fails the verdict.** User-facing code is `src/**`, `sidecar/src/**`, `frontend-vue/**`, `skills/**` and the two `package.json`, tests and tool configs excluded (`verify.config.ts`). `map` checks the whole tree.
 3. **Every registered journey of a feature in `run` must have run and passed.** Known findings stay as failing journeys (see Gotchas): they fail a verdict only when the diff touches their feature.
 4. **Docs.** Judge every `docs:` page of each touched feature against what the journeys showed.
@@ -108,6 +108,7 @@ List these under `notVerified` in the judgement of every verdict:
 - the ChatGPT consent page, the token exchange and refresh, `chatgpt-auth.json` with a token, the sign-out of a real session and the pinned `codex` CLI version gate: they need an OpenAI account and the optional peer;
 - Safe mode and the Builder-backed rows (Builder Connected, Safe mode enabled): the playground does not load `@antelopejs/dms-builder`;
 - the Overview banners "The assistant's last turn failed" with Open activity and "N requests are waiting for you": they read a live turn and live approvals;
+- the MCP bridge process (`src/mcp-bridge.ts`) that an outside Claude Code session runs from the project's `.mcp.json`: the backend only resolves its path, and the journey sends the request the bridge would send to `POST /ai/mcp`;
 - the Conversation link of the Changes page, the Open conversation button of the Activity detail, and the reload and toast after Undo: they belong to the chat session;
 - `NODE_ENV=production`: the DMS itself changes with it, so the run cannot start the backend that way;
 - remote access over a LAN, Tailscale, a tunnel or HTTP/2, and the six-connection browser limit (the refusal of a connection to the network address is driven);

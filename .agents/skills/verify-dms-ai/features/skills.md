@@ -6,6 +6,10 @@ covers:
   - src/types/skills.ts
   - sidecar/src/skills/**
   - sidecar/src/constants/skills.ts
+  - sidecar/src/state/store.ts
+  - sidecar/src/state/conversations.ts
+  - sidecar/src/agent/tool-kinds.ts
+  - sidecar/src/constants/tool-kinds.ts
 docs:
   - docs/4.usage/5.skills.md
   - docs/5.extending.md

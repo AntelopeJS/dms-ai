@@ -6,6 +6,11 @@ covers:
   - src/types/activity.ts
   - sidecar/src/audit/**
   - sidecar/src/constants/audit.ts
+  - sidecar/src/state/legacy-tool-names.ts
+  - sidecar/src/state/store.ts
+  - sidecar/src/state/conversations.ts
+  - sidecar/src/agent/tool-kinds.ts
+  - sidecar/src/constants/tool-kinds.ts
 docs:
   - docs/4.usage/4.activity.md
 ---
@@ -23,6 +28,7 @@ The audit log of every tool the assistant used, driven from seeded stored record
 - `a-row-opens-its-detail-with-the-arguments-trail-output-and-diff`: the Action detail panel, J and K, a deep link, the decision trail, the diff and Show raw JSON.
 - `the-export-holds-every-row-whatever-the-tab-and-the-period`: one CSV line per record, quoting and the formula guard.
 - `the-export-stops-at-10000-rows`: 10,005 records export 10,000 data lines. Known finding: they export 200.
+- `a-call-recorded-under-a-legacy-tool-name-reads-under-the-current-one`: a stored conversation naming `BuilderAddBlock` and `mcp__dms-ai__BuilderAddBlock` shows two `builder_add_block` rows allowed as Builder operations in the log, and the Overview's top tools count them as one Builder tool.
 - `the-export-holds-what-the-sidecar-lets-through`: pins today's behaviour next to it: 200 data lines, 25 rows a page, 50 after Load more.
 
 ## How to get to it (user POV)
