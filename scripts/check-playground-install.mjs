@@ -26,24 +26,39 @@ const buildFailures = requirements
       `${file}: the playground must build the sidecar before startup (\`${SIDECAR_BUILD}\`).`,
   );
 
-const lockfileFailures = PLAYGROUNDS.filter(
-  (dir) =>
-    spawnSync(
-      "pnpm",
-      [
-        "install",
-        "--dir",
-        join(root, dir),
-        "--ignore-workspace",
-        "--frozen-lockfile",
-        "--lockfile-only",
-        "--ignore-scripts",
-      ],
-      { stdio: "ignore" },
-    ).status !== 0,
-).map(
-  (dir) =>
-    `${dir}/pnpm-lock.yaml does not match ${dir}/package.json: run \`pnpm install --dir ${dir} --ignore-workspace --lockfile-only\`.`,
+const OUTDATED_LOCKFILE = "ERR_PNPM_OUTDATED_LOCKFILE";
+
+/**
+ * Runs a frozen lockfile-only install of one playground.
+ *
+ * @param {string} dir The playground, relative to the repository root
+ * @returns {string | null} The failure to report, or null when the lockfile matches
+ */
+function lockfileFailure(dir) {
+  const result = spawnSync(
+    "pnpm",
+    [
+      "install",
+      "--dir",
+      join(root, dir),
+      "--ignore-workspace",
+      "--frozen-lockfile",
+      "--lockfile-only",
+      "--ignore-scripts",
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.status === 0) return null;
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  if (output.includes(OUTDATED_LOCKFILE)) {
+    return `${dir}/pnpm-lock.yaml does not match ${dir}/package.json: run \`pnpm install --dir ${dir} --ignore-workspace --lockfile-only\`.`;
+  }
+  const reason = result.error?.message ?? output.trim();
+  return `${dir}: pnpm could not check the lockfile: ${reason}`;
+}
+
+const lockfileFailures = PLAYGROUNDS.map(lockfileFailure).filter(
+  (failure) => failure !== null,
 );
 
 const failures = [...buildFailures, ...lockfileFailures];
