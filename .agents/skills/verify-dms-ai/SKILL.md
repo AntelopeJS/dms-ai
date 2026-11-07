@@ -96,7 +96,7 @@ The skill is not Trusted yet. It becomes Trusted when it passes a shadow run of 
   - `package/the-docs-name-every-skill-the-module-ships`: the README and the Skills page list four skills, the package ships five (dms-ai#169).
   - `activity/the-export-stops-at-10000-rows`: the export holds 200 rows, not the documented 10,000 (draft `dms-ai-activity-export-capped-at-200`). `activity/the-export-holds-what-the-sidecar-lets-through` passes today and pins the 200, so a change of the route's own cap fails it.
   - `overview/the-approved-and-undone-cards-show-their-share`: the cards never show the share the docs promise (draft `dms-ai-overview-kpi-share-not-shown`).
-- `an-idle-sidecar-exits-after-15-minutes-and-the-next-probe-starts-it` waits 14 minutes and takes about 17 in all: run it alone, nothing else may use the checkout while it runs.
+- `an-idle-sidecar-exits-after-its-idle-timeout-and-the-next-probe-starts-it` sets `DMS_AI_IDLE_SHUTDOWN_MS` to 20 seconds and restarts the backend with it; it takes about a minute, and nothing else may use the checkout while it runs.
 
 ## Not driven
 

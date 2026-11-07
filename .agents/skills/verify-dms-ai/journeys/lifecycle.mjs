@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { connect } from "node:net";
 import { guarded } from "../guard.mjs";
@@ -7,6 +7,10 @@ import { AI, ai, alive, check, freshSidecar, list, pageHas, parseJson, pause, pi
 /** @typedef {import("../ai.mjs").Ctx} Ctx */
 
 const READY = (/** @type {unknown} */ status) => text(status, "status") === "ready";
+
+const IDLE_TIMEOUT_MS = 20_000;
+const IDLE_MARGIN_MS = 5000;
+const IDLE_EARLY_MS = 2000;
 
 export const journeys = guarded([
   {
@@ -158,35 +162,40 @@ export const journeys = guarded([
     },
   },
   {
-    id: "an-idle-sidecar-exits-after-15-minutes-and-the-next-probe-starts-it",
-    title: "left alone, the sidecar is still running 14 minutes later and gone after 16; the next sidecar probe starts another one that answers",
-    entryPoint: "the sidecar's idle timer, GET /ai/sidecar-info",
+    id: "an-idle-sidecar-exits-after-its-idle-timeout-and-the-next-probe-starts-it",
+    title: "with DMS_AI_IDLE_SHUTDOWN_MS set, a sidecar that only the backend talks to exits one timeout after it started; the next sidecar probe starts another, and a health check made part-way through its timeout postpones its exit by a whole timeout",
+    entryPoint: "DMS_AI_IDLE_SHUTDOWN_MS, the sidecar's idle timer, GET /ai/sidecar-info, the sidecar's GET /health",
     async run(/** @type {Ctx} */ ctx) {
-      await freshSidecar(ctx);
-      const first = sidecarLock(ctx);
-      await ai(ctx, "the last request before the wait", "GET", "/status");
-      const startedAt = Date.now();
-      const minutes = () => (Date.now() - startedAt) / 60_000;
-      await pause(10 * 60_000);
-      const aliveAtTen = first !== null && alive(first.pid);
-      await pause(4 * 60_000);
-      const aliveAtFourteen = first !== null && alive(first.pid);
-      const gone = await until(() => first !== null && !alive(first.pid), { timeoutMs: 150_000, everyMs: 5000 });
-      const exitedAt = minutes();
-      await ctx.verify("the idle timer", [
-        check("still running after 10 minutes", aliveAtTen, `pid ${first?.pid}`),
-        check("still running after 14 minutes", aliveAtFourteen, `pid ${first?.pid}`),
-        check("gone by 17 minutes", Boolean(gone), `${exitedAt.toFixed(1)} minutes`),
-        check("and not before 14", exitedAt >= 14.5, `${exitedAt.toFixed(1)} minutes`),
-      ]);
-      const probe = await ai(ctx, "the probe", "GET", "/sidecar-info");
-      const back = await statusIs(ctx, (status) => text(status, "status") === "ready", 90_000);
-      const second = sidecarLock(ctx);
-      await ctx.verify("the next probe", [
-        same("answers that it runs", pick(probe.body, "isRunning"), true),
-        same("the assistant is ready again", text(back.status, "status"), "ready"),
-        check("another process", second !== null && second.pid !== first?.pid && alive(second.pid), `${first?.pid} -> ${second?.pid}`),
-      ]);
+      const beganAt = Date.now();
+      await withEnv(ctx, { DMS_AI_IDLE_SHUTDOWN_MS: String(IDLE_TIMEOUT_MS) }, async () => {
+        await statusIs(ctx, READY, 60_000);
+        const first = sidecarLock(ctx);
+        const startedAt = statSync(sidecarPath(ctx, "sidecar.lock")).mtimeMs;
+        const gone = await until(() => first !== null && !alive(first.pid), { timeoutMs: startedAt + IDLE_TIMEOUT_MS + IDLE_MARGIN_MS - Date.now(), everyMs: 200 });
+        const exitedAt = Date.now();
+        await ctx.verify("the idle timer armed at start", [
+          check(`gone within ${IDLE_MARGIN_MS} ms of the timeout after its start, with only the backend having spoken to it`, Boolean(gone), `${Math.round(exitedAt - startedAt)} ms`),
+          check(`and not before ${IDLE_TIMEOUT_MS} ms since the restart began`, exitedAt - beganAt >= IDLE_TIMEOUT_MS, `${exitedAt - beganAt} ms`),
+        ]);
+        const probe = await ai(ctx, "the probe", "GET", "/sidecar-info");
+        const back = await statusIs(ctx, READY, 90_000);
+        const second = sidecarLock(ctx);
+        await ctx.verify("the next probe", [
+          same("answers that it runs", pick(probe.body, "isRunning"), true),
+          same("the assistant is ready again", text(back.status, "status"), "ready"),
+          check("another process", second !== null && second.pid !== first?.pid && alive(second.pid), `${first?.pid} -> ${second?.pid}`),
+        ]);
+        await pause(IDLE_TIMEOUT_MS / 3);
+        const touchedAt = Date.now();
+        const touch = await fetch(`http://127.0.0.1:${second?.port}/health`, { signal: AbortSignal.timeout(10_000) }).catch(() => null);
+        const secondGone = await until(() => second !== null && !alive(second.pid), { timeoutMs: touchedAt + IDLE_TIMEOUT_MS + IDLE_MARGIN_MS - Date.now(), everyMs: 200 });
+        const exitedAfterTouch = Date.now() - touchedAt;
+        await ctx.verify("a health check postpones the exit", [
+          same("the health check answered", touch?.status, 200),
+          check(`gone within ${IDLE_MARGIN_MS} ms of one timeout after the health check`, Boolean(secondGone), `${exitedAfterTouch} ms`),
+          check(`and not more than ${IDLE_EARLY_MS} ms before it`, exitedAfterTouch >= IDLE_TIMEOUT_MS - IDLE_EARLY_MS, `${exitedAfterTouch} ms`),
+        ]);
+      });
     },
   },
   {

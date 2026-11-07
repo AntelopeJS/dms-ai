@@ -11,7 +11,7 @@ import { SIDECAR_BUILDER_FLAG } from "./constants/builder.js";
 import { STANDALONE_BACKEND_BASE_URL } from "./constants/cli.js";
 import {
   GRACEFUL_EXIT_CODE,
-  IDLE_SHUTDOWN_MS,
+  IDLE_SHUTDOWN_ENV_VAR,
   SIDECAR_BUILD_ID_FLAG,
   SIDECAR_TOKEN_BYTES,
 } from "./constants/daemon.js";
@@ -53,6 +53,7 @@ import { createChangeSetStore } from "./state/change-sets.js";
 import {
   createIdleShutdownController,
   type IdleShutdownController,
+  resolveIdleShutdownMs,
 } from "./server/idle-shutdown.js";
 import { createNavigationCompleter } from "./server/navigation-completer.js";
 import { attachWsServer } from "./server/ws.js";
@@ -445,7 +446,7 @@ async function main(): Promise<void> {
   const clientToken = randomBytes(SIDECAR_TOKEN_BYTES).toString("hex");
   const holder: ShutdownHolder = { run: () => {} };
   const idleController = createIdleShutdownController({
-    idleMs: IDLE_SHUTDOWN_MS,
+    idleMs: resolveIdleShutdownMs(process.env[IDLE_SHUTDOWN_ENV_VAR]),
     onIdle: () => holder.run(),
   });
   await warnOnDuplicateSkillNames(
