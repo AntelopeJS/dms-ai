@@ -25,7 +25,7 @@ What a turn leaves behind is not out of reach. The Activity rows, the Overview f
 ## Launch
 
 ```bash
-RUN=$($C up --prepare --base origin/campaign/integration --skill "$PWD/.agents/skills/verify-dms-ai")
+RUN=$($C up --prepare --base origin/main --skill "$PWD/.agents/skills/verify-dms-ai")
 ```
 
 `--prepare` runs the `prepare` commands of `verify.config.ts`: the frozen install, the builds of the module and of the sidecar, the install of the playground's own dependencies, `playwright-core` into this folder and the TypeScript build of the playground's fixture module. `up` reads the playground (`playground/` in this folder) and starts an isolated DMS:
@@ -35,7 +35,7 @@ RUN=$($C up --prepare --base origin/campaign/integration --skill "$PWD/.agents/s
 - a `mongod` the run owns serves `verify_<run>` databases;
 - the backend runs `ajs project start -e docs`, the dashboard `ajs dms start -e docs -b <api>`.
 
-The module under verification is a `local` source at the checkout root, and `@antelopejs/dms` is the campaign's tarball, as a local source. The fixture module (`playground/src`) serves a member with a role (`POST /verify-ai/member`) and registers a home page and a plain page; it writes the skills the Skills journeys read into `generated-skills/` when it is constructed (a committed `SKILL.md` would be read as a skill of this repository), among them a name shared by two folders and three `SKILL.md` the catalog must skip.
+The module under verification is a `local` source at the checkout root, and `@antelopejs/dms` comes from the registry, pinned by the playground's lockfile. The fixture module (`playground/src`) serves a member with a role (`POST /verify-ai/member`) and registers a home page and a plain page; it writes the skills the Skills journeys read into `generated-skills/` when it is constructed (a committed `SKILL.md` would be read as a skill of this repository), among them a name shared by two folders and three `SKILL.md` the catalog must skip.
 
 ## Doctor
 
@@ -48,7 +48,7 @@ Do not drive a run that fails doctor.
 ## Drive
 
 ```bash
-$C plan --base origin/campaign/integration   # the diff mapped to features; unmapped surfaces
+$C plan --base origin/main   # the diff mapped to features; unmapped surfaces
 $C journey "$RUN" smoke
 $C journey "$RUN" settings [journey-id...]
 ```
@@ -86,7 +86,6 @@ The skill is not Trusted yet. It becomes Trusted when it passes a shadow run of 
 
 ## Gotchas
 
-- The playground overrides `@antelopejs/interface-database-decorators` to the registry's 0.1.12: the 0.2.0 tarball this repository pins has no `testHashAsync`, and the DMS tarball's login calls it (sign-in answered 500). This is a real mismatch of the campaign pins that the override hides: draft `dms-ai-decorators-tarball-mismatch`. Remove the override once the pins agree.
 - Every dashboard page renders on the server and hydrates after `load`; `guard.mjs` waits for the sign-in form to hydrate, and `choose` and `clickUntil` click again until a radio, a switch or a dialog responds.
 - A step whose check fails because the backend or the dashboard stopped answering ends the journey with a `NOT VERIFIED` error and no failing check.
 - The sample holds one more record than every documented limit it drives (5 change sets for the 4 listed, 9 tools for the 5 listed, 29 log records for the 25 of a page, 10,005 for the 10,000 of an export, 61 skills for the 24 of a page, a usage entry on the first day of the 14 and one the day before), so that N and N+1 look different. Add the same when you add a limit.
