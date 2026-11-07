@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { connect } from "node:net";
 import { guarded } from "../guard.mjs";
@@ -9,6 +9,8 @@ import { AI, ai, alive, check, freshSidecar, list, pageHas, parseJson, pause, pi
 const READY = (/** @type {unknown} */ status) => text(status, "status") === "ready";
 
 const IDLE_TIMEOUT_MS = 20_000;
+const IDLE_MARGIN_MS = 15_000;
+const IDLE_EARLY_MS = 2000;
 
 export const journeys = guarded([
   {
@@ -161,24 +163,19 @@ export const journeys = guarded([
   },
   {
     id: "an-idle-sidecar-exits-after-its-idle-timeout-and-the-next-probe-starts-it",
-    title: "with DMS_AI_IDLE_SHUTDOWN_MS set, left alone the sidecar is still running before the timeout and gone after it; the next sidecar probe starts another one that answers",
-    entryPoint: "DMS_AI_IDLE_SHUTDOWN_MS, the sidecar's idle timer, GET /ai/sidecar-info",
+    title: "with DMS_AI_IDLE_SHUTDOWN_MS set, a sidecar that only the backend talks to exits one timeout after it started; the next sidecar probe starts another, and a health check made part-way through its timeout postpones its exit by a whole timeout",
+    entryPoint: "DMS_AI_IDLE_SHUTDOWN_MS, the sidecar's idle timer, GET /ai/sidecar-info, the sidecar's GET /health",
     async run(/** @type {Ctx} */ ctx) {
+      const beganAt = Date.now();
       await withEnv(ctx, { DMS_AI_IDLE_SHUTDOWN_MS: String(IDLE_TIMEOUT_MS) }, async () => {
         await statusIs(ctx, READY, 60_000);
         const first = sidecarLock(ctx);
-        const touch = await fetch(`http://127.0.0.1:${first?.port}/health`, { signal: AbortSignal.timeout(10_000) }).catch(() => null);
-        const touchedAt = Date.now();
-        await pause(IDLE_TIMEOUT_MS / 3);
-        const aliveBeforeTimeout = first !== null && alive(first.pid);
-        const earlyAt = Date.now() - touchedAt;
-        const gone = await until(() => first !== null && !alive(first.pid), { timeoutMs: 60_000, everyMs: 200 });
-        const exitedAfter = Date.now() - touchedAt;
-        await ctx.verify("the idle timer", [
-          same("the last request before the wait answered", touch?.status, 200),
-          check(`still running ${earlyAt} ms after it, inside the ${IDLE_TIMEOUT_MS} ms timeout`, aliveBeforeTimeout, `pid ${first?.pid}`),
-          check("gone well after the timeout", Boolean(gone), `${exitedAfter} ms`),
-          check(`and not before the timeout (${IDLE_TIMEOUT_MS} ms)`, exitedAfter >= IDLE_TIMEOUT_MS - 1000, `${exitedAfter} ms`),
+        const startedAt = statSync(sidecarPath(ctx, "sidecar.lock")).mtimeMs;
+        const gone = await until(() => first !== null && !alive(first.pid), { timeoutMs: startedAt + IDLE_TIMEOUT_MS + IDLE_MARGIN_MS - Date.now(), everyMs: 200 });
+        const exitedAt = Date.now();
+        await ctx.verify("the idle timer armed at start", [
+          check(`gone within ${IDLE_MARGIN_MS} ms of the timeout after its start, with only the backend having spoken to it`, Boolean(gone), `${Math.round(exitedAt - startedAt)} ms`),
+          check(`and not before ${IDLE_TIMEOUT_MS} ms since the restart began`, exitedAt - beganAt >= IDLE_TIMEOUT_MS, `${exitedAt - beganAt} ms`),
         ]);
         const probe = await ai(ctx, "the probe", "GET", "/sidecar-info");
         const back = await statusIs(ctx, READY, 90_000);
@@ -187,6 +184,16 @@ export const journeys = guarded([
           same("answers that it runs", pick(probe.body, "isRunning"), true),
           same("the assistant is ready again", text(back.status, "status"), "ready"),
           check("another process", second !== null && second.pid !== first?.pid && alive(second.pid), `${first?.pid} -> ${second?.pid}`),
+        ]);
+        await pause(IDLE_TIMEOUT_MS / 3);
+        const touchedAt = Date.now();
+        const touch = await fetch(`http://127.0.0.1:${second?.port}/health`, { signal: AbortSignal.timeout(10_000) }).catch(() => null);
+        const secondGone = await until(() => second !== null && !alive(second.pid), { timeoutMs: touchedAt + IDLE_TIMEOUT_MS + IDLE_MARGIN_MS - Date.now(), everyMs: 200 });
+        const exitedAfterTouch = Date.now() - touchedAt;
+        await ctx.verify("a health check postpones the exit", [
+          same("the health check answered", touch?.status, 200),
+          check(`gone within ${IDLE_MARGIN_MS} ms of one timeout after the health check`, Boolean(secondGone), `${exitedAfterTouch} ms`),
+          check(`and not more than ${IDLE_EARLY_MS} ms before it`, exitedAfterTouch >= IDLE_TIMEOUT_MS - IDLE_EARLY_MS, `${exitedAfterTouch} ms`),
         ]);
       });
     },
