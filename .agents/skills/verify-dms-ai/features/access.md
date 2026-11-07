@@ -6,6 +6,10 @@ covers:
   - src/routes/mcp.ts
   - src/mcp-bridge.ts
   - sidecar/src/server/project-mcp-route.ts
+  - src/constants/mcp.ts
+  - src/lifecycle/project-mcp.ts
+  - sidecar/src/mcp/project-endpoint.ts
+  - sidecar/src/server/http.ts
   - src/routes/sidecar-answers.ts
   - src/routes/logs.ts
   - src/routes/pages-registry.ts
