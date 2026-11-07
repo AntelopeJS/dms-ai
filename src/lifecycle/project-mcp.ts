@@ -20,6 +20,37 @@ import {
 
 const PRIVATE_DIRECTORY_MODE = 0o700;
 const BEARER_PREFIX = "Bearer ";
+const JSON_INDENT = 2;
+const FORMAT_PRINT_WIDTH = 80;
+const EXPANDED_PRIMITIVE_ARRAY =
+  /\[\n((?: *(?:"(?:[^"\\\n]|\\.)*"|-?\d[\d.eE+-]*|true|false|null),?\n)+) *\]/g;
+
+/**
+ * Serializes `.mcp.json` the way the projects' formatter (oxfmt, Prettier)
+ * prints it: two-space indent, and an array of plain values on one line when
+ * that line fits the print width, so the written file passes a format check.
+ */
+function formatMcpJson(value: McpJson): string {
+  const expanded = JSON.stringify(value, null, JSON_INDENT);
+  return expanded.replace(
+    EXPANDED_PRIMITIVE_ARRAY,
+    (match: string, body: string, offset: number) => {
+      const items = body
+        .split("\n")
+        .filter((line) => line.trim() !== "")
+        .map((line) => line.trim().replace(/,$/, ""));
+      const inline = `[${items.join(", ")}]`;
+      const lineStart = expanded.lastIndexOf("\n", offset) + 1;
+      const end = offset + match.length;
+      const lineEnd = expanded.indexOf("\n", end);
+      const before = offset - lineStart;
+      const after = (lineEnd === -1 ? expanded.length : lineEnd) - end;
+      return before + inline.length + after <= FORMAT_PRINT_WIDTH
+        ? inline
+        : match;
+    },
+  );
+}
 
 interface ProjectMcpState {
   token: string | null;
@@ -100,7 +131,7 @@ async function ensureMcpJsonEntry(root: string): Promise<void> {
       [PROJECT_MCP_SERVER_KEY]: { command: "node", args: [LAUNCHER_FROM_ROOT] },
     },
   };
-  await writeFile(filePath, `${JSON.stringify(next, null, 2)}\n`);
+  await writeFile(filePath, `${formatMcpJson(next)}\n`);
 }
 
 /**
