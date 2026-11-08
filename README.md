@@ -1,11 +1,10 @@
+<a href="https://github.com/AntelopeJS/dms"><img data-illustration src="./.github/readme/strip-ai.svg" width="100%" alt="DMS AI ASSISTANT: part of AntelopeJS DMS, the open-source back office. A glowing button reads Star AntelopeJS DMS."></a>
+
 <div align="center">
 
 # `@antelopejs/dms-ai`
 
-<a href="https://www.npmjs.com/package/@antelopejs/dms-ai"><img alt="npm" src="https://img.shields.io/npm/v/@antelopejs/dms-ai?style=for-the-badge&labelColor=000000&color=000000" data-illustration></a>
-<a href="./LICENSE"><img alt="License" src="https://img.shields.io/npm/l/@antelopejs/dms-ai?style=for-the-badge&labelColor=000000&color=000000" data-illustration></a>
-<a href="https://discord.gg/g4pFt6eXqu"><img alt="Discord" src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000" data-illustration></a>
-<a href="https://dms.antelopejs.com/docs/modules/ai"><img alt="Documentation" src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000" data-illustration></a>
+<a href="https://www.npmjs.com/package/@antelopejs/dms-ai"><img alt="npm" src="https://img.shields.io/npm/v/@antelopejs/dms-ai?style=for-the-badge&labelColor=000000&color=000000" data-illustration></a> <a href="./LICENSE"><img alt="License" src="https://img.shields.io/npm/l/@antelopejs/dms-ai?style=for-the-badge&labelColor=000000&color=000000" data-illustration></a> <a href="https://discord.gg/g4pFt6eXqu"><img alt="Discord" src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000" data-illustration></a> <a href="https://dms.antelopejs.com/docs/modules/ai"><img alt="Documentation" src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000" data-illustration></a> <a href="https://github.com/AntelopeJS/dms"><img data-illustration alt="Star AntelopeJS DMS" src="https://img.shields.io/github/stars/AntelopeJS/dms?label=Star%20AntelopeJS%20DMS&style=for-the-badge&labelColor=000000&color=000000&logo=github"></a>
 
 **An AI development assistant inside the [AntelopeJS DMS](https://github.com/AntelopeJS/dms) dashboard.**
 
