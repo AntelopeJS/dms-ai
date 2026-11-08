@@ -1,7 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { z } from "zod";
 import { CHECKPOINTS_LOG_PREFIX } from "../constants/checkpoints.js";
 import { STATE_FILE_ENCODING, STATE_JSON_INDENT } from "../constants/state.js";
+import { ChangeSetRecordSchema } from "./stored-schemas.js";
 import type { ChangeSetRecord } from "./types.js";
 
 const FIRST_CHANGE_SET_NUMBER = 1;
@@ -33,20 +35,34 @@ function emptyContents(): ChangeSetFileContents {
   return { nextNumber: FIRST_CHANGE_SET_NUMBER, changeSets: [] };
 }
 
-function isNumber(value: unknown): value is number {
-  return typeof value === "number";
+const ChangeSetFileSchema = z.object({
+  nextNumber: z.number().optional().catch(undefined),
+  changeSets: z.array(z.unknown()),
+});
+
+function readChangeSets(stored: readonly unknown[]): ChangeSetRecord[] {
+  const changeSets: ChangeSetRecord[] = [];
+  for (const entry of stored) {
+    const parsed = ChangeSetRecordSchema.safeParse(entry);
+    if (parsed.success) changeSets.push(parsed.data);
+  }
+  const dropped = stored.length - changeSets.length;
+  if (dropped > 0) {
+    console.warn(
+      `${CHECKPOINTS_LOG_PREFIX} dropped ${dropped} stored change set(s) of another shape`,
+    );
+  }
+  return changeSets;
 }
 
 function parseContents(raw: string): ChangeSetFileContents {
   try {
-    // SAFETY: the file is this sidecar's own ChangeSetFileContents; `changeSets` and `nextNumber` are checked before use and the records are trusted as written.
-    const parsed = JSON.parse(raw) as Partial<ChangeSetFileContents>;
-    if (!Array.isArray(parsed.changeSets)) return emptyContents();
+    const parsed = ChangeSetFileSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return emptyContents();
+    const { nextNumber, changeSets } = parsed.data;
     return {
-      nextNumber: isNumber(parsed.nextNumber)
-        ? parsed.nextNumber
-        : parsed.changeSets.length + FIRST_CHANGE_SET_NUMBER,
-      changeSets: parsed.changeSets,
+      nextNumber: nextNumber ?? changeSets.length + FIRST_CHANGE_SET_NUMBER,
+      changeSets: readChangeSets(changeSets),
     };
   } catch {
     return emptyContents();

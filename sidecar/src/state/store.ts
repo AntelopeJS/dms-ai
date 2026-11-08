@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { z } from "zod";
 import {
   STATE_DEBOUNCE_MS,
   STATE_FILE_ENCODING,
@@ -8,6 +9,7 @@ import {
   STATE_LOG_PREFIX,
 } from "../constants/state.js";
 import { migrateConversation } from "./legacy-tool-names.js";
+import { StoredConversationSchema } from "./stored-schemas.js";
 import type { StoredState } from "./types.js";
 
 export interface CreateStoreOptions {
@@ -29,30 +31,36 @@ interface StoreState {
   inflight: Promise<void> | null;
 }
 
-function isObject(value: unknown): value is object {
-  return typeof value === "object" && value !== null;
+const StateFileSchema = z.object({
+  conversations: z.record(z.string(), z.unknown()),
+});
+
+type StateFile = z.infer<typeof StateFileSchema>;
+
+function readConversations(
+  stored: StateFile["conversations"],
+): StoredState["conversations"] {
+  const entries = Object.entries(stored);
+  const kept = entries.flatMap(([id, entry]) => {
+    const parsed = StoredConversationSchema.safeParse(entry);
+    return parsed.success
+      ? [[id, migrateConversation(parsed.data)] as const]
+      : [];
+  });
+  const dropped = entries.length - kept.length;
+  if (dropped > 0) {
+    console.warn(
+      `${STATE_LOG_PREFIX} dropped ${dropped} stored conversation(s) of another shape`,
+    );
+  }
+  return Object.fromEntries(kept);
 }
 
 function parseStateContents(raw: string): StoredState {
   try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isObject(parsed)) return STATE_INITIAL;
-    // SAFETY: the file is this sidecar's own StoredState written by write(); only its `conversations` object is checked below, and the entries inside are trusted as written.
-    const candidate = parsed as Partial<StoredState>;
-    if (
-      candidate.conversations === undefined ||
-      !isObject(candidate.conversations)
-    ) {
-      return STATE_INITIAL;
-    }
-    return {
-      conversations: Object.fromEntries(
-        Object.entries(candidate.conversations).map(([id, conversation]) => [
-          id,
-          migrateConversation(conversation),
-        ]),
-      ),
-    };
+    const parsed = StateFileSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return STATE_INITIAL;
+    return { conversations: readConversations(parsed.data.conversations) };
   } catch {
     return STATE_INITIAL;
   }

@@ -55,6 +55,30 @@ describe("state file parsing", () => {
     await writeFile(filePath, JSON.stringify(stored), FILE_ENCODING);
     expect(await createStore({ filePath }).read()).toEqual(stored);
   });
+
+  it("drops a conversation of another shape and keeps the others as written", async () => {
+    const kept = {
+      messages: [{ role: "user", content: "hi", timestampMs: 1 }],
+      createdAtMs: 1,
+      updatedAtMs: 2,
+      writtenByALaterVersion: true,
+    };
+    const stored = {
+      conversations: {
+        "conv-kept": kept,
+        "conv-no-messages": { createdAtMs: 1, updatedAtMs: 2 },
+        "conv-unknown-role": {
+          messages: [{ role: "robot", content: "", timestampMs: 1 }],
+          createdAtMs: 1,
+          updatedAtMs: 2,
+        },
+      },
+    };
+    await writeFile(filePath, JSON.stringify(stored), FILE_ENCODING);
+    expect(await createStore({ filePath }).read()).toEqual({
+      conversations: { "conv-kept": kept },
+    });
+  });
 });
 
 describe("tool names recorded before the snake_case rename", () => {

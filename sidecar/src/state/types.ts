@@ -26,7 +26,7 @@ import type { ChatMode, GenerationMode } from "./settings-types.js";
  * - `block_preview` is a block preview the agent shared with preview_blocks,
  *   drawn as an attachment.
  */
-const STORED_MESSAGE_ROLES = [
+export const STORED_MESSAGE_ROLES = [
   "user",
   "assistant",
   "tool_use",
@@ -41,7 +41,7 @@ const STORED_MESSAGE_ROLES = [
 
 type StoredMessageRole = (typeof STORED_MESSAGE_ROLES)[number];
 
-const STORED_MESSAGE_STATUSES = ["success", "error"] as const;
+export const STORED_MESSAGE_STATUSES = ["success", "error"] as const;
 type StoredMessageStatus = (typeof STORED_MESSAGE_STATUSES)[number];
 
 /**
@@ -49,7 +49,7 @@ type StoredMessageStatus = (typeof STORED_MESSAGE_STATUSES)[number];
  * PERMISSION_DECISIONS values collapse to approved (allow_once /
  * allow_session) vs denied (deny / timeout).
  */
-const STORED_PERMISSION_DECISIONS = ["approved", "denied"] as const;
+export const STORED_PERMISSION_DECISIONS = ["approved", "denied"] as const;
 type StoredPermissionDecision = (typeof STORED_PERMISSION_DECISIONS)[number];
 
 /**
