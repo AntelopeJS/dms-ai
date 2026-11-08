@@ -28,11 +28,22 @@ export interface ChangeSetStore {
 interface StoreState {
   filePath: string;
   contents: ChangeSetFileContents;
+  /** The stored records this version cannot read, written back as they were. */
+  unreadable: unknown[];
   inflight: Promise<void>;
 }
 
-function emptyContents(): ChangeSetFileContents {
-  return { nextNumber: FIRST_CHANGE_SET_NUMBER, changeSets: [] };
+/** A change-set file as read: what this version uses, and the records it keeps aside. */
+interface ReadChangeSetFile {
+  contents: ChangeSetFileContents;
+  unreadable: unknown[];
+}
+
+function nothingRead(): ReadChangeSetFile {
+  return {
+    contents: { nextNumber: FIRST_CHANGE_SET_NUMBER, changeSets: [] },
+    unreadable: [],
+  };
 }
 
 const ChangeSetFileSchema = z.object({
@@ -40,46 +51,47 @@ const ChangeSetFileSchema = z.object({
   changeSets: z.array(z.unknown()),
 });
 
-function readChangeSets(stored: readonly unknown[]): ChangeSetRecord[] {
-  const changeSets: ChangeSetRecord[] = [];
-  for (const entry of stored) {
-    const parsed = ChangeSetRecordSchema.safeParse(entry);
-    if (parsed.success) changeSets.push(parsed.data);
-  }
-  const dropped = stored.length - changeSets.length;
-  if (dropped > 0) {
-    console.warn(
-      `${CHECKPOINTS_LOG_PREFIX} dropped ${dropped} stored change set(s) of another shape`,
-    );
-  }
-  return changeSets;
-}
-
-function parseContents(raw: string): ChangeSetFileContents {
+function parseContents(raw: string): ReadChangeSetFile {
   try {
     const parsed = ChangeSetFileSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) return emptyContents();
-    const { nextNumber, changeSets } = parsed.data;
-    return {
-      nextNumber: nextNumber ?? changeSets.length + FIRST_CHANGE_SET_NUMBER,
-      changeSets: readChangeSets(changeSets),
-    };
+    if (!parsed.success) return nothingRead();
+    const changeSets: ChangeSetRecord[] = [];
+    const unreadable: unknown[] = [];
+    for (const entry of parsed.data.changeSets) {
+      const record = ChangeSetRecordSchema.safeParse(entry);
+      if (record.success) changeSets.push(record.data);
+      else unreadable.push(entry);
+    }
+    if (unreadable.length > 0) {
+      console.warn(
+        `${CHECKPOINTS_LOG_PREFIX} set aside ${unreadable.length} stored change set(s) of another shape`,
+      );
+    }
+    const nextNumber =
+      parsed.data.nextNumber ??
+      parsed.data.changeSets.length + FIRST_CHANGE_SET_NUMBER;
+    return { contents: { nextNumber, changeSets }, unreadable };
   } catch {
-    return emptyContents();
+    return nothingRead();
   }
 }
 
-async function readContents(filePath: string): Promise<ChangeSetFileContents> {
+async function readContents(filePath: string): Promise<ReadChangeSetFile> {
   try {
     return parseContents(await readFile(filePath, STATE_FILE_ENCODING));
   } catch {
-    return emptyContents();
+    return nothingRead();
   }
 }
 
 /** Queues the write behind the previous one so two quick changes land in order. */
 function persist(state: StoreState): void {
-  const json = JSON.stringify(state.contents, null, STATE_JSON_INDENT);
+  const { nextNumber, changeSets } = state.contents;
+  const json = JSON.stringify(
+    { nextNumber, changeSets: [...changeSets, ...state.unreadable] },
+    null,
+    STATE_JSON_INDENT,
+  );
   state.inflight = state.inflight
     .then(async () => {
       await mkdir(dirname(state.filePath), { recursive: true });
@@ -93,12 +105,14 @@ function persist(state: StoreState): void {
 export function createChangeSetStore(filePath: string): ChangeSetStore {
   const state: StoreState = {
     filePath,
-    contents: emptyContents(),
+    ...nothingRead(),
     inflight: Promise.resolve(),
   };
   return {
     load: async () => {
-      state.contents = await readContents(filePath);
+      const read = await readContents(filePath);
+      state.contents = read.contents;
+      state.unreadable = read.unreadable;
     },
     all: () => [...state.contents.changeSets],
     get: (id) => state.contents.changeSets.find((c) => c.id === id) ?? null,

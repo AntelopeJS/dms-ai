@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -56,6 +56,20 @@ describe("change-set file loading", () => {
     await store.load();
     expect(store.all()).toEqual([RECORD]);
     expect(store.nextNumber()).toBe(4);
+  });
+
+  it("writes the records it set aside back to the file", async () => {
+    const unreadable = { ...RECORD, id: "cs-2", number: 2, state: "reverted" };
+    const stored = { nextNumber: 3, changeSets: [RECORD, unreadable] };
+    await writeFile(filePath, JSON.stringify(stored), FILE_ENCODING);
+    const store = createChangeSetStore(filePath);
+    await store.load();
+    store.update("cs-1", { title: "Edited" });
+    await store.flush();
+    expect(JSON.parse(await readFile(filePath, FILE_ENCODING))).toEqual({
+      nextNumber: 3,
+      changeSets: [{ ...RECORD, title: "Edited" }, unreadable],
+    });
   });
 
   it("numbers after every stored record when the file has no next number", async () => {

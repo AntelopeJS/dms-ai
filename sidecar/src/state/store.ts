@@ -23,69 +23,84 @@ export interface Store {
   flush(): Promise<void>;
 }
 
+const StateFileSchema = z.object({
+  conversations: z.record(z.string(), z.unknown()),
+});
+
+type StoredEntries = z.infer<typeof StateFileSchema>["conversations"];
+
 interface StoreState {
   filePath: string;
   debounceMs: number;
   pending: StoredState | null;
   timer: NodeJS.Timeout | null;
   inflight: Promise<void> | null;
+  /** The stored conversations this version cannot read, written back as they were. */
+  unreadable: StoredEntries;
 }
 
-const StateFileSchema = z.object({
-  conversations: z.record(z.string(), z.unknown()),
-});
+/** A state file as read: what this version uses, and the entries it keeps aside. */
+interface ReadStateFile {
+  state: StoredState;
+  unreadable: StoredEntries;
+}
 
-type StateFile = z.infer<typeof StateFileSchema>;
+const NOTHING_READ: ReadStateFile = { state: STATE_INITIAL, unreadable: {} };
 
-function readConversations(
-  stored: StateFile["conversations"],
-): StoredState["conversations"] {
-  const entries = Object.entries(stored);
-  const kept = entries.flatMap(([id, entry]) => {
+function readConversations(stored: StoredEntries): ReadStateFile {
+  const conversations: StoredState["conversations"] = {};
+  const unreadable: StoredEntries = {};
+  for (const [id, entry] of Object.entries(stored)) {
     const parsed = StoredConversationSchema.safeParse(entry);
-    return parsed.success
-      ? [[id, migrateConversation(parsed.data)] as const]
-      : [];
-  });
-  const dropped = entries.length - kept.length;
+    if (parsed.success) conversations[id] = migrateConversation(parsed.data);
+    else unreadable[id] = entry;
+  }
+  const dropped = Object.keys(unreadable).length;
   if (dropped > 0) {
     console.warn(
-      `${STATE_LOG_PREFIX} dropped ${dropped} stored conversation(s) of another shape`,
+      `${STATE_LOG_PREFIX} set aside ${dropped} stored conversation(s) of another shape`,
     );
   }
-  return Object.fromEntries(kept);
+  return { state: { conversations }, unreadable };
 }
 
-function parseStateContents(raw: string): StoredState {
+function parseStateContents(raw: string): ReadStateFile {
   try {
     const parsed = StateFileSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) return STATE_INITIAL;
-    return { conversations: readConversations(parsed.data.conversations) };
+    if (!parsed.success) return NOTHING_READ;
+    return readConversations(parsed.data.conversations);
   } catch {
-    return STATE_INITIAL;
+    return NOTHING_READ;
   }
 }
 
-async function readState(filePath: string): Promise<StoredState> {
+async function readStateFile(filePath: string): Promise<ReadStateFile> {
   try {
     const raw = await readFile(filePath, STATE_FILE_ENCODING);
     return parseStateContents(raw);
   } catch (err) {
     const isMissing =
       err instanceof Error && "code" in err && err.code === "ENOENT";
-    if (isMissing) return STATE_INITIAL;
+    if (isMissing) return NOTHING_READ;
     console.warn(`${STATE_LOG_PREFIX} read failed: ${String(err)}`);
-    return STATE_INITIAL;
+    return NOTHING_READ;
   }
 }
 
+async function readState(state: StoreState): Promise<StoredState> {
+  const read = await readStateFile(state.filePath);
+  state.unreadable = read.unreadable;
+  return read.state;
+}
+
 async function persistState(
-  filePath: string,
-  state: StoredState,
+  state: StoreState,
+  next: StoredState,
 ): Promise<void> {
-  await mkdir(dirname(filePath), { recursive: true });
-  const json = JSON.stringify(state, null, STATE_JSON_INDENT);
-  await writeFile(filePath, json, STATE_FILE_ENCODING);
+  await mkdir(dirname(state.filePath), { recursive: true });
+  const conversations = { ...state.unreadable, ...next.conversations };
+  const json = JSON.stringify({ conversations }, null, STATE_JSON_INDENT);
+  await writeFile(state.filePath, json, STATE_FILE_ENCODING);
 }
 
 function clearTimer(state: StoreState): void {
@@ -99,7 +114,7 @@ async function drainPending(state: StoreState): Promise<void> {
   if (next === null) return;
   state.pending = null;
   try {
-    await persistState(state.filePath, next);
+    await persistState(state, next);
   } catch (err) {
     console.warn(`${STATE_LOG_PREFIX} write failed: ${String(err)}`);
   }
@@ -133,9 +148,10 @@ export function createStore(options: CreateStoreOptions): Store {
     pending: null,
     timer: null,
     inflight: null,
+    unreadable: {},
   };
   return {
-    read: () => readState(state.filePath),
+    read: () => readState(state),
     write: (next) => enqueueWrite(state, next),
     flush: () => flushStore(state),
   };

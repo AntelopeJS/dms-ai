@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -77,6 +77,27 @@ describe("state file parsing", () => {
     await writeFile(filePath, JSON.stringify(stored), FILE_ENCODING);
     expect(await createStore({ filePath }).read()).toEqual({
       conversations: { "conv-kept": kept },
+    });
+  });
+
+  it("writes the conversations it set aside back to the file", async () => {
+    const unreadable = {
+      messages: [{ role: "robot", content: "", timestampMs: 1 }],
+      createdAtMs: 1,
+      updatedAtMs: 2,
+    };
+    const kept = { messages: [], createdAtMs: 1, updatedAtMs: 2 };
+    const stored = {
+      conversations: { "conv-later": unreadable, "conv-kept": kept },
+    };
+    await writeFile(filePath, JSON.stringify(stored), FILE_ENCODING);
+    const store = createStore({ filePath, debounceMs: 0 });
+    await store.read();
+    const renamed = { ...kept, model: "claude-opus" };
+    store.write({ conversations: { "conv-kept": renamed } });
+    await store.flush();
+    expect(JSON.parse(await readFile(filePath, FILE_ENCODING))).toEqual({
+      conversations: { "conv-later": unreadable, "conv-kept": renamed },
     });
   });
 });
