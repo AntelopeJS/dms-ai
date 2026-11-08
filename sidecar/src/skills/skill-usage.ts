@@ -136,7 +136,7 @@ export function enrichSkills(
       undefined,
     );
     const winner = firstByName.get(item.name);
-    const isShadowed = winner !== undefined && winner.id !== item.id;
+    const isShadowed = winner !== undefined && winner !== item;
     return {
       ...item,
       ...originOf(item),
@@ -160,7 +160,7 @@ export function skillConflicts(catalog: SkillCatalog): SkillConflict[] {
         name,
         winner: originOf(winner),
         ignored: catalog.items
-          .filter((item) => item.name === name && item.id !== winner.id)
+          .filter((item) => item.name === name && item !== winner)
           .map(originOf),
       },
     ];

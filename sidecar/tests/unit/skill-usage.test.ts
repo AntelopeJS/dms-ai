@@ -84,4 +84,34 @@ describe("skill usage", () => {
       },
     ]);
   });
+
+  describe("two skills of one module with the same name", () => {
+    const twins: SkillCatalog = {
+      items: [
+        { ...item("mod", "verify-twin"), body: "first" },
+        { ...item("mod", "verify-twin"), body: "second" },
+      ],
+      duplicateNames: ["verify-twin"],
+    };
+
+    it("marks the later copy shadowed by the first", () => {
+      const [first, second] = enrichSkills(twins, [], NOW);
+      expect(first).toMatchObject({ isShadowed: false, body: "first" });
+      expect(second).toMatchObject({
+        isShadowed: true,
+        shadowedBy: "mod:verify-twin",
+        body: "second",
+      });
+    });
+
+    it("lists the later copy as ignored", () => {
+      expect(skillConflicts(twins)).toEqual([
+        {
+          name: "verify-twin",
+          winner: { source: "module", origin: "mod" },
+          ignored: [{ source: "module", origin: "mod" }],
+        },
+      ]);
+    });
+  });
 });
