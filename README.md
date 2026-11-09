@@ -8,7 +8,7 @@
 
 **An AI development assistant inside the [AntelopeJS DMS](https://github.com/AntelopeJS/dms) dashboard.**
 
-[Try it in the live demo](https://dms-demo.antelopejs.com/modules/ai) · [Documentation](https://dms.antelopejs.com/docs/modules/ai) · [All modules](https://github.com/AntelopeJS/dms#modules)
+[Documentation](https://dms.antelopejs.com/docs/modules/ai) · [All modules](https://github.com/AntelopeJS/dms#modules)
 
 </div>
 
