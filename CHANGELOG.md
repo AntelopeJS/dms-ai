@@ -1,5 +1,44 @@
 # Changelog
 
+## v0.10.1
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.10.0...v0.10.1)
+
+### 🔥 Performance
+
+- **sidecar:** Share the module cache across vitest files ([#192](https://github.com/AntelopeJS/dms-ai/pull/192))
+- **ci:** Run the typecheck and lint parts concurrently ([#197](https://github.com/AntelopeJS/dms-ai/pull/197))
+- **verify:** Prove the idle shutdown on a 20 s timeout instead of waiting 15 minutes ([#196](https://github.com/AntelopeJS/dms-ai/pull/196))
+
+### 🩹 Fixes
+
+- **verify:** Refresh the playground lockfiles and check them in lint ([#194](https://github.com/AntelopeJS/dms-ai/pull/194))
+- **verify:** Plan and start the verify run against origin/main ([#193](https://github.com/AntelopeJS/dms-ai/pull/193))
+- **verify:** Map every user-facing file to the journeys that reach it ([#195](https://github.com/AntelopeJS/dms-ai/pull/195))
+- **mcp:** Write .mcp.json in the projects' format ([#198](https://github.com/AntelopeJS/dms-ai/pull/198))
+- **skills:** Mark the later of two same-named skills of one module as shadowed ([#202](https://github.com/AntelopeJS/dms-ai/pull/202))
+- **sidecar:** Validate each stored conversation and change set on load ([#200](https://github.com/AntelopeJS/dms-ai/pull/200))
+- **activity:** Export up to 10,000 rows past the list page cap ([#206](https://github.com/AntelopeJS/dms-ai/pull/206))
+- **overview:** Show the share on the Approved by you and Undone cards ([#207](https://github.com/AntelopeJS/dms-ai/pull/207))
+
+### 📖 Documentation
+
+- **readme:** Link back to AntelopeJS DMS ([#203](https://github.com/AntelopeJS/dms-ai/pull/203))
+- Name the dms-page-design skill in the README and the Skills page ([#201](https://github.com/AntelopeJS/dms-ai/pull/201))
+- **readme:** Open with the AntelopeJS DMS module kit ([#205](https://github.com/AntelopeJS/dms-ai/pull/205))
+
+### 📦 Build
+
+- **deps:** Bump @antelopejs/dms to 0.18.2 and drop verify publish ([#204](https://github.com/AntelopeJS/dms-ai/pull/204))
+
+### ✅ Tests
+
+- **sidecar:** Flush change sets before tests remove their folders ([#199](https://github.com/AntelopeJS/dms-ai/pull/199))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v0.10.0
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.9.2...v0.10.0)
