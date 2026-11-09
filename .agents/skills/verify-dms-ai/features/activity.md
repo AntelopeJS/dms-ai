@@ -27,9 +27,9 @@ The audit log of every tool the assistant used, driven from seeded stored record
 - `the-page-shows-the-log-its-tabs-periods-and-more-rows`: tab counts, 25 of 29 with Load more, the Allowed and Result labels of every kind of call, a tab, a period and a search.
 - `a-row-opens-its-detail-with-the-arguments-trail-output-and-diff`: the Action detail panel, J and K, a deep link, the decision trail, the diff and Show raw JSON.
 - `the-export-holds-every-row-whatever-the-tab-and-the-period`: one CSV line per record, quoting and the formula guard.
-- `the-export-stops-at-10000-rows`: 10,005 records export 10,000 data lines. Known finding: they export 200.
+- `the-export-stops-at-10000-rows`: 10,005 records export 10,000 data lines, the newest first.
 - `a-call-recorded-under-a-legacy-tool-name-reads-under-the-current-one`: a stored conversation naming `BuilderAddBlock` and `mcp__dms-ai__BuilderAddBlock` shows two `builder_add_block` rows allowed as Builder operations in the log, and the Overview's top tools count them as one Builder tool.
-- `the-export-holds-what-the-sidecar-lets-through`: pins today's behaviour next to it: 200 data lines, 25 rows a page, 50 after Load more.
+- `a-list-page-holds-200-rows-however-many-are-asked`: the same 10,005 records list 25 rows a page, 200 at most in one list, 50 after Load more.
 
 ## How to get to it (user POV)
 
@@ -44,4 +44,3 @@ dms-control journey "$RUN" activity
 ## Gotchas
 
 - The audit log is built from the sidecar's stored conversations and change sets, so the journeys write those files (`seed.mjs`, `sample.mjs`) and start the assistant on them. No model runs.
-- Known finding: `the-export-stops-at-10000-rows` fails. The sidecar clamps every list to 200 rows, so the export holds 200 (issue draft `dms-ai-activity-export-capped-at-200`). Until it is fixed a break of the route's own constant cannot be told from the product.

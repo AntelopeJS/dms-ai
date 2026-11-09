@@ -37,20 +37,17 @@ export const exportJourneys = [
       await seedMany(ctx);
       const csv = await raw(ctx, "the CSV", { path: `${AI}/activity/export.csv`, as: "admin" });
       const lines = csv.text.split("\r\n").filter(Boolean);
-      recordRaw(ctx, csv, [same("the header and 10,000 data lines", lines.length, 10_001), same("the newest first", lines[1]?.includes("docs/10004.md"), true)]);
+      recordRaw(ctx, csv, [same("the header and 10,000 data lines", lines.length, 10_001), same("the newest first", lines[1]?.includes("docs/10004.md"), true), same("the 10,000th is the 10,000th newest", lines[10_000]?.includes("docs/5.md"), true)]);
     },
   },
   {
-    id: "the-export-holds-what-the-sidecar-lets-through",
-    title: "pinning today's behaviour next to the documented one: 10,005 records export 200 data lines, the newest first, and the page lists them 25 at a time, 50 after Load more",
-    entryPoint: "GET /ai/activity/export.csv, GET /ai/activity, /modules/ai/activity",
+    id: "a-list-page-holds-200-rows-however-many-are-asked",
+    title: "10,005 records list 25 rows a page, 200 at most however many are asked, and 50 after Load more",
+    entryPoint: "GET /ai/activity, /modules/ai/activity",
     async run(/** @type {Ctx} */ ctx) {
       await seedMany(ctx);
       const page = await ai(ctx, "the log", "GET", "/activity");
-      const csv = await raw(ctx, "the CSV", { path: `${AI}/activity/export.csv`, as: "admin" });
-      const lines = csv.text.split("\r\n").filter(Boolean);
       await ctx.verify("the log", [same("10,005 records", pick(page.body, "total"), 10_005), same("25 rows a page", list(page.body, "results").length, 25), same("200 at most in one list, however many are asked", (await log(ctx, "?limit=10000")).rows.length, 200)]);
-      recordRaw(ctx, csv, [same("the header and 200 data lines", lines.length, 201), same("the newest first", lines[1]?.includes("docs/10004.md"), true), same("the 200th is the 200th newest", lines[200]?.includes("docs/9805.md"), true)]);
       const tab = await ctx.tab();
       await tab.signIn("admin");
       await tab.goto("/modules/ai/activity");

@@ -9,6 +9,8 @@ const MS_PER_DAY = 86_400_000;
 const DEFAULT_RANGE_DAYS = 30;
 const DEFAULT_PAGE_LIMIT = 25;
 const MAX_PAGE_LIMIT = 200;
+/** Most rows one export holds, past the cap of a list page. */
+const EXPORT_MAX_ROWS = 10_000;
 const NUMERIC = /^\d+$/;
 const TRUE_VALUE = "true";
 
@@ -77,6 +79,13 @@ export function parseActivityQuery(params: URLSearchParams): ActivityQuery {
     fromMs: parseTimestamp(params.get("from")),
     toMs: parseTimestamp(params.get("to")),
   };
+}
+
+/** The activity query of an export: every filter, from the newest row, up to its own cap. */
+export function parseActivityExportQuery(
+  params: URLSearchParams,
+): ActivityQuery {
+  return { ...parseActivityQuery(params), offset: 0, limit: EXPORT_MAX_ROWS };
 }
 
 export { optional as optionalParam };

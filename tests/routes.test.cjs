@@ -454,7 +454,7 @@ void test("lists the latest change sets as one page for the Overview", async () 
 
 void test("exports the audit log as CSV, cells escaped and formulas neutralized", async () => {
   reset();
-  answer("GET", "/activity", 200, {
+  answer("GET", "/activity/export", 200, {
     total: 1,
     results: [{ ...ROW, target: '=HYPERLINK("x")', conversationTitle: "a, b" }],
   });
@@ -464,7 +464,7 @@ void test("exports the audit log as CSV, cells escaped and formulas neutralized"
   assert.equal(result.getContentType(), "text/csv; charset=utf-8");
   assert.match(result.getHeaders()["Content-Disposition"], /attachment/);
   assert.equal(sidecar.requests[0].query.category, "failed");
-  assert.equal(sidecar.requests[0].query.offset, undefined);
+  assert.equal(sidecar.requests[0].path, "/activity/export");
   const [header, line] = textOf(result).trim().split("\r\n");
   assert.ok(header.startsWith("time,tool,target,"));
   assert.ok(line.includes(`"'=HYPERLINK(""x"")"`));

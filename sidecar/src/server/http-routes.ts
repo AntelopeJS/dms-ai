@@ -39,6 +39,7 @@ import type { SettingsApplier } from "./http.js";
 import { readBody, sendJson } from "./http-io.js";
 import {
   optionalParam,
+  parseActivityExportQuery,
   parseActivityQuery,
   parseCount,
   parseLimit,
@@ -400,6 +401,16 @@ export const API_ROUTES: readonly ApiRoute[] = [
         res,
         HTTP_STATUS.OK,
         queryActivity(activityRecords(d), parseActivityQuery(m.query)),
+      ),
+  },
+  {
+    method: "GET",
+    pattern: /^\/activity\/export$/,
+    handle: (_q, res, d, m) =>
+      sendJson(
+        res,
+        HTTP_STATUS.OK,
+        queryActivity(activityRecords(d), parseActivityExportQuery(m.query)),
       ),
   },
   {

@@ -28,6 +28,7 @@ function assertRefused(result) {
 void test("an activity answer of the wrong shape is refused with 502 (AntelopeJS/dms-ai#111)", async () => {
   reset();
   answer("GET", "/activity", 200, { results: "none", total: 1 });
+  answer("GET", "/activity/export", 200, { results: "none", total: 1 });
   answer("GET", "/activity/row-1", 200, { id: 5 });
   const activity = new harness.routes.AIActivityController();
 
