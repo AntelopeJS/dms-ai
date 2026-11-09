@@ -89,7 +89,6 @@ Write `$RUN/evidence/judgement.json` (`doors`, `docs`, `notVerified`, `attention
 - Text the dashboard uppercases (card and section titles) is matched without regard to case.
 - Known findings, each a failing journey that fails a verdict only when the diff touches its feature:
   - `skills/two-skills-of-one-module-with-one-name-shadow-one-copy`: two skills of one module with one name are never marked Shadowed (dms-ai#169). A local skill named like a module skill is.
-  - `overview/the-approved-and-undone-cards-show-their-share`: the cards never show the share the docs promise (draft `dms-ai-overview-kpi-share-not-shown`).
 - `an-idle-sidecar-exits-after-its-idle-timeout-and-the-next-probe-starts-it` sets `DMS_AI_IDLE_SHUTDOWN_MS` to 20 seconds and restarts the backend with it; it takes about a minute, and nothing else may use the checkout while it runs.
 
 ## Not driven

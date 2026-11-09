@@ -82,8 +82,8 @@ export const journeys = guarded([
       await ctx.verify("the page, 7 days", [
         pageHas(tab, "Actions", /Actions\s*31\s*\S*\s*\+416\.7%\s*vs 6\s*Tool calls, Builder operations included/i),
         pageHas(tab, "Change sets", /Change sets\s*5\s*\S*\s*vs 0\s*Turns that changed files, undone too/i),
-        pageHas(tab, "Approved by you", /Approved by you\s*4\s*\S*\s*vs 0\s*Requests you allowed when asked/i),
-        pageHas(tab, "Undone", /Undone\s*0\s*\S*\s*0\.0% vs 0\s*Change sets rolled back/i),
+        pageHas(tab, "Approved by you", /Approved by you\s*4\s*\S*\s*vs 0\s*4 \/ 8 · 50%/i),
+        pageHas(tab, "Undone", /Undone\s*0\s*\S*\s*0\.0% vs 0\s*0 \/ 5/i),
         pageHas(tab, "the ways, in order, numbered, with the trend of the first", /Read-only, automatic\s*17\s*\S*\s*\+183\.3%\s*2\s*Builder, automatic\s*2\s*—\s*3\s*Approved by you\s*4\s*—\s*4\s*Allowed by a rule\s*3\s*—\s*5\s*Full auto\s*1\s*—\s*6\s*Blocked · safe mode\s*1\s*—\s*7\s*Denied by you\s*2\s*—\s*8\s*Expired\s*1\s*—\s*9\s*Deletions asked\s*Deletions always ask, even in Full auto\s*1/i),
                 pageHas(tab, "the top five with their group, runs and trend", /Top tools[\s\S]*1 List folder Code mode 7\s*\S*\s*\+133\.3%\s*2 Run command Code mode 6\s*—\s*3 Use skill Assistant 5\s*\S*\s*\+400\.0%\s*4 Edit file Code mode 4\s*—\s*5 Read file Code mode 3\s*\S*\s*\+50\.0%/i),
         pageHas(tab, "the recent change sets: the four latest, newest first", /Recent change sets\s*4[\s\S]*5 Add the fourth note[\s\S]*4 Remove the old note[\s\S]*3 Extend the notes[\s\S]*2 Reword the second note/i),
