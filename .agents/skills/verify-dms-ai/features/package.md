@@ -18,7 +18,7 @@ What a project installs: the module with its build, dashboard layer, sidecar and
 ## Sub-features
 
 - `the-tarball-holds-what-the-manifest-names`: the packed files, the declared entry points, the skills and the Codex pin.
-- `the-docs-name-every-skill-the-module-ships`: the README and the Skills page name every skill folder the package ships. Known finding, see Gotchas.
+- `the-docs-name-every-skill-the-module-ships`: the README and the Skills page name every skill folder the package ships.
 
 ## How to get to it (user POV)
 
@@ -29,7 +29,3 @@ What a project installs: the module with its build, dashboard layer, sidecar and
 ```bash
 dms-control journey "$RUN" package
 ```
-
-## Gotchas
-
-- Known finding: `the-docs-name-every-skill-the-module-ships` fails. `skills/` holds `dms-page-design`, which the README and the Skills page do not name; draft `dms-ai-docs-miss-dms-page-design`.

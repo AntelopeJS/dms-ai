@@ -88,8 +88,7 @@ Write `$RUN/evidence/judgement.json` (`doors`, `docs`, `notVerified`, `attention
 - The 24 hour, 7 day and 30 day windows are driven with calls 3 hours, 10 days and 40 days old, not at the edge of each window.
 - Text the dashboard uppercases (card and section titles) is matched without regard to case.
 - Known findings, each a failing journey that fails a verdict only when the diff touches its feature:
-  - `skills/two-skills-of-one-module-with-one-name-shadow-one-copy`: two skills of one module with one name are never marked Shadowed (dms-ai#168). A local skill named like a module skill is.
-  - `package/the-docs-name-every-skill-the-module-ships`: the README and the Skills page list four skills, the package ships five (dms-ai#169).
+  - `skills/two-skills-of-one-module-with-one-name-shadow-one-copy`: two skills of one module with one name are never marked Shadowed (dms-ai#169). A local skill named like a module skill is.
   - `activity/the-export-stops-at-10000-rows`: the export holds 200 rows, not the documented 10,000 (draft `dms-ai-activity-export-capped-at-200`). `activity/the-export-holds-what-the-sidecar-lets-through` passes today and pins the 200, so a change of the route's own cap fails it.
   - `overview/the-approved-and-undone-cards-show-their-share`: the cards never show the share the docs promise (draft `dms-ai-overview-kpi-share-not-shown`).
 - `an-idle-sidecar-exits-after-its-idle-timeout-and-the-next-probe-starts-it` sets `DMS_AI_IDLE_SHUTDOWN_MS` to 20 seconds and restarts the backend with it; it takes about a minute, and nothing else may use the checkout while it runs.

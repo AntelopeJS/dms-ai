@@ -75,7 +75,7 @@ The module needs a DMS backend in a release that implements the `@antelopejs/int
 - [Extending](https://dms.antelopejs.com/docs/modules/ai/extending)
 - [FAQ](https://dms.antelopejs.com/docs/modules/ai/faq)
 
-The guide's sources live in [`docs/`](./docs). The package ships four agent skills in [`skills/`](./skills): `dms-ai`, `dms-ai-code-mode`, `dms-builder-safe` and `dms-external-database`. `antelopeJs.skills` declares them, and the assistant loads them into its agent.
+The guide's sources live in [`docs/`](./docs). The package ships its agent skills in [`skills/`](./skills): `dms-ai`, `dms-ai-code-mode`, `dms-builder-safe`, `dms-external-database` and `dms-page-design`. `antelopeJs.skills` declares them, and the assistant loads them into its agent.
 
 ## Contributing
 
