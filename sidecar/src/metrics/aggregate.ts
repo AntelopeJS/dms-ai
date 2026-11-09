@@ -181,6 +181,22 @@ function approvalBreakdown(sources: MetricSources, window: MetricWindow) {
   };
 }
 
+function changeSetTotal(sources: MetricSources, window: MetricWindow) {
+  const created = KPI_SOURCES["change-sets"](sources);
+  return { total: countIn(created, window.fromMs, window.toMs) };
+}
+
+/** The totals a KPI's caption is built from, for the metrics that have one. */
+const KPI_TOTALS: Partial<
+  Record<
+    KpiMetric,
+    (sources: MetricSources, window: MetricWindow) => Partial<KpiCardPayload>
+  >
+> = {
+  approved: approvalBreakdown,
+  undone: changeSetTotal,
+};
+
 export function buildKpi(
   sources: MetricSources,
   metric: KpiMetric,
@@ -193,8 +209,7 @@ export function buildKpi(
     ...compare(timestamps, value, window),
     sparkline: dailyCounts(timestamps, window.fromMs, window.toMs),
   };
-  if (metric !== "approved") return payload;
-  return { ...payload, ...approvalBreakdown(sources, window) };
+  return { ...payload, ...KPI_TOTALS[metric]?.(sources, window) };
 }
 
 function seriesFrom(

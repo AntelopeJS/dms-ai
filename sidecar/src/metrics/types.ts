@@ -24,10 +24,12 @@ export interface KpiCardPayload {
   previousValue?: number;
   sparkline: number[];
   /**
-   * `approved` only: how many were asked, denied and left to expire, so the
-   * backend can caption "21 / 25 · 84%".
+   * The caption's whole: for `approved` the requests asked, so the backend can
+   * caption "21 / 25 · 84%"; for `undone` the change sets made in the period,
+   * for "1 / 4".
    */
   total?: number;
+  /** `approved` only: the asked requests denied and left to expire. */
   denied?: number;
   expired?: number;
 }

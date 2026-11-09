@@ -124,13 +124,21 @@ export const journeys = guarded([
     title: "the Approved by you card shows the share of the requests you allowed, such as 4 / 8 · 50%, and the Undone card the share of the change sets rolled back",
     entryPoint: "GET /ai/metrics/kpi/approved, /modules/ai/overview",
     async run(/** @type {Ctx} */ ctx) {
-      const now = await seedSample(ctx);
-      const approved = await metric(ctx, "kpi/approved", periodQuery(now, 7));
-      await ctx.verify("the route", [same("the caption of Approved by you", text(approved, "caption"), "4 / 8 · 50%")]);
+      const now = await seedSample(ctx, { undone: 1 });
+      const week = periodQuery(now, 7);
+      const approved = await metric(ctx, "kpi/approved", week);
+      const undone = await metric(ctx, "kpi/undone", week);
+      await ctx.verify("the route", [
+        same("the caption of Approved by you", text(approved, "caption"), "4 / 8 · 50%"),
+        same("the caption of Undone", text(undone, "caption"), "1 / 5"),
+      ]);
       const tab = await ctx.tab();
       await tab.signIn("admin");
       await tab.goto("/modules/ai/overview");
-      await ctx.verify("the page", [pageHas(tab, "shows the share on the card", /Approved by you\s*4[\s\S]*4 \/ 8 · 50%/i)]);
+      await ctx.verify("the page", [
+        pageHas(tab, "shows the share on the Approved by you card", /Approved by you\s*4[^]*?4 \/ 8 · 50%\s*Undone/i),
+        pageHas(tab, "shows the share on the Undone card", /Undone\s*1[^]*?1 \/ 5/i),
+      ]);
     },
   },
   ...cardAndPeriodJourneys,

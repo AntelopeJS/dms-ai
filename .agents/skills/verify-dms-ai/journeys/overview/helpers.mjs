@@ -4,10 +4,15 @@ import { seedStore } from "../../seed.mjs";
 
 /** @typedef {import("../../ai.mjs").Ctx} Ctx */
 
-/** The sample, seeded: 44 records, 5 change sets. */
-export async function seedSample(/** @type {Ctx} */ ctx) {
+/** The sample, seeded: 44 records, 5 change sets, the first `undone` of them undone an hour ago. */
+export async function seedSample(/** @type {Ctx} */ ctx, { undone = 0 } = {}) {
   const now = Date.now();
-  await seedStore(ctx, { conversations: sampleConversations(now, { one: "cs-one", two: "cs-two" }), build: () => sampleChangeSets(ctx, now) });
+  const build = () => {
+    const sets = sampleChangeSets(ctx, now);
+    for (const set of sets.slice(0, undone)) set.stateLog = [{ state: "undone", atMs: now - 3_600_000, by: "Verify Admin" }];
+    return sets;
+  };
+  await seedStore(ctx, { conversations: sampleConversations(now, { one: "cs-one", two: "cs-two" }), build });
   return now;
 }
 
