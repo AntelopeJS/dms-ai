@@ -57,7 +57,7 @@ export function toolResult(callId, timestampMs, extra = {}) {
  * @returns {Row} The message
  */
 export function permission(callId, toolName, timestampMs, extra) {
-  return { role: "permission", callId, toolName, timestampMs, requestedAtMs: timestampMs - 2000, decision: "approved", ...extra };
+  return { role: "permission", content: "", callId, toolName, timestampMs, requestedAtMs: timestampMs - 2000, decision: "approved", ...extra };
 }
 
 /**
