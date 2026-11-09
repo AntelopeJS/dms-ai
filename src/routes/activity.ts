@@ -26,8 +26,6 @@ import { ACTIVITY_PAGE_ANSWER, ACTIVITY_ROW_ANSWER } from "./sidecar-answers";
 import { findLoggedTool } from "../vocabulary";
 
 const ACTIVITY_PATH = "/activity";
-/** Most rows one export holds. */
-const EXPORT_MAX_ROWS = "10000";
 const EXPORT_FILE_PREFIX = "dms-ai-activity";
 const ISO_DAY_LENGTH = 10;
 
@@ -99,14 +97,9 @@ export class AIActivityController extends Controller(ROUTE_PREFIX) {
 
   @Get(`${ACTIVITY_PATH}/export.csv`)
   export(@Context() ctx: RequestContext): Promise<HTTPResult> {
-    const params = activityParams(ctx.url.searchParams);
-    const query = buildQuery({
-      ...params,
-      offset: undefined,
-      limit: EXPORT_MAX_ROWS,
-    });
+    const query = buildQuery(activityParams(ctx.url.searchParams));
     return relay(
-      `${ACTIVITY_PATH}${query}`,
+      `${ACTIVITY_PATH}/export${query}`,
       ACTIVITY_PAGE_ANSWER,
       exportResult,
     );
