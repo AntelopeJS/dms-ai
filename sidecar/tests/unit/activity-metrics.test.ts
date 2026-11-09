@@ -287,6 +287,26 @@ describe("metrics", () => {
     expect(buildKpi(sources, "actions", WINDOW).value).toBe(5);
   });
 
+  it("counts the undone KPI against the change sets made in the period", () => {
+    const applied = {
+      ...CHANGE_SET,
+      id: "cs-2",
+      state: "applied" as const,
+      stateLog: [],
+    };
+    const before = {
+      ...applied,
+      id: "cs-3",
+      createdAtMs: WINDOW.fromMs - DAY_MS,
+    };
+    const undone = buildKpi(
+      { ...sources, changeSets: [CHANGE_SET, applied, before] },
+      "undone",
+      WINDOW,
+    );
+    expect(undone).toMatchObject({ value: 1, total: 2 });
+  });
+
   it("states no delta without a comparison or away from zero", () => {
     const compared = {
       ...WINDOW,

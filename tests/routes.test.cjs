@@ -189,6 +189,24 @@ void test("shapes the approved KPI's caption from the sidecar's totals", async (
   assert.equal(kpi.caption, "21 / 25 · 84%");
 });
 
+void test("captions the undone KPI with the change sets of the period, none without any", async () => {
+  const metrics = new harness.routes.AIMetricsController();
+  reset();
+  answer("GET", "/metrics/kpi/undone", 200, {
+    value: 1,
+    sparkline: [],
+    total: 4,
+  });
+  assert.equal((await metrics.kpi("undone")).caption, "1 / 4");
+  reset();
+  answer("GET", "/metrics/kpi/undone", 200, {
+    value: 0,
+    sparkline: [],
+    total: 0,
+  });
+  assert.equal((await metrics.kpi("undone")).caption, undefined);
+});
+
 void test("forwards each comparison window of the Overview, none without one", async () => {
   const metrics = new harness.routes.AIMetricsController();
   const from = "2026-10-11T00:00:00.000Z";

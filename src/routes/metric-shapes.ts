@@ -36,11 +36,7 @@ function share(value: number, total: number): string {
 /** The line under a KPI, built from the totals the sidecar sends with it. */
 const CAPTIONS = new Map<string, CaptionWriter>([
   ["approved", (kpi) => (kpi.total ? share(kpi.value, kpi.total) : undefined)],
-  [
-    "undone",
-    (kpi) =>
-      kpi.total === undefined ? undefined : `${kpi.value} / ${kpi.total}`,
-  ],
+  ["undone", (kpi) => (kpi.total ? `${kpi.value} / ${kpi.total}` : undefined)],
 ]);
 
 /** A KPI as the card reads it, with its caption. */
