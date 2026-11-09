@@ -4,6 +4,15 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@antelopejs/dms': file:.tgz-deps/antelopejs-dms-5824614.tgz
+  '@antelopejs/dms>@antelopejs/interface-api': 0.3.0
+  '@antelopejs/dms>@antelopejs/interface-api-util': 0.3.0
+  '@antelopejs/dms>@antelopejs/interface-core': 0.4.0
+  '@antelopejs/dms>@antelopejs/interface-data-api': 0.6.1
+  '@antelopejs/dms>@antelopejs/interface-database': 0.3.1
+  '@antelopejs/dms>@antelopejs/interface-database-decorators': 0.2.1
+
 importers:
 
   .:
