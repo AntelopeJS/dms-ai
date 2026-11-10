@@ -135,6 +135,21 @@ describe("DiffView", () => {
 		expect(wrapper.findAll("[data-line-kind]")).toHaveLength(5);
 	});
 
+	it("opens a long file collapsed, the first one included, and draws it on demand", async () => {
+		const added = Array.from({ length: 201 }, (_, index) => ({
+			kind: "add" as const,
+			text: `export const line${index} = ${index};`,
+			newLine: index + 1,
+		}));
+		const wrapper = mountDiff([
+			{ ...NEW_FILE, hunks: [{ oldStart: 0, newStart: 1, lines: added }] },
+			PAGE_FILE,
+		]);
+		expect(wrapper.findAll("[data-line-kind]")).toHaveLength(5);
+		await wrapper.get("header button").trigger("click");
+		expect(wrapper.findAll("[data-line-kind]")).toHaveLength(207);
+	});
+
 	it("says so for a binary file instead of drawing lines", () => {
 		const wrapper = mountDiff([
 			{
