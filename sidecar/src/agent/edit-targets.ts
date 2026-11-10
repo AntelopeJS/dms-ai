@@ -12,6 +12,7 @@ const StringSchema = z.string();
 
 /** The string argument `key`, empty or not; undefined when it is absent or not a string. */
 export function readStringArg(args: ToolArgs, key: string): string | undefined {
+  if (!Object.hasOwn(args, key)) return undefined;
   return StringSchema.safeParse(args[key]).data;
 }
 
