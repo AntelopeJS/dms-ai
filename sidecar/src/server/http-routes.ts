@@ -119,8 +119,12 @@ function activityRecords(deps: ApiDeps): ActivityRecord[] {
 }
 
 function metricSources(deps: ApiDeps): MetricSources {
+  let records: ActivityRecord[] | undefined;
   return {
-    records: activityRecords(deps),
+    get records() {
+      records ??= activityRecords(deps);
+      return records;
+    },
     changeSets: changeSets(deps),
     entries: deps.conversationStore.entries(),
   };
