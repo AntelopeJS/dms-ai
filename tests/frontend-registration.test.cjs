@@ -4,7 +4,11 @@ const path = require("node:path");
 const { test } = require("node:test");
 const { Component } = require("@antelopejs/interface-dms/component");
 const { interceptRequire } = require("./helpers/intercept-require.cjs");
-const { PAGE_LOCALES, readLocale } = require("./helpers/page-locales.cjs");
+const {
+  LocaleSchema,
+  PAGE_LOCALES,
+  readLocale,
+} = require("./helpers/page-locales.cjs");
 
 /**
  * @typedef {import("@antelopejs/interface-dms/page").ModuleInfo} ModuleInfo
@@ -27,7 +31,8 @@ function translate(locale, key) {
   /** @type {LocaleNode | undefined} */
   let node = locale;
   for (const part of key.slice(1).split(".")) {
-    node = node instanceof Object ? node[part] : undefined;
+    const group = LocaleSchema.safeParse(node);
+    node = group.success ? group.data[part] : undefined;
   }
   return node;
 }

@@ -30,7 +30,8 @@ const DOCKER_IMAGE = "eclipse-temurin:21-jre";
 const EXIT = { changed: 1, tool: 2 };
 
 /** Rules today's code breaks, per config, with the states in TLC's shortest counterexample. */
-const CHECKS = /** @type {Check[]} */ ([
+/** @type {Check[]} */
+const CHECKS = [
   {
     config: "Sequential",
     findings: {
@@ -48,7 +49,7 @@ const CHECKS = /** @type {Check[]} */ ([
       UndoReachesLaterSets: 12,
     },
   },
-]);
+];
 
 /**
  * Stops the check because TLC could not run.

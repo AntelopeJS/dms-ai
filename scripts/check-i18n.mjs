@@ -143,11 +143,12 @@ const LocaleTreeSchema = z.record(
  * @returns {string[]}
  */
 function flatten(tree, prefix = "") {
-  return Object.entries(tree).flatMap(([key, value]) =>
-    value instanceof Object
-      ? flatten(value, `${prefix}${key}.`)
-      : [`${prefix}${key}`],
-  );
+  return Object.entries(tree).flatMap(([key, value]) => {
+    const group = LocaleTreeSchema.safeParse(value);
+    return group.success
+      ? flatten(group.data, `${prefix}${key}.`)
+      : [`${prefix}${key}`];
+  });
 }
 
 /**

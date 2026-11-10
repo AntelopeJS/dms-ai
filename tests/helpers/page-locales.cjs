@@ -30,4 +30,4 @@ function readLocale(file) {
   );
 }
 
-module.exports = { PAGE_LOCALES, readLocale };
+module.exports = { LocaleSchema, PAGE_LOCALES, readLocale };
