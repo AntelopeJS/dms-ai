@@ -7,5 +7,5 @@
     "outDir": "node_modules/.cache/sidecar-config",
     "tsBuildInfoFile": "node_modules/.cache/sidecar-config/.tsbuildinfo"
   },
-  "include": ["./vitest.config.ts"]
+  "include": ["./vitest.config.ts", "./knip.config.ts"]
 }
