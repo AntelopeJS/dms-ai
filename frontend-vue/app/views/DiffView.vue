@@ -101,16 +101,16 @@ const views = computed(() => props.files.map(toFileView));
 
 const collapsed = ref<Record<string, boolean>>({});
 
-function isExpanded(view: FileView, index: number): boolean {
+function isExpanded(view: FileView): boolean {
 	const override = collapsed.value[view.key];
 	if (override !== undefined) return !override;
-	return index === 0 || view.lines.length <= EXPANDED_LINE_LIMIT;
+	return view.lines.length <= EXPANDED_LINE_LIMIT;
 }
 
-function toggle(view: FileView, index: number): void {
+function toggle(view: FileView): void {
 	collapsed.value = {
 		...collapsed.value,
-		[view.key]: isExpanded(view, index),
+		[view.key]: isExpanded(view),
 	};
 }
 </script>
@@ -132,7 +132,7 @@ function toggle(view: FileView, index: number): void {
 		>
 			<header
 				class="text-toned bg-(--dms-bg-muted) flex h-[30px] items-center gap-[7px] pl-2.5 pr-2"
-				:class="isExpanded(view, index) && 'border-default border-b'"
+				:class="isExpanded(view) && 'border-default border-b'"
 			>
 				<UIcon
 					:name="view.icon"
@@ -159,24 +159,24 @@ function toggle(view: FileView, index: number): void {
 					</span>
 				</span>
 				<UButton
-					:icon="isExpanded(view, index) ? 'i-ph-caret-up' : 'i-ph-caret-down'"
+					:icon="isExpanded(view) ? 'i-ph-caret-up' : 'i-ph-caret-down'"
 					color="neutral"
 					variant="ghost"
 					size="xs"
 					square
-					:aria-expanded="isExpanded(view, index)"
+					:aria-expanded="isExpanded(view)"
 					:aria-label="
 						t(
-							isExpanded(view, index)
+							isExpanded(view)
 								? 'dms_ai.views.diff.collapse'
 								: 'dms_ai.views.diff.expand',
 							{ path: view.file.path },
 						)
 					"
-					@click="toggle(view, index)"
+					@click="toggle(view)"
 				/>
 			</header>
-			<template v-if="isExpanded(view, index)">
+			<template v-if="isExpanded(view)">
 				<p v-if="view.file.isBinary" class="text-muted px-3 py-2 font-sans">
 					{{ t("dms_ai.views.diff.binary") }}
 				</p>
