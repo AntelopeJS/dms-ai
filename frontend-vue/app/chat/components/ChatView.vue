@@ -53,7 +53,7 @@ import { bareToolName } from "../utils/tool-lexicon";
 import { latestTodos } from "../utils/todos";
 import ApprovalDock from "./ApprovalDock.vue";
 import ChatEmpty from "./ChatEmpty.vue";
-import Composer from "./Composer.vue";
+import ChatComposer from "./ChatComposer.vue";
 import ConnectionBanner from "./ConnectionBanner.vue";
 import ConversationDrawer from "./ConversationDrawer.vue";
 import MessageList from "./MessageList.vue";
@@ -515,7 +515,7 @@ onBeforeUnmount(() => {
 				@move="queueActions.move"
 				@clear="queueActions.clear"
 			/>
-			<Composer
+			<ChatComposer
 				ref="composerRef"
 				:is-disabled="!isConnected || providerProblem"
 				:is-running="isRunning"

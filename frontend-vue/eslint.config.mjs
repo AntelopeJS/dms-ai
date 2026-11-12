@@ -16,8 +16,6 @@ export default ts.config(
 		rules: {
 			"no-undef": "off",
 			"no-unused-vars": "off",
-			"no-redeclare": "off",
-			"vue/multi-word-component-names": "off",
 		},
 	},
 	{ files: ["**/*.ts"], languageOptions: { parser: ts.parser } },

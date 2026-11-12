@@ -24,7 +24,6 @@ export default defineConfig({
       files: ["sidecar/tests/**"],
       rules: {
         "eslint/max-lines-per-function": "off",
-        "anti-slop/no-chained-type-assertions": "off",
       },
     },
   ],

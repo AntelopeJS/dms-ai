@@ -77,12 +77,20 @@ function* yieldStreamEvents(message: SDKMessage): Generator<RunnerEvent, void> {
   yield* streamActivity(message.event);
 }
 
+/** A `result` the CLI sent without its usage block: off the SDK's contract, read as no usage. */
+interface UsagelessResult {
+  type: "result";
+  usage?: undefined;
+}
+
 /**
  * Tokens the turn cost, read off the SDK's terminal `result` message. Cached
  * and cache-write input both count: they are billed input, and Codex reports
  * them inside its own input figure too.
  */
-export function extractTokenUsage(message: SDKMessage): TokenUsage | null {
+export function extractTokenUsage(
+  message: SDKMessage | UsagelessResult,
+): TokenUsage | null {
   if (message.type !== "result") return null;
   const { usage } = message;
   if (!usage) return null;

@@ -89,7 +89,6 @@ describe("token usage extraction", () => {
   });
 
   it("survives a result with no usage block", () => {
-    // @ts-expect-error a result message without its usage block is off-contract, and extractTokenUsage must read it as no usage (null)
     expect(extractTokenUsage({ type: "result" })).toBeNull();
   });
 });
