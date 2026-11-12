@@ -15,7 +15,9 @@ interface InstallCurrentPageTrackerOptions {
 	send: (msg: HostStateUpdateMessage) => void;
 }
 
-const TITLE_OBSERVER_OPTIONS: MutationObserverInit = {
+const TITLE_OBSERVER_OPTIONS: NonNullable<
+	Parameters<MutationObserver["observe"]>[1]
+> = {
 	subtree: true,
 	childList: true,
 	characterData: true,

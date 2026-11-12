@@ -56,7 +56,9 @@ function readBlock(element: Element): BlockFact | null {
 }
 
 /** The data blocks under `root`, in document order. */
-export function readBlocks(root: ParentNode): BlockFact[] {
+export function readBlocks(
+	root: NonNullable<Element["parentNode"]>,
+): BlockFact[] {
 	return [...root.querySelectorAll(BLOCK_SELECTOR)].flatMap((element) => {
 		const block = readBlock(element);
 		return block === null ? [] : [block];
