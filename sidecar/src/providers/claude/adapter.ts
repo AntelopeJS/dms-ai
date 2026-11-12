@@ -86,7 +86,8 @@ interface UsagelessResult {
 /**
  * Tokens the turn cost, read off the SDK's terminal `result` message. Cached
  * and cache-write input both count: they are billed input, and Codex reports
- * them inside its own input figure too.
+ * them inside its own input figure too. A `result` without its usage block
+ * reads as no usage.
  */
 export function extractTokenUsage(
   message: SDKMessage | UsagelessResult,
