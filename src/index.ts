@@ -15,8 +15,10 @@ import "./routes";
 import { frontendModule } from "./frontend-module";
 
 /**
- * Reads `modules["dms-ai"].config`. Core passes the project's JSON as written,
- * so `ConfigSchema` still keeps only the keys and values this module understands.
+ * Takes this module's `config` from the project. Core does not validate it
+ * against `AIConfig`: env overrides and template substitution run first, so a
+ * value can arrive with another type. `ConfigSchema` keeps only the keys and
+ * values this module understands.
  */
 export function construct(config?: AIConfig): void {
   setConfig(ConfigSchema.safeParse(config).data ?? {});
