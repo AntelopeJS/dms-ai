@@ -2,7 +2,7 @@ import { Logging } from "@antelopejs/interface-core/logging";
 import { AddFrontendModule } from "@antelopejs/interface-dms/page";
 import { isBuilderAvailable } from "./builder/presence";
 import { closeAllBridges } from "./channels/registry";
-import { ConfigSchema, getConfig, setConfig } from "./config";
+import { type AIConfig, ConfigSchema, getConfig, setConfig } from "./config";
 import { DEFAULT_BACKEND_URL } from "./constants/mcp";
 import { SIDECAR_LOG_PREFIX } from "./constants/sidecar";
 import { collectModuleRoots } from "./lifecycle/module-roots";
@@ -14,8 +14,11 @@ import "./pages";
 import "./routes";
 import { frontendModule } from "./frontend-module";
 
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- core calls the published construct hook with the raw project config, so narrowing the parameter changes the published signature; ConfigSchema.safeParse parses it on the next line
-export function construct(config: unknown): void {
+/**
+ * Reads `modules["dms-ai"].config`. Core passes the project's JSON as written,
+ * so `ConfigSchema` still keeps only the keys and values this module understands.
+ */
+export function construct(config?: AIConfig): void {
   setConfig(ConfigSchema.safeParse(config).data ?? {});
 }
 
