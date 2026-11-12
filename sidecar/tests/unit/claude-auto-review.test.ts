@@ -48,6 +48,11 @@ interface TurnOptions {
   answer?: PermissionDecisionValue;
 }
 
+const DEPENDENCY_ASK_OFF: TurnOptions = {
+  settings: { alwaysAskDependencies: false },
+  policy: { alwaysAskDependencies: false },
+};
+
 interface Turn {
   prompts: PendingRequest[];
   decisions: ToolDecision[];
@@ -56,82 +61,61 @@ interface Turn {
   sessionMode: string | undefined;
 }
 
-describe("the permission modes on the Claude provider", () => {
-  let dir: string;
-  let traceFile: string;
-  let runner: AgentRunner | undefined;
+let dir: string;
+let traceFile: string;
+let runner: AgentRunner | undefined;
 
-  beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "dms-ai-auto-review-"));
-    traceFile = join(dir, "trace.jsonl");
-    process.env.MOCK_CLAUDE = "1";
-    process.env.MOCK_CLAUDE_TRACE = traceFile;
-  });
-
-  afterEach(async () => {
-    await runner?.dispose();
-    runner = undefined;
-    setBuilderAvailable(false);
-    delete process.env.MOCK_CLAUDE;
-    delete process.env.MOCK_CLAUDE_SCRIPT;
-    delete process.env.MOCK_CLAUDE_TRACE;
-    await rm(dir, { recursive: true, force: true });
-  });
-
-  async function runTurn(
-    calls: ScriptedCall[],
-    options: TurnOptions = {},
-  ): Promise<Turn> {
-    process.env.MOCK_CLAUDE_SCRIPT = await writeClaudeScript(
-      dir,
-      "turn",
-      calls,
-    );
-    const settings: AppSettings = {
-      ...DEFAULT_SETTINGS,
-      generationMode: "vibe",
-      ...options.settings,
-    };
-    runner = createAgentRunner(
-      createClaudeProvider({ timeoutMs: TURN_TIMEOUT_MS }),
-      { settings },
-    );
-    const prompts: PendingRequest[] = [];
-    const decisions: ToolDecision[] = [];
-    const announced: string[] = [];
-    const { bus } = createTestBus({
-      timeoutMs: PROMPT_TIMEOUT_MS,
-      policy: { hostProjectRoot: dir, ...options.policy },
-      extra: {
-        onPromptChat: (request) => {
-          prompts.push(request);
-          bus.resolvePermission({
-            requestId: request.requestId,
-            decision: options.answer ?? PERMISSION_DECISIONS.ALLOW_ONCE,
-          });
-        },
+async function runTurn(
+  calls: ScriptedCall[],
+  options: TurnOptions = {},
+): Promise<Turn> {
+  process.env.MOCK_CLAUDE_SCRIPT = await writeClaudeScript(dir, "turn", calls);
+  const settings: AppSettings = {
+    ...DEFAULT_SETTINGS,
+    generationMode: "vibe",
+    ...options.settings,
+  };
+  runner = createAgentRunner(
+    createClaudeProvider({ timeoutMs: TURN_TIMEOUT_MS }),
+    { settings },
+  );
+  const prompts: PendingRequest[] = [];
+  const decisions: ToolDecision[] = [];
+  const announced: string[] = [];
+  const { bus } = createTestBus({
+    timeoutMs: PROMPT_TIMEOUT_MS,
+    policy: { hostProjectRoot: dir, ...options.policy },
+    extra: {
+      onPromptChat: (request) => {
+        prompts.push(request);
+        bus.resolvePermission({
+          requestId: request.requestId,
+          decision: options.answer ?? PERMISSION_DECISIONS.ALLOW_ONCE,
+        });
       },
-    });
-    for await (const _event of runner.start("go", {
-      conversationId: CONVERSATION_ID,
-      hostProjectRoot: dir,
-      getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
-      permissionBus: bus,
-      onToolDecision: (decision) => decisions.push(decision),
-      onToolAnnounced: (callId) => announced.push(callId),
-    })) {
-    }
-    const trace = readClaudeTrace(traceFile);
-    return {
-      prompts,
-      decisions,
-      announced,
-      tools: trace.filter((entry) => entry.kind === "tool"),
-      sessionMode: trace.find((entry) => entry.kind === "session")
-        ?.permissionMode,
-    };
+    },
+  });
+  for await (const _event of runner.start("go", {
+    conversationId: CONVERSATION_ID,
+    hostProjectRoot: dir,
+    getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
+    permissionBus: bus,
+    onToolDecision: (decision) => decisions.push(decision),
+    onToolAnnounced: (callId) => announced.push(callId),
+  })) {
   }
+  const trace = readClaudeTrace(traceFile);
+  return {
+    prompts,
+    decisions,
+    announced,
+    tools: trace.filter((entry) => entry.kind === "tool"),
+    sessionMode: trace.find((entry) => entry.kind === "session")
+      ?.permissionMode,
+  };
+}
 
+function registerModePromptTests() {
   it(
     "asks before a dependency change, and a refusal stops it",
     async () => {
@@ -151,10 +135,7 @@ describe("the permission modes on the Claude provider", () => {
     async () => {
       const turn = await runTurn(
         [{ id: "dep", name: "Bash", input: DEPENDENCY_CHANGE }],
-        {
-          settings: { alwaysAskDependencies: false },
-          policy: { alwaysAskDependencies: false },
-        },
+        DEPENDENCY_ASK_OFF,
       );
       expect(turn.prompts.map((p) => p.alwaysAsk)).toEqual([false]);
       expect(turn.tools).toMatchObject([ASKED]);
@@ -213,7 +194,9 @@ describe("the permission modes on the Claude provider", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
 
+function registerAlwaysAskCommandTests() {
   it(
     "asks before an edit of a git hook file under Auto review",
     async () => {
@@ -315,7 +298,9 @@ describe("the permission modes on the Claude provider", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
 
+function registerDependencyFileTests() {
   it(
     "asks before a dependency file edit however its path is spelled, and leaves other edits to Auto review",
     async () => {
@@ -384,10 +369,7 @@ describe("the permission modes on the Claude provider", () => {
             input: { file_path: "package.json" },
           },
         ],
-        {
-          settings: { alwaysAskDependencies: false },
-          policy: { alwaysAskDependencies: false },
-        },
+        DEPENDENCY_ASK_OFF,
       );
       expect(turn.prompts).toEqual([]);
       expect(turn.tools).toMatchObject([REVIEWED]);
@@ -407,7 +389,9 @@ describe("the permission modes on the Claude provider", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
 
+function registerFirstPartyAndWebTests() {
   it(
     "announces first-party tools to the call ledger and records them as in Ask first",
     async () => {
@@ -516,4 +500,28 @@ describe("the permission modes on the Claude provider", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
+
+describe("the permission modes on the Claude provider", () => {
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "dms-ai-auto-review-"));
+    traceFile = join(dir, "trace.jsonl");
+    process.env.MOCK_CLAUDE = "1";
+    process.env.MOCK_CLAUDE_TRACE = traceFile;
+  });
+
+  afterEach(async () => {
+    await runner?.dispose();
+    runner = undefined;
+    setBuilderAvailable(false);
+    delete process.env.MOCK_CLAUDE;
+    delete process.env.MOCK_CLAUDE_SCRIPT;
+    delete process.env.MOCK_CLAUDE_TRACE;
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  registerModePromptTests();
+  registerAlwaysAskCommandTests();
+  registerDependencyFileTests();
+  registerFirstPartyAndWebTests();
 });

@@ -36,43 +36,35 @@ const ActivityPageSchema = z.object({
   ),
 });
 
-describe("Auto review on the full Claude stack", () => {
-  let harness: WsHarness | undefined;
-  let client: WebSocket | undefined;
+let harness: WsHarness | undefined;
+let client: WebSocket | undefined;
 
-  afterEach(async () => {
-    client?.close();
-    client = undefined;
-    CLAUDE_FIXTURE.reset();
-    await harness?.close();
-    harness = undefined;
+async function connect(
+  defaultModes = DEFAULT_SETTINGS.defaultModes,
+): Promise<WireCollector> {
+  CLAUDE_FIXTURE.use("plain");
+  harness = await startWsHarness({
+    provider: "claude",
+    settings: { defaultModes, generationMode: "vibe" },
   });
+  const socket = await openChat(harness.port);
+  client = socket;
+  const collector = createCollector(socket, WAIT_TIMEOUT_MS);
+  sendHello(socket, CONVERSATION_ID);
+  return collector;
+}
 
-  async function connect(
-    defaultModes = DEFAULT_SETTINGS.defaultModes,
-  ): Promise<WireCollector> {
-    CLAUDE_FIXTURE.use("plain");
-    harness = await startWsHarness({
-      provider: "claude",
-      settings: { defaultModes, generationMode: "vibe" },
-    });
-    const socket = await openChat(harness.port);
-    client = socket;
-    const collector = createCollector(socket, WAIT_TIMEOUT_MS);
-    sendHello(socket, CONVERSATION_ID);
-    return collector;
+async function runTurns(collector: WireCollector, count: number) {
+  for (let turn = 1; turn <= count; turn++) {
+    if (client !== undefined) sendUserMessage(client, CONVERSATION_ID, "go");
+    await collector.next(
+      (e) =>
+        isTerminal(e) && collector.events.filter(isTerminal).length >= turn,
+    );
   }
+}
 
-  async function runTurns(collector: WireCollector, count: number) {
-    for (let turn = 1; turn <= count; turn++) {
-      if (client !== undefined) sendUserMessage(client, CONVERSATION_ID, "go");
-      await collector.next(
-        (e) =>
-          isTerminal(e) && collector.events.filter(isTerminal).length >= turn,
-      );
-    }
-  }
-
+function registerFallbackAndRefusalTests() {
   it(
     "falls back to Ask first, says so once, and keeps the turn going",
     async () => {
@@ -172,7 +164,9 @@ describe("Auto review on the full Claude stack", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
 
+function registerGuardedEditTests() {
   it(
     "asks before every command and dependency file edit, and leaves an ordinary edit to Auto review",
     async () => {
@@ -252,4 +246,17 @@ describe("Auto review on the full Claude stack", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
+
+describe("Auto review on the full Claude stack", () => {
+  afterEach(async () => {
+    client?.close();
+    client = undefined;
+    CLAUDE_FIXTURE.reset();
+    await harness?.close();
+    harness = undefined;
+  });
+
+  registerFallbackAndRefusalTests();
+  registerGuardedEditTests();
 });

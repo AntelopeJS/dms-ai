@@ -77,17 +77,9 @@ async function json<Schema extends z.ZodType>(
   return schema.parse(await response.json());
 }
 
-describe("v2 assistant flow over the socket", () => {
-  let session: Session | undefined;
+let session: Session | undefined;
 
-  afterEach(async () => {
-    session?.client.close();
-    await session?.harness.close();
-    session = undefined;
-    delete process.env.MOCK_CLAUDE;
-    delete process.env.MOCK_CLAUDE_SCRIPT;
-  });
-
+function registerChangeSetTests() {
   it(
     "records an approved edit as a change set that can be undone",
     async () => {
@@ -199,7 +191,9 @@ describe("v2 assistant flow over the socket", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
 
+function registerApprovalTests() {
   it(
     "still asks the person when an older chat asks for Full auto",
     async () => {
@@ -294,7 +288,9 @@ describe("v2 assistant flow over the socket", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
 
+function registerSuggestionAndQueueTests() {
   it(
     "passes the user's suggestion to the agent and retries the last request",
     async () => {
@@ -401,7 +397,9 @@ describe("v2 assistant flow over the socket", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
 
+function registerConversationListTests() {
   it(
     "lists the chat as running with its pending approval, and snapshots its mode",
     async () => {
@@ -446,4 +444,19 @@ describe("v2 assistant flow over the socket", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
+
+describe("v2 assistant flow over the socket", () => {
+  afterEach(async () => {
+    session?.client.close();
+    await session?.harness.close();
+    session = undefined;
+    delete process.env.MOCK_CLAUDE;
+    delete process.env.MOCK_CLAUDE_SCRIPT;
+  });
+
+  registerChangeSetTests();
+  registerApprovalTests();
+  registerSuggestionAndQueueTests();
+  registerConversationListTests();
 });

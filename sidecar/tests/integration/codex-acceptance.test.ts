@@ -187,25 +187,10 @@ function unpaired(events: RunnerEvent[]): string[] {
   return [...open];
 }
 
-describe.skipIf(!ENABLED)("Codex acceptance", () => {
-  let harness: Harness | undefined;
-  let session: ProviderSession | undefined;
+let harness: Harness | undefined;
+let session: ProviderSession | undefined;
 
-  beforeAll(() => {
-    if (REAL_CONFIG_HOME === undefined) delete process.env[XDG_CONFIG_HOME_ENV];
-    else process.env[XDG_CONFIG_HOME_ENV] = REAL_CONFIG_HOME;
-  });
-
-  beforeEach(() => setBuilderAvailable(true));
-
-  afterEach(async () => {
-    setBuilderAvailable(false);
-    await session?.dispose();
-    session = undefined;
-    await harness?.dispose();
-    harness = undefined;
-  });
-
+function registerTurnTests() {
   it(
     "1 — a simple message streams deltas and ends with a final text",
     async () => {
@@ -257,7 +242,9 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
 
+function registerLifecycleTests() {
   it(
     "8 — a stop mid-turn interrupts within budget, leaving nothing orphaned",
     async () => {
@@ -328,4 +315,24 @@ describe.skipIf(!ENABLED)("Codex acceptance", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
+
+describe.skipIf(!ENABLED)("Codex acceptance", () => {
+  beforeAll(() => {
+    if (REAL_CONFIG_HOME === undefined) delete process.env[XDG_CONFIG_HOME_ENV];
+    else process.env[XDG_CONFIG_HOME_ENV] = REAL_CONFIG_HOME;
+  });
+
+  beforeEach(() => setBuilderAvailable(true));
+
+  afterEach(async () => {
+    setBuilderAvailable(false);
+    await session?.dispose();
+    session = undefined;
+    await harness?.dispose();
+    harness = undefined;
+  });
+
+  registerTurnTests();
+  registerLifecycleTests();
 });

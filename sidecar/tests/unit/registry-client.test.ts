@@ -15,7 +15,7 @@ function jsonResponse(body: PagesRegistryEntry[], status = 200): Response {
   });
 }
 
-describe("createRegistryClient", () => {
+function registerCacheTests() {
   it("fetches and caches the registry within TTL", async () => {
     const entries = buildEntries();
     const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse(entries));
@@ -67,7 +67,9 @@ describe("createRegistryClient", () => {
     const b = await client.getRegistry();
     expect(b).toEqual(a);
   });
+}
 
+function registerStaleTests() {
   it("tracks staleSinceMs and warns once on stale fallback", async () => {
     const entries = buildEntries();
     let mustFail = false;
@@ -154,4 +156,9 @@ describe("createRegistryClient", () => {
     await client.getRegistry();
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
+}
+
+describe("createRegistryClient", () => {
+  registerCacheTests();
+  registerStaleTests();
 });

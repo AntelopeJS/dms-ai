@@ -217,7 +217,7 @@ async function startFromSettings(): Promise<StartedLogin> {
   };
 }
 
-describe("sign-in", () => {
+function registerSignInStartTests() {
   it("registers the host on first sign-in, with PKCE and a loopback redirect", async () => {
     const { authorize } = await startFromSettings();
     const query = authorize.searchParams;
@@ -233,7 +233,9 @@ describe("sign-in", () => {
     expect(query.get("code_challenge_method")).toBe("S256");
     expect(query.get("code_challenge")).toMatch(/^[\w-]{43}$/);
   });
+}
 
+function registerSignInFinishTests() {
   it("stores the account once the pasted code, the ID token and the plan scope check out", async () => {
     const key = createSigningKey();
     const { state, nonce, authorize } = await startFromSettings();
@@ -327,7 +329,9 @@ describe("sign-in", () => {
     expect(response).toMatchObject({ status: 400 });
     expect(calls).toEqual([]);
   });
+}
 
+function registerSignInRefusalTests() {
   it("answers a replayed callback as expired", async () => {
     const { state } = await startFromSettings();
     stubFetch(() => tokenAnswer("x"));
@@ -363,4 +367,10 @@ describe("sign-in", () => {
       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
     );
   });
+}
+
+describe("sign-in", () => {
+  registerSignInStartTests();
+  registerSignInFinishTests();
+  registerSignInRefusalTests();
 });
