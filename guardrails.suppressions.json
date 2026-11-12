@@ -14,7 +14,7 @@
     "anti-slop/no-chained-type-assertions for sidecar/tests/**": 0,
     "eslint/max-lines-per-function for sidecar/tests/**": 0,
     "no-redeclare for frontend-vue/**/*.{ts,vue}": 0,
-    "no-undef for frontend-vue/**/*.{ts,vue}": 1,
+    "no-undef for frontend-vue/**/*.{ts,vue}": 0,
     "no-unused-vars for frontend-vue/**/*.{ts,vue}": 1,
     "vue/multi-word-component-names for frontend-vue/**/*.{ts,vue}": 0
   },
