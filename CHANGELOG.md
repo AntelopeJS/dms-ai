@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.10.2
+
+[compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.10.1...v0.10.2)
+
+### 🔥 Performance
+
+- **sidecar:** Skip zod for tool arguments a call does not carry ([#209](https://github.com/AntelopeJS/dms-ai/pull/209))
+- **sidecar:** Build the activity records only for the metrics that read them ([#210](https://github.com/AntelopeJS/dms-ai/pull/210))
+- **views:** Open a long first file of a diff collapsed ([#211](https://github.com/AntelopeJS/dms-ai/pull/211))
+
+### 📦 Build
+
+- **deps:** Move to @antelopejs/tooling-configs 0.5.0 ([#208](https://github.com/AntelopeJS/dms-ai/pull/208))
+- **deps:** Bump @antelopejs/tooling-configs to 0.5.1 ([#212](https://github.com/AntelopeJS/dms-ai/pull/212))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v0.10.1
 
 [compare changes](https://github.com/AntelopeJS/dms-ai/compare/v0.10.0...v0.10.1)
