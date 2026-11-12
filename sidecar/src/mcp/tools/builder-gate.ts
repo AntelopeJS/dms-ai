@@ -3,12 +3,8 @@ import {
   isMutatingBuilderTool,
   isPageRemovingBuilderTool,
 } from "../../agent/tool-kinds.js";
-import type {
-  AnyMcpToolDefinition,
-  McpToolArgs,
-  McpToolInputSchema,
-  McpToolResult,
-} from "../define-tool.js";
+import type { ToolArgs } from "../../agent/edit-targets.js";
+import type { AnyMcpToolDefinition, McpToolResult } from "../define-tool.js";
 
 /** Whether one Builder operation may run, decided before it does. */
 export interface BuilderGateDecision {
@@ -26,7 +22,7 @@ export interface BuilderGateDecision {
  */
 export type BuilderGate = (
   toolName: string,
-  args: McpToolArgs<McpToolInputSchema>,
+  args: ToolArgs,
 ) => Promise<BuilderGateDecision>;
 
 function refusal(message: string | undefined): McpToolResult {

@@ -33,6 +33,7 @@ import {
   switchPermissionMode,
   withLiveInit,
 } from "./permissions.js";
+import type { LoadedSdk } from "../../../src/providers/claude/sdk-loader.js";
 import { traceOptions } from "./trace.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -42,12 +43,7 @@ export interface MockQueryParams {
   options?: Options;
 }
 
-export interface MockQueryParamsWithScript extends MockQueryParams {
-  scriptPath?: string;
-}
-
-function resolveScriptPath(explicit: string | undefined): string {
-  if (explicit !== undefined && explicit.length > 0) return explicit;
+function resolveScriptPath(): string {
   const fromEnv = process.env[MOCK_SCRIPT_ENV_VAR];
   if (fromEnv !== undefined && fromEnv.length > 0) return fromEnv;
   return resolve(here, MOCK_DEFAULT_SCRIPT_RELATIVE);
@@ -243,19 +239,19 @@ function collectPreToolUseHooks(options: Options | undefined): HookCallback[] {
 }
 
 /** The SDK's `query`, replaying a script instead of calling the API. */
-export function query(params: MockQueryParamsWithScript): Query {
+export const query: LoadedSdk["query"] = (params): Query => {
   const opts = params.options;
   traceOptions(opts);
   return buildQuery({
     modelState: { model: opts?.model },
     prompt: params.prompt,
-    scriptPath: resolveScriptPath(params.scriptPath),
+    scriptPath: resolveScriptPath(),
     signal: opts?.abortController?.signal,
     canUseTool: opts?.canUseTool,
     preToolUseHooks: collectPreToolUseHooks(opts),
     permissions: initialPermissions(opts),
     mcpServers: opts?.mcpServers,
   });
-}
+};
 
 export type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";

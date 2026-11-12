@@ -9,7 +9,7 @@
   },
   "tsExpectError": 0,
   "tsIgnore": 0,
-  "safety": 1,
+  "safety": 2,
   "config": {
     "anti-slop/no-chained-type-assertions for sidecar/tests/**": 0,
     "eslint/max-lines-per-function for sidecar/tests/**": 1,
