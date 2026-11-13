@@ -1,4 +1,6 @@
 import eslint from "@eslint/js";
+import dmsGlobals from "@antelopejs/dms/eslint-globals";
+import dmsFrontendGlobals from "@antelopejs/dms-frontend/eslint-globals";
 import ts from "typescript-eslint";
 import vue from "eslint-plugin-vue";
 import globals from "globals";
@@ -11,10 +13,14 @@ export default ts.config(
 		files: ["**/*.{ts,vue}"],
 		languageOptions: {
 			parserOptions: { parser: ts.parser },
-			globals: { ...globals.browser, ...globals.node },
+			globals: {
+				...globals.browser,
+				...globals.node,
+				...dmsFrontendGlobals,
+				...dmsGlobals,
+			},
 		},
 		rules: {
-			"no-undef": "off",
 			"no-unused-vars": "off",
 		},
 	},
