@@ -2,7 +2,7 @@ import { Logging } from "@antelopejs/interface-core/logging";
 import { AddFrontendModule } from "@antelopejs/interface-dms/page";
 import { isBuilderAvailable } from "./builder/presence";
 import { closeAllBridges } from "./channels/registry";
-import { ConfigSchema, getConfig, setConfig } from "./config";
+import { type AIConfig, ConfigSchema, getConfig, setConfig } from "./config";
 import { DEFAULT_BACKEND_URL } from "./constants/mcp";
 import { SIDECAR_LOG_PREFIX } from "./constants/sidecar";
 import { collectModuleRoots } from "./lifecycle/module-roots";
@@ -14,8 +14,13 @@ import "./pages";
 import "./routes";
 import { frontendModule } from "./frontend-module";
 
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- core calls the published construct hook with the raw project config, so narrowing the parameter changes the published signature; ConfigSchema.safeParse parses it on the next line
-export function construct(config: unknown): void {
+/**
+ * Takes this module's `config` from the project. Core does not validate it
+ * against `AIConfig`: env overrides and template substitution run first, so a
+ * value can arrive with another type. `ConfigSchema` keeps only the keys and
+ * values this module understands.
+ */
+export function construct(config?: AIConfig): void {
   setConfig(ConfigSchema.safeParse(config).data ?? {});
 }
 
