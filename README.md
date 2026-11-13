@@ -12,6 +12,16 @@
 
 </div>
 
+> [!WARNING]
+> **`@antelopejs/dms-ai` is deprecated.** This is its last release. Use [`@antelopejs/dms-assistant`](https://github.com/AntelopeJS/dms-assistant) instead. It brings the AI assistant and its onboarding. The builder engine and the mockups now ship in `@antelopejs/dms` itself, in development only.
+>
+> To upgrade:
+>
+> 1. Add `@antelopejs/dms-assistant` to the project.
+> 2. Mark `@antelopejs/dms-ai` and `@antelopejs/dms-builder` with `disabled: true` in the project's module list.
+> 3. Start the project once. `@antelopejs/dms-assistant` moves their connections and settings onto the `@antelopejs/dms` entry.
+> 4. Remove `@antelopejs/dms-ai` and `@antelopejs/dms-builder` from the project.
+
 <img data-illustration alt="Screen recording from the AntelopeJS DMS film. The assistant panel opens next to a dashboard with Claude Code as the coding agent, and the request Add a card with the sites that stopped reporting is typed under the caption Or describe it. The assistant then reports Added the card Delayed sites with Typecheck passed, the changed files dashboard/page.ts and dashboard/stats.ts, and the buttons Review diff and Undo, under the caption A change set. Review it. Undo it." src="./docs/images/assistant.gif">
 
 ## What it does
