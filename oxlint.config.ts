@@ -19,12 +19,4 @@ export default defineConfig({
   options: {
     typeAware: true,
   },
-  overrides: [
-    {
-      files: ["sidecar/tests/**"],
-      rules: {
-        "eslint/max-lines-per-function": "off",
-      },
-    },
-  ],
 });

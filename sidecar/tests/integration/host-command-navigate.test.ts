@@ -130,17 +130,9 @@ function sendHostHello(socket: WebSocket): void {
   socket.send(JSON.stringify({ type: "hello", role: "host" }));
 }
 
-describe("navigate_to_page → host_command_navigate over host WS", () => {
-  let handle: ServerHandle;
+let handle: ServerHandle;
 
-  beforeEach(async () => {
-    handle = await startTestServer();
-  });
-
-  afterEach(async () => {
-    await handle.close();
-  });
-
+function registerNavigateDeliveryTests() {
   it("delivers the navigate event to the registered host socket", async () => {
     const client = new WebSocket(buildHostUrl(handle.port), {
       headers: { Authorization: `Bearer ${CLIENT_TOKEN}` },
@@ -214,7 +206,9 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
       ]),
     );
   });
+}
 
+function registerHostReportTests() {
   it("does not throw when no host is connected", async () => {
     const toolDef = buildNavigateToPageTool({
       sendToHost: handle.hostSocketRegistry.send,
@@ -273,4 +267,17 @@ describe("navigate_to_page → host_command_navigate over host WS", () => {
     client.close();
     expect(result.content[0]?.text).toContain("revenue (ChartCard)");
   });
+}
+
+describe("navigate_to_page → host_command_navigate over host WS", () => {
+  beforeEach(async () => {
+    handle = await startTestServer();
+  });
+
+  afterEach(async () => {
+    await handle.close();
+  });
+
+  registerNavigateDeliveryTests();
+  registerHostReportTests();
 });

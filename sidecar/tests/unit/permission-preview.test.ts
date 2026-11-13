@@ -7,33 +7,21 @@ import { createPermissionRuleStore } from "../../src/agent/permission-rules.js";
 
 const CONVERSATION_ID = "conv-preview";
 
-describe("permission previews and rules", () => {
-  let root: string;
+let root: string;
 
-  beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "dms-ai-preview-"));
-    await writeFile(
-      join(root, "page.ts"),
-      "const a = 1;\nconst b = 2;\nconst c = 3;\n",
-    );
+const describeCall = (
+  toolName: string,
+  args: Parameters<typeof describeRequest>[0]["args"],
+) =>
+  describeRequest({
+    toolName,
+    args,
+    hostProjectRoot: root,
+    alwaysAskDependencies: true,
+    alwaysAskBlockRemoval: true,
   });
 
-  afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
-  });
-
-  const describeCall = (
-    toolName: string,
-    args: Parameters<typeof describeRequest>[0]["args"],
-  ) =>
-    describeRequest({
-      toolName,
-      args,
-      hostProjectRoot: root,
-      alwaysAskDependencies: true,
-      alwaysAskBlockRemoval: true,
-    });
-
+function registerPreviewTests() {
   it("diffs an Edit against the file on disk, with real line numbers", async () => {
     const description = await describeCall("Edit", {
       file_path: join(root, "page.ts"),
@@ -127,7 +115,9 @@ describe("permission previews and rules", () => {
     const search = await describeCall("WebSearch", { query: "x" });
     expect(search).toMatchObject({ kind: "web", ruleOptions: [] });
   });
+}
 
+function registerRuleTests() {
   it("matches file and directory rules on every file an edit touches", () => {
     const rules = createPermissionRuleStore();
     rules.add(CONVERSATION_ID, { kind: "directory", value: "src" });
@@ -173,4 +163,21 @@ describe("permission previews and rules", () => {
       ),
     ).toBe(true);
   });
+}
+
+describe("permission previews and rules", () => {
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), "dms-ai-preview-"));
+    await writeFile(
+      join(root, "page.ts"),
+      "const a = 1;\nconst b = 2;\nconst c = 3;\n",
+    );
+  });
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  registerPreviewTests();
+  registerRuleTests();
 });

@@ -31,7 +31,7 @@ function requestIdOf(prompt: PendingRequest | undefined): string {
   return prompt.requestId;
 }
 
-describe("permission bus", () => {
+function registerRuleTests() {
   it("allows once and records the call as approved by the user", async () => {
     const t = createTestBus();
     const pending = t.bus.requestPermission(request(TEST_COMMAND));
@@ -130,7 +130,9 @@ describe("permission bus", () => {
     expect(t.bus.listRules(CONVERSATION_ID)).toEqual([]);
     expect(t.bus.revokeRule(CONVERSATION_ID, "unknown")).toBe(false);
   });
+}
 
+function registerDenialTests() {
   it("hands the agent the user's own words when they suggest a change", async () => {
     const t = createTestBus();
     const pending = t.bus.requestPermission(request(TEST_COMMAND));
@@ -199,7 +201,9 @@ describe("permission bus", () => {
     ]);
     t.bus.cancelConversation(CONVERSATION_ID);
   });
+}
 
+function registerAlwaysAskTests() {
   it("asks for the always-ask set with no rule to keep", async () => {
     const t = createTestBus();
     void t.bus.requestPermission(request(DEPENDENCY_COMMAND));
@@ -263,4 +267,10 @@ describe("permission bus", () => {
       keepData: true,
     });
   });
+}
+
+describe("permission bus", () => {
+  registerRuleTests();
+  registerDenialTests();
+  registerAlwaysAskTests();
 });

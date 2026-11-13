@@ -105,17 +105,10 @@ async function startServer() {
   };
 }
 
-describe("sidecar client authentication", () => {
-  let server: Awaited<ReturnType<typeof startServer>>;
-  const clients: WebSocket[] = [];
-  beforeEach(async () => {
-    server = await startServer();
-  });
-  afterEach(async () => {
-    clients.splice(0).forEach((client) => client.terminate());
-    await server.close();
-  });
+let server: Awaited<ReturnType<typeof startServer>>;
+const clients: WebSocket[] = [];
 
+function registerSettingsTests() {
   it("rejects unauthorized API reads and mutations without changing settings", async () => {
     for (const path of [
       "/settings",
@@ -185,7 +178,9 @@ describe("sidecar client authentication", () => {
       checkpointRetentionDays: 30,
     });
   });
+}
 
+function registerSocketTests() {
   it("rejects the socket without the Bearer credential, even with cookies, query tokens or the retired subprotocol", async () => {
     const attempts = [
       { protocol: undefined, headers: { Cookie: `token=${CLIENT_TOKEN}` } },
@@ -233,4 +228,17 @@ describe("sidecar client authentication", () => {
       expect(response.headers.get("content-type")).not.toMatch(/html/);
     }
   });
+}
+
+describe("sidecar client authentication", () => {
+  beforeEach(async () => {
+    server = await startServer();
+  });
+  afterEach(async () => {
+    clients.splice(0).forEach((client) => client.terminate());
+    await server.close();
+  });
+
+  registerSettingsTests();
+  registerSocketTests();
 });

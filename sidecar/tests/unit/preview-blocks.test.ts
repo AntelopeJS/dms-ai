@@ -108,7 +108,7 @@ function nested(depth: number): PreviewNodeType {
   return { type: "Section", children: [nested(depth - 1)] };
 }
 
-describe("preview_blocks tool", () => {
+function registerToolTreeTests() {
   it("is named preview_blocks", () => {
     expect(buildHarness().tool.name).toBe(PREVIEW_BLOCKS_TOOL_NAME);
   });
@@ -188,7 +188,9 @@ describe("preview_blocks tool", () => {
     expect(body.message).toContain("fetchUrl");
     expect(shown).toHaveLength(0);
   });
+}
 
+function registerToolLimitTests() {
   it("keeps a same-origin fetchUrl and a child's colSpan", async () => {
     const { shown, tool } = buildHarness();
     const tree = {
@@ -229,7 +231,9 @@ describe("preview_blocks tool", () => {
     const result = await tool.handler({ title: "Huge", tree: huge });
     expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.TOO_LARGE);
   });
+}
 
+function registerToolReferenceTests() {
   it("resolves `latest` to the last image the user attached", async () => {
     const { shown, tool } = buildHarness([MOCKUP_NAME, LATER_MOCKUP_NAME]);
     await tool.handler({
@@ -305,6 +309,12 @@ describe("preview_blocks tool", () => {
     expect(parse(result).error?.code).toBe(PREVIEW_ERROR_CODES.INVALID_URL);
     expect(shown).toHaveLength(0);
   });
+}
+
+describe("preview_blocks tool", () => {
+  registerToolTreeTests();
+  registerToolLimitTests();
+  registerToolReferenceTests();
 });
 
 describe("preview_blocks sketches", () => {

@@ -76,24 +76,10 @@ function idOf(record: { id: string } | null | undefined): string {
   return record.id;
 }
 
-describe("checkpoints", () => {
-  let root: string;
-  let project: Project;
+let root: string;
+let project: Project;
 
-  beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "dms-ai-checkpoints-"));
-    await writeFile(join(root, "a.ts"), "one\ntwo\nthree\n");
-    await writeFile(join(root, ".gitignore"), "ignored.log\n");
-    await mkdir(join(root, "node_modules", "dep"), { recursive: true });
-    await writeFile(join(root, "node_modules", "dep", "x.js"), "x");
-    project = await openProject(root);
-  });
-
-  afterEach(async () => {
-    await project.checkpoints.flush();
-    await rm(root, { recursive: true, force: true });
-  });
-
+function registerRecordingTests() {
   it("is available when git is installed", () => {
     expect(project.checkpoints.isAvailable()).toBe(true);
   });
@@ -152,7 +138,9 @@ describe("checkpoints", () => {
       "applied",
     ]);
   });
+}
 
+function registerConflictTests() {
   it("lists later sets touching the same files as conflicts, and undoes them together", async () => {
     const first = await turn(project, "First", async () => {
       await writeFile(join(root, "a.ts"), "first\n");
@@ -226,4 +214,23 @@ describe("checkpoints", () => {
     expect(reopened.checkpoints.all()).toEqual([]);
     await reopened.checkpoints.flush();
   });
+}
+
+describe("checkpoints", () => {
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), "dms-ai-checkpoints-"));
+    await writeFile(join(root, "a.ts"), "one\ntwo\nthree\n");
+    await writeFile(join(root, ".gitignore"), "ignored.log\n");
+    await mkdir(join(root, "node_modules", "dep"), { recursive: true });
+    await writeFile(join(root, "node_modules", "dep", "x.js"), "x");
+    project = await openProject(root);
+  });
+
+  afterEach(async () => {
+    await project.checkpoints.flush();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  registerRecordingTests();
+  registerConflictTests();
 });

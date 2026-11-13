@@ -69,79 +69,77 @@ function isAlive(pid: number): boolean {
   return existsSync(`/proc/${pid}`);
 }
 
-describe("codex process lifecycle", () => {
-  let dir: string;
-  let stateDir: string;
-  let registry: McpHttpRegistry | undefined;
-  const opened: ProviderSession[] = [];
-  const teardowns: Promise<void>[] = [];
+let dir: string;
+let stateDir: string;
+let registry: McpHttpRegistry | undefined;
+const opened: ProviderSession[] = [];
+const teardowns: Promise<void>[] = [];
 
-  beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "dms-ai-life-"));
-    stateDir = join(dir, ".state");
-    CODEX_FIXTURE.use("plain");
+function requireRegistry(): McpHttpRegistry {
+  if (registry === undefined) throw new Error("no provider was built");
+  return registry;
+}
+
+function buildProvider() {
+  registry = createMcpHttpRegistry();
+  const options: CodexProviderOptions = {
+    settings: TURN_SETTINGS,
+    stateDir,
+    mcpHttpRegistry: registry,
+    createMcpDeps: buildInertMcpDeps,
+    getMcpUrl: () => "http://127.0.0.1:1/mcp",
+    stopGraces: TEST_STOP_GRACES,
+  };
+  return createCodexProvider(options);
+}
+
+async function open(
+  provider: ReturnType<typeof buildProvider>,
+  conversationId: string,
+): Promise<ProviderSession> {
+  const session = await provider.createSession({
+    conversationId,
+    hostProjectRoot: dir,
+    getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
+    settings: TURN_SETTINGS,
+    onDisposed: (disposal) => teardowns.push(disposal),
   });
+  opened.push(session);
+  return session;
+}
 
-  afterEach(async () => {
-    vi.restoreAllMocks();
-    await Promise.all(opened.splice(0).map((session) => session.dispose()));
-    await Promise.all(teardowns.splice(0));
-    await registry?.dispose();
-    registry = undefined;
-    CODEX_FIXTURE.reset();
-    await rm(dir, { recursive: true, force: true });
-  });
-
-  function requireRegistry(): McpHttpRegistry {
-    if (registry === undefined) throw new Error("no provider was built");
-    return registry;
+/** Runs one turn to its end; draining the events is what opens the session and runs it. */
+async function runTurn(
+  runner: AgentRunner,
+  conversationId: string,
+): Promise<void> {
+  for await (const _ of runner.start("hello", {
+    conversationId,
+    hostProjectRoot: dir,
+    getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
+  })) {
   }
+}
 
-  function buildProvider() {
-    registry = createMcpHttpRegistry();
-    const options: CodexProviderOptions = {
-      settings: TURN_SETTINGS,
-      stateDir,
-      mcpHttpRegistry: registry,
-      createMcpDeps: buildInertMcpDeps,
-      getMcpUrl: () => "http://127.0.0.1:1/mcp",
-      stopGraces: TEST_STOP_GRACES,
-    };
-    return createCodexProvider(options);
-  }
+function readPids(): Promise<number[]> {
+  return readRecordedPids(stateDir);
+}
 
-  async function open(
-    provider: ReturnType<typeof buildProvider>,
-    conversationId: string,
-  ): Promise<ProviderSession> {
-    const session = await provider.createSession({
-      conversationId,
-      hostProjectRoot: dir,
-      getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
-      settings: TURN_SETTINGS,
-      onDisposed: (disposal) => teardowns.push(disposal),
-    });
-    opened.push(session);
-    return session;
-  }
+async function leaveOrphan(conversationId: string): Promise<number> {
+  const session = await open(buildProvider(), conversationId);
+  const pid = await readFirstPid(stateDir);
+  opened.splice(opened.indexOf(session), 1);
+  return pid;
+}
 
-  /** Runs one turn to its end; draining the events is what opens the session and runs it. */
-  async function runTurn(
-    runner: AgentRunner,
-    conversationId: string,
-  ): Promise<void> {
-    for await (const _ of runner.start("hello", {
-      conversationId,
-      hostProjectRoot: dir,
-      getCurrentPage: () => ({ path: UNKNOWN_PAGE_PATH }),
-    })) {
-    }
-  }
+async function leaveStrayHome(): Promise<string> {
+  const home = codexHomeFor(stateDir, STRAY_HOME);
+  await mkdir(home, { recursive: true });
+  await writeFile(join(home, "auth.json"), "{}");
+  return home;
+}
 
-  function readPids(): Promise<number[]> {
-    return readRecordedPids(stateDir);
-  }
-
+function registerDisposalTests() {
   it(
     "kills the app-server and drops its home when a conversation is disposed",
     async () => {
@@ -174,21 +172,9 @@ describe("codex process lifecycle", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
 
-  async function leaveOrphan(conversationId: string): Promise<number> {
-    const session = await open(buildProvider(), conversationId);
-    const pid = await readFirstPid(stateDir);
-    opened.splice(opened.indexOf(session), 1);
-    return pid;
-  }
-
-  async function leaveStrayHome(): Promise<string> {
-    const home = codexHomeFor(stateDir, STRAY_HOME);
-    await mkdir(home, { recursive: true });
-    await writeFile(join(home, "auth.json"), "{}");
-    return home;
-  }
-
+function registerOrphanTests() {
   it(
     "reaps a process a previous sidecar left behind, and every home left on disk",
     async () => {
@@ -229,7 +215,9 @@ describe("codex process lifecycle", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
 
+function registerSessionLimitTests() {
   it(
     "releases the app-server, its home and its MCP binding when the session fails to start",
     async () => {
@@ -287,4 +275,26 @@ describe("codex process lifecycle", () => {
     },
     TEST_TIMEOUT_MS,
   );
+}
+
+describe("codex process lifecycle", () => {
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "dms-ai-life-"));
+    stateDir = join(dir, ".state");
+    CODEX_FIXTURE.use("plain");
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await Promise.all(opened.splice(0).map((session) => session.dispose()));
+    await Promise.all(teardowns.splice(0));
+    await registry?.dispose();
+    registry = undefined;
+    CODEX_FIXTURE.reset();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  registerDisposalTests();
+  registerOrphanTests();
+  registerSessionLimitTests();
 });

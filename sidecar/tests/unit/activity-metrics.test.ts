@@ -273,57 +273,7 @@ describe("changed category", () => {
   });
 });
 
-describe("metrics", () => {
-  it("counts the approval KPI with its asked, denied and expired totals", () => {
-    expect(buildKpi(sources, "approved", WINDOW)).toMatchObject({
-      value: 1,
-      total: 2,
-      expired: 1,
-      denied: 0,
-    });
-    expect(buildKpi(sources, "undone", WINDOW).value).toBe(1);
-    expect(buildKpi(sources, "change-sets", WINDOW).value).toBe(1);
-    expect(buildKpi(sources, "errors", WINDOW).value).toBe(1);
-    expect(buildKpi(sources, "actions", WINDOW).value).toBe(5);
-  });
-
-  it("counts the undone KPI against the change sets made in the period", () => {
-    const applied = {
-      ...CHANGE_SET,
-      id: "cs-2",
-      state: "applied" as const,
-      stateLog: [],
-    };
-    const before = {
-      ...applied,
-      id: "cs-3",
-      createdAtMs: WINDOW.fromMs - DAY_MS,
-    };
-    const undone = buildKpi(
-      { ...sources, changeSets: [CHANGE_SET, applied, before] },
-      "undone",
-      WINDOW,
-    );
-    expect(undone).toMatchObject({ value: 1, total: 2 });
-  });
-
-  it("states no delta without a comparison or away from zero", () => {
-    const compared = {
-      ...WINDOW,
-      compareFromMs: WINDOW.fromMs - 7 * DAY_MS,
-      compareToMs: WINDOW.fromMs - 1,
-    };
-    const fromNothing = buildKpi(sources, "actions", compared);
-    expect(fromNothing.previousValue).toBe(0);
-    expect(fromNothing).not.toHaveProperty("delta");
-    expect(buildKpi(sources, "actions", WINDOW)).not.toHaveProperty("delta");
-    const empty = { records: [], changeSets: [], entries: [] };
-    expect(buildKpi(empty, "actions", compared)).toMatchObject({
-      previousValue: 0,
-      delta: 0,
-    });
-  });
-
+function registerComparisonWindowTests() {
   describe("comparison windows", () => {
     const yearBefore = (ms: number) => {
       const date = new Date(ms);
@@ -400,6 +350,60 @@ describe("metrics", () => {
       }
     });
   });
+}
+
+describe("metrics", () => {
+  it("counts the approval KPI with its asked, denied and expired totals", () => {
+    expect(buildKpi(sources, "approved", WINDOW)).toMatchObject({
+      value: 1,
+      total: 2,
+      expired: 1,
+      denied: 0,
+    });
+    expect(buildKpi(sources, "undone", WINDOW).value).toBe(1);
+    expect(buildKpi(sources, "change-sets", WINDOW).value).toBe(1);
+    expect(buildKpi(sources, "errors", WINDOW).value).toBe(1);
+    expect(buildKpi(sources, "actions", WINDOW).value).toBe(5);
+  });
+
+  it("counts the undone KPI against the change sets made in the period", () => {
+    const applied = {
+      ...CHANGE_SET,
+      id: "cs-2",
+      state: "applied" as const,
+      stateLog: [],
+    };
+    const before = {
+      ...applied,
+      id: "cs-3",
+      createdAtMs: WINDOW.fromMs - DAY_MS,
+    };
+    const undone = buildKpi(
+      { ...sources, changeSets: [CHANGE_SET, applied, before] },
+      "undone",
+      WINDOW,
+    );
+    expect(undone).toMatchObject({ value: 1, total: 2 });
+  });
+
+  it("states no delta without a comparison or away from zero", () => {
+    const compared = {
+      ...WINDOW,
+      compareFromMs: WINDOW.fromMs - 7 * DAY_MS,
+      compareToMs: WINDOW.fromMs - 1,
+    };
+    const fromNothing = buildKpi(sources, "actions", compared);
+    expect(fromNothing.previousValue).toBe(0);
+    expect(fromNothing).not.toHaveProperty("delta");
+    expect(buildKpi(sources, "actions", WINDOW)).not.toHaveProperty("delta");
+    const empty = { records: [], changeSets: [], entries: [] };
+    expect(buildKpi(empty, "actions", compared)).toMatchObject({
+      previousValue: 0,
+      delta: 0,
+    });
+  });
+
+  registerComparisonWindowTests();
 
   it("breaks actions down by how they were allowed", () => {
     const allowed = buildAllowed(sources, WINDOW);
