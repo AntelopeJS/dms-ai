@@ -1,7 +1,7 @@
 {
   "name": "@antelopejs/dms-ai",
   "version": "0.10.2",
-  "description": "AI development assistant for the AntelopeJS DMS: a chat panel next to every page and a coding agent that edits the project in reviewable, undoable change sets.",
+  "description": "Deprecated: replaced by @antelopejs/dms-assistant, which brings the AI assistant and its onboarding. The builder engine and mockups ship in @antelopejs/dms (development only).",
   "keywords": [
     "ai",
     "antelopejs",
@@ -137,5 +137,6 @@
       "standard": true
     }
   },
+  "deprecated": "Replaced by @antelopejs/dms-assistant. See https://github.com/AntelopeJS/dms-ai#readme for the upgrade steps.",
   "dmsFrontend": "dist/frontend-module.js"
 }
