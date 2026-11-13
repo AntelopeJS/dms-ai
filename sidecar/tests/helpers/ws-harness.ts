@@ -27,6 +27,7 @@ import {
 } from "../../src/server/http.js";
 import type { ChatSocketRegistry } from "../../src/server/chat-socket-registry.js";
 import { createNavigationCompleter } from "../../src/server/navigation-completer.js";
+import type { AnyClientMessage } from "../../src/protocol/messages.js";
 import { attachWsServer } from "../../src/server/ws.js";
 import type { SkillSource } from "../../src/skills/types.js";
 import {
@@ -269,6 +270,8 @@ const wireNodeSchema = z.looseObject({
 /** One frame of the chat socket, the fields scenarios read typed and the rest kept as sent. */
 const wireMessageSchema = z.looseObject({
   type: z.string(),
+  conversationId: z.string().optional(),
+  requestId: z.string().optional(),
   items: z
     .array(z.looseObject({ id: z.string(), content: z.string() }))
     .optional(),
@@ -407,13 +410,10 @@ export function createCollector(
   return { events, next };
 }
 
-/**
- * `object`, not a message type: several cases send a frame the protocol should
- * reject, and not `unknown`, which would let `sendWire(socket, undefined)`
- * compile.
- */
-// oxlint-disable-next-line anti-slop/no-object-parameters -- a message type would forbid the frames the protocol should reject, and unknown would let sendWire(socket, undefined) compile
-export function sendWire(socket: WebSocket, msg: object): void {
+export function sendWire(
+  socket: WebSocket,
+  msg: z.input<typeof AnyClientMessage>,
+): void {
   socket.send(JSON.stringify(msg));
 }
 

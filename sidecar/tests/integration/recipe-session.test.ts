@@ -23,6 +23,7 @@ import {
   createCollector,
   openChat,
   parseWireMessage,
+  requireValue,
   sendHello,
   sendUserMessage,
   sendUserMessageWithAttachment,
@@ -265,8 +266,8 @@ describe("recipe — session on codex only", () => {
           if (msg.type !== "ask_question") return;
           sendWire(socket, {
             type: "question_response",
-            conversationId: msg.conversationId,
-            requestId: msg.requestId,
+            conversationId: requireValue(msg.conversationId),
+            requestId: requireValue(msg.requestId),
             answers: [ANSWER],
           });
         },

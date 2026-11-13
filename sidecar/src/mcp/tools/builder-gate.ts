@@ -3,6 +3,7 @@ import {
   isMutatingBuilderTool,
   isPageRemovingBuilderTool,
 } from "../../agent/tool-kinds.js";
+import type { ToolArgs } from "../../agent/edit-targets.js";
 import type { AnyMcpToolDefinition, McpToolResult } from "../define-tool.js";
 
 /** Whether one Builder operation may run, decided before it does. */
@@ -21,8 +22,7 @@ export interface BuilderGateDecision {
  */
 export type BuilderGate = (
   toolName: string,
-  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- these are the agent-supplied arguments of any Builder tool, whose schemas differ per tool and are open-world to the gate, which only forwards them
-  args: Record<string, unknown>,
+  args: ToolArgs,
 ) => Promise<BuilderGateDecision>;
 
 function refusal(message: string | undefined): McpToolResult {

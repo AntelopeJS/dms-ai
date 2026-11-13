@@ -189,9 +189,8 @@ function expireMatching(
   state: BusState,
   matches: (pending: PendingState) => boolean,
 ): void {
-  // oxlint-disable-next-line unicorn/no-useless-spread -- a snapshot: settlePending deletes from the map being iterated
-  for (const pending of [...state.pending.values()]) {
-    if (matches(pending)) expirePending(state, pending);
+  for (const pending of [...state.pending.values()].filter(matches)) {
+    expirePending(state, pending);
   }
 }
 

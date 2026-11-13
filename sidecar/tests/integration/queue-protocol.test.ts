@@ -5,6 +5,7 @@ import { PROVIDER_FIXTURES } from "../helpers/provider-fixtures.js";
 import {
   createCollector,
   openChat,
+  requireValue,
   sendHello,
   sendUserMessage,
   sendWire,
@@ -35,7 +36,7 @@ function approve(socket: WebSocket, permission: WireMessage): void {
   sendWire(socket, {
     type: "permission_response",
     conversationId: CONVERSATION_ID,
-    requestId: permission.requestId,
+    requestId: requireValue(permission.requestId),
     decision: PERMISSION_DECISIONS.ALLOW_ONCE,
   });
 }

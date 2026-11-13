@@ -206,11 +206,13 @@ describe("v2 assistant flow over the socket", () => {
       useScript("permission-required.json");
       session = await open(false);
       const { client, collector } = session;
-      sendWire(client, {
-        type: "set_conversation_mode",
-        conversationId: CONVERSATION_ID,
-        fullAuto: { duration: "turn" },
-      });
+      client.send(
+        JSON.stringify({
+          type: "set_conversation_mode",
+          conversationId: CONVERSATION_ID,
+          fullAuto: { duration: "turn" },
+        }),
+      );
       const mode = await collector.next((e) => e.type === "conversation_mode");
       expect(mode).toStrictEqual({
         type: "conversation_mode",
@@ -284,7 +286,7 @@ describe("v2 assistant flow over the socket", () => {
       sendWire(client, {
         type: "revoke_rule",
         conversationId: CONVERSATION_ID,
-        ruleId: rule?.id,
+        ruleId: requireValue(rule?.id),
       });
       await collector.next(
         (e) => e.type === "rules_state" && e.rules?.length === 0,
@@ -306,7 +308,7 @@ describe("v2 assistant flow over the socket", () => {
       sendWire(client, {
         type: "permission_response",
         conversationId: CONVERSATION_ID,
-        requestId: prompt.requestId,
+        requestId: requireValue(prompt.requestId),
         decision: "deny",
         feedback: "use pnpm instead",
       });

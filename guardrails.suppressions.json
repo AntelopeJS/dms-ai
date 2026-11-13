@@ -1,22 +1,22 @@
 {
   "rules": {
     "anti-slop/no-chained-type-assertions": 0,
-    "anti-slop/no-object-parameters": 1,
+    "anti-slop/no-object-parameters": 0,
     "anti-slop/no-unknown-parameters": 1,
-    "anti-slop/no-unsafe-dictionary-type": 1,
-    "typescript/no-unsafe-assignment": 1,
-    "unicorn/no-useless-spread": 1
+    "anti-slop/no-unsafe-dictionary-type": 0,
+    "typescript/no-unsafe-assignment": 0,
+    "unicorn/no-useless-spread": 0
   },
-  "tsExpectError": 1,
+  "tsExpectError": 0,
   "tsIgnore": 0,
   "safety": 2,
   "config": {
-    "anti-slop/no-chained-type-assertions for sidecar/tests/**": 1,
+    "anti-slop/no-chained-type-assertions for sidecar/tests/**": 0,
     "eslint/max-lines-per-function for sidecar/tests/**": 1,
-    "no-redeclare for frontend-vue/**/*.{ts,vue}": 1,
+    "no-redeclare for frontend-vue/**/*.{ts,vue}": 0,
     "no-undef for frontend-vue/**/*.{ts,vue}": 1,
     "no-unused-vars for frontend-vue/**/*.{ts,vue}": 1,
-    "vue/multi-word-component-names for frontend-vue/**/*.{ts,vue}": 1
+    "vue/multi-word-component-names for frontend-vue/**/*.{ts,vue}": 0
   },
   "agentFiles": true
 }
