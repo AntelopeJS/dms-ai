@@ -13,7 +13,7 @@
 </div>
 
 > [!WARNING]
-> **`@antelopejs/dms-ai` is deprecated on npm, and this repository is archived.** Version 0.10.2 is its last release. Use [`@antelopejs/dms-assistant`](https://www.npmjs.com/package/@antelopejs/dms-assistant) instead, on `@antelopejs/dms` 0.20.1 or later. It brings the AI assistant and its onboarding. The builder engine and the mockups now ship in `@antelopejs/dms` itself, in development only.
+> **`@antelopejs/dms-ai` is deprecated on npm, and this repository is archived.** Version 0.10.2 is its last release. Use [`@antelopejs/dms-assistant`](https://www.npmjs.com/package/@antelopejs/dms-assistant) instead. It brings the AI assistant and its onboarding. The builder engine and the mockups now ship in `@antelopejs/dms` itself, in development only.
 >
 > To upgrade:
 >
