@@ -137,6 +137,6 @@
       "standard": true
     }
   },
-  "deprecated": "Replaced by @antelopejs/dms-assistant. See https://github.com/AntelopeJS/dms-ai#readme for the upgrade steps.",
+  "deprecated": "Replaced by @antelopejs/dms-assistant",
   "dmsFrontend": "dist/frontend-module.js"
 }
