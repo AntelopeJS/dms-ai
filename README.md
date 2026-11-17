@@ -1,5 +1,8 @@
 <a href="https://github.com/AntelopeJS/dms"><img data-illustration src="./.github/readme/strip-ai.svg" width="100%" alt="DMS AI ASSISTANT: part of AntelopeJS DMS, the open-source back office. A glowing button reads Star AntelopeJS DMS."></a>
 
+> [!IMPORTANT]
+> **`@antelopejs/dms-ai` is replaced by [`@antelopejs/dms-assistant`](https://github.com/AntelopeJS/dms-assistant).** The assistant, its onboarding and its skills now live there, and this package gets no more releases. [Assistant docs](https://dms.antelopejs.com/docs/modules/assistant)
+
 <div align="center">
 
 # `@antelopejs/dms-ai`
