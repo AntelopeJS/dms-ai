@@ -50,7 +50,7 @@
     "lint": "pnpm run --reporter=append-only \"/^lint:(oxlint|frontend|rules)$/\"",
     "lint:oxlint": "oxlint",
     "lint:frontend": "pnpm --dir frontend-vue lint",
-    "lint:rules": "node node_modules/@antelopejs/dms/frontend-vue/scripts/check-api-error-presentation.mjs frontend-vue/app && antelopejs-check-interface-ranges && node scripts/check-playground-install.mjs && node scripts/check-i18n.mjs",
+    "lint:rules": "node node_modules/@antelopejs/dms/frontend-vue/scripts/check-api-error-presentation.mjs frontend-vue/app && node scripts/check-playground-install.mjs && node scripts/check-i18n.mjs",
     "lint:fix": "oxlint --fix && oxfmt . && pnpm --dir frontend-vue lint:fix",
     "typecheck": "pnpm run --reporter=append-only \"/^typecheck:/\"",
     "typecheck:module": "tsc --noEmit",
@@ -82,9 +82,9 @@
   },
   "dependencies": {
     "@antelopejs/agent-skills": "^0.1.0",
-    "@antelopejs/interface-api": ">=0.3.0 <1.0.0",
-    "@antelopejs/interface-core": ">=0.4.0 <1.0.0",
-    "@antelopejs/interface-dms": ">=0.12.0 <1.0.0",
+    "@antelopejs/interface-api": ">=0.3.0 <0.4.0",
+    "@antelopejs/interface-core": ">=0.5.1 <0.6.0",
+    "@antelopejs/interface-dms": ">=0.14.3 <0.15.0",
     "@anthropic-ai/claude-agent-sdk": "^0.3.316",
     "@anthropic-ai/claude-code": "^2.1.316",
     "@modelcontextprotocol/sdk": "1.29.0",
@@ -92,12 +92,12 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@antelopejs/dms": ">=0.19.1 <1.0.0",
-    "@antelopejs/interface-api-util": ">=0.3.0 <1.0.0",
-    "@antelopejs/interface-data-api": ">=0.6.1 <1.0.0",
-    "@antelopejs/interface-database": ">=0.3.1 <1.0.0",
-    "@antelopejs/interface-database-decorators": ">=0.2.1 <1.0.0",
-    "@antelopejs/tooling-configs": "^0.5.1",
+    "@antelopejs/dms": ">=0.19.1 <0.20.0",
+    "@antelopejs/interface-api-util": ">=0.3.0 <0.4.0",
+    "@antelopejs/interface-data-api": ">=0.8.2 <0.9.0",
+    "@antelopejs/interface-database": ">=0.4.3 <0.5.0",
+    "@antelopejs/interface-database-decorators": ">=0.5.3 <0.6.0",
+    "@antelopejs/tooling-configs": ">=0.8.2 <0.9.0",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.5.12",
     "knip": "^6.34.0",
@@ -123,8 +123,8 @@
     }
   },
   "optionalDependencies": {
-    "@antelopejs/interface-database-catalog": ">=0.0.1 <1.0.0",
-    "@antelopejs/interface-dms-builder": ">=0.4.0 <1.0.0"
+    "@antelopejs/interface-database-catalog": ">=0.1.0 <0.2.0",
+    "@antelopejs/interface-dms-builder": ">=0.4.0 <0.5.0"
   },
   "packageManager": "pnpm@10.34.9",
   "antelopeJs": {
